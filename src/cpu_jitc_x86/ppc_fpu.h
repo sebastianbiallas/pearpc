@@ -583,14 +583,14 @@ inline uint32 ppc_fpu_double_to_int(ppc_double &d)
 			} else {
 				return 0x7fffffff;
 			}
-		}		
+		}
 		int i=0;
-		uint64 mask = 1ULL<<(56 - d.e - 1)-1;
+		uint64 mask = (1ULL<<(56 - d.e - 1))-1;
 		// we have to round
 		switch (FPSCR_RN(gCPU.fpscr)) {
 		case FPSCR_RN_NEAR:
 			if (d.m & mask) {
-				if (d.m & (1ULL<<56 - d.e - 2)) {
+				if (d.m & (1ULL<<(56 - d.e - 2))) {
 					i = 1;
 				}
 			}
@@ -610,6 +610,13 @@ inline uint32 ppc_fpu_double_to_int(ppc_double &d)
 		}
 		d.m >>= 56 - d.e - 1;
 		d.m += i;
+		if (d.m & 0x80000000) {
+			if (d.s) {
+				return 0x80000000;
+			} else {
+				return 0x7fffffff;
+			}
+		}
 		return d.s ? -d.m : d.m;
 	}
 	case ppc_fpr_zero:
