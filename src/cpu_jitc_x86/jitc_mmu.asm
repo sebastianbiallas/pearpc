@@ -89,6 +89,7 @@ struc PPC_CPU_State
 
 	temp: resd 1
 	temp2: resd 1
+	x87cw: resd 1
 	pc_ofs: resd 1
 	start_pc_ofs: resd 1
 	current_code_base: resd 1

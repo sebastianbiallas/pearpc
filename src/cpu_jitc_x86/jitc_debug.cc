@@ -110,13 +110,6 @@ void jitcDebugLogEmit(const byte *insn, int size)
 	}
 	jitcDebugLogAdd("  %s\n", str);
 }
-
-uint64 jitcDebugGetTicks()
-{
-	uint32 s0, s1;
-	asm("rdtsc" : "=a" (s0), "=d" (s1));
-	return ((uint64)s1)<<32 | s0;
-}
                                                   
 void jitcDebugInit()
 {
@@ -212,6 +205,8 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_set_msr_asm), new String("ppc_set_msr_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_mmu_tlb_invalidate_all_asm), new String("ppc_mmu_tlb_invalidate_all_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_start_jitc_asm), new String("ppc_start_jitc_asm")));
+	symbols->insert(new KeyValue(new UInt((uint)&ppc_new_pc_this_page_asm), new String("ppc_new_pc_this_page_asm")));
+	symbols->insert(new KeyValue(new UInt((uint)&ppc_heartbeat_ext_rel_asm), new String("ppc_heartbeat_ext_rel_asm")));
 }
 
 void jitcDebugDone()

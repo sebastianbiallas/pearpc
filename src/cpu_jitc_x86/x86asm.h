@@ -248,10 +248,12 @@ NativeFloatReg	FASTCALL jitcFloatRegisterToNative(JitcFloatReg r);
 bool		FASTCALL jitcFloatRegisterIsTOP(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterDirty(JitcFloatReg r);
+void		FASTCALL jitcFloatRegisterInvalidate(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterDup(JitcFloatReg r, JitcFloatReg hint=JITC_FLOAT_REG_NONE);
 void		FASTCALL jitcFloatRegisterClobberAll();
 void		FASTCALL jitcFloatRegisterStoreAndPopTOP(JitcFloatReg r);
 
+void		FASTCALL jitcPopFloatStack(JitcFloatReg hint1, JitcFloatReg hint2);
 void		FASTCALL jitcClobberClientRegisterForFloat(int creg);
 void		FASTCALL jitcInvalidateClientRegisterForFloat(int creg);
 JitcFloatReg	FASTCALL jitcGetClientFloatRegisterMapping(int creg);
@@ -272,7 +274,7 @@ enum X86FloatFlagTest {
 
 enum X86FloatArithOp {
 	X86_FADD = 0xc0,  // .238
-	
+
 	// st(i)/st(0)
 	X86_FDIV = 0xf8,  //  .261
 
@@ -280,10 +282,10 @@ enum X86FloatArithOp {
 	X86_FDIVR = 0xf0,  //  .265
 
 	X86_FMUL = 0xc8,  // .288
-	
+
 	// st(i) - st(0)
 	X86_FSUB = 0xe8,  //  .327
-	
+
 	// st(0) - st(i)
 	X86_FSUBR = 0xe0,  //  .330
 };
@@ -291,7 +293,7 @@ enum X86FloatArithOp {
 enum X86FloatCompOp {
 	//dbf0+i
 	X86_FCOMI = 0xf0db,  // .255
-	
+
 	//dff0+i
 	X86_FCOMIP = 0xf0df,  // .255
 
@@ -306,6 +308,7 @@ enum X86FloatOp {
 	FABS = 0xe1d9,
 	FCOMPP = 0xd9de, // .252
 	FCHS = 0xe0d9, // .246
+	FLD1 = 0xe8d9, // .282
 	FLDZ = 0xeed9, // .282
 	FRNDINT = 0xfcd9,
 	FSQRT = 0xfad9, // .314
@@ -330,7 +333,9 @@ void FASTCALL asmFSTSingleMem(byte *modrm, int len);
 void FASTCALL asmFSTPSingleMem(byte *modrm, int len);
 void FASTCALL asmFSTDoubleMem(byte *modrm, int len);
 void FASTCALL asmFSTPDoubleMem(byte *modrm, int len);
+void FASTCALL asmFSTDSTi(NativeFloatReg sti);
 void FASTCALL asmFSTDPSTi(NativeFloatReg sti);
+void FASTCALL asmFISTPMem(byte *modrm, int len);
 
 void FASTCALL asmFLDCWMem(byte *modrm, int len);
 void FASTCALL asmFSTCWMem(byte *modrm, int len);

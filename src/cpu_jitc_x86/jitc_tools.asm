@@ -90,6 +90,7 @@ struc PPC_CPU_State
 
 	temp: resd 1
 	temp2: resd 1
+	x87cw: resd 1
 	pc_ofs: resd 1
 	start_pc_ofs: resd 1
 	current_code_base: resd 1
@@ -719,7 +720,6 @@ ppc_new_pc_this_page_asm:
 	call	ppc_effective_to_physical_code
 	call	jitcNewPC
 	pop	edi
-;	db	0xcc
 	;	now eax and edi are both native addresses
 	;	eax is dest and edi is source
 	;
@@ -741,6 +741,8 @@ ppc_new_pc_intern:
 	call	jitcNewPC
 	jmp	eax
 
+ppc_start_fpu_cw: dw 0x37f
+
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -750,6 +752,13 @@ ppc_start_jitc_asm:
 	mov	esi, eax
 	and	esi, 0xfff
 	mov	[gCPU+start_pc_ofs], esi
+	fldcw	[ppc_start_fpu_cw]
+;	fstcw	[gCPU+temp]
+;	pusha
+;	movzx	eax, word [gCPU+temp]
+;	fwait
+;	call	jitc_error_program
+;	popa
 	jmp	ppc_new_pc_asm
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

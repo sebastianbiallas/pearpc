@@ -141,6 +141,8 @@ bool cpu_init()
 		gCPU.sr[i] = 0x2aa*i;
 	}
 	
+	gCPU.x87cw = 0x37f;
+
 	return jitc_init(2048, 16*1024*1024);
 }
 

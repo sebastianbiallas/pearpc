@@ -175,6 +175,11 @@ struct JITC {
 	bool checkedVector; 
 	 
 	/*
+	 *	The FPU can be in 53 bit or in 64 bit mode
+	 */	
+	int FPUPrecision;
+	
+	/*
 	 *	Only used for the LRU list
 	 */
 	NativeRegType *nativeRegsList[8];

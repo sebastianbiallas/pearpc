@@ -1051,10 +1051,38 @@ void ppc_opc_mtfsb0x()
 		PPC_OPC_ERR("mtfsb0. unimplemented.\n");
 	}
 }
+
+static uint32 ppc_to_x86_roundmode[] = {
+	0x0000, // round to nearest
+	0x0c00, // round to zero
+	0x0800, // round to pinf
+	0x0400, // round to minf
+};
+
+static void ppc_opc_set_fpscr_roundmode(NativeReg r)
+{
+	byte modrm[6];
+	asmALURegImm(X86_AND, r, 3); // RC
+	asmALUMemImm(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw), ~0x0c00);
+	asmALURegMem(X86_MOV, r, modrm, x86_mem_sib(modrm, REG_NO, 4, r, (uint32)&ppc_to_x86_roundmode));
+	asmALUMemReg(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw), r);
+	asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw));
+}
+
 JITCFlow ppc_opc_gen_mtfsb0x()
 {
-	ppc_opc_gen_interpret(ppc_opc_mtfsb0x);
-	return flowEndBlock;
+	int crbD, n1, n2;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crbD, n1, n2);
+	if (crbD != 1 && crbD != 2) {
+		jitcGetClientRegister(PPC_FPSCR, NATIVE_REG | EAX);
+		jitcClobberAll();
+		asmALURegImm(X86_AND, EAX, ~(1<<(31-crbD)));
+		asmMOVDMemReg((uint32)&gCPU.fpscr, EAX);
+		if (crbD == 30 || crbD == 31) {
+			ppc_opc_set_fpscr_roundmode(EAX);
+		}
+	}
+	return flowContinue;
 }
 /*
  *	mtfsb1x		Move to FPSCR Bit 1
@@ -1072,10 +1100,25 @@ void ppc_opc_mtfsb1x()
 		PPC_OPC_ERR("mtfsb1. unimplemented.\n");
 	}
 }
-JITCFlow ppc_opc_gen_mtfsb1x()
+/*JITCFlow ppc_opc_gen_mtfsb1x()
 {
 	ppc_opc_gen_interpret(ppc_opc_mtfsb1x);
 	return flowEndBlock;
+}*/
+JITCFlow ppc_opc_gen_mtfsb1x()
+{
+	int crbD, n1, n2;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crbD, n1, n2);
+	if (crbD != 1 && crbD != 2) {
+		jitcGetClientRegister(PPC_FPSCR, NATIVE_REG | EAX);
+		jitcClobberAll();
+		asmALURegImm(X86_OR, EAX, 1<<(31-crbD));
+		asmMOVDMemReg((uint32)&gCPU.fpscr, EAX);
+		if (crbD == 30 || crbD == 31) {
+			ppc_opc_set_fpscr_roundmode(EAX);
+		}
+	}
+	return flowContinue;
 }
 /*
  *	mtfsfx		Move to FPSCR Fields
@@ -1094,10 +1137,36 @@ void ppc_opc_mtfsfx()
 		PPC_OPC_ERR("mtfsf. unimplemented.\n");
 	}
 }
-JITCFlow ppc_opc_gen_mtfsfx()
+/*JITCFlow ppc_opc_gen_mtfsfx()
 {
 	ppc_opc_gen_interpret(ppc_opc_mtfsfx);
 	return flowEndBlock;
+}*/
+JITCFlow ppc_opc_gen_mtfsfx()
+{
+	int frB;
+	uint32 fm, FM;
+	PPC_OPC_TEMPL_XFL(gJITC.current_opc, frB, fm);
+	FM = ((fm&0x80)?0xf0000000:0)|((fm&0x40)?0x0f000000:0)|((fm&0x20)?0x00f00000:0)|((fm&0x10)?0x000f0000:0)|
+	     ((fm&0x08)?0x0000f000:0)|((fm&0x04)?0x00000f00:0)|((fm&0x02)?0x000000f0:0)|((fm&0x01)?0x0000000f:0);
+	     
+	NativeReg fpscr = jitcGetClientRegister(PPC_FPSCR);
+	NativeReg b = jitcGetClientRegister(PPC_FPR_L(frB));
+	jitcClobberAll();
+	asmALURegImm(X86_AND, b, FM);
+	asmALURegImm(X86_AND, fpscr, ~FM);
+	asmALURegReg(X86_OR, fpscr, b);
+	if (fm & 1) {
+		asmMOVDMemReg((uint32)&gCPU.fpscr, fpscr);
+		ppc_opc_set_fpscr_roundmode(fpscr);
+	} else {
+		jitcMapClientRegisterDirty(PPC_FPSCR, NATIVE_REG | fpscr);
+	}
+	if (gCPU.current_opc & PPC_OPC_Rc) {
+		// update cr1 flags
+		PPC_OPC_ERR("mtfsf. unimplemented.\n");
+	}
+	return flowContinue;
 }
 /*
  *	mtfsfix		Move to FPSCR Field Immediate
@@ -1118,10 +1187,34 @@ void ppc_opc_mtfsfix()
 		PPC_OPC_ERR("mtfsfi. unimplemented.\n");
 	}
 }
-JITCFlow ppc_opc_gen_mtfsfix()
+/*JITCFlow ppc_opc_gen_mtfsfix()
 {
 	ppc_opc_gen_interpret(ppc_opc_mtfsfix);
 	return flowEndBlock;
+}*/
+JITCFlow ppc_opc_gen_mtfsfix()
+{
+	int crfD, n1;
+	uint32 imm;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crfD, n1, imm);
+	crfD >>= 2;
+	imm >>= 1;
+	crfD = 7-crfD;
+	NativeReg fpscr = jitcGetClientRegister(PPC_FPSCR);
+	jitcClobberAll();
+	asmALURegImm(X86_AND, fpscr, ppc_cmp_and_mask[crfD]);
+	asmALURegImm(X86_OR, fpscr, imm<<(crfD*4));
+	if (crfD == 0) {
+		asmMOVDMemReg((uint32)&gCPU.fpscr, fpscr);
+		ppc_opc_set_fpscr_roundmode(fpscr);
+	} else {
+		jitcMapClientRegisterDirty(PPC_FPSCR, NATIVE_REG | fpscr);
+	}
+	if (gCPU.current_opc & PPC_OPC_Rc) {
+		// update cr1 flags
+		PPC_OPC_ERR("mtfsfi. unimplemented.\n");
+	}
+	return flowContinue;
 }
 /*
  *	mtmsr		Move to Machine State Register
