@@ -232,7 +232,7 @@ static void *X11eventLoop(void *p)
 {
 	int fd = ConnectionNumber(gX11Display);
 
-	int redraw_interval_msec = 40;
+	int redraw_interval_msec = gDisplay->mRedraw_ms;
 	uint64 redraw_interval_clk = redraw_interval_msec*sys_get_hiresclk_ticks_per_second()/1000;
 	uint64 clk_per_sec = sys_get_hiresclk_ticks_per_second();
 	uint64 next_redraw_clk = sys_get_hiresclk_ticks();

@@ -178,7 +178,6 @@ protected:
 	int		mVTDX;
 	int		mVTDY;
 	bool		mExposed;
-	int		mRedraw_ms;
 	RGB		palette[256]; // only used in indexed modes
 
 	/* hw cursor */
@@ -192,6 +191,7 @@ protected:
 
 	bool		mMouseGrabbed;
 public: // until we know better
+	int		mRedraw_ms;
 	int mCurMouseX, mCurMouseY;
 	int mResetMouseX, mResetMouseY;
 	int mHomeMouseX, mHomeMouseY;
