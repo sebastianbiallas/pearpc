@@ -36,6 +36,8 @@ version 0.2 (in progress):
 	- preliminary man-page added
 	- fdisk and single partition images support by Anders F.Bjoerklund
 	- 3c90x now correctly detected by Mac OS X (if driver is loaded)
+	- grab mouse on click (Win32 + X11)
+	- ungrab mouse on unfocus (Win32)
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.
