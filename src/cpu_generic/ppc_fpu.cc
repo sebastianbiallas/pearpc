@@ -597,6 +597,50 @@ inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
 	}
 }
 
+inline void ppc_fpu_sqrt(ppc_double &D, const ppc_double &B)
+{
+	switch (B.type) {
+	case ppc_fpr_norm:
+		if (B.s) {
+			D.type = ppc_fpr_NaN;
+			gCPU.fpscr |= FPSCR_VXSQRT;
+			break;
+		}
+		// D := 1/2(D_old + B/D_old)
+		D = B;
+		D.e /= 2;
+		for (int i=0; i<6; i++) {
+			ppc_double D_old = D;
+			ppc_double B_div_D_old;
+			ppc_fpu_div(B_div_D_old, B, D_old);
+			ppc_fpu_add(D, D_old, B_div_D_old);
+			D.e--;
+			
+/*			uint64 e;
+			ppc_double E = D;
+			ppc_fpu_pack_double(E, e);
+			printf("%.20f\n", *(double *)&e);*/
+		}
+		break;
+	case ppc_fpr_zero:
+		D.type = ppc_fpr_zero;
+		D.s = B.s;
+		break;
+	case ppc_fpr_Inf:
+		if (B.s) {
+			D.type = ppc_fpr_NaN;
+			gCPU.fpscr |= FPSCR_VXSQRT;
+		} else {
+			D.type = ppc_fpr_Inf;
+			D.s = 0;
+		}
+		break;
+	case ppc_fpr_NaN:
+		D.type = ppc_fpr_NaN;
+		break;
+	}	
+}
+
 void ppc_fpu_test()
 {
 	ppc_double A, B, C;
@@ -1207,11 +1251,19 @@ void ppc_opc_frsqrtex()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frA==0 && frC==0);
+	ppc_double B;
+	ppc_double D;
+	ppc_double E;
+	ppc_double Q;
+	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
+	ppc_fpu_sqrt(Q, B);
+	E.type = ppc_fpr_norm; E.s = 0; E.e = 0; E.m = 0x80000000000000ULL;
+	ppc_fpu_div(D, E, Q);
+	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);	
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("frsqrte.\n");
 	}
-	PPC_FPU_ERR("frsqrte\n");
 }
 /*
  *	fselx		Floating Select
@@ -1242,11 +1294,15 @@ void ppc_opc_fsqrtx()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frA==0 && frC==0);
+	ppc_double B;
+	ppc_double D;
+	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
+	ppc_fpu_sqrt(D, B);
+	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fsqrt.\n");
 	}
-	PPC_FPU_ERR("fsqrt\n");
 }
 /*
  *	fsqrtsx		Floating Square Root Single
