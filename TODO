@@ -1,3 +1,4 @@
+- get rid of x86 code in cpu_generic
 - why do 2.6 Linux-kernels not display console?
 - OpenBSD doesn't start. why?
 - NetBSD doesn't start. why?
