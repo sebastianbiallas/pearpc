@@ -11,6 +11,8 @@ version 0.2 (in progress):
 	- HFS+ embedded in HFS should work now (untested though)
 	- FPU: multiply-add-type instructions now working correctly
 	- tools/regex.h dos2unixed
+	- configure support for mingw
+	- applied Francois Revol's BeOS patch (no.2).
 	- data.cc: portability fixes (void* <-> int conversions)
 
 version 0.1.1:
