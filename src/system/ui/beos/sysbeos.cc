@@ -342,7 +342,7 @@ extern SystemMouse *allocSystemMouse();
 extern SystemKeyboard *allocSystemKeyboard();
 
 
-void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, KeyboardCharacteristics const &keyConfig)
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, KeyboardCharacteristics const &keyConfig, bool fullscreen)
 {
 	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
 	gMouse = allocSystemMouse();

@@ -180,11 +180,12 @@ static void eventLoop(void *pvoid)
 
 	display->createBitmap();
 
-	gDisplay->setExposed(true);
+	display->setExposed(true);
 	display->displayShow();
 	ShowWindow(gHWNDMain, SW_SHOW);
 
 	SetTimer(gHWNDMain, 0, gDisplay->mRedraw_ms, TimerProc);
+	display->setFullscreenMode(gDisplay->mFullscreen);
 
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0)) {
@@ -357,7 +358,7 @@ extern SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharact
 extern SystemMouse *allocSystemMouse();
 extern SystemKeyboard *allocSystemKeyboard();
 
-void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms, const KeyboardCharacteristics &keyConfig)
+void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms, const KeyboardCharacteristics &keyConfig, bool fullscreen)
 {
 	gHInst = GetModuleHandle(NULL);
 
@@ -368,6 +369,8 @@ void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms,
 		ht_printf("no keyConfig, or is empty");
 		exit(1);
 	}
+
+	gDisplay->mFullscreen = fullscreen;
 
 	_beginthread(eventLoop, 0, gDisplay);
 

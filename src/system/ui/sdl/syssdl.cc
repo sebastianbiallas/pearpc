@@ -376,6 +376,8 @@ static void *SDLeventLoop(void *p)
 	gSDLVideoExposePending = false;
 	SDL_RedrawTimerID = SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
 
+	sd->setFullscreen(sd->mFullscreen);
+
 	SDL_Event event;
 	do {
 		SDL_WaitEvent(&event);
@@ -397,7 +399,7 @@ SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristic
 SystemKeyboard *allocSystemKeyboard();
 SystemMouse *allocSystemMouse();
 
-void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig)
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig, bool fullscreen)
 {
 #if 0
 	createSDLToADBKeytable();
@@ -412,6 +414,8 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 		ht_printf("no keyConfig, or is empty");
 		exit(1);
 	}
+
+	gDisplay->mFullscreen = fullscreen;
 
 	if (sys_create_thread(&SDLeventLoopThread, 0, SDLeventLoop, NULL)) {
 		ht_printf("SDL: can't create event thread!\n");

@@ -459,7 +459,7 @@ public:
 	}
 };
 
-SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
+SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms, bool fullscreen)
 {
 	if (gDisplay) return NULL;
 	return new X11SystemDisplay(title, chr, redraw_ms);
