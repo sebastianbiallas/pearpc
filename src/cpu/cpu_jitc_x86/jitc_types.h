@@ -1,8 +1,8 @@
 /*
  *	PearPC
- *	mem.h
+ *	jitc_types.h
  *
- *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,27 +18,26 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __MEM_H__
-#define __MEM_H__
+#ifndef __JITC_TYPES_H__
+#define __JITC_TYPES_H__
 
 #include "system/types.h"
 
-bool	ppc_init_physical_memory(uint32 size);
-
-uint32  ppc_get_memory_size();
-
-bool	ppc_dma_write(uint32 dest, const void *src, uint32 size);
-bool	ppc_dma_read(void *dest, uint32 src, uint32 size);
-bool	ppc_dma_set(uint32 dest, int c, uint32 size);
-
-void	ppc_cpu_map_framebuffer(uint32 pa, uint32 ea);
+/* 
+ *	This refers to (code) addresses in the host computer
+ *	They have to be in the translation cache.
+ */
+typedef byte *NativeAddress;
 
 /*
- *	These functions will be removed once we switch to openbios.
+ *	This is the return type of opcode generation functions
  */
+enum JITCFlow {
+	flowContinue,
+	flowEndBlock,
+	flowEndBlockUnreachable,
+};
 
-bool	DEPRECATED ppc_prom_set_sdr1(uint32 newval, bool quiesce);
-bool	DEPRECATED ppc_prom_effective_to_physical(uint32 &result, uint32 ea);
-bool	DEPRECATED ppc_prom_page_create(uint32 ea, uint32 pa);
+typedef void (*ppc_opc_function)();
 
 #endif

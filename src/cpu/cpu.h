@@ -23,26 +23,31 @@
 
 #include "system/types.h"
 
-uint64	ppc_get_clock_frequency();
-uint64	ppc_get_bus_frequency();
-uint64	ppc_get_timebase_frequency();
+uint64	ppc_get_clock_frequency(int cpu);
+uint64	ppc_get_bus_frequency(int cpu);
+uint64	ppc_get_timebase_frequency(int cpu);
 
 bool	ppc_cpu_init();
 void	ppc_cpu_init_config();
 
-bool	ppc_init_physical_memory(uint size);
-
 void	ppc_cpu_stop();
+void	ppc_cpu_wakeup();
 
-// May only be called from within a CPU thread.
-void	ppc_cpu_start();
-uint32	ppc_cpu_get_gpr(int i);
-void	ppc_cpu_set_gpr(int i, uint32 newvalue);
-void	mem_dma_write(uint32 dest, const void *, uint32 size);
-void	mem_dma_read(const void *, uint32 src, uint32 size);
+void	ppc_machine_check_exception();
 
-// MAY ONLY BE USED FROM PROM
-bool	ppc_mmu_page_create(uint32 ea, uint32 pa);
-void	ppc_prom_page_create();
+void	ppc_cpu_raise_ext_exception();
+void	ppc_cpu_cancel_ext_exception();
+
+/*
+ * May only be called from within a CPU thread.
+ */
+
+void	ppc_cpu_run();
+uint32	ppc_cpu_get_gpr(int cpu, int i);
+void	ppc_cpu_set_gpr(int cpu, int i, uint32 newvalue);
+void	ppc_cpu_set_msr(int cpu, uint32 newvalue);
+void	ppc_cpu_set_pc(int cpu, uint32 newvalue);
+uint32	ppc_cpu_get_pc(int cpu);
+uint32	ppc_cpu_get_pvr(int cpu);
 
 #endif
