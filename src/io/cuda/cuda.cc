@@ -40,6 +40,7 @@
 #include "debug/tracers.h"
 #include "io/pic/pic.h"
 #include "system/keyboard.h"
+#include "system/mouse.h"
 #include "system/sys.h"
 #include "system/sysclk.h"
 #include "system/systhread.h"
@@ -815,7 +816,7 @@ bool cuda_interrupt()
 static sys_semaphore	gCUDAEventSem;
 static Queue		gCUDAEvents(true);
 
-static bool cudaKeyboardEventHandler(const SystemEvent &ev)
+static bool cudaEventHandler(const SystemEvent &ev)
 {
 	sys_lock_semaphore(gCUDAEventSem);
 	ht_printf("queue  %d\n", ev.key.pressed);
@@ -901,7 +902,8 @@ static void *cudaEventLoop(void *arg)
 	if (sys_create_semaphore(&gCUDAEventSem)) {
 		IO_CUDA_ERR("Can't create semaphore\n");
 	}
-	gKeyboard->attachEventHandler(cudaKeyboardEventHandler);
+	gKeyboard->attachEventHandler(cudaEventHandler);
+	gMouse->attachEventHandler(cudaEventHandler);
 	sys_lock_semaphore(gCUDAEventSem);
 	while (1) {
 //		IO_CUDA_WARN("waiting on semaphore\n");

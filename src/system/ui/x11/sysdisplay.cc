@@ -333,9 +333,9 @@ public:
 		return snprintf(buf, buflen, "POSIX X11");
 	}
 
-	virtual void setClientMouseGrab(bool enable)
+	virtual void setMouseGrab(bool enable)
 	{
-		SystemDisplay::setClientMouseGrab(enable);
+		SystemDisplay::setMouseGrab(enable);
 		updateTitle();
 		if (enable) {
 			mResetMouseX = mCurMouseX;

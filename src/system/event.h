@@ -30,10 +30,17 @@ enum SystemEventType {
 	sysevMouse
 };
 
+enum SystemMouseEventType {
+	sme_buttonPressed,
+	sme_buttonReleased,
+	sme_motionNotify
+};
+
 struct SystemEvent {
 	SystemEventType type;
 	union {
     		struct {
+			SystemMouseEventType type;
 			int x;
 		    	int y;
 			int relx;

@@ -584,7 +584,7 @@ void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 	damageFrameBuffer(addr);
 }
 
-void SystemDisplay::setClientMouseGrab(bool mouseGrab)
+void SystemDisplay::setMouseGrab(bool mouseGrab)
 {
 	mMouseGrabbed = mouseGrab;
 }

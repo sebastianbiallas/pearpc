@@ -267,7 +267,7 @@ public:
 			return mMouseGrabbed;
 		}
 		
-		virtual void setClientMouseGrab(bool mouseGrab);
+		virtual void setMouseGrab(bool mouseGrab);
 };
 
 /* system-dependent (implementation in $MYSYSTEM/ *.cc) */

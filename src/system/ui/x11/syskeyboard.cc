@@ -46,6 +46,11 @@ public:
 
 	virtual bool handleEvent(const SystemEvent &ev)
 	{
+		if (ev.type != sysevKey) return false;
+		if (ev.key.keycode == KEY_F12) {
+			gDisplay->setMouseGrab(!gDisplay->isMouseGrabbed());
+			return true;
+		}
 		return SystemDevice::handleEvent(ev);
 	}
 };
