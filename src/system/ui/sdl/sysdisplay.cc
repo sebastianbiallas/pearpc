@@ -42,14 +42,14 @@
 #define printm(s...) ht_printf("[Display/SDL]: "s)
 
 byte *gFrameBuffer = NULL;
-uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+int gDamageAreaFirstAddr, gDamageAreaLastAddr;
 static SDL_Surface *screen;
 static int msec;
 static Queue *mEventQueue;
 static int mCurMouseX, mCurMouseY;
 static bool mMouseButton[3];
-static char *mTitle;
-static char mCurTitle[200];
+/*static char *mTitle;
+static char mCurTitle[200];*/
 
 //fix this to use SDLKeys instead of scancodes
 #ifdef __WIN32__
@@ -193,7 +193,7 @@ int SDLSystemDisplay::toString(char *buf, int buflen) const
 void SDLSystemDisplay::ToggleFullScreen()
 {
 	SDL_Surface *backup, *backup2;
-	SDL_Rect rect;
+//	SDL_Rect rect;
 
 	if (SDL_MUSTLOCK(screen))
 		SDL_UnlockSurface(screen);
@@ -396,8 +396,8 @@ void SDLSystemDisplay::displayShow()
 	if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
 	        return;
 	}
-	uint damageAreaFirstAddr = gDamageAreaFirstAddr;
-	uint damageAreaLastAddr = gDamageAreaLastAddr;
+	int damageAreaFirstAddr = gDamageAreaFirstAddr;
+	int damageAreaLastAddr = gDamageAreaLastAddr;
 	healFrameBuffer();
 	// end of race
 	damageAreaLastAddr += 3;	// this is a hack. For speed reasons we
@@ -453,6 +453,11 @@ void SDLSystemDisplay::startRedrawThread(int msec)
 	if (strncmp(sdl_driver, "dga", 3) != 0) {
 		sys_create_thread(&redrawthread, 0, redrawThread, &msec);
 	}
+}
+
+void SDLSystemDisplay::convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
+{
+	aHostChar = aClientChar;
 }
 
 bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacteristics)

@@ -60,6 +60,7 @@ public:
 				const DisplayCharacteristics &chr);
 	virtual		SDLSystemDisplay::~SDLSystemDisplay();
 	virtual	bool	changeResolution(const DisplayCharacteristics &aCharacteristics);
+	virtual void	convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar);
 	inline	void	convertDisplayClientToServer(uint firstLine, uint lastLine);
 	virtual	void	displayShow();
 	static	void *	eventLoop(void *p);
