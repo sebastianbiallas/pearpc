@@ -482,6 +482,7 @@ redo:
 
 	memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
 	free(oldframebuffer);
+	damageFrameBufferAll();
 }
 
 void SystemDisplay::outText(int x, int y, RGBA fg, RGBA bg, const char *text)
