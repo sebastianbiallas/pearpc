@@ -23,7 +23,8 @@
 
 #include <errno.h>		// for IOException
 
-#include "data.h"
+#include "tools/data.h"
+#include "tools/str.h"
 
 /**
  *	A exception.

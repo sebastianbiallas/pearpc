@@ -22,6 +22,8 @@
 #define __CONFIGPARSER_H__
 
 #include "tools/data.h"
+#include "tools/str.h"
+#include "tools/stream.h"
 
 enum ConfigType {
     configTypeInt,

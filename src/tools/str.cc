@@ -42,10 +42,6 @@
  *	CLASS String
  */
 
-String::String(BuildCtorArg a)
-{
-}
- 
 /**
  *	creates empty string
  */
@@ -403,14 +399,6 @@ bool String::leftSplit(char chr, String &initial, String &rem) const
 	return true;
 }
 
-void String::load(ObjectStream &s)
-{
-	mContent = NULL;
-	GET_INT32D(s, mLength);
-	realloc(mLength);
-	GET_BINARY(s, mContent, mLength);
-}
-
 ObjectID String::getObjectID() const
 {
 	return OBJID_STRING;
@@ -524,13 +512,6 @@ int String::subString(int aStart, int aLength, String &result) const
 	if (aStart+aLength >= mLength) aLength = mLength-aStart;
 	result.assign(&mContent[aStart], aLength);
 	return aLength;
-}
-
-void String::store(ObjectStream &s) const
-{
-	PUT_INT32D(s, mLength);
-	s.putCommentf("%y", this);
-	PUT_BINARY(s, mContent, mLength);
 }
 
 /**
@@ -688,10 +669,6 @@ String operator +(const char *s1, const String &s2)
 /*
  *	CLASS IString
  */
-
-IString::IString(BuildCtorArg)
-{
-}
 
 IString::IString()
 {

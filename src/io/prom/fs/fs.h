@@ -22,6 +22,7 @@
 #define __FS_H__
 
 #include "tools/data.h"
+#include "tools/stream.h"
 
 class FileSystem: public Object {
 protected:

@@ -21,8 +21,6 @@
 #ifndef __CONFIGFILE_H__
 #define __CONFIGFILE_H__
 
-#include "store.h"
-
 extern char *systemconfig_file;
 
 enum ConfigFileType {

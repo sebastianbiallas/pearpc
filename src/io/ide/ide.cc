@@ -346,7 +346,7 @@ public:
 		mConfig[0x3d] = 1;
 		mConfig[0x3e] = 0x02;	// min grand
 		mConfig[0x3f] = 0x04;	// max latency
-	};
+	}
 	
 /*******************************************************************************
  *	IDE - Controller Core
@@ -365,7 +365,7 @@ public:
 			+ head * gIDEState.config[gIDEState.drive].hd.spt
         		+ sec_no - 1;
 		}
-	};
+	}
 
 	void incAddress()
 	{
@@ -390,7 +390,7 @@ public:
 				}
 			}
 		}
-	};
+	}
 	
 	void raiseInterrupt(int bus)
 	{
@@ -399,13 +399,13 @@ public:
 			pic_raise_interrupt(mConfig[0x3c]);
 		}
 		mConfig[MRDMODE] |= MRDMODE_INTR_CH0 << bus;
-	};
+	}
 	
 	void cancelInterrupt(int bus)
 	{
 		pic_cancel_interrupt(IO_PIC_IRQ_IDE0);
 		mConfig[MRDMODE] &= ~(MRDMODE_INTR_CH0 << bus);
-	};
+	}
 	
 void drive_ident()
 {
@@ -568,14 +568,14 @@ void drive_ident()
 		gIDEState.state[gIDEState.drive].sector[i*2] = id[i];
 		gIDEState.state[gIDEState.drive].sector[i*2+1] = id[i]>>8;
 	}
-};
+}
 
 	void atapi_command_nop()
 	{
 		gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_C_D|IDE_ATAPI_INTR_REASON_I_O;
 		gIDEState.state[gIDEState.drive].intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
 		gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
-	};
+	}
 
 	void atapi_command_error(uint8 sense_key, uint8 asc)
 	{
@@ -588,7 +588,7 @@ void drive_ident()
 		gIDEState.config[gIDEState.drive].cdrom.sense.sense_key = sense_key;
 		gIDEState.config[gIDEState.drive].cdrom.sense.asc = asc;
 		gIDEState.config[gIDEState.drive].cdrom.sense.ascq = 0;
-	};
+	}
 
 	void atapi_start_send_command(uint8 command, int reqlen, int alloclen, int sectorpos=0, int sectorsize=2048)
 	{
@@ -612,7 +612,7 @@ void drive_ident()
 		gIDEState.config[gIDEState.drive].cdrom.atapi.command = command;
 		gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes = gIDEState.state[gIDEState.drive].byte_count;
 		gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain = MIN(reqlen, alloclen);
-	};
+	}
 
 	void atapi_start_mode_sense(const byte *src, int size)
 	{
@@ -1722,7 +1722,7 @@ void receive_atapi_packet()
 			return;
 		}
 		IO_IDE_ERR("write(%d) %08x to unknown IDE register %d\n", size, data, addr);
-	};
+	}
 
 void ide_read_reg(uint32 addr, uint32 &data, int size)
 {
@@ -1887,7 +1887,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 	}
 	}
 	IO_IDE_ERR("write(%d) %08x to unknown IDE register %d\n", size, data, addr);
-};
+}
 
 /********************************************************************************
  *	PCI Interface
@@ -1905,7 +1905,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 			return read_bmdma_reg(port, data, size);
 		}
 		return false;
-	};
+	}
 	
 	virtual bool	writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 	{
@@ -1920,7 +1920,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 			return write_bmdma_reg(port, data, size);
 		}
 		return false;
-	};
+	}
 	
 	virtual void	readConfig(uint reg)
 	{
@@ -1929,7 +1929,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 			// hook here, if you need notify on read
 		}
 		PCI_Device::readConfig(reg);
-	};
+	}
 	
 	virtual void writeConfig(uint reg, int offset, int size)
 	{
@@ -1946,7 +1946,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 			return ;
 		}
 		PCI_Device::writeConfig(reg, offset, size);
-	};
+	}
 	
 };
 

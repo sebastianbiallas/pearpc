@@ -55,10 +55,6 @@ int autoCompare(const Object *a, const Object *b)
  *	Class Object
  */
 
-Object::Object(BuildCtorArg)
-{
-}
-
 Object::Object()
 {
 }
@@ -135,17 +131,9 @@ bool	Object::instanceOf(Object *o) const
 	return instanceOf(o->getObjectID());
 }
 
-void Object::load(ObjectStream &s)
-{
-}
-
 ObjectID Object::getObjectID() const
 {
 	return OBJID_OBJECT;
-}
-
-void	Object::store(ObjectStream &s) const
-{
 }
 
 #endif /* HAVE_HT_OBJECTS */
@@ -153,10 +141,6 @@ void	Object::store(ObjectStream &s) const
 /*
  *	Class Enumerator
  */
-
-Enumerator::Enumerator(BuildCtorArg a) : Object(a)
-{
-}
 
 Enumerator::Enumerator()
 {
@@ -243,10 +227,6 @@ int Enumerator::toString(char *buf, int buflen) const
  *	Class Container
  */
 
-Container::Container(BuildCtorArg a) : Enumerator(a)
-{
-}
-
 Container::Container()
 {
 	hom_objid = OBJID_TEMP;
@@ -287,10 +267,6 @@ Object *Container::removeObj(const Object *sig)
 /*
  *	List
  */
-List::List(BuildCtorArg a) : Container(a)
-{
-}
-
 List::List()
 {
 }
@@ -310,10 +286,6 @@ List::List()
 #define ARRAY_ALLOC_GROW_DENOM	2
 
 #define ARRAY_ALLOC_GROW_ABSMAX	64*1024
-
-Array::Array(BuildCtorArg a) : List(a)
-{
-}
 
 Array::Array(bool oo, int prealloc)
 {
@@ -366,37 +338,9 @@ bool Array::instanceOf(ObjectID id) const
 	return (id == getObjectID()) || List::instanceOf(id);
 }
 
-void Array::load(ObjectStream &s)
-{
-	own_objects = true;
-
-	GET_INT32D(s, ecount);
-	GET_INT32X(s, hom_objid);
-	acount = 0;
-	elems = NULL;
-	realloc(ecount);
-
-	for (uint i=0; i<ecount; i++) {
-		Object *obj;
-		s.getObject(obj, "element", hom_objid);
-		elems[i] = obj;
-	}
-}
-
 ObjectID Array::getObjectID() const
 {
 	return OBJID_ARRAY;
-}
-
-void Array::store(ObjectStream &s) const
-{
-	PUT_INT32D(s, ecount);
-	PUT_INT32X(s, hom_objid);
-
-	ASSERT((ecount == 0) || (hom_objid != OBJID_TEMP));
-	for (uint i = 0; i<ecount; i++) {
-		s.putObject(elems[i], "element", hom_objid);
-	}
 }
 
 #endif /* HAVE_HT_OBJECTS */
@@ -620,10 +564,6 @@ void Array::insertAt(ObjHandle h, Object *obj)
  *	Class Stack
  */
 
-Stack::Stack(BuildCtorArg a) : Array(a)
-{
-}
-
 Stack::Stack(bool own_objects) : Array(own_objects)
 {
 }
@@ -652,10 +592,6 @@ ObjectID Stack::getObjectID() const
 /*
  *	Class LinkedList
  */
-
-LinkedList::LinkedList(BuildCtorArg a) : List(a)
-{
-}
 
 LinkedList::LinkedList(bool oo)
 {
@@ -720,41 +656,9 @@ bool LinkedList::instanceOf(ObjectID id) const
 	return (id == getObjectID()) || List::instanceOf(id);
 }
 
-void LinkedList::load(ObjectStream &s)
-{
-	own_objects = true;
-	first = last = NULL;
-
-	ecount = 0;
-	int ecount;
-	GET_INT32D(s, ecount);
-	GET_INT32X(s, hom_objid);
-
-	for (int i=0; i<ecount; i++) {
-		Object *obj;
-		s.getObject(obj, "element", hom_objid);
-		insert(obj);
-	}
-}
-
 ObjectID LinkedList::getObjectID() const
 {
 	return OBJID_LINKED_LIST;
-}
-
-void LinkedList::store(ObjectStream &s) const
-{
-	PUT_INT32D(s, ecount);
-	PUT_INT32X(s, hom_objid);
-
-	ObjHandle h = findFirst();
-	ASSERT((h == InvObjHandle) || (hom_objid != OBJID_TEMP));
-	while (h != InvObjHandle) {
-		Object *o = get(h);
-
-		s.putObject(o, "element", hom_objid);
-		h = findNext(h);
-	}
 }
 
 #endif
@@ -955,10 +859,6 @@ ObjHandle LinkedList::nativeToHandle(LinkedListNode *n) const
  *	Class Queue
  */
 
-Queue::Queue(BuildCtorArg a) : LinkedList(a)
-{
-}
-
 Queue::Queue(bool own_objects) : LinkedList(own_objects)
 {
 }
@@ -979,10 +879,6 @@ ObjectID Queue::getObjectID() const
 /*
  *	Class BinaryTree
  */
-
-BinaryTree::BinaryTree(BuildCtorArg a) : Container(a)
-{
-}
 
 BinaryTree::BinaryTree(bool oo, Comparator comp)
 {
@@ -1154,61 +1050,9 @@ bool	BinaryTree::instanceOf(ObjectID id) const
 	return (id == getObjectID()) || Container::instanceOf(id);
 }
 
-void BinaryTree::loadR(ObjectStream &s, BinTreeNode **n, int l, int r)
-{
-	if (l > r) {
-		*n = NULL;
-		return;
-	}
-	*n = allocNode();
-	uint m = (l+r)/2;
-	loadR(s, &(*n)->left, l, m-1);
-
-	s.getObject((*n)->key, "element", hom_objid);
-
-	loadR(s, &(*n)->right, m+1, r);
-}
-
-void BinaryTree::load(ObjectStream &s)
-{
-	const void *m = getAtomValue(GETX_INT32(s, "comparator"));
-	if (!m) throw new MsgException("BinaryTree::load() : invalid 'comparator' !");
-	compare = (Comparator)m;
-
-	GET_INT32D(s, ecount);
-	GET_INT32X(s, hom_objid);
-	root = NULL;
-	own_objects = true;
-
-	if (ecount) loadR(s, &root, 0, ecount-1);
-}
-
 ObjectID BinaryTree::getObjectID() const
 {
 	return OBJID_BINARY_TREE;
-}
-
-void BinaryTree::storeR(ObjectStream &s, BinTreeNode *n) const
-{
-	if (!n) return;
-	storeR(s, n->left);
-
-	s.putObject(n->key, "element", hom_objid);
-
-	storeR(s, n->right);
-}
-
-void	BinaryTree::store(ObjectStream &s) const
-{
-	int aId = getAtomId((void*)compare);
-	if (!aId) throw new MsgException("BinaryTree::store() : comparator not registered !");
-	PUTX_INT32X(s, aId, "comparator");
-
-	PUT_INT32D(s, ecount);
-	PUT_INT32X(s, hom_objid);
-
-	ASSERT(hom_objid != OBJID_TEMP);
-	storeR(s, root);
 }
 
 #endif
@@ -1391,10 +1235,6 @@ ObjHandle BinaryTree::nativeToHandle(BinTreeNode *n) const
  *	Class AVLTree
  */
 
-AVLTree::AVLTree(BuildCtorArg a) : BinaryTree(a)
-{
-}
-
 AVLTree::AVLTree(bool aOwnObjects, Comparator aComparator)
  : BinaryTree(aOwnObjects, aComparator)
 {
@@ -1479,45 +1319,6 @@ Object *AVLTree::clone() const
 bool AVLTree::instanceOf(ObjectID id) const
 {
 	return (id == getObjectID()) || BinaryTree::instanceOf(id);
-}
-
-int AVLTree::loadR(ObjectStream &s, BinTreeNode *&n, int l, int r)
-{
-	if (l > r) {
-		n = NULL;
-		return 0;
-	}
-	n = allocNode();
-	uint m = (l+r)/2;
-
-	int L = loadR(s, n->left, l, m-1);
-
-	s.getObject(n->key, "element", hom_objid);
-
-	int R = loadR(s, n->right, m+1, r);
-
-	if (L < R) {
-		((AVLTreeNode *)n)->unbalance = +1;
-	} else if (L > R) {
-		((AVLTreeNode *)n)->unbalance = -1;
-	} else {
-		((AVLTreeNode *)n)->unbalance = 0;
-	}
-	return MAX(L, R)+1;
-}
-
-void AVLTree::load(ObjectStream &s)
-{
-	const void *m = getAtomValue(GETX_INT32X(s, "comparator"));
-	if (!m) throw new MsgException("AVLTree::load() : invalid 'comparator' !");
-	compare = (Comparator)m;
-
-	GET_INT32D(s, ecount);
-	GET_INT32X(s, hom_objid);
-	root = NULL;
-	own_objects = true;
-
-	loadR(s, root, 0, ecount-1);
 }
 
 ObjectID AVLTree::getObjectID() const
@@ -1900,10 +1701,6 @@ Object *AVLTree::remove(ObjHandle h)
  *   Class Set
  */
 
-Set::Set(BuildCtorArg a) : AVLTree(a)
-{
-}
-
 Set::Set(bool oo)
 : AVLTree(oo)
 {
@@ -1938,10 +1735,6 @@ void Set::unionWith(Set *b)
 /*
  *
  */
-
-KeyValue::KeyValue(BuildCtorArg a) : Object(a)
-{
-}
 
 KeyValue::KeyValue(Object *aKey, Object *aValue)
 {
@@ -1978,21 +1771,9 @@ bool KeyValue::instanceOf(ObjectID id) const
 	return id == getObjectID();
 }
 
-void KeyValue::load(ObjectStream &s)
-{
-	GET_OBJECT(s, mKey);
-	GET_OBJECT(s, mValue);
-}
-
 ObjectID KeyValue::getObjectID() const
 {
 	return OBJID_KEYVALUE;
-}
-
-void KeyValue::store(ObjectStream &s) const
-{
-	PUT_OBJECT(s, mKey);
-	PUT_OBJECT(s, mValue);
 }
 
 #endif
@@ -2000,10 +1781,6 @@ void KeyValue::store(ObjectStream &s) const
 /*
  *	Class SInt
  */
-
-SInt::SInt(BuildCtorArg a) : Object(a)
-{
-}
 
 SInt::SInt(signed int i)
 {
@@ -2033,19 +1810,9 @@ bool SInt::instanceOf(ObjectID id) const
 	return id == getObjectID();
 }
 
-void SInt::load(ObjectStream &s)
-{
-	GET_INT32D(s, value);
-}
-
 ObjectID SInt::getObjectID() const
 {
 	return OBJID_SINT;
-}
-
-void SInt::store(ObjectStream &s) const
-{
-	PUT_INT32D(s, value);
 }
 
 #endif
@@ -2053,9 +1820,6 @@ void SInt::store(ObjectStream &s) const
 /*
  *	A signed Integer (64-bit)
  */
-#ifdef HAVE_HT_OBJECTS
-SInt64::SInt64(BuildCtorArg) {}
-#endif
 
 SInt64::SInt64(sint64 i)
 {
@@ -2091,29 +1855,16 @@ bool SInt64::instanceOf(ObjectID id) const
 	return id == getObjectID();
 }
 
-void SInt64::load(ObjectStream &s)
-{
-	GET_INT64D(s, value);
-}
-
 ObjectID SInt64::getObjectID() const
 {
 	return OBJID_SINT64;
 }
 
-void SInt64::store(ObjectStream &s) const
-{
-	PUT_INT64D(s, value);
-}
 #endif
 
 /*
  *	Class UInt
  */
-
-UInt::UInt(BuildCtorArg a) : Object(a)
-{
-}
 
 UInt::UInt(unsigned int i)
 {
@@ -2150,19 +1901,9 @@ bool UInt::instanceOf(ObjectID id) const
 	return id == getObjectID();
 }
 
-void UInt::load(ObjectStream &s)
-{
-	GET_INT32D(s, value);
-}
-
 ObjectID UInt::getObjectID() const
 {
 	return OBJID_UINT;
-}
-
-void UInt::store(ObjectStream &s) const
-{
-	PUT_INT32D(s, value);
 }
 
 #endif
@@ -2170,10 +1911,6 @@ void UInt::store(ObjectStream &s) const
 /*
  *	A unsigned Integer (64-bit)
  */
-#ifdef HAVE_HT_OBJECTS
-UInt64::UInt64(BuildCtorArg) {}
-#endif
-
 UInt64::UInt64(uint64 i)
 {
 	value = i;
@@ -2208,19 +1945,9 @@ bool UInt64::instanceOf(ObjectID id) const
 	return id == getObjectID();
 }
 
-void UInt64::load(ObjectStream &s)
-{
-	GET_INT64D(s, value);
-}
-
 ObjectID UInt64::getObjectID() const
 {
 	return OBJID_UINT64;
-}
-
-void UInt64::store(ObjectStream &s) const
-{
-	PUT_INT64D(s, value);
 }
 
 #endif
@@ -2228,12 +1955,6 @@ void UInt64::store(ObjectStream &s) const
 /*
  *	A floating-point number	(FIXME: no portable storage yet)
  */
-
-#ifdef HAVE_HT_OBJECTS
-Float::Float(BuildCtorArg)
-{
-}
-#endif
 
 Float::Float(double d)
 {
@@ -2270,14 +1991,10 @@ bool Float::instanceOf(ObjectID id) const
 	return id == getObjectID();
 }
 
-//	virtual	void		load(ObjectStream &s);
-
 ObjectID Float::getObjectID() const
 {
 	return OBJID_FLOAT;
 }
-
-//	virtual	void		store(ObjectStream &s) const;
 
 #endif
 
@@ -2293,10 +2010,6 @@ Pointer::Pointer(void *p)
 /**
  *	A memory area.
  */
-
-MemArea::MemArea(BuildCtorArg)
-{
-}
 
 MemArea::MemArea(const void *p, uint s, bool d)
 {
@@ -2341,23 +2054,9 @@ bool MemArea::instanceOf(ObjectID id) const
 	return (id == getObjectID()) || Object::instanceOf(id);
 }
 
-void MemArea::load(ObjectStream &s)
-{
-	GET_INT32D(s, size);
-	ptr = malloc(size);
-	if (!ptr) throw std::bad_alloc();
-	GET_BINARY(s, ptr, size);
-}
-
 ObjectID MemArea::getObjectID() const
 {
 	return OBJID_MEMAREA;
-}
-
-void MemArea::store(ObjectStream &s) const
-{
-	PUT_INT32D(s, size),
-	PUT_BINARY(s, ptr, size);
 }
 
 #endif
@@ -2396,76 +2095,11 @@ bool quickSort(List &l)
  *	Module Init/Done
  */
 
-BUILDER(OBJID_OBJECT, Object);
-
-BUILDER(OBJID_ARRAY, Array);
-BUILDER(OBJID_STACK, Stack);
-
-BUILDER(OBJID_BINARY_TREE, BinaryTree);
-BUILDER(OBJID_AVL_TREE, AVLTree);
-BUILDER(OBJID_SET, Set);
-
-BUILDER(OBJID_LINKED_LIST, LinkedList);
-BUILDER(OBJID_QUEUE, Queue);
-//BUILDER(OBJID_DBL_LINKED_LIST, DblLinkedList);
-
-BUILDER(OBJID_KEYVALUE, KeyValue);
-BUILDER(OBJID_SINT, SInt);
-BUILDER(OBJID_UINT, UInt);
-BUILDER(OBJID_MEMAREA, MemArea);
-
-BUILDER(OBJID_STRING, String);
-BUILDER(OBJID_ISTRING, IString);
-
 bool initData()
 {
-	registerAtom(OBJID_AUTO_COMPARE, (void*)&autoCompare);
-
-	REGISTER(OBJID_OBJECT, Object);
-
-	REGISTER(OBJID_ARRAY, Array);
-	REGISTER(OBJID_STACK, Stack);
-
-	REGISTER(OBJID_BINARY_TREE, BinaryTree);
-	REGISTER(OBJID_AVL_TREE, AVLTree);
-	REGISTER(OBJID_SET, Set);
-
-	REGISTER(OBJID_LINKED_LIST, LinkedList);
-	REGISTER(OBJID_QUEUE, Queue);
-//	REGISTER(OBJID_DBL_LINKED_LIST, DblLinkedList);
-
-	REGISTER(OBJID_KEYVALUE, KeyValue);
-	REGISTER(OBJID_SINT, SInt);
-	REGISTER(OBJID_UINT, UInt);
-	REGISTER(OBJID_MEMAREA, MemArea);
-
-	REGISTER(OBJID_STRING, String);
-	REGISTER(OBJID_ISTRING, IString);
 	return true;
 } 
  
 void doneData()
 {
-	unregisterAtom(OBJID_AUTO_COMPARE);
-
-	UNREGISTER(OBJID_OBJECT, Object);
-
-	UNREGISTER(OBJID_ARRAY, Array);
-	UNREGISTER(OBJID_STACK, Stack);
-
-	UNREGISTER(OBJID_BINARY_TREE, BinaryTree);
-	UNREGISTER(OBJID_AVL_TREE, AVLTree);
-	UNREGISTER(OBJID_SET, Set);
-
-	UNREGISTER(OBJID_LINKED_LIST, LinkedList);
-	UNREGISTER(OBJID_QUEUE, Queue);
-//	UNREGISTER(OBJID_DBL_LINKED_LIST, DblLinkedList);
-
-	UNREGISTER(OBJID_KEYVALUE, KeyValue);
-	UNREGISTER(OBJID_SINT, SInt);
-	UNREGISTER(OBJID_UINT, UInt);
-	UNREGISTER(OBJID_MEMAREA, MemArea);
-
-	UNREGISTER(OBJID_STRING, String);
-	UNREGISTER(OBJID_ISTRING, IString);
 }

@@ -22,6 +22,7 @@
 #define __SYSTEM_DISPLAY_H__
 
 #include "tools/data.h"
+#include "tools/stream.h"
 #include "types.h"
 #include "keyboard.h"
 

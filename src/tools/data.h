@@ -29,26 +29,6 @@
 #ifdef HAVE_HT_OBJECTS
 typedef unsigned long ObjectID;
 
-class ObjectStream;
-
-struct BuildCtorArg {
-};
-
-/**
- *	Macro for creating object build functions
- */
-#define BUILDER(reg, obj) Object *build_##obj(){BuildCtorArg a;return new obj(a);}
-
-/**
- *	Registers builder function by object id.
- */
-#define REGISTER(reg, obj) registerAtom(reg, (void*)build_##obj);
-
-/**
- *	Unregisters builder function by object id.
- */
-#define UNREGISTER(reg, obj) unregisterAtom(reg);
-
 /* actually a str => bigendian-int */
 /** used to define ObjectIDs */
 #define MAGIC16(magic) (unsigned long)(((unsigned char)magic[0]<<8) | (unsigned char)magic[1])
@@ -93,9 +73,6 @@ struct BuildCtorArg {
  */
 class Object {
 public:
-#ifdef HAVE_HT_OBJECTS
-				Object(BuildCtorArg);
-#endif
 				Object();
 	virtual			~Object();
 		void		init();
@@ -142,21 +119,9 @@ public:
  */
 		bool		instanceOf(Object *obj) const;
 /**
- *	Load object from object stream.
- *
- *	@param s object stream to load this object from
- */
-	virtual	void		load(ObjectStream &s);
-/**
  *	@returns unique object id.
  */
 	virtual	ObjectID	getObjectID() const;
-/**
- *	stores object.
- *
- *	@param s object stream to store this object into
- */
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -173,9 +138,6 @@ typedef void* ObjHandle;
  */
 class Enumerator: public Object {
 public:
-#ifdef HAVE_HT_OBJECTS
-				Enumerator(BuildCtorArg);
-#endif
 				Enumerator();
 /* extends Object */
 	virtual	int		toString(char *buf, int buflen) const;
@@ -366,9 +328,6 @@ protected:
 
 	virtual	void		notifyInsertOrSet(const Object *o);
 public:
-#ifdef HAVE_HT_OBJECTS
-				Container(BuildCtorArg);
-#endif
 				Container();
 /* new */
 
@@ -455,9 +414,6 @@ public:
  */
 class List: public Container {
 public:
-#ifdef HAVE_HT_OBJECTS
-				List(BuildCtorArg);
-#endif
 				List();
 /* new */
 
@@ -547,18 +503,13 @@ private:
 	inline	uint		handleToNative(ObjHandle h) const;
 	inline	ObjHandle	nativeToHandle(uint i) const;
 public:
-#ifdef HAVE_HT_OBJECTS
-				Array(BuildCtorArg);
-#endif
 				Array(bool own_objects, int prealloc = ARRAY_CONSTR_ALLOC_DEFAULT);
 	virtual			~Array();
 /* extends Object */
 	virtual	Object *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 /* extends Enumerator */
 	virtual	uint		count() const;
@@ -593,9 +544,6 @@ public:
  */
 class Stack: public Array {
 public:
-#ifdef HAVE_HT_OBJECTS
-				Stack(BuildCtorArg);
-#endif
 				Stack(bool own_objects);
 /* new */
 	virtual Object *	pop();
@@ -630,18 +578,13 @@ private:
 	inline	LinkedListNode *handleToNative(ObjHandle h) const;
 	inline	ObjHandle	nativeToHandle(LinkedListNode *n) const;
 public:
-#ifdef HAVE_HT_OBJECTS
-				LinkedList(BuildCtorArg);
-#endif
 				LinkedList(bool own_objects);
 	virtual			~LinkedList();
 /* extends Object */
 	virtual	Object *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 /* extends Enumerator */
 	virtual	uint		count() const;
@@ -677,9 +620,6 @@ struct DblLinkedNode: public LinkedListNode {
  */
 class Queue: public LinkedList {
 public:
-#ifdef HAVE_HT_OBJECTS
-				Queue(BuildCtorArg);
-#endif
 				Queue(bool own_objects);
 /* new */
 
@@ -744,26 +684,17 @@ protected:
 		BinTreeNode **	getRightmostPtr(BinTreeNode **nodeptr) const;
 		ObjHandle	findByIdxR(BinTreeNode *n, int &i) const;
 		ObjHandle	insertR(BinTreeNode *&node, Object *obj);
-#ifdef HAVE_HT_OBJECTS
-		void 		loadR(ObjectStream &s, BinTreeNode **n, int l, int r);
-		void 		storeR(ObjectStream &s, BinTreeNode *n) const;
-#endif
 	inline	bool		validHandle(ObjHandle h) const;
 	inline	BinTreeNode *	handleToNative(ObjHandle h) const;
 	inline	ObjHandle	nativeToHandle(BinTreeNode *n) const;
 public:
-#ifdef HAVE_HT_OBJECTS
-				BinaryTree(BuildCtorArg);
-#endif
 				BinaryTree(bool own_objects, Comparator comparator = autoCompare);
 	virtual			~BinaryTree();
 /* extends Object */
 	virtual	Object *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 /* extends Enumerator */
 	virtual	void		delAll();
@@ -800,13 +731,7 @@ private:
 	virtual	AVLTreeNode *	allocNode() const;
 			void	cloneR(AVLTreeNode *node);
 			Object *removeR(Object *key, BinTreeNode *&root, int &change, int cmp);
-#ifdef HAVE_HT_OBJECTS
-			int	loadR(ObjectStream &s, BinTreeNode *&n, int l, int r);
-#endif
 public:
-#ifdef HAVE_HT_OBJECTS
-				AVLTree(BuildCtorArg);
-#endif
 				AVLTree(bool own_objects, Comparator comparator = autoCompare);
 
 		void		debugOut();
@@ -815,7 +740,6 @@ public:
 	virtual	Object *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
 #endif
 /* extends Container */
@@ -828,9 +752,6 @@ public:
  */
 class Set: public AVLTree {
 public:
-#ifdef HAVE_HT_OBJECTS
-				Set(BuildCtorArg);
-#endif
 				Set(bool own_objects);
 /* new */
 			void	intersectWith(Set *b);
@@ -856,9 +777,6 @@ public:
 	Object		*mKey;
 	Object		*mValue;
 
-#ifdef HAVE_HT_OBJECTS
-				KeyValue(BuildCtorArg);
-#endif
 				KeyValue(Object *aKey, Object *aValue);
 	virtual			~KeyValue();
 
@@ -867,9 +785,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -880,9 +796,6 @@ class SInt: public Object {
 public:
 	signed int value;
 
-#ifdef HAVE_HT_OBJECTS
-				SInt(BuildCtorArg);
-#endif
 				SInt(signed int i);
 /* extends Object */
 	virtual	Object *	clone() const;
@@ -890,9 +803,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -905,9 +816,6 @@ class SInt64: public Object {
 public:
 	sint64 value;
 
-#ifdef HAVE_HT_OBJECTS
-				SInt64(BuildCtorArg);
-#endif
 				SInt64(sint64 i);
 /* extends Object */
 	virtual	Object *	clone() const;
@@ -915,9 +823,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -928,9 +834,6 @@ class UInt: public Object {
 public:
 	unsigned int value;
 
-#ifdef HAVE_HT_OBJECTS
-				UInt(BuildCtorArg);
-#endif
 				UInt(unsigned int i);
 /* extends Object */
 	virtual	Object *	clone() const;
@@ -938,9 +841,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -951,9 +852,6 @@ class UInt64: public Object {
 public:
 	uint64 value;
 
-#ifdef HAVE_HT_OBJECTS
-				UInt64(BuildCtorArg);
-#endif
 				UInt64(uint64 i);
 /* extends Object */
 	virtual	Object *	clone() const;
@@ -961,9 +859,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -974,9 +870,6 @@ class Float: public Object {
 public:
 	double value;
 
-#ifdef HAVE_HT_OBJECTS
-				Float(BuildCtorArg);
-#endif
 				Float(double d);
 /* extends Object */
 	virtual	Object *	clone() const;
@@ -984,9 +877,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-//	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-//	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -1010,9 +901,6 @@ public:
 	void *ptr;
 	uint size;
 
-#ifdef HAVE_HT_OBJECTS
-				MemArea(BuildCtorArg);
-#endif
 				MemArea(const void *p, uint size, bool duplicate = false);
 				~MemArea();
 /* extends Object */
@@ -1021,9 +909,7 @@ public:
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 };
 
@@ -1031,12 +917,6 @@ public:
  *	sorter
  */
 bool quickSort(List &l);
-
-#ifdef HAVE_HT_OBJECTS
-
-#include "stream.h"			// load/store need ObjectStream
-
-#endif
 
 /*
  *	Module Init/Done

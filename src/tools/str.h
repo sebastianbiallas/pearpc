@@ -38,7 +38,6 @@ protected:
 	int mLength;
 	byte *mContent;
 public:
-				String(BuildCtorArg);
 				String();
 				String(const char *s);
 				String(const String *s);
@@ -77,9 +76,7 @@ public:
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
 	inline	bool		isEmpty() const;
-	virtual	void		load(ObjectStream &s);
 	virtual	ObjectID	getObjectID() const;
-	virtual	void		store(ObjectStream &s) const;
 #endif
 	inline	char		lastChar() const;
 	inline	int		length() const;
@@ -128,7 +125,6 @@ String operator +(const char *s1, const String &s2);
  */
 class IString: public String {
 public:
-				IString(BuildCtorArg);
 				IString();
 
 	virtual	Object *	clone() const;

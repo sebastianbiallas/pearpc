@@ -161,6 +161,8 @@ struct KeyboardCharacteristics
 	int key_toggle_full_screen;
 };
 
+#include "tools/str.h"
+
 /* system-dependent (implementation in ui / $MYUI / *.cc) */
 class SystemKeyboard: public SystemDevice {
 	int mShift;

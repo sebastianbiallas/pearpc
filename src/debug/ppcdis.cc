@@ -24,6 +24,7 @@
 #include <cstring>
 
 #include "tools/endianess.h"
+#include "tools/snprintf.h"
 #include "ppcdis.h"
 #include "ppcopc.h"
 
@@ -225,7 +226,7 @@ char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
 				strcpy(insnstr, "db         ? * 3");
 				break;
 			case 4:
-				sprintf(insnstr, "dd        %s0x%08x", cs_number, ppc_insn->data);
+				ht_snprintf(insnstr, sizeof insnstr, "dd        %s0x%08x", cs_number, ppc_insn->data);
 				break;
 			default: { /* braces for empty assert */
 			}
