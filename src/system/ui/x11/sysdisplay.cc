@@ -1,6 +1,6 @@
 /* 
  *	PearPC
- *	sysdisplay.cc - screen access functions for POSIX
+ *	sysdisplay.cc - screen access functions for X11
  *
  *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
  *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
@@ -412,26 +412,25 @@ public:
 			sys_convert_display(mClientChar, mXChar, gFrameBuffer, mXFrameBuffer, firstDamagedLine, lastDamagedLine);
 		}
 
-		if (sys_lock_mutex(gX11Mutex) == 0) {
-			// draw menu
-			XPutImage(gX11Display, gX11Window, mXGC, mMenuXImage, 0, 0, 0, 0,
-				mClientChar.width,
-				mMenuHeight);
+		sys_lock_mutex(gX11Mutex);
+		// draw menu
+		XPutImage(gX11Display, gX11Window, mXGC, mMenuXImage, 0, 0, 0, 0,
+			mClientChar.width,
+			mMenuHeight);
 
-			XPutImage(gX11Display, gX11Window, mXGC, mXImage,
-				0,
-				firstDamagedLine,
-				0,
-				mMenuHeight+firstDamagedLine,
-				mClientChar.width,
-				lastDamagedLine-firstDamagedLine+1);
+		XPutImage(gX11Display, gX11Window, mXGC, mXImage,
+			0,
+			firstDamagedLine,
+			0,
+			mMenuHeight+firstDamagedLine,
+			mClientChar.width,
+			lastDamagedLine-firstDamagedLine+1);
 
 /*		if (mHWCursorVisible) {
 			XPutImage(gX11Display, gX11Window, mXGC, mMouseXImage, 0, 0, 
 				mHWCursorX, mHWCursorY, 2, 2);
 		}*/
-			sys_unlock_mutex(gX11Mutex);
-		}
+		sys_unlock_mutex(gX11Mutex);
 	}
 
 	static void *redrawThread(void *p)
