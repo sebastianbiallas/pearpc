@@ -214,16 +214,16 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		GetWindowRect(dw, &desktoprect);
 		if (aClientChar.width > (desktoprect.right-desktoprect.left)
 		|| aClientChar.height > (desktoprect.bottom-desktoprect.top)) {
-				/*
-				 * protect user from himself
-				 * Want shall we do if switching out of full-
-				 * screen mode does not work?
-				 */
-				if (mFullscreenChanged) {
-					// FIXME: insert clever code here
-				} else {
-					return false;
-				}
+			/*
+			 * protect user from himself
+			 * What shall we do if switching out of full-
+			 * screen mode does not work?
+			 */
+			if (mFullscreenChanged) {
+				// FIXME: insert clever code here
+			} else {
+				return false;
+			}
 		}
 		mFullscreenChanged = false;
 		mClientChar = aClientChar;
