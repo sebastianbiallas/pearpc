@@ -1494,7 +1494,10 @@ void prom_init_device_tree()
 				alias.assignFormat("disk%d", hdcount);
 				location.assignFormat("/pci/pci-bridge/pci-ata/ata-4/disk%d@%d", i, i);
 				aliases->addProp(new PromPropString(alias, location));
-				if (!hdcount) aliases->addProp(new PromPropString("disk", location));
+				if (!hdcount) {
+					aliases->addProp(new PromPropString("disk", location));
+					aliases->addProp(new PromPropString("hd", location));
+				}
 				hdcount++;
 			} else {
 				alias.assignFormat("cdrom%d", cdromcount);
