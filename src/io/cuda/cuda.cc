@@ -16,6 +16,12 @@
  *	You should have received a copy of the GNU General Public License
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *	From Linux 2.6.4:
+ *	The VIA (versatile interface adapter) interfaces to the CUDA,
+ *	a 6805 microprocessor core which controls the ADB (Apple Desktop
+ *	Bus) which connects to the keyboard and mouse.  The CUDA also
+ *	controls system power and the RTC (real time clock) chip.
  */
 
 #include <cstdlib>
