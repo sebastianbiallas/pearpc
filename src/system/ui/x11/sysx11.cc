@@ -166,9 +166,9 @@ static void handleX11Event(const XEvent &event)
 			break;
 		}
 		ev.mouse.type = sme_buttonReleased;
-		ev.mouse.button1 = mouseButton[0];
-		ev.mouse.button2 = mouseButton[1];
-		ev.mouse.button3 = mouseButton[2];
+		ev.mouse.button1 = tmpMouseButton[0];
+		ev.mouse.button2 = tmpMouseButton[1];
+		ev.mouse.button3 = tmpMouseButton[2];
 		if (mouseButton[0] != tmpMouseButton[0]) {
 			ev.mouse.dbutton = 1;
 		} else if (mouseButton[1] != tmpMouseButton[1]) {
