@@ -22,23 +22,26 @@
 //
 
 #include <sys/types.h>
-
-#include "system/sys.h"
+#include <stdlib.h>
 
 #define WIN32_LEAN_AND_MEAN
 
 #include <tchar.h>
 #include <windows.h>
-
-#include "debug/tracers.h"
 #include <time.h>
 #include <mmsystem.h>
+
+#undef FASTCALL
+
+#include "system/sys.h"
+
+#include "debug/tracers.h"
 #include "system/systimer.h"
 
 struct sys_timer_struct
 {
 	MMRESULT timerID;
-	uint64   timerRes;
+	UINT     timerRes;
 	sys_timer_callback cb_func;
 };
 
@@ -47,21 +50,21 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 	#define TARGET_RESOLUTION 1         // 1-millisecond target resolution
 
 	TIMECAPS tc;
-	uint64    wTimerRes;
+	UINT    timerRes;
 
 	if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR) {
 		// Error; application can't continue.
 		return false;
 	}
 
-	wTimerRes = min(max(tc.wPeriodMin, TARGET_RESOLUTION), tc.wPeriodMax);
-	if (timeBeginPeriod(wTimerRes) != TIMERR_NOERROR) {
+	timerRes = min(max(tc.wPeriodMin, TARGET_RESOLUTION), tc.wPeriodMax);
+	if (timeBeginPeriod(timerRes) != TIMERR_NOERROR) {
 		// Error; application can't continue.
 		return false;
 	}
 	sys_timer_struct * timer = new sys_timer_struct;
 	timer->timerID = 0;
-	timer->timerRes = wTimerRes;
+	timer->timerRes = timerRes;
 	timer->cb_func = cb_func;
 	(*t) = reinterpret_cast<sys_timer*>(timer);
 	return true;
@@ -86,15 +89,24 @@ void CALLBACK TimeProc(UINT uID, UINT UMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
 {
 	sys_timer t = reinterpret_cast<sys_timer>(dwUser);
 	sys_timer_struct * timer = reinterpret_cast<sys_timer_struct *>(dwUser);
+	timer->timerID = 0;
 	timer->cb_func(t);
 }
 
 void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 {
 	sys_timer_struct * timer = reinterpret_cast<sys_timer_struct *>(t);
-	long long int msecs = toMSecs(secs, nanosecs);
-	if (msecs == 0) timer->cb_func(t);
-	timer->timerID = timeSetEvent(msecs, timer->timerRes, TimeProc, reinterpret_cast<DWORD>(timer), (periodic) ? TIME_PERIODIC : TIME_ONESHOT);
+	UINT msecs = toMSecs(secs, nanosecs);
+	if (msecs == 0) {
+		timer->cb_func(t);
+	} else {
+		if (timer->timerID) timeKillEvent(timer->timerID);
+		timer->timerID = timeSetEvent(msecs, timer->timerRes, TimeProc, reinterpret_cast<DWORD>(timer), (periodic) ? TIME_PERIODIC : TIME_ONESHOT);
+		if (!timer->timerID) {
+			ht_printf("baeh! %d %d \n", msecs, timer->timerRes);
+			exit(-1);
+		}
+	}
 }
 
 uint64 sys_get_timer_resolution(sys_timer t)
@@ -107,6 +119,7 @@ uint64 sys_get_hiresclk_ticks()
 {
 	uint64 test;
 	QueryPerformanceCounter((_LARGE_INTEGER *)&test);
+//	__asm__ __volatile__ ("rdtsc": "=A" (test));
 	return test;
 }
 
@@ -115,4 +128,5 @@ uint64 sys_get_hiresclk_ticks_per_second()
 	uint64 test;
 	QueryPerformanceFrequency((_LARGE_INTEGER *)&test);
 	return test;
+//	return 1000000000ULL;
 }

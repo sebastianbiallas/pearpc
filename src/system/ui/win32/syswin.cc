@@ -282,14 +282,14 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 		}
 		break;
 	case WM_LBUTTONUP:
-/*		if (!mMouseEnabled) {
-			if (HIWORD(lParam) < gMenuHeight) {
+		if (!gDisplay->isMouseGrabbed()) {
+/*			if (HIWORD(lParam) < gMenuHeight) {
 				gDisplay->clickMenu(LOWORD(lParam), HIWORD(lParam));
 			} else {*/
 				gDisplay->setMouseGrab(true);
 				break;
-/*			}
-		}*/
+//			}
+		}
 		// fall throu
 	case WM_RBUTTONDOWN:
 	case WM_RBUTTONDBLCLK:
