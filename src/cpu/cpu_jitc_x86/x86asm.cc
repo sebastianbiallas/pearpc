@@ -55,6 +55,7 @@ void x86GetCaps(X86CPUCaps &caps)
 	} id2;
 
 	ppc_cpuid_asm(1, &id2);
+	caps.rdtsc = id2.features & (1<<4);
 	caps.cmov = id2.features & (1<<15);
 	caps.mmx = id2.features & (1<<23);
 	caps.sse = id2.features & (1<<25);

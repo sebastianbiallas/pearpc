@@ -57,6 +57,7 @@ enum NativeReg8 {
 
 struct X86CPUCaps {
 	char vendor[13];
+	bool rdtsc;
 	bool cmov;
 	bool mmx;
 	bool _3dnow;
