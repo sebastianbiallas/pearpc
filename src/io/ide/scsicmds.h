@@ -10,15 +10,15 @@
 //***************************************************************************
 //                          %%% TARGET STATUS VALUES %%%
 //***************************************************************************
-#define STATUS_GOOD     0x00	// Status Good
-#define STATUS_CHKCOND  0x02	// Check Condition
-#define STATUS_CONDMET  0x04	// Condition Met
-#define STATUS_BUSY     0x08	// Busy
-#define STATUS_INTERM   0x10	// Intermediate
-#define STATUS_INTCDMET 0x14	// Intermediate-condition met
-#define STATUS_RESCONF  0x18	// Reservation conflict
-#define STATUS_COMTERM  0x22	// Command Terminated
-#define STATUS_QFULL    0x28	// Queue full
+#define SCSI_STATUS_GOOD     0x00	// Status Good
+#define SCSI_STATUS_CHKCOND  0x02	// Check Condition
+#define SCSI_STATUS_CONDMET  0x04	// Condition Met
+#define SCSI_STATUS_BUSY     0x08	// Busy
+#define SCSI_STATUS_INTERM   0x10	// Intermediate
+#define SCSI_STATUS_INTCDMET 0x14	// Intermediate-condition met
+#define SCSI_STATUS_RESCONF  0x18	// Reservation conflict
+#define SCSI_STATUS_COMTERM  0x22	// Command Terminated
+#define SCSI_STATUS_QFULL    0x28	// Queue full
 
 //***************************************************************************
 //                      %%% SCSI MISCELLANEOUS EQUATES %%%

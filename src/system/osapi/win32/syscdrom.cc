@@ -22,6 +22,10 @@
 #include <windows.h>
 #include <windowsx.h>
 
+#ifdef FASTCALL
+#undef FASTCALL
+#endif
+
 #include <cstdio>
 #include <cstring>
 #include "errno.h"
@@ -35,7 +39,6 @@
 
 #define SCSI_CMD_DIR_IN 1
 #define SCSI_CMD_DIR_OUT 2
-
 
 /// SPTI CD-ROM implementation
 class CDROMDeviceSPTI:public CDROMDeviceSCSI
@@ -79,11 +82,11 @@ protected:
 	/// @date 07/18/2004
 	/// @param command The SCSI command to be sent
 	/// @param dir The data direcion flags
-	/// @param params byte[8] array containing command dependent parameters
+	/// @param params byte[11] array containing command dependent parameters
 	/// @param buffer Buffer for data exchange
 	/// @param buffer_len The size of buffer in bytes
 	/// @return If the call could be executed it returns the status from the device, else it returns 0xff
-	virtual byte SCSI_ExecCmd(byte command, byte dir, byte params[8], byte *buffer, unsigned int buffer_len)
+	virtual byte SCSI_ExecCmd(byte command, byte dir, byte params[11], byte *buffer, unsigned int buffer_len)
 	{
 		byte srb_dir;
 
@@ -106,16 +109,17 @@ protected:
 			offsetof(SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER,
 				 ucSenseBuf);
 		swb.spt.DataIn = srb_dir;
-		swb.spt.CdbLength = 9;
+		if (command < 0x20) {
+			swb.spt.CdbLength = 6;
+		} else if (command < 0xa0) {
+			swb.spt.CdbLength = 10;
+		} else {
+			swb.spt.CdbLength = 12;
+		}
 		swb.spt.Cdb[0] = command;
-		swb.spt.Cdb[1] = params[0];
-		swb.spt.Cdb[2] = params[1];
-		swb.spt.Cdb[3] = params[2];
-		swb.spt.Cdb[4] = params[3];
-		swb.spt.Cdb[5] = params[4];
-		swb.spt.Cdb[6] = params[5];
-		swb.spt.Cdb[7] = params[6];
-		swb.spt.Cdb[8] = params[7];
+		for (int i=1; i < swb.spt.CdbLength; i++) {
+			swb.spt.Cdb[i] = params[i-1];
+		}
 
 		// Send cmd
 		ULONG ret;
@@ -130,8 +134,9 @@ protected:
 
 		// Done
 		if (!status) {
-			IO_IDE_WARN
-				("SPTI: DeviceIoControl() returned error:\n");
+			IO_IDE_WARN("SPTI: DeviceIoControl() returned error:\n");
+			IO_IDE_WARN("command: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x:\n", 
+				command, params[0], params[1], params[2], params[3], params[4], params[5], params[6], params[7], params[8], params[9]);
 			char buffer[256];
 
 			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0,
@@ -158,7 +163,7 @@ public:
 	/// @date 07/18/2004
 	virtual ~CDROMDeviceSPTI()
 	{
-		SCSI_Lock(false);
+		setLock(false);
 		if (device != INVALID_HANDLE_VALUE)
 			CloseHandle(device);
 	}
@@ -275,7 +280,7 @@ protected:
 			 return 0xff;
 
 		// Return error code
-		cmd.SRB_TargStat;
+		return cmd.SRB_TargStat;
 	}
 public:
 	/// Constructor
@@ -313,7 +318,7 @@ public:
 	/// @date 07/13/2004
 	virtual ~CDROMDeviceASPI()
 	{
-		SCSI_Lock(false);
+		setLock(false);
 		if (hASPI != INVALID_HANDLE_VALUE)
 			FreeLibrary(hASPI);
 	}

@@ -154,7 +154,7 @@ int CDROMDevice::getConfig(byte *buf, int aLen, byte RT, int first)
 				len += getFeature(buf+len, aLen-len, v);
 		});
 		break;
-	case 0x10:
+	case 0x02:
 		// return specific
 		len += getFeature(buf+len, aLen-len, first);
 		break;
@@ -269,6 +269,17 @@ int CDROMDevice::put(byte *buf, int aLen, byte *src, int size)
 	return len;
 }
 
+int CDROMDevice::writeBlock(byte *buf)
+{
+	IO_IDE_ERR("attempt to write to CDROM\n");
+	return 0;
+}
+
+int CDROMDevice::readDVDStructure(byte *buf, int len, uint8 subcommand, uint32 address, uint8 layer, uint8 format, uint8 AGID, uint8 control)
+{
+	IO_IDE_ERR("readDVDStructure unimplemented.\n");
+}
+
 // ----------------------------- File based CDROM device ------------------------------------
 
 /*
@@ -304,7 +315,6 @@ void CDROMDeviceFile::flush()
 
 int CDROMDeviceFile::readBlock(byte *buf)
 {
-//	ht_printf("cdrom.readBlock(%x)\n", curLBA);
 	if (mMode & IDE_ATAPI_TRANSFER_HDR_SYNC) {
 		// .95
 		byte sync[]={0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
@@ -330,12 +340,6 @@ int CDROMDeviceFile::readBlock(byte *buf)
 		memset(buf, 0, 288);
 	}
 	curLBA++;
-	return 0;
-}
-
-int CDROMDeviceFile::writeBlock(byte *buf)
-{
-	IO_IDE_ERR("attempt to write to CDROM\n");
 	return 0;
 }
 
@@ -365,8 +369,144 @@ bool CDROMDeviceFile::changeDataSource(const char *file)
 	return true;
 }
 
-void CDROMDeviceFile::readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format)
+int CDROMDeviceFile::readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format)
 {
+	switch (format) {
+	case 0: {
+		// .415
+		// start_track == track
+		byte sector[12] = {
+			   0,
+			  10,
+
+			   1, // first track
+			   1, // last track
+			0x00, // res
+			0x16, // .408 (Data track, copy allowed :) )
+			   1, // track number
+			0x00, // res
+			0x00, // LBA
+			0x00,
+			0x00,
+			0x00, // LBA 
+		};
+		if (msf) {
+			MSF m;
+			MSFfromLBA(m, 0);
+			sector[8] = 0x00;
+			sector[9] = m.m;
+			sector[10] = m.s;
+			sector[11] = m.f; 
+		}
+		return put(buf, len, sector, sizeof sector);
+	}
+	case 1: {
+		// .418 Multisession information
+		// start_track == 0
+		byte sector[12] = {
+			   0,
+			  10,
+
+			   1, // first session
+			   1, // last session
+			0x00, // res
+			0x16, // .408 (Data track, copy allowed :) )
+			   1, // first track number in last complete session
+			0x00, // res
+			0x00, // LBA
+			0x00,
+			0x00,
+			0x00, // LBA 
+		};
+		if (msf) {
+			MSF m;
+			MSFfromLBA(m, 0);
+			sector[8] = 0x00;
+			sector[9] = m.m;
+			sector[10] = m.s;
+			sector[11] = m.f; 
+		}
+		return put(buf, len, sector, sizeof sector);
+	}
+	case 2: {
+		// .420 Raw TOC
+		// start_track == session number
+
+		MSF msf_cap, msf_zero;
+		// FIXME: only when (msf)?
+		MSFfromLBA(msf_cap, getCapacity());
+		MSFfromLBA(msf_zero, 0);
+
+		byte sector[48] = {
+			   0,
+			sizeof sector - 2,
+			   1, // first session
+			   1, // last session
+
+			      // points a0-af tracks b0-bf
+
+			   1, // session number
+			0x16, // .408 (Data track, copy allowed :) )
+			   0, // track number
+			0xa0, // point (lead-in)
+			0x00, // min
+			0x00, // sec
+			0x00, // frame		
+			0x00, // zero
+			0x01, // first track
+			0x00, // disk type
+			0x00, //
+
+			   1, // session number
+			0x16, // .408 (Data track, copy allowed :) )
+			   0, // track number
+			0xa1, // point
+			0x00, // min
+			0x00, // sec
+			0x00, // frame
+			0x00, // zero
+			0x01, // last track
+			0x00, // 
+			0x00, // 
+
+			   1, // session number
+			0x16, // .408 (Data track, copy allowed :) )
+			   0, // track number
+			0xa2, // point (lead-out)
+			0x00, // min
+			0x00, // sec
+			0x00, // frame
+			0x00, // zero
+			msf_cap.m,   // start
+			msf_cap.s,   //  of
+			msf_cap.f,   //  leadout
+
+			   1, // session number
+			0x16, // .408 (Data track, copy allowed :) )
+			   0, // track number
+			   1, // point (real track)
+			0x00, // min
+			0x00, // sec
+			0x00, // frame
+			0x00, // zero
+			msf_zero.m,  // start
+			msf_zero.s,  //  of
+			msf_zero.f,  //  track
+		};
+		return put(buf, len, sector, sizeof sector);
+	}
+	case 3:
+		// PMA
+	case 4:
+		// ATIP
+	case 5: 
+		// CDTEXT
+	default: {
+		IO_IDE_WARN("read toc: format %d not supported.\n", format);
+		byte sector[2] = {0, 0};
+		return put(buf, len, sector, sizeof sector);
+	}
+	}
 }
 
 void CDROMDeviceFile::eject()
@@ -386,11 +526,11 @@ void CDROMDeviceFile::eject()
 /// @date 07/17/2004
 /// @param name The name of the CDROM device
 CDROMDeviceSCSI::CDROMDeviceSCSI(const char *name)
-     :CDROMDevice (name)
+     :CDROMDevice(name)
 {
 	buffer_size = SCSI_BUFFER_SECTORS;
 	buffer_base = (LBA) - SCSI_BUFFER_SECTORS;
-	data_buffer = (byte *) 0;
+	data_buffer = NULL;
 	// Alloc read ahead buffer
 	if (buffer_size)
 		data_buffer = new byte[buffer_size * CD_FRAMESIZE];
@@ -409,8 +549,10 @@ CDROMDeviceSCSI::~CDROMDeviceSCSI()
 /// @return true if drive is ready, else false
 bool CDROMDeviceSCSI::isReady()
 {
-	setReady(SCSI_GetReady());
-	return CDROMDevice::isReady();
+	byte params[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	byte res = SCSI_ExecCmd(SCSI_UNITREADY, SCSI_CMD_DIR_OUT, params);
+	mReady = res == SCSI_STATUS_GOOD;
+	return mReady;
 }
 
 /// @author Alexander Stockinger
@@ -420,9 +562,12 @@ bool CDROMDeviceSCSI::isReady()
 bool CDROMDeviceSCSI::setLock(bool lock)
 {
 	bool ret = CDROMDevice::setLock(lock);
-	if (!ret)
-	    return false;
-	return SCSI_Lock(isLocked());
+	if (ret) {
+		byte params[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+		params[3] = lock ? SCSI_TRAYLOCK_LOCKED : SCSI_TRAYLOCK_UNLOCKED;
+		ret = SCSI_ExecCmd(SCSI_TRAYLOCK, SCSI_CMD_DIR_OUT, params) == SCSI_STATUS_GOOD;
+	}
+	return ret;
 }
 
 /// @author Alexander Stockinger
@@ -430,9 +575,17 @@ bool CDROMDeviceSCSI::setLock(bool lock)
 /// @return The number of sectors on the inserted media
 uint32 CDROMDeviceSCSI::getCapacity()
 {
-	if (!isReady())
+	if (!isReady()) {
 		IO_IDE_ERR("CDROMDeviceSCSI::getCapacity() failed: not ready.\n");
-	return SCSI_GetSectorCount();
+	} else {
+		byte buf[8];
+
+		byte params[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+		byte res = SCSI_ExecCmd(SCSI_READCDCAP, SCSI_CMD_DIR_IN, params, buf, 8);
+		if (res != SCSI_STATUS_GOOD) return 0;
+	
+		return (buf[0]<<24) + (buf[1]<<16) + (buf[2]<<8) + buf[3];
+	}
 }
 
 /// @author Alexander Stockinger
@@ -456,13 +609,13 @@ void CDROMDeviceSCSI::flush()
 /// @param sector The sector to read
 /// @param buf The buffer to read into (size is expected to be CD_FRAMESIZE bytes)
 /// @return true on successful execution, else false
-bool CDROMDeviceSCSI::readBufferedData(byte *buf, unsigned int sector)
+bool CDROMDeviceSCSI::readBufferedData(byte *buf, uint sector)
 {
 	if (buffer_size) {
 		// If we have the requested data buffered, return it
 		int buffer_delta = (int) sector - (int) buffer_base;
 		if (buffer_delta >= 0 && buffer_delta < (int) buffer_size) {
-			unsigned int offset = CD_FRAMESIZE * buffer_delta;
+			uint offset = CD_FRAMESIZE * buffer_delta;
 			memcpy(buf, data_buffer + offset, CD_FRAMESIZE);
 			return true;
 		}
@@ -484,7 +637,7 @@ int CDROMDeviceSCSI::readBlock(byte *buf)
 {
 	if (mMode & IDE_ATAPI_TRANSFER_HDR_SYNC) {
 		// .95
-		byte sync[] = { 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0 };
+		byte sync[] = {0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
 		memcpy(buf, sync, 12);
 		buf += 12;
 	}
@@ -514,35 +667,107 @@ int CDROMDeviceSCSI::readBlock(byte *buf)
 }
 
 
-/// @author Alexander Stockinger
-/// @date 07/17/2004
-/// @param buf The buffer to read into (size is expected to be CD_FRAMESIZE bytes)
-/// @return Always 0 at the moment
-int CDROMDeviceSCSI::writeBlock(byte *buf)
+/** 
+ * @param buffer result buffer
+ * @param msf if true use MSF encoding otherwise LBA
+ * @param starttrack start track
+ * @param len maximum length of buffer
+ * @param format see CDROMDeviceFile::readTOC
+*/ 
+int CDROMDeviceSCSI::readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format)
 {
-	IO_IDE_ERR("Cannot write to CDROM\n");
-	return 0;
+	byte params[9] = {
+		msf ? 2 : 0,
+		0,
+		0,
+		0,
+		0,
+		starttrack,
+		len >> 8,
+		len >> 0,
+		format << 6,
+	};
+	if (SCSI_ExecCmd(SCSI_READ_TOC, SCSI_CMD_DIR_IN,
+	  params, buf, len) == SCSI_STATUS_GOOD) {
+		ht_printf("readtoc: %d\n", (buf[0] << 8) | (buf[1] << 0));
+		return (buf[0] << 8) | (buf[1] << 0);
+	} else {
+		ht_printf("readtoc failed\n");
+		return 0;
+	}
 }
 
-/// @author Alexander Stockinger
-/// @date 07/17/2004
-/// @param buffer UNKNOWN
-/// @param msf UNKNOWN
-/// @param starttrack UNKNOWN
-/// @param len UNKNOWN
-/// @param format UNKNOWN
-void CDROMDeviceSCSI::readTOC(byte *buffer, bool msf, uint8 starttrack, int len, int format)
+int CDROMDeviceSCSI::getConfig(byte *buf, int len, byte RT, int first)
 {
+	static byte rt[] = {
+		0x00, 0x01, 0x02, 0x03, 0x43, 0x6f, 0x6e, 0x74,
+		0x61, 0x69, 0x6e, 0x73, 0x00, 0x50, 0x00, 0x45, 
+		0x00, 0x41, 0x00, 0x52, 0x00, 0x50, 0x00, 0x43,
+		0x20, 0x43, 0x6f, 0x64, 0x65, 0x2e, 0x20, 0x50,
+		0x6f, 0x72, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x20,
+		0x43, 0x6f, 0x70, 0x79, 0x72, 0x69, 0x67, 0x68,
+		0x74, 0x20, 0x28, 0x43, 0x29, 0x20, 0x53, 0x65,
+		0x62, 0x61, 0x73, 0x74, 0x69, 0x61, 0x6e, 0x20,
+		0x42, 0x69, 0x61, 0x6c, 0x6c, 0x61, 0x73, 0x20,
+		0x32, 0x30, 0x30, 0x34, 0x00, 0x46, 0x00, 0x00
+	};
+
+	byte params[9] = {
+		rt[RT],
+		first >> 8,
+		first >> 0,
+		0,
+		0,
+		0,
+		len >> 8,
+		len >> 0,
+		0,
+	};
+	if (SCSI_ExecCmd(rt[(4<<4)+13], SCSI_CMD_DIR_IN,
+	  params, buf, len) == SCSI_STATUS_GOOD) {
+		uint32 reslen = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | (buf[3] << 0) + 4;
+		return reslen;
+	} else {
+		ht_printf("getconfig failed\n");
+		return 0;
+	}
+}
+
+int CDROMDeviceSCSI::readDVDStructure(byte *buf, int len, uint8 subcommand, uint32 address, uint8 layer, uint8 format, uint8 AGID, uint8 control)
+{
+	byte params[11] = {
+		subcommand,
+		address >> 24,
+		address >> 16,
+		address >>  8,
+		address >>  0,
+		layer,
+		format,
+		len >> 8,
+		len >> 0,
+		AGID << 6,
+		control,
+	};
+	if (SCSI_ExecCmd(0xad, SCSI_CMD_DIR_IN,
+	  params, buf, len) == SCSI_STATUS_GOOD) {
+		uint32 reslen = (buf[0] << 8) | (buf[1] << 0) + 2;
+		return reslen;
+	} else {
+		ht_printf("readDVDStructure failed\n");
+		return 0;
+	}
 }
 
 /// @author Alexander Stockinger
 /// @date 07/17/2004
 void CDROMDeviceSCSI::eject()
 {
-	if (isLocked())
-		return;
-	SCSI_Eject(true);
-	buffer_base = (LBA) - buffer_size;
+	if (!isLocked()) {
+		byte params[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+		params[3] = true ? SCSI_EJECTTRAY_UNLOAD : SCSI_EJECTTRAY_LOAD;
+		SCSI_ExecCmd(SCSI_EJECTTRAY, SCSI_CMD_DIR_OUT, params);
+		buffer_base = (LBA) - buffer_size;
+	}
 }
 
 /// @author Alexander Stockinger
@@ -560,21 +785,28 @@ bool CDROMDeviceSCSI::promSeek(uint64 pos)
 /// @param buf The buffer to read into (expected to be at least count bytes)
 /// @param pos The first byte to read
 /// @param count The number of bytes to read
-/// @return The number of bytes actually read, if a error occured -1
-int CDROMDeviceSCSI::readData(byte *buf, uint64 pos, unsigned int count)
+/// @return The number of bytes actually read
+uint CDROMDeviceSCSI::readData(byte *buf, uint64 pos, uint count)
 {
-	unsigned int sector = pos / CD_FRAMESIZE;
-	unsigned int offset = pos % CD_FRAMESIZE;
-	unsigned int read = CD_FRAMESIZE - offset;
-	read = MIN(read, count);
+	uint res = 0;
+	while (count) {
+		uint sector = pos / CD_FRAMESIZE;
+		uint offset = pos % CD_FRAMESIZE;
+		uint read = CD_FRAMESIZE - offset;
+		read = MIN(read, count);
 
-	byte buffer[CD_FRAMESIZE];
-	bool ret = readBufferedData(buffer, sector);
-	if (!ret)
-		return -1;
+		byte buffer[CD_FRAMESIZE];
+		bool ret = readBufferedData(buffer, sector);
+		if (!ret) return res;
 
-	memcpy(buf, buffer + offset, read);
-	return read;
+		memcpy(buf, buffer + offset, read);
+
+		count -= read;
+		res += read;
+		buf += read;
+		pos += read;
+	}
+	return res;
 }
 
 /// @author Alexander Stockinger
@@ -588,60 +820,7 @@ uint CDROMDeviceSCSI::promRead(byte *buf, uint size)
 		IO_IDE_WARN("CDROMDeviceASPI::promRead(): not ready.\n");
 		return 0;
 	}
-
-	unsigned int read = 0;
-	while (read != size) {
-		int cr = readData(buf + read, prompos, size - read);
-		if (cr == -1)
-			return read;
-		read += cr;
-		prompos += cr;
-	}
-	return size;
-}
-
-/// @author Alexander Stockinger
-/// @date 07/17/2004
-/// @return true if drive is ready, else false
-bool CDROMDeviceSCSI::SCSI_GetReady()
-{
-	byte params[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	byte res = SCSI_ExecCmd(SCSI_UNITREADY, SCSI_CMD_DIR_OUT, params);
-	return res == STATUS_GOOD;
-}
-
-
-/// @author Alexander Stockinger
-/// @date 07/17/2004
-/// @param locked true for locking the tray, false for unlocking
-/// @return true on successful execution, else false
-bool CDROMDeviceSCSI::SCSI_Lock(bool locked)
-{
-	byte params[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	params[3] = locked ? SCSI_TRAYLOCK_LOCKED : SCSI_TRAYLOCK_UNLOCKED;
-	byte res = SCSI_ExecCmd(SCSI_TRAYLOCK, SCSI_CMD_DIR_OUT, params);
-	return res == STATUS_GOOD;
-}
-
-/// @author Alexander Stockinger
-/// @date 07/17/2004
-/// @return The number of sectors on the physical media
-unsigned int CDROMDeviceSCSI::SCSI_GetSectorCount()
-{
-	byte buf[8];
-
-	byte params[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	byte res =
-		SCSI_ExecCmd(SCSI_READCDCAP, SCSI_CMD_DIR_IN, params, buf, 8);
-	if (res != STATUS_GOOD)
-		return 0;
-
-	int ret =
-		((buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) +
-		 buf[3]) * ((buf[4] << 24) + (buf[5] << 16) + (buf[6] << 8) +
-			    buf[7]);
-	// TODO: Seen better code for that somehwere...
-	return ret / CD_FRAMESIZE;
+	return readData(buf, prompos, size);
 }
 
 /// @author Alexander Stockinger
@@ -651,30 +830,20 @@ unsigned int CDROMDeviceSCSI::SCSI_GetSectorCount()
 /// @param buffer_bytes The size of the data buffer in bytes
 /// @param sectors The number of consecutive sectors to read
 /// @return true on successful execution, else false
-bool CDROMDeviceSCSI::SCSI_ReadSectors(unsigned long start, byte *buffer,
-				       unsigned int buffer_bytes,
-				       unsigned int sectors)
+bool CDROMDeviceSCSI::SCSI_ReadSectors(uint32 start, byte *buffer,
+				       uint buffer_bytes,
+				       uint sectors)
 {
-	byte params[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	byte params[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 	params[1] = (byte) (start >> 24);
 	params[2] = (byte) (start >> 16);
 	params[3] = (byte) (start >> 8);
 	params[4] = (byte) (start >> 0);
 
-	params[7] = sectors;	// Number of sectors to read
+	params[6] = sectors >> 8;	// Number of sectors to read
+	params[7] = sectors;		// Number of sectors to read
 
 	byte ret = SCSI_ExecCmd(SCSI_READ10, SCSI_CMD_DIR_IN, params, buffer, buffer_bytes);
-	return ret == STATUS_GOOD;
-}
-
-/// @author Alexander Stockinger
-/// @date 07/13/2004
-/// @param eject true: eject, false: insert
-/// @return true on successful execution, else false
-bool CDROMDeviceSCSI::SCSI_Eject(bool eject)
-{
-	byte params[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	params[3] = eject ? SCSI_EJECTTRAY_UNLOAD : SCSI_EJECTTRAY_LOAD;
-	return SCSI_ExecCmd(SCSI_EJECTTRAY, SCSI_CMD_DIR_OUT, params);
+	return ret == SCSI_STATUS_GOOD;
 }

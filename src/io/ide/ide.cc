@@ -213,7 +213,7 @@ struct IDEDriveState {
 	
 	int sectorpos;
 	int drqpos;
-	uint8 sector[2352];
+	uint8 sector[IDE_MAX_BLOCK_SIZE];
 	int current_sector_size;
 	int current_command;
 	uint32 dma_lba_start;
@@ -812,134 +812,12 @@ void receive_atapi_packet()
 			// first check for ATAPI-SFF 8020 style
 			uint8 format = sector[2] & 0xf;
 			if (!format) {
-				// then for MMC-2 style 
+				// then for MMC-2 style
 				format = sector[9] >> 6;
 			}
-			switch (format) {
-			case 0: {
-				// .415
-				// start_track == track
-				atapi_start_send_command(command, 12, len);	
-				sector[0] = 0;
-				sector[1] = 10;
-				sector[2] = 1; // first track
-				sector[3] = 1; // last track
-				sector[4] = 0x00; // res
-				sector[5] = 0x16; // .408 (Data track, copy allowed :) )
-				sector[6] = 1;    // track number
-				sector[7] = 0x00; // res
-				if (msf) {
-//					SINGLESTEP("");
-					MSF m;
-					CDROMDevice::MSFfromLBA(m, 0);
-					sector[8] = 0x00;
-					sector[9] = m.m;
-					sector[10] = m.s;
-					sector[11] = m.f; 
-				} else {
-					sector[8] = 0x00; // LBA
-					sector[9] = 0x00;
-					sector[10] = 0x00;
-					sector[11] = 0x00; // LBA 
-				}
-				break;				
-			}
-			case 1:
-				// .418 Multisession information
-				// start_track == 0
-				atapi_start_send_command(command, 12, len);
-				sector[0] = 0;
-				sector[1] = 10;
-				sector[2] = 1; // first session
-				sector[3] = 1; // last session
-				sector[4] = 0x00; // res
-				sector[5] = 0x16; // .408 (Data track, copy allowed :) )
-				sector[6] = 1;    // first track number in last complete session
-				sector[7] = 0x00; // res
-				if (msf) {
-					MSF m;
-					CDROMDevice::MSFfromLBA(m, 0);
-					sector[8] = 0x00;
-					sector[9] = m.m;
-					sector[10] = m.s;
-					sector[11] = m.f; 
-				} else {
-					sector[8] = 0x00; // LBA
-					sector[9] = 0x00;
-					sector[10] = 0x00;
-					sector[11] = 0x00; // LBA 
-				}
-				break;
-			case 2:
-				// .420 Raw TOC
-				// start_track == session number
-				atapi_start_send_command(command, 48, len);
-				sector[0] = 0;
-				sector[1] = 46;
-				sector[2] = 1; // first session
-				sector[3] = 1; // last session
-				// points a0-af tracks b0-bf				
-				sector[4] = 1;    // session number
-				sector[5] = 0x16; // .408 (Data track, copy allowed :) )
-				sector[6] = 0;    // track number
-				sector[7] = 0xa0; // point (lead-in)
-				sector[8] = 0x00; // min
-				sector[9] = 0x00; // sec
-				sector[10] = 0x00; // frame
-				sector[11] = 0x00;   // zero
-				sector[12] = 0x01;   // first track
-				sector[13] = 0x00;   // disk type
-				sector[14] = 0x00;   // 				
-
-				sector[15] = 1;    // session number
-				sector[16] = 0x16; // .408 (Data track, copy allowed :) )
-				sector[17] = 0;    // track number
-				sector[18] = 0xa1; // point
-				sector[19] = 0x00; // min
-				sector[20] = 0x00; // sec
-				sector[21] = 0x00; // frame
-				sector[22] = 0x00;   // zero
-				sector[23] = 0x01;   // last track
-				sector[24] = 0x00;   // 
-				sector[25] = 0x00;   // 
-
-				sector[26] = 1;    // session number
-				sector[27] = 0x16; // .408 (Data track, copy allowed :) )
-				sector[28] = 0;    // track number
-				sector[29] = 0xa2; // point (lead-out)
-				sector[30] = 0x00; // min
-				sector[31] = 0x00; // sec
-				sector[32] = 0x00; // frame
-				MSF msf;
-				// FIXME?
-				CDROMDevice::MSFfromLBA(msf, dev->getCapacity()+0);
-				sector[33] = 0x00;   // zero
-				sector[34] = msf.m;   // start
-				sector[35] = msf.s;   //  of
-				sector[36] = msf.f;   //  leadout
-
-				sector[37] = 1;    // session number
-				sector[38] = 0x16; // .408 (Data track, copy allowed :) )
-				sector[39] = 0;    // track number
-				sector[40] = 1;    // point
-				sector[41] = 0x00; // min
-				sector[42] = 0x00; // sec
-				sector[43] = 0x00; // frame
-				CDROMDevice::MSFfromLBA(msf, 0);
-				sector[44] = 0x00;   // zero
-				sector[45] = msf.m;  // start
-				sector[46] = msf.s;  //  of
-				sector[47] = msf.f;  //  track
-				break;
-			case 3:
-				// PMA
-			case 4:
-				// ATIP
-			case 5: 
-				// CDTEXT
-			default:
-				IO_IDE_ERR("read toc: format %d not supported.\n", format);
-			}
+			len = MIN(len, IDE_MAX_BLOCK_SIZE);
+			int result = dev->readTOC(sector, msf, start_track, len, format);
+			atapi_start_send_command(command, result, len);
 		} else {
 			atapi_command_error(IDE_ATAPI_SENSE_NOT_READY, IDE_ATAPI_ASC_MEDIUM_NOT_PRESENT);
 		}
@@ -1097,128 +975,20 @@ void receive_atapi_packet()
 		int feature = ((uint16)sector[2]<<8)|(sector[3]);
 		IO_IDE_TRACE("get_config: RT=%x len=%d f=%x\n", RT, len, feature);
 		memset(sector, 0, sizeof gIDEState.state[gIDEState.drive].sector);
-		sector[0] = 0x00; // length msb
-		sector[1] = 0x00;
-		sector[2] = 0x00;
-		
-		sector[6] = 0x00;
-		sector[7] = 0x08; // Current: Profile 8: CDROM
-		if (RT == 2) {
-			switch (feature) {
-			case 0: // Profile List
-				sector[3] = 16-4;
-				sector[8] = 0x00;
-				sector[9] = 0x00;  // Profile List
-				sector[10] = 0x03; // Version 0, Persistent=1, Current=1
-				sector[11] = 0x04; // Additional Length
-				sector[12] = 0x00;
-				sector[13] = 0x08; // CDROM
-				sector[14] = 0x01; // active	
-				sector[15] = 0x00;
-				atapi_start_send_command(command, 16, len);
-				break;
-			case 0x21:  // Incremental Streaming Writable .192
-			case 0x2d:  // Track At Once Feature .212
-			case 0x2e:  // Session At Once Feature .214
-			case 0x103: // CD Audio External Play Feature .224				
-			case 0x106: // DVD CSS Feature .106
-				sector[3] = 4; // not av.
-				atapi_start_send_command(command, 8, len);
-				break;
-			default: 
-				sector[3] = 4; // not av.
-				atapi_start_send_command(command, 8, len);
-				IO_IDE_WARN("moep\n");
-			}
-			raiseInterrupt(0);
-			break;
-		}
-		if (RT != 0) IO_IDE_ERR("moepmoep\n");
-		sector[3] = 0x44; // length lsb (72-4)
-		
-		// Features:
-		//  Feature 1, Profile List
-		sector[8] = 0x00;
-		sector[9] = 0x00;  // Profile List
-		sector[10] = 0x03; // Version 0, Persistent=1, Current=1
-		sector[11] = 0x04; // Additional Length
-		sector[12] = 0x00;
-		sector[13] = 0x08; // CDROM
-		sector[14] = 0x01; // active	
-		sector[15] = 0x00;
-		
-		//  Feature 2, Core
-		sector[16] = 0x00;
-		sector[17] = 0x01; // Core
-		sector[18] = 0x03; // Version 0, Persistent=1, Current=1
-		sector[19] = 0x04; // Additional Length
-		sector[20] = 0x00;
-		sector[21] = 0x00;
-		sector[22] = 0x00;
-		sector[23] = 0x02; // 02=ATAPI
-
-		//  Feature 3, Morphing
-		sector[24] = 0x00;
-		sector[25] = 0x02; // Morphing
-		sector[26] = 0x07; // Version 1, Persistent=1, Current=1
-		sector[27] = 0x04; // Additional Length
-		sector[28] = 0x00; // ASYNC = 0 (ATAPI)
-		sector[29] = 0x00;
-		sector[30] = 0x00;
-		sector[31] = 0x00;
-		
-		//  Feature 4, Removable
-		sector[32] = 0x00;
-		sector[33] = 0x03; // Removable
-		sector[34] = 0x03; // Version 0, Persistent=1, Current=1
-		sector[35] = 0x04; // Additional Length
-		sector[36] = 0x19; // Tray-Type-Loading, Eject=1, Jmpr=0, LockAllow=1
-		sector[37] = 0x00;
-		sector[38] = 0x00;
-		sector[39] = 0x00;
-		
-		//  Feature 5, Random Readable
-		sector[40] = 0x00;
-		sector[41] = 0x10; // Random Readable
-		sector[42] = 0x03; // Version 0, Persistent=1, Current=1 [FIXME?]
-		sector[43] = 0x08; // Additional Length
-		sector[44] = 0x00; // Logical Block Size MSB
-		sector[45] = 0x00;
-		sector[46] = 0x08;
-		sector[47] = 0x00; // Logical Block Size LSB
-		sector[48] = 0x00; // Blocking MSB
-		sector[49] = 0x10; // Blocking LSB
-		sector[50] = 0x00;
-		sector[51] = 0x00; // PP=0
-		
-		//  Feature 6, CD Read
-		sector[52] = 0x00;
-		sector[53] = 0x1e; // CD Read
-		sector[54] = 0x0b; // Version 2, Persistent=1, Current=1 [FIXME?]
-		sector[55] = 0x04; // Additional Length
-		sector[56] = 0x00; // DAP=0, C2=0, CD-Text=0
-		sector[57] = 0x00;
-		sector[58] = 0x00;
-		sector[59] = 0x00;
-		
-		//  Feature 7, Power Managment
-		sector[60] = 0x01;
-		sector[61] = 0x00; // Power Managment
-		sector[62] = 0x03; // Version 0, Persistent=1, Current=1 [FIXME?]
-		sector[63] = 0x00; // Additional Length
-		
-		//  Feature 8, Timeout
-		sector[64] = 0x01;
-		sector[65] = 0x05; // Timeout
-		sector[66] = 0x07; // Version 0, Persistent=1, Current=1 [FIXME?]
-		sector[67] = 0x04; // Additional Length
-		sector[68] = 0x00; // Group 3=0
-		sector[69] = 0x00;
-		sector[70] = 0x00;
-		sector[71] = 0x00;
-		
-/*		IO_IDE_WARN("ATAPI command 0x%08x not impl.\n", command);
-		atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);*/
+		len = MIN(len, IDE_MAX_BLOCK_SIZE);
+		int size = dev->getConfig(sector, len, RT, feature);
+		atapi_start_send_command(command, size, len);
+		raiseInterrupt(0);
+		break;
+	}
+	case IDE_ATAPI_COMMAND_EVENT_INFO: {
+		bool polled = sector[1] & 1;
+		uint8 request = sector[4];
+		int len = ((uint16)sector[7]<<8)|(sector[8]);
+		uint8 control = sector[9];
+//		int size = dev->eventInfo(sector, len, polled, request, control);
+//		atapi_start_send_command(command, size, len);
+		atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
 		raiseInterrupt(0);
 		break;
 	}
@@ -1280,6 +1050,20 @@ void receive_atapi_packet()
 		raiseInterrupt(0);
 		break;
 	}
+	case IDE_ATAPI_COMMAND_READ_DVD_S: {
+		uint8 subcommand = sector[1] & 0xf;
+		uint32 address = ((uint32)sector[2]<<24)|((uint32)sector[3]<<16)|((uint32)sector[4]<<8)|sector[5];
+		uint8 layer = sector[6];
+		uint8 format = sector[7];
+		int len = ((uint16)sector[8]<<8)|(sector[9]);
+		uint8 AGID = sector[10] >> 6;
+		uint8 control = sector[11];
+		len = MIN(len, IDE_MAX_BLOCK_SIZE);
+		int size = dev->readDVDStructure(sector, len, subcommand, address, layer, format, AGID, control);
+		atapi_start_send_command(command, size, len);
+		raiseInterrupt(0);
+		break;
+	}
 	case IDE_ATAPI_COMMAND_LOAD_CD:
 	case IDE_ATAPI_COMMAND_READ12:
 	case IDE_ATAPI_COMMAND_MECH_STATUS:
@@ -1287,13 +1071,11 @@ void receive_atapi_packet()
 	case IDE_ATAPI_COMMAND_READ_CD_MSF:
 	case IDE_ATAPI_COMMAND_SCAN:
 		IO_IDE_WARN("unknown ATAPI command 0x%08x\n", command);
-		IO_IDE_ERR("deshalb.\n");
 		atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
 		raiseInterrupt(0);
 		break;
 	default:
 		IO_IDE_WARN("unknown ATAPI command 0x%08x\n", command);
-		IO_IDE_ERR("deshalb.\n");
 		atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
 		raiseInterrupt(0);
 		break;

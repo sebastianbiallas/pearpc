@@ -1,4 +1,3 @@
-
 /*
  *	PearPC
  *	cd.h
@@ -38,178 +37,175 @@ typedef uint32 LBA;
 #define IDE_ATAPI_TRANSFER_DATA 0x10
 #define IDE_ATAPI_TRANSFER_ECC 0x08
 
-class CDROMDevice:public IDEDevice
-{
-	bool mLocked;
-	bool mReady;
-	Container *mFeatures, *mProfiles;
-	int curProfile;
-      public:
-	CDROMDevice (const char *name);
-	virtual ~CDROMDevice ();
-
-	virtual bool isReady();
-	bool isLocked();
-	virtual bool setLock(bool aLocked);
-	bool toggleLock();
-	static void MSFfromLBA(MSF & msf, LBA lba);
-	static void LBAfromMSF(LBA & lba, MSF msf);
-	virtual bool validLBA(LBA lba);
-	virtual int getConfig(byte *buf, int len, byte RT, int first);
-	virtual uint32 getCapacity() = 0;
-	virtual int modeSense(byte *buf, int len, int pc, int page);
-	virtual uint getBlockSize();
-	virtual uint getBlockCount();
-	virtual bool setReady(bool aReady);
-	virtual void readTOC(byte *buf, bool msf, uint8 starttrack, int len,
-			     int format) = 0;
-	virtual void eject() = 0;
-      protected:
-	void addFeature(int feature);
-	void addProfile(int profile);
-	virtual int getFeature(byte *buf, int len, int feature);
-	int createFeature(byte *buf, int len, int feature, int version,
-			  bool pp, bool cur, byte *add, int size);
-	int put(byte *buf, int len, byte *src, int size);
+struct Sense {
+	uint8 sense_key;
+	uint8 info[4];
+	uint8 spec_info[4];
+	uint8 key_spec[3];
+	uint8 fruc;
+	uint8 asc;
+	uint8 ascq;
 };
 
-class CDROMDeviceFile:public CDROMDevice
-{
-	SYS_FILE *mFile;
-	LBA curLBA;
-	uint32 mCapacity;
-      public:
-	 CDROMDeviceFile(const char *name);
-	virtual ~CDROMDeviceFile();
+enum CDROMReceiveResult {
+	CDROMReceiveOK,
+	CDROMReceiveNop,
+	CDROMReceiveError
+};
 
-	virtual uint32 getCapacity();
-	bool changeDataSource(const char *file);
-	virtual bool seek(int blockno);
-	virtual void flush();
-	virtual int readBlock(byte *buf);
-	virtual int writeBlock(byte *buf);
-	virtual void readTOC(byte *buf, bool msf, uint8 starttrack, int len,
-			     int format);
-	virtual void eject();
+class CDROMDevice: public IDEDevice {
+protected:
+	bool		mLocked;
+	bool		mReady;
+	Container	*mFeatures, *mProfiles;
+	int		curProfile;
+public:
+			CDROMDevice(const char *name);
+	virtual		~CDROMDevice ();
 
-	virtual bool promSeek(uint64 pos);
-	virtual uint promRead(byte *buf, uint size);
+	virtual	bool	isReady();
+		bool	isLocked();
+	virtual bool	setLock(bool aLocked);
+		bool	toggleLock();
+	static	void	MSFfromLBA(MSF & msf, LBA lba);
+	static	void	LBAfromMSF(LBA & lba, MSF msf);
+	virtual bool	validLBA(LBA lba);
+	virtual int	getConfig(byte *buf, int len, byte RT, int first);
+	virtual uint32	getCapacity() = 0;
+	virtual int	modeSense(byte *buf, int len, int pc, int page);
+	virtual uint	getBlockSize();
+	virtual uint	getBlockCount();
+	virtual bool	setReady(bool aReady);
+	virtual int	readTOC(byte *buf, bool msf, uint8 starttrack, int len,
+			     int format) = 0;
+	virtual void	eject() = 0;
+	virtual	int	writeBlock(byte *buf);
+	virtual	int	readDVDStructure(byte *buf, int len, uint8 subcommand, uint32 address, uint8 layer, uint8 format, uint8 AGID, uint8 control);
+
+protected:
+		void	addFeature(int feature);
+		void	addProfile(int profile);
+	virtual	int	getFeature(byte *buf, int len, int feature);
+		int	createFeature(byte *buf, int len, int feature, int version,
+			  bool pp, bool cur, byte *add, int size);
+		int	put(byte *buf, int len, byte *src, int size);
+};
+
+class CDROMDeviceFile: public CDROMDevice {
+	SYS_FILE	*mFile;
+	LBA		curLBA;
+	uint32		mCapacity;
+public:
+			CDROMDeviceFile(const char *name);
+	virtual		~CDROMDeviceFile();
+
+	virtual	uint32	getCapacity();
+		bool	changeDataSource(const char *file);
+	virtual	bool	seek(int blockno);
+	virtual	void	flush();
+	virtual	int	readBlock(byte *buf);
+	virtual	int	readTOC(byte *buf, bool msf, uint8 starttrack, int len,
+				int format);
+	virtual void	eject();
+
+	virtual	bool	promSeek(uint64 pos);
+	virtual	uint	promRead(byte *buf, uint size);
 };
 
 /// Generic interface for SCSI based implementations of a CD drive
-class CDROMDeviceSCSI:public CDROMDevice
-{
-	//////////////////////////////////
-	// Member variables
-	//////////////////////////////////
-      private:
+class CDROMDeviceSCSI: public CDROMDevice {
+private:
 	/// Current seek position
-	LBA curLBA;
+	LBA	curLBA;
 
 	/// Seek position for PROM (byte)
-	uint64 prompos;
+	uint64	prompos;
 
 	/// Read ahead buffer
-	byte *data_buffer;
+	byte	*data_buffer;
 
 	/// First buffered sector
-	LBA buffer_base;
+	LBA	buffer_base;
 
 	/// Size of read ahead buffer in sectors
-	unsigned int buffer_size;
-
+	uint	buffer_size;
 
 	//////////////////////////////////
 	// Internal utility functions
 	//////////////////////////////////
-      private:
+private:
 	/// Set's the simulated drive's ready state based on the physical one's
-	void checkReady();
+	void	checkReady();
 
 	/// Support function for byte-wise reading from CD (for PROM)
-	int readData(byte *buf, uint64 pos, unsigned int count);
+	uint	readData(byte *buf, uint64 pos, uint count);
 
 	/// Actual sector reading function with read-ahead buffer
-	bool readBufferedData(byte *buf, unsigned int sector);
+	bool	readBufferedData(byte *buf, uint sector);
 
 
 	//////////////////////////////////
 	// Abstract interface for impls.
 	//////////////////////////////////
-      protected:
+protected:
 	/// Handle SRB composition / sending / waiting
-	virtual byte SCSI_ExecCmd(byte command, byte dir, byte params[8],
-				  byte *buffer =
-				  0, unsigned int buffer_len = 0) = 0;
+	virtual	byte	SCSI_ExecCmd(byte command, byte dir, byte params[8],
+				  byte *buffer = 0, uint buffer_len = 0) = 0;
 
 	//////////////////////////////////
 	// SCSI helper functions
 	//////////////////////////////////
-      private:
-	/// Returns the physical drive's ready state
-	 bool SCSI_GetReady();
-
+private:
 	/// Reads a number of sectors from the physical media
-	bool SCSI_ReadSectors(unsigned long start, byte *buffer,
-			      unsigned int buffer_bytes,
-			      unsigned int sectors);
-
-	/// (Un-)Ejects the physical drive's tray
-	bool SCSI_Eject(bool eject);
-
-
-	/// Returns the number of sectors on the physical media
-	unsigned int SCSI_GetSectorCount();
-
-      protected:
-	/// (Un-)Locks the physical drive's tray
-	bool SCSI_Lock(bool locked);
+	bool	SCSI_ReadSectors(uint32 start, byte *buffer,
+				uint buffer_bytes,
+				uint sectors);
 
 	//////////////////////////////////
 	// CDROMDevice interface
 	//////////////////////////////////
-      public:
+public:
 	/// Returns the ready state
-	virtual bool isReady();
+	virtual	bool	isReady();
 
 	/// Sets the tray lock state
-	virtual bool setLock(bool lock);
+	virtual	bool	setLock(bool lock);
 
 	/// Returns the size of the inserted media in sectors
-	virtual uint32 getCapacity();
+	virtual	uint32	getCapacity();
 
 	/// Sets the current seek position to the specified block
-	virtual bool seek(int blockno);
+	virtual	bool	seek(int blockno);
 
 	/// Flushes the write buffer (empty function here)
-	virtual void flush();
+	virtual	void	flush();
 
 	/// Reads a block from the media
-	virtual int readBlock(byte *buf);
+	virtual	int	readBlock(byte *buf);
 
-	/// Writes a block to the media (error for CD drives)
-	virtual int writeBlock(byte *buf);
+	/// Reads the CDs TOC
+	virtual	int	readTOC(byte *buffer, bool msf, uint8 starttrack,
+				int len, int format);
 
-	/// Reads the CDs TOC (not implemented)
-	virtual void readTOC(byte *buffer, bool msf, uint8 starttrack,
-			     int len, int format);
+	virtual int	getConfig(byte *buf, int len, byte RT, int first);
+	virtual	int	readDVDStructure(byte *buf, int len, uint8 subcommand, uint32 address, uint8 layer, uint8 format, uint8 AGID, uint8 control);
 
 	/// Ejects the tray
-	virtual void eject();
+	virtual	void	eject();
 
 	/// Seek function for PROM
-	virtual bool promSeek(uint64 pos);
+	virtual	bool	promSeek(uint64 pos);
 
 	/// Read function for PROM
-	virtual uint promRead(byte *buf, uint size);
+	virtual	uint	promRead(byte *buf, uint size);
 
 
 	//////////////////////////////////
 	// Member functions
 	//////////////////////////////////
-      protected:
+protected:
 	/// Constructor
-	 CDROMDeviceSCSI(const char *name);
+	CDROMDeviceSCSI(const char *name);
 
 	/// Destructor
 	virtual ~CDROMDeviceSCSI();

@@ -24,6 +24,7 @@
 #include "system/types.h"
 #include "system/display.h"
 #include "idedevice.h"
+#include "cd.h"
 
 /*
  *	IDE is handled by PCI and therefore has no base address
@@ -45,15 +46,7 @@ struct IDEConfig {
 			int spt;
 		} hd;
 		struct {
-			struct {
-				uint8 sense_key;
-				uint8 info[4];
-				uint8 spec_info[4];
-				uint8 key_spec[3];
-				uint8 fruc;
-				uint8 asc;
-				uint8 ascq;
-			} sense;
+			Sense sense;
 			struct {
 			        uint8 command;
 			        int   drq_bytes;
