@@ -34,8 +34,6 @@ public:
 	virtual bool handleEvent(const SystemEvent &ev);
 };
 
-SystemMouse *allocSystemMouse();
-
 /* system-independent (implementation in keyboard.cc) */
 extern SystemMouse *gMouse;
 

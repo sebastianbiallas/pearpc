@@ -24,15 +24,8 @@
 #include "system/systhread.h"
 #include "sysx11.h"
 
-extern sys_mutex	gX11Mutex;
-extern Display *	gX11Display;
-extern Window		gX11Window;
-
 #include "system/display.h"
 #include "system/mouse.h"
-
-#define DPRINTF(a...)
-//#define DPRINTF(a...) ht_printf(a)
 
 class X11SystemMouse: public SystemMouse {
 public:

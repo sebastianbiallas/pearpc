@@ -225,7 +225,6 @@ int main(int argc, char *argv[])
 	if (!initAtom()) return 3;
 	if (!initData()) return 4;
 	if (!initOSAPI()) return 5;
-	initUI();
 	try {
 		gConfig = new ConfigParser();
 		gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
@@ -346,19 +345,12 @@ int main(int argc, char *argv[])
 			ht_printf("cpu_init failed! Out of memory?\n");
 			exit(1);
 		}
-		
-		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm, msec);
-		gMouse = allocSystemMouse();
-		gKeyboard = allocSystemKeyboard();
+
+		initUI(APPNAME" "APPVERSION, gm, msec);
+
 		io_init();
 		ppc_dec_init();
 
-		/* 
-		 *	now we have all hardware initialized
-		 *	go for the gui.. 
-		 *	(the menu can only be inited when the hardware has parsed
-		 *	its config files.)
-		 */
 		gcard_set_mode(gm);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);
@@ -379,9 +371,7 @@ int main(int argc, char *argv[])
 
 		initMenu();
 		drawLogo();
-		damageFrameBufferAll();
-		gDisplay->displayShow();
-		
+
 		// now gDisplay->printf works
 		gDisplay->printf("CPU: PVR=%08x\n", gCPU.pvr);
 		gDisplay->printf("%d MiB RAM\n", gMemorySize / (1024*1024));
@@ -419,7 +409,6 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 		}
-		gDisplay->displayShow();
 
 		testforth();
 
@@ -438,7 +427,7 @@ int main(int argc, char *argv[])
 
 		gDisplay->print("now starting client...");
 		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
-		startUI();
+
 		ppc_run();
 		delete gDisplay;		
 	} catch (std::exception *e) {

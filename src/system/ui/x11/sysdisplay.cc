@@ -97,8 +97,6 @@ public:
 			exit(1);
 		}
 
-		sys_create_mutex(&gX11Mutex);
-
 		// mouse
 		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
 		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
@@ -379,7 +377,7 @@ public:
 	virtual void displayShow()
 	{
 		if (!isExposed()) return;
-		
+
 		int firstDamagedLine, lastDamagedLine;
 		// We've got problems with races here because gcard_write1/2/4
 		// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
@@ -411,9 +409,9 @@ public:
 
 		sys_lock_mutex(gX11Mutex);
 		// draw menu
-		XPutImage(gX11Display, gX11Window, mXGC, mMenuXImage, 0, 0, 0, 0,
+/*		XPutImage(gX11Display, gX11Window, mXGC, mMenuXImage, 0, 0, 0, 0,
 			mClientChar.width,
-			mMenuHeight);
+			mMenuHeight);*/
 
 		XPutImage(gX11Display, gX11Window, mXGC, mXImage,
 			0,

@@ -63,8 +63,10 @@ static uint8 x11_key_to_adb_key[256] = {
 
 static void handleX11Event(const XEvent &event)
 {
+	static bool visible = true;
+	static bool mapped = true;
 	static bool mouseButton[3] = {false, false, false};
-
+	
 	switch (event.type) {
 	case GraphicsExpose:
 	case Expose:
@@ -195,16 +197,17 @@ static void handleX11Event(const XEvent &event)
 		if (gDisplay->isMouseGrabbed()) gDisplay->setMouseGrab(false);
 		break;
 	case MapNotify:
-		gDisplay->setExposed(true);
-		break;
-	case UnmapNotify:
-		gDisplay->setExposed(false);
-		break;
-	case VisibilityNotify: {
-		bool visible = (event.xvisibility.state != VisibilityFullyObscured);
+		mapped = true;
 		gDisplay->setExposed(visible);
 		break;
-	}
+	case UnmapNotify:
+		mapped = false;
+		gDisplay->setExposed(false);
+		break;
+	case VisibilityNotify:
+		visible = (event.xvisibility.state != VisibilityFullyObscured);
+		gDisplay->setExposed(mapped && visible);
+		break;
 	}
 }
 
@@ -275,7 +278,11 @@ static void *X11eventLoop(void *p)
 	return NULL;
 }
 
-void initUI()
+extern SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
+extern SystemMouse *allocSystemMouse();
+extern SystemKeyboard *allocSystemKeyboard();
+
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms)
 {
 	// connect to X server
 	char *display = getenv("DISPLAY");
@@ -287,10 +294,13 @@ void initUI()
 		printf("can't open X11 display (%s)!\n", display);
 		exit(1);
 	}
-}
 
-void startUI()
-{
+	sys_create_mutex(&gX11Mutex);
+
+	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
+	gMouse = allocSystemMouse();
+	gKeyboard = allocSystemKeyboard();
+
 	sys_thread X11eventLoopThread;
 
 	if (sys_create_thread(&X11eventLoopThread, 0, X11eventLoop, NULL)) {

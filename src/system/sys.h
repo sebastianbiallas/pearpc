@@ -48,8 +48,4 @@ void		sys_free_read_write_execute(void *p);
 bool initOSAPI();
 void doneOSAPI();
 
-void initUI();
-void startUI();
-void doneUI();
-
 #endif /* __SYS_H__ */

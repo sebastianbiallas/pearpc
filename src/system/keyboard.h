@@ -168,8 +168,6 @@ public:
 	static	bool	convertStringToKeycode(int &keycode, const String &s);
 };
 
-SystemKeyboard *allocSystemKeyboard();
-
 /* system-independent (implementation in keyboard.cc) */
 extern SystemKeyboard *gKeyboard;
 

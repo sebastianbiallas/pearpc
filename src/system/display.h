@@ -273,8 +273,10 @@ public:
 		virtual void setMouseGrab(bool mouseGrab);
 };
 
-/* system-dependent (implementation in $MYSYSTEM/ *.cc) */
 extern SystemDisplay *gDisplay;
-SystemDisplay *allocSystemDisplay(const char *name, const DisplayCharacteristics &chr, int redraw_ms);
+
+// should be declared elsewhere
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms);
+void doneUI();
 
 #endif /* __SYSTEM_DISPLAY_H__ */

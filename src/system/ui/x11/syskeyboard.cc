@@ -24,14 +24,8 @@
 #include "system/systhread.h"
 #include "sysx11.h"
 
-extern Display *	gX11Display;
-extern Window		gX11Window;
-
 #include "system/display.h"
 #include "system/keyboard.h"
-
-#define DPRINTF(a...)
-//#define DPRINTF(a...) ht_printf(a)
 
 class X11SystemKeyboard: public SystemKeyboard {
 public:
