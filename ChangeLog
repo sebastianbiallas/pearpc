@@ -2,8 +2,14 @@
 ==================
 
 version 0.4pre (not yet released):
-	-
 
+version 0.3.1 (not yet released):
+	- (Win32) fixed: '`'/'~' key wasn't mapped
+	- (SDL) fixed: right-alt was mapped to left-alt
+	- fixed: German '<>|' key wasn't mapped
+	- JITC_X86: corrected tw/twi instructions (should fix java native IO calls fail)
+	- (BEOS) updated
+	
 version 0.3 (released 13. August 2004):
 	- clean up everything on exit
 	- (experimental) idle sleep for the JITC CPU
