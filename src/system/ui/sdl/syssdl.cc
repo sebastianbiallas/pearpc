@@ -21,12 +21,16 @@
  */
 
 #include <SDL/SDL.h>
+#include <SDL/SDL_thread.h>
 
 #include <csignal>
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>
 #include <cstring>
+
+// for stopping the CPU
+#include "cpu/cpu.h"
 
 #include "system/sysclk.h"
 #include "system/display.h"
@@ -41,6 +45,9 @@
 
 SDL_Surface *	gSDLScreen;
 static bool	gSDLVideoExposePending = false;
+SDL_TimerID SDL_RedrawTimerID;
+
+SDLSystemDisplay *sd;
 
 #if 0
 
@@ -194,7 +201,7 @@ static uint8 scancode_to_adb_key[256] = {
 	0x1a,0x1c,0x19,0x1d,0x1b,0x18,0x33,0x30,0x0c,0x0d,0x0e,0x0f,0x11,0x10,0x20,0x22,
 	0x1f,0x23,0x21,0x1e,0x24,0x36,0x00,0x01,0x02,0x03,0x05,0x04,0x26,0x28,0x25,0x29,
 	0x27,0x32,0x38,0x2a,0x06,0x07,0x08,0x09,0x0b,0x2d,0x2e,0x2b,0x2f,0x2c,0x38,0x43,
-	0x3a,0x31,0xff,0x7a,0x78,0x63,0x76,0x60,0x61,0x62,0x64,0x65,0x6d,0x47,0xff,0x59,
+	0x37,0x31,0xff,0x7a,0x78,0x63,0x76,0x60,0x61,0x62,0x64,0x65,0x6d,0x47,0xff,0x59,
 	0x5b,0x5c,0x4e,0x56,0x57,0x58,0x45,0x53,0x54,0x55,0x52,0x41,0xff,0xff,0xff,0x67,
 	0x6f,0x73,0x3e,0x74,0x3b,0xff,0x3c,0x77,0x3d,0x79,0x72,0x75,0x4c,0x36,0xff,0xff,
 	0x4b,0x37,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
@@ -219,6 +226,13 @@ static bool handleSDLEvent(const SDL_Event &event)
 
 	SystemEvent ev;
 	switch (event.type) {
+	case SDL_USEREVENT:
+		if (event.user.code == 1) {  // helper for changeResolution
+			//ht_printf("got forward event\n");
+			sd->mChangeResRet = sd->changeResolutionREAL(sd->mSDLChartemp);
+			SDL_CondSignal(sd->mWaitcondition); // Signal, that condition is over.
+		}
+		return true;
 	case SDL_VIDEOEXPOSE:
 		gDisplay->displayShow();
 		gSDLVideoExposePending = false;
@@ -229,14 +243,16 @@ static bool handleSDLEvent(const SDL_Event &event)
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = false;
-		return gKeyboard->handleEvent(ev);
+		gKeyboard->handleEvent(ev);
+		return true;
 	case SDL_KEYDOWN:
 		ev.key.keycode = scancode_to_adb_key[event.key.keysym.scancode];
 //		ht_printf("%x %x dn  ", event.key.keysym.scancode, ev.key.keycode);
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = true;
-		return gKeyboard->handleEvent(ev);
+		gKeyboard->handleEvent(ev);
+		return true;
 	case SDL_MOUSEBUTTONDOWN:
 		ev.type = sysevMouse;
 		ev.mouse.type = sme_buttonPressed;
@@ -260,7 +276,8 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.y = gDisplay->mCurMouseY;
 		ev.mouse.relx = 0;
 		ev.mouse.rely = 0;
-		return gMouse->handleEvent(ev);
+		gMouse->handleEvent(ev);
+		return true;
 	case SDL_MOUSEBUTTONUP:
 		ev.type = sysevMouse;
 		ev.mouse.type = sme_buttonReleased;
@@ -284,7 +301,8 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.y = gDisplay->mCurMouseY;
 		ev.mouse.relx = 0;
 		ev.mouse.rely = 0;
-		return gMouse->handleEvent(ev);
+		gMouse->handleEvent(ev);
+		return true;
 	case SDL_MOUSEMOTION:
 		ev.type = sysevMouse;
 		ev.mouse.type = sme_motionNotify;
@@ -296,7 +314,8 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.y = event.motion.x;
 		ev.mouse.relx = event.motion.xrel;
 		ev.mouse.rely = event.motion.yrel;
-		return gMouse->handleEvent(ev);
+		gMouse->handleEvent(ev);
+		return true;
 	case SDL_ACTIVEEVENT:
 		if (event.active.state & SDL_APPACTIVE) {
 			gDisplay->setExposed(event.active.gain);
@@ -307,12 +326,10 @@ static bool handleSDLEvent(const SDL_Event &event)
 			}
 		}
 		return true;
-	case SDL_QUIT:
-		gDisplay->setMouseGrab(false);
-		exit(0);
-		return true;
+	case SDL_QUIT:		
+		return false;
 	}
-	return false;
+	return true;
 }
 
 static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
@@ -330,16 +347,25 @@ static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
 }
 
 sys_timer gSDLRedrawTimer;
+static bool eventThreadAlive;
 
 static void *SDLeventLoop(void *p)
 {
-	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
+	eventThreadAlive = true;
+#ifdef __WIN32__
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE) < 0) {
+#else
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTTHREAD | SDL_INIT_NOPARACHUTE) < 0) {
+#endif
 		ht_printf("SDL: Unable to init: %s\n", SDL_GetError());
 		exit(1);
 	}
-	SDLSystemDisplay *sd = (SDLSystemDisplay*)gDisplay;
+
+	atexit(SDL_Quit); // give SDl a chance to clean up before exit!
+	sd = (SDLSystemDisplay*)gDisplay;
 
 	sd->updateTitle();
+	sd->mEventThreadID = SDL_ThreadID();
 
         SDL_WM_GrabInput(SDL_GRAB_OFF);
 
@@ -347,13 +373,22 @@ static void *SDLeventLoop(void *p)
 	sd->setExposed(true);
 
 	gSDLVideoExposePending = false;
-	SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
+	SDL_RedrawTimerID = SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
 
-	while (1) {
-		SDL_Event event;
+	SDL_Event event;
+	do {
 		SDL_WaitEvent(&event);
-		handleSDLEvent(event);
-	}
+	} while (handleSDLEvent(event));
+
+	gDisplay->setMouseGrab(false);
+
+	if (SDL_RedrawTimerID)
+		SDL_RemoveTimer(SDL_RedrawTimerID);
+
+	ppc_cpu_stop();
+
+	eventThreadAlive = false;
+	
 	return NULL;
 }
 
@@ -385,4 +420,11 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 
 void doneUI()
 {
+	if (eventThreadAlive) {
+		SDL_Event event;
+		event.type = SDL_QUIT;
+		SDL_PushEvent(&event);
+		while (eventThreadAlive) SDL_Delay(10); // FIXME: UGLY!
+	}
+	SDL_Quit();
 }

@@ -30,7 +30,7 @@ extern SDL_Surface *	gSDLScreen;
 
 class SDLSystemDisplay: public SystemDisplay {
 protected:
-	DisplayCharacteristics	mSDLChar;
+	DisplayCharacteristics	mSDLChar;	
 	byte *			mSDLFrameBuffer;
 	bool			mChangingScreen;
 	SDL_Surface *		mSDLClientScreen;
@@ -40,6 +40,10 @@ protected:
 	void dumpDisplayChar(const DisplayCharacteristics &chr);
 public:
 	char *			mTitle;
+	DisplayCharacteristics  mSDLChartemp;
+	SDL_cond 		*mWaitcondition;
+	bool			mChangeResRet;
+	uint32			mEventThreadID;
 
 	SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
 
@@ -49,9 +53,12 @@ public:
 		void toggleFullScreen();
 	virtual	void displayShow();
 	virtual	void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar);
-	virtual	bool changeResolution(const DisplayCharacteristics &aCharacteristics);
+	virtual	bool changeResolution(const DisplayCharacteristics &aCharacteristics);	
+	virtual	bool changeResolutionREAL(const DisplayCharacteristics &aCharacteristics);	
 	virtual	void getHostCharacteristics(Container &modes);
 	virtual void setMouseGrab(bool enable);
 };
+
+
 
 #endif

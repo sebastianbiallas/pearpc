@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include <SDL/SDL.h>
+#include <SDL/SDL_thread.h>
 
 #ifdef __WIN32__
 // We need ChangeDisplaySettings
@@ -53,6 +54,7 @@
 #define DPRINTF(a...) ht_printf("[Display/SDL]: "a)
 
 #include "syssdl.h"
+
 
 uint SDLSystemDisplay::bitsPerPixelToXBitmapPad(uint bitsPerPixel)
 {
@@ -191,8 +193,54 @@ void SDLSystemDisplay::convertCharacteristicsToHost(DisplayCharacteristics &aHos
 
 bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacteristics)
 {
+	// We absolutely have to make sure that SDL_calls are only used
+	// in the thread, that did SDL_INIT and created Surfaces etc...
+	// This function behaves as a forward-function for changeResolution calls.
+	// It creates an SDL_Condition and pushes a userevent (no.1) onto
+	// the event queue. SDL_CondWait is used to wait for the event-thread
+	// to do the actual work (in reacting on the event and calling changeResolutionREAL)
+	// and finally signaling back to us, with SDL_Signal, that work is done.
+	
+	// AND: we have to check if the call came from another thread.
+	// otherwise we would block and wait for our own thread to continue.-> endless loop
+		
+	mSDLChartemp = aCharacteristics;
+	if (SDL_ThreadID() != mEventThreadID) { // called from a different thread than sdl eventloop
+		SDL_Event ev;
+		SDL_mutex *tmpmutex;
+	
+		//DPRINTF("Forward handler got called\n");
+		ev.type = SDL_USEREVENT;
+		ev.user.code = 1;
+				
+	
+		tmpmutex = SDL_CreateMutex();
+		mWaitcondition = SDL_CreateCond();
+	
+		SDL_LockMutex(tmpmutex);
+		SDL_PushEvent(&ev);		
+
+	 	SDL_CondWait(mWaitcondition, tmpmutex);
+		//SDL_CondWait(mWaitcondition, tmpmutex, 5000);
+
+		SDL_UnlockMutex(tmpmutex);
+		SDL_DestroyMutex(tmpmutex);
+		SDL_DestroyCond(mWaitcondition);
+		return mChangeResRet;
+	} else {
+		// we can call it directly because we are in the same thread
+		//ht_printf("direct call\n");
+		return changeResolutionREAL(aCharacteristics);
+	}
+
+}
+
+bool SDLSystemDisplay::changeResolutionREAL(const DisplayCharacteristics &aCharacteristics)
+{
     	Uint32 videoFlags = 0; 		/* Flags to pass to SDL_SetVideoMode */
         DisplayCharacteristics chr;
+                  
+        DPRINTF("changeRes got called\n");
                             
 	convertCharacteristicsToHost(chr, aCharacteristics);
 	
@@ -239,9 +287,9 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 		 */
 	}
 	
-	if (SDL_VideoModeOK(chr.width, chr.height, bitsPerPixel, videoFlags | SDL_HWSURFACE)) {
-		videoFlags |= SDL_HWSURFACE;
-		DPRINTF("can use HWSURFACE\n");
+	if (SDL_VideoModeOK(chr.width, chr.height, bitsPerPixel, videoFlags | SDL_SWSURFACE)) {
+		videoFlags |= SDL_SWSURFACE;
+		DPRINTF("can use SWSURFACE\n");
 		if (SDL_VideoModeOK(chr.width, chr.height, bitsPerPixel, videoFlags | SDL_HWACCEL)) {
 			videoFlags |= SDL_HWACCEL;
 			DPRINTF("can use HWACCEL\n");
