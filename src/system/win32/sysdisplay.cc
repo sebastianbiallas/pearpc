@@ -48,7 +48,6 @@ static int gWidth;
 static int gHeight; 
 static int gMenuHeight; 
 static HBITMAP gMemoryBitmap = 0;
-static HDC gMemoryDC = 0;
 static unsigned long gWorkerThread = 0;
 static DWORD gWorkerThreadID = 0;
 static BITMAPINFO gBitmapInfo;
@@ -105,15 +104,14 @@ public:
 		mWinChar.bytesPerPixel = (GetDeviceCaps(ddc, BITSPIXEL)+7)/8;
 		ReleaseDC(dw, ddc);
 		mTitle = strdup(name);
-		win32_vaccel_func = NULL;
 		mMenuHeight = 28;
 		gMenuHeight = mMenuHeight;
 
 		gHInst = GetModuleHandle(NULL);
 
-		gFramebuffer = (byte*)malloc(mClientChar.width 
+		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
-		winframebuffer = (byte*)malloc(mWinChar.width 
+		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
 		memset(gFramebuffer, 0, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
@@ -122,6 +120,86 @@ public:
 		gHeight = mWinChar.height;
 		damageFrameBufferAll();
 
+		selectVaccel();
+		mHomeMouseX = mWinChar.width/2;
+		mHomeMouseY = mWinChar.height/2;
+		InitializeCriticalSection(&gDrawCS);
+		InitializeCriticalSection(&gEventCS);
+
+		gWorkerThread = _beginthread(displaythread, 0, this);
+
+		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+	}
+
+	~Win32Display()
+	{
+		if (gMemoryBitmap) DeleteObject(gMemoryBitmap);
+
+		DeleteCriticalSection(&gDrawCS);
+		DeleteCriticalSection(&gEventCS);
+
+		delete gEventQueue;
+		free(gFramebuffer);
+		free(winframebuffer);
+	}
+
+	bool changeResolution(const DisplayCharacteristics &aCharacteristics)
+	{
+		/*
+		 * get size of desktop first
+		 * (windows doesn't allow windows greater than the desktop)
+		 */
+		HWND dw = GetDesktopWindow();
+		RECT desktoprect;
+		GetWindowRect(dw, &desktoprect);
+		if (aCharacteristics.width > (desktoprect.right-desktoprect.left)
+		|| aCharacteristics.height > (desktoprect.bottom-desktoprect.top)) {
+			// protect user from himself
+			return false;
+		}		
+
+		EnterCriticalSection(&gDrawCS);
+		mClientChar = aCharacteristics;
+		mWinChar.height = mClientChar.height;
+		mWinChar.width = mClientChar.width;
+
+		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width 
+			* mClientChar.height * mClientChar.bytesPerPixel);
+		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
+			* mWinChar.height * mWinChar.bytesPerPixel);
+		memset(gFramebuffer, 0, mClientChar.width 
+			* mClientChar.height * mClientChar.bytesPerPixel);
+
+		gHeight = mWinChar.height;
+		gWidth = mWinChar.width;
+		mHomeMouseX = mWinChar.width/2;
+		mHomeMouseY = mWinChar.height/2;
+		createBitmap();
+		selectVaccel();
+		LeaveCriticalSection(&gDrawCS);
+
+		RECT rect;
+		RECT rect2;
+		GetWindowRect(gHWNDMain, &rect);
+		GetWindowRect(gHWNDMain, &rect2);
+		rect.right = rect.left+mWinChar.width;
+		rect.bottom = rect.top+mWinChar.height+gMenuHeight;
+		AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
+			| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
+		MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, FALSE);
+
+		damageFrameBufferAll();
+		return true;
+	}
+
+	virtual	int toString(char *buf, int buflen) const
+	{
+		return snprintf(buf, buflen, "Win32");
+	}
+
+	void selectVaccel()
+	{
+		win32_vaccel_func = NULL;
 		switch (mWinChar.bytesPerPixel) {
 		case 1:
 			ht_printf("nyi: %s::%d", __FILE__, __LINE__);
@@ -154,8 +232,8 @@ public:
 		}
 		switch (mClientChar.bytesPerPixel) {
 		case 1:
-			ht_printf("nyi: %s::%d", __FILE__, __LINE__);
-			exit(-1);
+			/* ht_printf("nyi: %s::%d", __FILE__, __LINE__);
+			exit(-1); */
 			break;
 		case 2:
 			gWin32RGBMask.r_mask = 0x7c007c007c007c00ULL;
@@ -168,32 +246,6 @@ public:
 			gWin32RGBMask.b_mask = 0x000000ff000000ffULL;
 			break;
 		}
-		mHomeMouseX = mWinChar.width/2;
-		mHomeMouseY = mWinChar.height/2;
-		InitializeCriticalSection(&gDrawCS);
-		InitializeCriticalSection(&gEventCS);
-
-		gWorkerThread = _beginthread(displaythread, 0, this);
-
-		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
-	}
-
-	~Win32Display()
-	{
-		if (gMemoryDC) DeleteDC(gMemoryDC);
-		if (gMemoryBitmap) DeleteObject(gMemoryBitmap);
-
-		DeleteCriticalSection(&gDrawCS);
-		DeleteCriticalSection(&gEventCS);
-
-		delete gEventQueue;
-		free(gFramebuffer);
-		free(winframebuffer);
-	}
-
-	virtual	int toString(char *buf, int buflen) const
-	{
-		return snprintf(buf, buflen, "Win32");
 	}
 
 	virtual	void finishMenu()
@@ -348,6 +400,11 @@ public:
 		uint damageAreaLastAddr = gDamageAreaLastAddr;
 		healFrameBuffer();
 		// end of race
+
+		// we enter the critical section early, so that
+		// changeResolution can't conflict here
+		EnterCriticalSection(&gDrawCS);
+
 		damageAreaLastAddr += 3;	// this is a hack. For speed reasons we
 						// inaccurately set gDamageAreaLastAddr
 						// to the first (not last) byte accessed
@@ -363,13 +420,7 @@ public:
 
 		displayConvert(firstDamagedLine, lastDamagedLine);
 
-		EnterCriticalSection(&gDrawCS);
-
 		HDC hdc = GetDC(gHWNDMain);
-
-		//HGDIOBJ oldObj = SelectObject(gMemoryDC, gMemoryBitmap);
-
-		//SelectObject(gMemoryDC, oldObj);
 
 		SetDIBitsToDevice(
 			hdc,
@@ -398,6 +449,29 @@ public:
 	virtual	void startRedrawThread(int msec)
 	{
 		SetTimer(gHWNDMain, 0, msec, TimerProc);
+	}
+
+	void createBitmap()
+	{
+		if (gMemoryBitmap) DeleteObject(gMemoryBitmap);
+		HDC hdc = GetDC(gHWNDMain);
+		gMemoryBitmap = CreateCompatibleBitmap(hdc, mWinChar.width, mWinChar.height);
+		ReleaseDC(gHWNDMain, hdc);
+
+		gBitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		gBitmapInfo.bmiHeader.biWidth = mWinChar.width;
+		// Height is negative for top-down bitmap
+		gBitmapInfo.bmiHeader.biHeight = -mWinChar.height;
+		gBitmapInfo.bmiHeader.biPlanes = 1;
+		gBitmapInfo.bmiHeader.biBitCount = 8*mWinChar.bytesPerPixel;
+		gBitmapInfo.bmiHeader.biCompression = BI_RGB;
+		gBitmapInfo.bmiHeader.biSizeImage = 
+			mWinChar.width * mWinChar.height 
+			* mWinChar.bytesPerPixel;
+		gBitmapInfo.bmiHeader.biXPelsPerMeter = 4500;
+		gBitmapInfo.bmiHeader.biYPelsPerMeter = 4500;
+		gBitmapInfo.bmiHeader.biClrUsed = 0;
+		gBitmapInfo.bmiHeader.biClrImportant = 0;
 	}
 };
 
@@ -428,37 +502,23 @@ void displaythread(void *pvoid)
 	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	RegisterClass(&wc);
 
+	RECT rect;
+	rect.top = 0; rect.left = 0;
+	rect.bottom = mWinChar.height+gMenuHeight;
+	rect.right = mWinChar.width;
+	AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
+		| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
+
 	gHWNDMain = CreateWindow("ClassClass", "PearPC",
 		WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
 		| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX,
 		CW_USEDEFAULT, CW_USEDEFAULT, 
-		mWinChar.width + GetSystemMetrics(SM_CXFIXEDFRAME) * 2, 
-		gMenuHeight + mWinChar.height + GetSystemMetrics(SM_CYFIXEDFRAME) * 2 
-			+ GetSystemMetrics(SM_CYCAPTION),
+		rect.right-rect.left, rect.bottom-rect.top,
 		NULL, NULL, gHInst, NULL);
 
 	display->updateTitle();
 
-	HDC hdc = GetDC(gHWNDMain);
-
-	gMemoryBitmap = CreateCompatibleBitmap(hdc, mWinChar.width, mWinChar.height);
-	gMemoryDC = CreateCompatibleDC(hdc);
-	ReleaseDC(gHWNDMain, hdc);
-
-	gBitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	gBitmapInfo.bmiHeader.biWidth = mWinChar.width;
-	// Height is negative for top-down bitmap
-	gBitmapInfo.bmiHeader.biHeight = -mWinChar.height;
-	gBitmapInfo.bmiHeader.biPlanes = 1;
-	gBitmapInfo.bmiHeader.biBitCount = 8*mWinChar.bytesPerPixel;
-	gBitmapInfo.bmiHeader.biCompression = BI_RGB;
-	gBitmapInfo.bmiHeader.biSizeImage = 
-	mWinChar.width * mWinChar.height 
-		* mWinChar.bytesPerPixel;
-	gBitmapInfo.bmiHeader.biXPelsPerMeter = 4500;
-	gBitmapInfo.bmiHeader.biYPelsPerMeter = 4500;
-	gBitmapInfo.bmiHeader.biClrUsed = 0;
-	gBitmapInfo.bmiHeader.biClrImportant = 0;
+	display->createBitmap();
 
 	display->displayShow();
 	ShowWindow(gHWNDMain, SW_SHOW);
@@ -554,17 +614,15 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		EnterCriticalSection(&gDrawCS);
 		PAINTSTRUCT ps;
 		
-		if (GetUpdateRect(hwnd,NULL,false)) {
-			HDC hdc = BeginPaint(hwnd, &ps);
+		HDC hdc = BeginPaint(hwnd, &ps);
 			
 			
-			SetDIBitsToDevice(hdc, 0, 0, gWidth, gMenuHeight, 0, 0,
-				0, gMenuHeight, menuData, &gMenuBitmapInfo, DIB_RGB_COLORS);
-			SetDIBitsToDevice(hdc, 0, gMenuHeight, gWidth, gHeight, 0, 0,
-				0, gHeight, winframebuffer, &gBitmapInfo, DIB_RGB_COLORS);
-			EndPaint(hwnd, &ps); 		
+		SetDIBitsToDevice(hdc, 0, 0, gWidth, gMenuHeight, 0, 0,
+			0, gMenuHeight, menuData, &gMenuBitmapInfo, DIB_RGB_COLORS);
+		SetDIBitsToDevice(hdc, 0, gMenuHeight, gWidth, gHeight, 0, 0,
+			0, gHeight, winframebuffer, &gBitmapInfo, DIB_RGB_COLORS);
+		EndPaint(hwnd, &ps); 		
 			
-		}
  		LeaveCriticalSection(&gDrawCS);
 		break;
 	}

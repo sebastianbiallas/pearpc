@@ -2,7 +2,7 @@
  *	PearPC
  *	gcard.cc
  *
- *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -29,23 +29,59 @@
 #include "gcard.h"
 
 DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES] = {
-	{width: 640, height: 480, bytesPerPixel: 1, indexed: true,
-	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},
-	{width: 640, height: 480, bytesPerPixel: 2, indexed: false, 
+/*	{width: 640, height: 480, bytesPerPixel: 1, indexed: true,
+	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},*/
+	{width: 640, height: 480, bytesPerPixel: 2, indexed: false,
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 640, height: 480, bytesPerPixel: 4, indexed: false, 
+	{width: 640, height: 480, bytesPerPixel: 4, indexed: false,
 	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 800, height: 600, bytesPerPixel: 1, indexed: true,
-	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},
-	{width: 800, height: 600, bytesPerPixel: 2, indexed: false, 
+/*	{width: 800, height: 600, bytesPerPixel: 1, indexed: true,
+	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},*/
+	{width: 800, height: 600, bytesPerPixel: 2, indexed: false,
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 800, height: 600, bytesPerPixel: 4, indexed: false, 
+	{width: 800, height: 600, bytesPerPixel: 4, indexed: false,
 	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1024, height: 768, bytesPerPixel: 1, indexed: true,
-	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},
-	{width: 1024, height: 768, bytesPerPixel: 2, indexed: false, 
+/*	{width: 1024, height: 768, bytesPerPixel: 1, indexed: true,
+	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},*/
+	{width: 1024, height: 768, bytesPerPixel: 2, indexed: false,
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1024, height: 768, bytesPerPixel: 4, indexed: false, 
+	{width: 1024, height: 768, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1152, height: 864, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1152, height: 864, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1280, height: 720, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1280, height: 720, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1280, height: 768, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1280, height: 768, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1280, height: 960, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1280, height: 960, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1280, height: 1024, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1280, height: 1024, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1360, height: 768, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1360, height: 768, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1600, height: 900, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1600, height: 900, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1600, height: 1024, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1600, height: 1024, bytesPerPixel: 4, indexed: false,
+	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
+	{width: 1600, height: 1200, bytesPerPixel: 2, indexed: false,
+	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
+	{width: 1600, height: 1200, bytesPerPixel: 4, indexed: false,
 	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
 };
 
@@ -167,9 +203,16 @@ void FASTCALL gcard_read_8(uint32 addr, uint64 &data)
 }
 
 static bool gVBLon = false;
+static int gCurrentGraphicMode;
+
 void gcard_raise_interrupt()
 {
 	if (gVBLon) pic_raise_interrupt(IO_PIC_IRQ_GCARD);
+}
+
+void gcard_set_mode(int mode)
+{
+	gCurrentGraphicMode = mode;
 }
 
 #include "cpu_generic/ppc_cpu.h"
@@ -181,16 +224,18 @@ void gcard_osi()
 		// cmount
 //		SINGLESTEP("");
 		return;
-	case 28:
+	case 28: {
 		// set_vmode
-		if (gCPU.gpr[6] != 1 || gCPU.gpr[7] != 0) {
+		uint vmode = gCPU.gpr[6]-1;
+		if (vmode > MAX_GRAPHIC_MODES || gCPU.gpr[7]) {
 			gCPU.gpr[3] = 1;
-		} else {
-			gCPU.gpr[3] = 0;
+			return;
 		}
+		IO_GRAPHIC_TRACE("set mode %d\n", vmode);
+		gCPU.gpr[3] = gDisplay->changeResolution(gGraphicModes[vmode]) ? 0 : 1;
 		return;
-	case 29:
-		// get_vmode_info
+	}
+	case 29: {
 /*		
 typedef struct osi_get_vmode_info {
 	short		num_vmodes;
@@ -205,21 +250,27 @@ typedef struct osi_get_vmode_info {
 	short		offset;
 } osi_get_vmode_info_t;
 */
-		if (gCPU.gpr[6] != 0) {
-			if (gCPU.gpr[6] != 1 || gCPU.gpr[7] != 0) {
-				gCPU.gpr[3] = 1;
-				return;
-			}
+		// get_vmode_info
+		int vmode = gCPU.gpr[6]-1;
+		int depth_mode = gCPU.gpr[7];
+		if (vmode == -1) {
+			vmode = gCurrentGraphicMode;
+			depth_mode = gGraphicModes[vmode].bytesPerPixel*8;
+		}
+		if (vmode > MAX_GRAPHIC_MODES || vmode < 0) {
+			gCPU.gpr[3] = 1;
+			return;
 		}
 		gCPU.gpr[3] = 0;
-		gCPU.gpr[4] = (1<<16) | 1;
+		gCPU.gpr[4] = (MAX_GRAPHIC_MODES<<16) | (vmode+1);
 		gCPU.gpr[5] = (1<<16) | 0;
-		gCPU.gpr[6] = (gDisplay->mClientChar.width << 16) | gDisplay->mClientChar.height;
+		gCPU.gpr[6] = (gGraphicModes[vmode].width << 16) | gGraphicModes[vmode].height;
 		gCPU.gpr[7] = 85 << 16;
-		gCPU.gpr[8] = gDisplay->mClientChar.bytesPerPixel*8;
-		gCPU.gpr[9] = ((gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel)<<16)
+		gCPU.gpr[8] = gGraphicModes[vmode].bytesPerPixel*8;
+		gCPU.gpr[9] = ((gGraphicModes[vmode].width * gGraphicModes[vmode].bytesPerPixel)<<16)
 		              | 0;
 		return;
+	}
 	case 31:
 		// set_video_power
 		gCPU.gpr[3] = 0;

@@ -8,6 +8,8 @@ version 0.2 (in progress):
 	- implemented fsqrtx instruction
 	- implemented frsqrtex instruction
 	- IO/IDE: regs are per device, not per controller
+	- implemented runtime video mode switching via video.x
+	- got rid of indexed modes
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- HFS partition code fixes (reportedly working)
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c

@@ -532,6 +532,12 @@ void BeOSSystemDisplay::finishMenu()
 #endif
 }
 
+bool BeOSSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacteristics)
+{
+	// FIXME: implement me
+	return false;
+}
+
 void BeOSSystemDisplay::updateTitle() 
 {
 	ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseEnabled ? "disables" : "enables");

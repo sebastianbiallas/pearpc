@@ -304,6 +304,7 @@ int main(int argc, char *argv[])
 		 *	its config files.)
 		 */
 		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gGraphicModes[gm]);
+		gcard_set_mode(gm);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);
 		// FIXME: ..

@@ -334,6 +334,12 @@ public:
 		}
 	}
 	
+	bool changeResolution(const DisplayCharacteristics &aCharacteristics)
+	{
+		// FIXME: implement me
+		return false;
+	}
+
 	void updateTitle() 
 	{
 		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseEnabled ? "disables" : "enables");

@@ -15,13 +15,14 @@ EXTRA_SUBDIRS   = cpu_generic cpu_jitc_x86
 
 INCLUDES	=
 
-ppc_LDADD	= @CPU_DIR@/libcpu.a system/libsystem.a \
+ppc_LDADD	= @CPU_DIR@/libcpu.a io/graphic/libgraphic.a system/libsystem.a \
 io/ide/libide.a system/gui/@GUI_DIR@/libgui.a \
-debug/libdebug.a io/libio.a io/graphic/libgraphic.a io/prom/libprom.a \
+debug/libdebug.a io/libio.a io/prom/libprom.a \
 io/prom/fs/libfs.a io/prom/fs/hfs/libhfs.a io/prom/fs/hfsplus/libhfsplus.a \
 io/pic/libpic.a io/pci/libpci.a io/macio/libmacio.a io/nvram/libnvram.a \
 io/cuda/libcuda.a io/3c90x/lib3c90x.a io/rtl8139/librtl8139.a io/usb/libusb.a \
-tools/libtools.a system/@SYSTEM_DIR@/libssystem.a @PPC_LDADD@
+tools/libtools.a system/@SYSTEM_DIR@/libssystem.a \
+@PPC_LDADD@
 
 ppc_LDFLAGS	= @PPC_LDFLAGS@
 

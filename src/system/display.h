@@ -188,7 +188,8 @@ public:
 	SystemDisplay(const DisplayCharacteristics &aCharacteristics);
 	virtual ~SystemDisplay();
 
-	virtual	void displayShow() = 0;
+	virtual void displayShow() = 0;
+	virtual bool changeResolution(const DisplayCharacteristics &aCharacteristics) = 0;
 
 	/* VT */
 	bool	openVT(int width, int height, int dx, int dy, File &font);
