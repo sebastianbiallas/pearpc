@@ -1371,7 +1371,7 @@ void prom_init_device_tree()
 	/*
 	 *	Eth0
 	 */
-#if 1
+#if 0
 	PromNode *eth0 = new PromNode("pci10b7,9200@4");
 	bridge->addNode(eth0);
 	bridge->addNodeShort("pci10b7,9200", "pci10b7,9200@4");
