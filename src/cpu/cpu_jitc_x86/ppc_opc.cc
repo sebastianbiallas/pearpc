@@ -595,6 +595,7 @@ JITCFlow ppc_opc_gen_icbi()
 	} else {
 		asmMOVRegDMem(EAX, (uint32)&gCPU.gpr[rB]);
 	}
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_opc_icbi_asm);
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);

@@ -1509,6 +1509,7 @@ align 16
 ;;
 ;;	IN	eax: effective address
 ppc_opc_icbi_asm:
+	mov	[gCPU+pc_ofs], esi
 	push	4			; roll back 4 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	cmp	eax, [gMemorySize]
