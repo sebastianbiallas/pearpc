@@ -49,7 +49,7 @@
 #if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
 #else
 
-#define MAX_PACKET_SIZE		5500
+#define MAX_PACKET_SIZE		16384
 
 enum Command {
 	CmdTotalReset = 0<<11,
