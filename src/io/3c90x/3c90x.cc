@@ -1465,6 +1465,19 @@ void rxUPD(UPD *upd)
 		memset(mRxPacket+mRxPacketSize, 0, (60-mRxPacketSize));
 		mRxPacketSize = 60;
 	}
+
+	// append crc
+	uint32 crc = ether_crc(mRxPacketSize, mRxPacket);
+	mRxPacket[mRxPacketSize+0] = crc;
+	mRxPacket[mRxPacketSize+1] = crc>>8;
+	mRxPacket[mRxPacketSize+2] = crc>>16;
+	mRxPacket[mRxPacketSize+3] = crc>>24;
+	mRxPacketSize += 4;
+	// IO_3C90X_TRACE("packet has crc: %08x\n", crc);
+
+	// IO_3C90X_TRACE("rx(%d):\n", mRxPacketSize);
+	// dumpMem((unsigned char*)mRxPacket, mRxPacketSize);
+
 /*	RegWindow5 &w5 = (RegWindow5&)mWindows[5];
 	if ((mRxPacketSize < 60) && (w5.RxEarlyThresh >= 60)) {
 		IO_3C90X_TRACE("runt frame\n");
@@ -1508,24 +1521,24 @@ void rxUPD(UPD *upd)
 		frags++;
 		i++;
 	}
-	// append crc
-	uint32 crc = ether_crc(mRxPacketSize, mRxPacket);
-	mRxPacket[mRxPacketSize+0] = crc;
-	mRxPacket[mRxPacketSize+1] = crc>>8;
-	mRxPacket[mRxPacketSize+2] = crc>>16;
-	mRxPacket[mRxPacketSize+3] = crc>>24;
-	mRxPacketSize += 4;
-	IO_3C90X_TRACE("packet has crc: %08x\n", crc);
-	//
-//	IO_3C90X_TRACE("rx(%d):\n", mRxPacketSize);
-//	dumpMem(mRxPacket, mRxPacketSize);
-	//
+
 	if (!error) {
 		IO_3C90X_TRACE("successfully uploaded packet of %d bytes\n", mRxPacketSize);
 	}
 	upPktStatus |= mRxPacketSize & 0x1fff;
 	upPktStatus |= UPS_upComplete;
 	upd->UpPktStatus = upPktStatus;
+
+	/* the client OS is waiting for a change in status, but won't see it */
+	/* until we dma our local copy upd->UpPktStatus back to the client address space */
+	if (!ppc_dma_write(mRegisters.UpListPtr+4, &upd->UpPktStatus, sizeof(upd->UpPktStatus))) {
+	  upPktStatus |= UPS_upError;
+	  upd->UpPktStatus = upPktStatus; /* can't get this error out, anyways */
+	  IO_3C90X_WARN("invalid UPD UpListPtr address! (%08x)\n",mRegisters.UpListPtr+4);
+	  SINGLESTEP("");
+	  error = true;
+	}
+
 	mRegisters.UpListPtr = upd->UpNextPtr;
 
 	// indications
