@@ -250,6 +250,7 @@ JitcFloatReg	FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterDirty(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterDup(JitcFloatReg r, JitcFloatReg hint=JITC_FLOAT_REG_NONE);
 void		FASTCALL jitcFloatRegisterClobberAll();
+void		FASTCALL jitcFloatRegisterStoreAndPopTOP(JitcFloatReg r);
 
 void		FASTCALL jitcClobberClientRegisterForFloat(int creg);
 void		FASTCALL jitcInvalidateClientRegisterForFloat(int creg);
@@ -329,6 +330,7 @@ void FASTCALL asmFSTSingleMem(byte *modrm, int len);
 void FASTCALL asmFSTPSingleMem(byte *modrm, int len);
 void FASTCALL asmFSTDoubleMem(byte *modrm, int len);
 void FASTCALL asmFSTPDoubleMem(byte *modrm, int len);
+void FASTCALL asmFSTDPSTi(NativeFloatReg sti);
 
 void FASTCALL asmFLDCWMem(byte *modrm, int len);
 void FASTCALL asmFSTCWMem(byte *modrm, int len);

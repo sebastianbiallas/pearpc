@@ -339,7 +339,10 @@ NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32
 
 	gJITC.pc = ofs;
         jitcInvalidateAll();
-
+	gJITC.checkedPriviledge = false;
+	gJITC.checkedFloat = false;
+	gJITC.checkedVector = false;
+	
 	// now we've setup gJITC and can start the real compilation
 
 	while (1) {
@@ -350,6 +353,9 @@ NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32
 			/* nothing to do */
 		} else if (flow == flowEndBlock) {
 			jitcClobberAll();
+			gJITC.checkedPriviledge = false;
+			gJITC.checkedFloat = false;
+			gJITC.checkedVector = false;
 			if (ofs+4 < 4096) {
 				jitcCreateEntrypoint(cp, ofs+4);
 			}
@@ -489,6 +495,13 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 	nr->moreRU = NULL;
 	gJITC.MRUreg = nr;
 
+	for (int i=1; i<9; i++) {
+		gJITC.floatRegPerm[i] = i;
+	}
+	for (int i=1; i<9; i++) {
+		gJITC.floatRegPermInverse[i] = i;
+	}
+	
 	/*
 	 *	Note that REG_NO=-1 and PPC_REG_NO=0 so this works 
 	 *	by accident.

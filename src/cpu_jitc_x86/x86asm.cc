@@ -25,6 +25,7 @@
 #include "tools/snprintf.h"
 #include "jitc.h"
 #include "jitc_asm.h"
+#include "jitc_debug.h"
 #include "x86asm.h"
 
 void x86GetCaps(X86CPUCaps &caps)
@@ -471,6 +472,7 @@ void FASTCALL jitcClobberAll()
 {
 	jitcClobberCarryAndFlags();
 	jitcClobberRegister();
+	jitcFloatRegisterClobberAll();
 }
 
 /*
@@ -626,6 +628,7 @@ void FASTCALL jitcFlushCarryAndFlagsDirty()
  */
 NativeFloatReg FASTCALL jitcFloatRegisterToNative(JitcFloatReg r)
 {
+	ht_printf("float to native %d -> %d\n", r, X86_FLOAT_ST(gJITC.nativeFloatTOP-gJITC.floatRegPerm[r]));
 	return X86_FLOAT_ST(gJITC.nativeFloatTOP-gJITC.floatRegPerm[r]);
 }
 
@@ -635,6 +638,7 @@ NativeFloatReg FASTCALL jitcFloatRegisterToNative(JitcFloatReg r)
  */
 JitcFloatReg FASTCALL jitcFloatRegisterFromNative(NativeFloatReg r)
 {
+	ht_printf("float from native %d -> %d\n", r, gJITC.floatRegPermInverse[gJITC.nativeFloatTOP-r]);
 	ASSERT(gJITC.nativeFloatTOP > r);
 	return gJITC.floatRegPermInverse[gJITC.nativeFloatTOP-r];
 }
@@ -654,20 +658,48 @@ bool FASTCALL jitcFloatRegisterIsTOP(JitcFloatReg r)
  */
 JitcFloatReg FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r)
 {
+	ht_printf("xchg to front %d\n", r);
 	ASSERT(r != JITC_FLOAT_REG_NONE);
 	if (jitcFloatRegisterIsTOP(r)) return r;
 	
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.floatRegPerm[i]);
+			}
+			ht_printf("\n");
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.floatRegPermInverse[i]);
+			}
+			ht_printf("\n");
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.nativeFloatRegStack[i]);
+			}
+			ht_printf("\n");
+			
+	asmFXCHSTi(jitcFloatRegisterToNative(r));
 	JitcFloatReg s = jitcFloatRegisterFromNative(Float_ST0);
-	// set floatRegPerm := (s r) * floatRegPerm
+	ht_printf("%d %d\n", s, r);
+	// set floatRegPerm := floatRegPerm * (s r)
 	int tmp = gJITC.floatRegPerm[r];
 	gJITC.floatRegPerm[r] = gJITC.floatRegPerm[s];
 	gJITC.floatRegPerm[s] = tmp;
 	
-	// set floatRegPermInverse := floatRegPermInverse * (s r)
+	// set floatRegPermInverse := (s r) * floatRegPermInverse
 	tmp = gJITC.floatRegPermInverse[gJITC.floatRegPerm[r]];
 	gJITC.floatRegPermInverse[gJITC.floatRegPerm[r]] = gJITC.floatRegPermInverse[gJITC.floatRegPerm[s]];
 	gJITC.floatRegPermInverse[gJITC.floatRegPerm[s]] = tmp;
 
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.floatRegPerm[i]);
+			}
+			ht_printf("\n");
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.floatRegPermInverse[i]);
+			}
+			ht_printf("\n");
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.nativeFloatRegStack[i]);
+			}
+			ht_printf("\n");
 	return r;
 }
 
@@ -676,6 +708,7 @@ JitcFloatReg FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r)
  */
 JitcFloatReg FASTCALL jitcFloatRegisterDirty(JitcFloatReg r)
 {
+	ht_printf("dirty %d\n", r);
 	gJITC.nativeFloatRegState[r] = rsDirty;
 	return r;
 }
@@ -683,27 +716,20 @@ JitcFloatReg FASTCALL jitcFloatRegisterDirty(JitcFloatReg r)
 static void FASTCALL jitcPopFloatStack(JitcFloatReg hint1, JitcFloatReg hint2)
 {
 	ASSERT(gJITC.nativeFloatTOP > 0);
-	int i=0;
-	int h1 = -1, h2 = -1;
-	if (hint1 != JITC_FLOAT_REG_NONE) {
-		h1 = jitcFloatRegisterToNative(hint1);
+	
+	jitcDebugLogAdd("klopok!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	
+	JitcFloatReg r;
+	for (int i=0; i<4; i++) {
+		r = jitcFloatRegisterFromNative(X86_FLOAT_ST(gJITC.nativeFloatTOP-i-1));
+		if (r != hint1 && r != hint2) break;
 	}
-	if (hint2 != JITC_FLOAT_REG_NONE) {
-		h2 = jitcFloatRegisterToNative(hint2);
-	}
-
-	if (h1 == gJITC.nativeFloatRegStack[0] 
-	 || h2 == gJITC.nativeFloatRegStack[0]) i++;
-
-	if ((gJITC.nativeFloatTOP > 1)
-	 && (h1 == gJITC.nativeFloatRegStack[1] 
-	  || h2 == gJITC.nativeFloatRegStack[1])) i++;
-
-	// we can now free gJITC.nativeFloatStack[i]
-	int creg = gJITC.nativeFloatRegStack[i];
-	JitcFloatReg r = jitcGetClientFloatRegisterMapping(creg);
+	
+	// we can now free r
+	int creg = gJITC.nativeFloatRegStack[r];
+	ht_printf("pop %d creg: %d\n", r, creg);
 	jitcFloatRegisterXCHGToFront(r);
-	if (gJITC.nativeFloatRegState[i] == rsDirty) {
+	if (gJITC.nativeFloatRegState[r] == rsDirty) {
 		byte modrm[6];
 		asmFSTPDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
 	} else {
@@ -717,11 +743,10 @@ static JitcFloatReg FASTCALL jitcPushFloatStack(int creg)
 {
 	ASSERT(gJITC.nativeFloatTOP < 8);
 	gJITC.nativeFloatTOP++;
-	int r = gJITC.nativeFloatTOP;
+	int r = gJITC.floatRegPermInverse[gJITC.nativeFloatTOP];
 	byte modrm[6];
 	asmFLDDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
-	gJITC.floatRegPerm[r] = r;
-	gJITC.floatRegPermInverse[r] = r;
+	ht_printf("push %d -> %d\n", creg, r);
 	return r;
 }
 
@@ -731,15 +756,16 @@ static JitcFloatReg FASTCALL jitcPushFloatStack(int creg)
  */
 JitcFloatReg FASTCALL jitcFloatRegisterDup(JitcFloatReg freg, JitcFloatReg hint)
 {
+	ht_printf("dup %d\n", freg);
 	if (gJITC.nativeFloatTOP == 8) {
 		// stack is full
 		jitcPopFloatStack(freg, hint);
 	}
 	asmFLDSTi(jitcFloatRegisterToNative(freg));
 	gJITC.nativeFloatTOP++;
-	int r = gJITC.nativeFloatTOP;
-	gJITC.floatRegPerm[r] = r;
-	gJITC.floatRegPermInverse[r] = r;
+	int r = gJITC.floatRegPermInverse[gJITC.nativeFloatTOP];
+/*	gJITC.floatRegPerm[gJITC.nativeFloatTOP] = r;
+	gJITC.floatRegPermInverse[gJITC.nativeFloatTOP] = r;*/
 	gJITC.nativeFloatRegState[r] = rsUnused; // not really mapped
 	return r;
 }
@@ -748,25 +774,55 @@ void FASTCALL jitcFloatRegisterClobberAll()
 {
 	if (!gJITC.nativeFloatTOP) return;
 	
+	ht_printf("clobber %d\n", gJITC.nativeFloatTOP);
 	do  {
 		JitcFloatReg r = jitcFloatRegisterFromNative(Float_ST0);
+		int creg = gJITC.nativeFloatRegStack[r];
 		switch (gJITC.nativeFloatRegState[r]) {
+		case rsMapped:
 		case rsDirty: {
 			byte modrm[6];
-			int creg = gJITC.nativeFloatRegStack[r];
 			asmFSTPDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
+			gJITC.clientFloatReg[creg] = JITC_FLOAT_REG_NONE;
 			break;
 		}
-		case rsMapped:
+/*		case rsMapped:
 			asmFFREEPSTi(Float_ST0);
-			break;
+			gJITC.clientFloatReg[creg] = JITC_FLOAT_REG_NONE;
+			break;*/
 		case rsUnused: {ASSERT(0);}
 		}
-	} while (gJITC.nativeFloatTOP--);
+	} while (--gJITC.nativeFloatTOP);
+	
+	for (int i=0; i<32; i++) {
+		if (gJITC.clientFloatReg[i]) {
+			ht_printf("creg: %d \n", gJITC.clientFloatReg[i]);
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.floatRegPerm[i]);
+			}
+			ht_printf("\n");
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.floatRegPermInverse[i]);
+			}
+			ht_printf("\n");
+			for (int i=1; i<9; i++) {
+				ht_printf("%d ", gJITC.nativeFloatRegStack[i]);
+			}
+			ht_printf("\n");
+			ASSERT(0);
+		}
+	}
+}
+
+void FASTCALL jitcFloatRegisterStoreAndPopTOP(JitcFloatReg r)
+{
+	asmFSTDPSTi(jitcFloatRegisterToNative(r));
+	gJITC.nativeFloatTOP--;
 }
 
 void FASTCALL jitcClobberClientRegisterForFloat(int creg)
 {
+	ht_printf("clober for float %d\n", creg);
 	NativeReg r = jitcGetClientRegisterMapping(PPC_FPR_U(creg));
 	if (r != REG_NO) jitcClobberRegister(r | NATIVE_REG);
 	r = jitcGetClientRegisterMapping(PPC_FPR_L(creg));
@@ -805,9 +861,11 @@ JitcFloatReg FASTCALL jitcGetClientFloatRegister(int creg, int hint1, int hint2)
 			jitcPopFloatStack(hint1, hint2);
 		}
 		r = jitcPushFloatStack(creg);
+		gJITC.clientFloatReg[creg] = r;
 		gJITC.nativeFloatRegStack[r] = creg;
 		gJITC.nativeFloatRegState[r] = rsMapped;
 	}
+	ht_printf("get client float reg: %d -> %d\n", creg, r);
 	return r;
 }
 
@@ -816,6 +874,7 @@ JitcFloatReg FASTCALL jitcMapClientFloatRegisterDirty(int creg, JitcFloatReg fre
 	if (freg == JITC_FLOAT_REG_NONE) {
 		freg = jitcFloatRegisterFromNative(Float_ST0);
 	}
+	gJITC.clientFloatReg[creg] = freg;
 	gJITC.nativeFloatRegStack[freg] = creg;
 	gJITC.nativeFloatRegState[freg] = rsDirty;
 	return freg;
@@ -1625,6 +1684,12 @@ void FASTCALL asmFSTPDoubleMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= 3<<3;
 	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFSTDPSTi(NativeFloatReg sti)
+{
+	byte instr[2] = {0xdd, 0xd8+sti};
+	jitcEmit(instr, sizeof instr);
 }
 
 void FASTCALL asmFLDCWMem(byte *modrm, int len)

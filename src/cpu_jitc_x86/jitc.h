@@ -152,7 +152,7 @@ struct JITC {
 	 *	register this client register corrensponds.
 	 *	Indexed by type PPC_Register
 	 */
-	NativeReg clientReg[800];
+	NativeReg clientReg[sizeof gCPU];
 	
 	/*
 	 *	If clientFloatReg[i] is set fpr[i] is mapped to the native
@@ -167,6 +167,13 @@ struct JITC {
 	JitcFloatReg floatRegPerm[9];
 	JitcFloatReg floatRegPermInverse[9];
 
+	/*
+	 *	Do this only once per basic block
+	 */
+	bool checkedPriviledge;
+	bool checkedFloat;
+	bool checkedVector; 
+	 
 	/*
 	 *	Only used for the LRU list
 	 */
