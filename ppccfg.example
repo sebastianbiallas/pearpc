@@ -9,9 +9,9 @@
 #	3: 800x600x8 (indexed)
 #	4: 800x600x15
 #	5: 800x600x32
-#	6: 1024x800x8 (indexed)
-#	7: 1024x800x15
-#	8: 1024x800x32
+#	6: 1024x768x8 (indexed)
+#	7: 1024x768x15
+#	8: 1024x768x32
 #
 #	The indexed modes are unsupported.
 #	

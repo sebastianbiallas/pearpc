@@ -1,16 +1,4 @@
-release plan:
-
-    - homepage finish
-    - homepage upload
-    - build:
-	make dist dist2
-	./configure --enable-cpu=jitc_x86 --enable-gui=win32    
-	make clean && make
-	mv ./ppc.exe ./ppc-win32-generic-cpu.exe
-	./configure --enable-gui=win32    
-	make clean && make
-	mv ./ppc.exe ./ppc-win32-jitc.exe
-==============================
+- network: "scripts" directory configurable
 - intercept focus change and send key-release events
 - jitc config
 - 2.6 kernel console?

@@ -43,11 +43,11 @@ DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES] = {
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
 	{width: 800, height: 600, bytesPerPixel: 4, indexed: false, 
 	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1024, height: 800, bytesPerPixel: 1, indexed: true,
+	{width: 1024, height: 768, bytesPerPixel: 1, indexed: true,
 	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},
-	{width: 1024, height: 800, bytesPerPixel: 2, indexed: false, 
+	{width: 1024, height: 768, bytesPerPixel: 2, indexed: false, 
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1024, height: 800, bytesPerPixel: 4, indexed: false, 
+	{width: 1024, height: 768, bytesPerPixel: 4, indexed: false, 
 	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
 };
 
