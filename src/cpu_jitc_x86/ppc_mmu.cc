@@ -345,6 +345,11 @@ bool FASTCALL ppc_mmu_set_sdr1(uint32 newval, bool quiesce)
 	gCPU.pagetable_base = htaborg<<16;
 	gCPU.sdr1 = newval;
 	gCPU.pagetable_hashmask = ((xx<<10)|0x3ff);
+	uint a = (0xffffffff & gCPU.pagetable_hashmask) | gCPU.pagetable_base;
+	if (a > gMemorySize) {
+		PPC_MMU_TRACE("new pagetable: not in memory (%08x)\n", a);
+		return false;
+	}	
 	PPC_MMU_TRACE("new pagetable: sdr1 accepted\n");
 	PPC_MMU_TRACE("number of pages: 2^%d pagetable_start: 0x%08x size: 2^%d\n", n+13, gCPU.pagetable_base, n+16);
 	if (quiesce) {

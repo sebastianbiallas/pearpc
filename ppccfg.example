@@ -74,6 +74,13 @@ prom_driver_graphic = "video.x"
 #
 #cpu_pvr = 0x00088302
 
+
+#
+# Main memory (default 128 MiB)
+# must be >= 64 MiB
+#
+#memory_size=0x8000000
+
 #
 # IO Devices
 #

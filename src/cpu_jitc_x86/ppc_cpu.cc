@@ -41,8 +41,12 @@ uint64 gJITCCompileTicks;
 uint64 gJITCRunTicks;
 uint64 gJITCRunTicksStart;
 
+void ppc_fpu_test();
+
 void ppc_run()
 {
+//	ppc_fpu_test();
+//	return;
 	gJITCRunTicks = 0;
 	gJITCCompileTicks = 0;
 	gJITCRunTicksStart = jitcDebugGetTicks();

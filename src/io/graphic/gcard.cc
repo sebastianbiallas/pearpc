@@ -107,36 +107,36 @@ bool PCI_GCard::writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 void FASTCALL gcard_write_1(uint32 addr, uint32 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	if (addr >= 800*600*4) {
+/*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
-	}
+	}*/
 	*(uint8*)(framebuffer+addr) = data;
 }
  
 void FASTCALL gcard_write_2(uint32 addr, uint32 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	if (addr >= 800*600*4) {
+/*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
-	}
+	}*/
 	*(uint16*)(framebuffer+addr) = MAYBE_PPC_HALF_TO_BE(data);
 }
  
 void FASTCALL gcard_write_4(uint32 addr, uint32 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	if (addr >= 800*600*4) {
+/*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
-	}
+	}*/
 	*(uint32*)(framebuffer+addr) = MAYBE_PPC_WORD_TO_BE(data);
 }
  
 void FASTCALL gcard_write_8(uint32 addr, uint64 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	if (addr >= 800*600*4) {
+/*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
-	}
+	}*/
 	*(uint64*)(framebuffer+addr) = MAYBE_PPC_DWORD_TO_BE(data);
 }
  

@@ -148,8 +148,6 @@ global ppc_opc_icbi_asm
 ;
 err_cannot_read_page_table: db 'cannot read page-table.',0
 
-%define MEM_SIZE 128*1024*1024
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ppc_mmu_tlb_invalidate_all_asm:
@@ -163,9 +161,7 @@ ppc_mmu_tlb_invalidate_all_asm:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;		read_physical_word_pg
 %macro read_physical_word_pg 2
-	cmp	%1, MEM_SIZE
 	mov	%2, [gMemory]
-	jae	broken_page_table
 	mov	%2, [%2+%1]
 	bswap	%2
 %endmacro

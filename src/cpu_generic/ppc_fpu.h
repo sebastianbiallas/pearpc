@@ -168,6 +168,7 @@ inline uint32 ppc_fpu_round(ppc_double &d)
 	// .132
 	switch (FPSCR_RN(gCPU.fpscr)) {
 	case FPSCR_RN_NEAR:
+		// .751
 		if (d.m & 0x7) {
 			if ((d.m & 0x7) != 4) {
 				d.m += 4;

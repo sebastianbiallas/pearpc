@@ -452,6 +452,7 @@ void prom_service_interpret(prom_args *pa)
 		pa->args[2] = mm->getPHandle();
 		break;
 	}
+	case 593: 
 	case 648: 
 		// InitDisplay
 		pa->args[4] = 0;
@@ -459,10 +460,14 @@ void prom_service_interpret(prom_args *pa)
 //		gSinglestep = true;
 		break;
 	case 1644:
-	case 1972: // older BootX
 		// Init SLW
 		pa->args[1] = 0;
 		pa->args[2] = 0xdeadbee2;
+		break;
+	case 1972: // older BootX
+		pa->args[1] = 0;
+		pa->args[2] = 0;
+		pa->args[3] = 0xdeadbee2;
 		break;
 	case 47:
 	case 11:

@@ -987,7 +987,6 @@ JITCFlow ppc_opc_gen_creqv()
 	if (crA == crB) {
 		asmORDMemImm((uint32)&gCPU.cr, 1<<(31-crD));
 	} else {
-		PPC_ALU_WARN("creqv untested!\n");
 		// crD = crA ? (crB ? 1 : 0) : (crB ? 0 : 1) 
 		asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crA));
 		NativeAddress nocrA = asmJxxFixup(X86_Z);
