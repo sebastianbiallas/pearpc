@@ -201,7 +201,7 @@ PCI_USB()
 	mConfig[0x3f] = 0x03;
 	
 	rootport_count = 1;
-//	reset();
+	reset();
 }
 
 void	reset()

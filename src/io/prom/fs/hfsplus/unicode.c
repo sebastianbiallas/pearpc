@@ -15,9 +15,14 @@
  
 #include <stdlib.h>
 
+#ifndef WIN32
 #define __USE_GNU
     /* need wcsrtomb */
 #include <wchar.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #include "libhfsp.h"
 
@@ -30,6 +35,7 @@
 
 int unicode_asc2uni(hfsp_unistr255 *ustr, const char* astr)
 {
+#ifndef WIN32
     mbstate_t	    mbstate	= { 0 };    /* Multibyte state */
     UInt16*	    name	= ustr->name;
     int		    total	= 0;
@@ -47,6 +53,9 @@ int unicode_asc2uni(hfsp_unistr255 *ustr, const char* astr)
 	*name ++= wc;
     }
     return ustr->strlen = total;
+#else
+    return ustr->strlen = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, astr, -1, ustr, 254);
+#endif
 }
 
 /* Convert an unicode string ustr to a ascii string astr of given maximum len.
@@ -57,6 +66,7 @@ int unicode_asc2uni(hfsp_unistr255 *ustr, const char* astr)
 
 int unicode_uni2asc(char *astr, const hfsp_unistr255 *ustr, int maxlen)
 {
+#ifndef WIN32
     mbstate_t	    mbstate	= { 0 };    /* Multibyte state */
     int		    strlen	= ustr->strlen;
     const UInt16*   name	= ustr->name;
@@ -81,6 +91,11 @@ int unicode_uni2asc(char *astr, const hfsp_unistr255 *ustr, int maxlen)
     *astr ='\0';
 
     return total;
+#else
+    int total = WideCharToMultiByte(CP_ACP, WC_SEPCHARS, ustr, ustr->strlen, astr, maxlen-1, NULL, NULL);
+    *(astr+total) = '\0';
+    return total;
+#endif
 }
 
 /* The following code is almost as published by Apple, only

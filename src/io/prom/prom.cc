@@ -98,7 +98,7 @@ void prom_init_config()
 	gConfig->acceptConfigEntryStringDef(PROM_KEY_ENV_BOOTARGS, "");
 	gConfig->acceptConfigEntryStringDef(PROM_KEY_ENV_MACHARGS, "");
 	gConfig->acceptConfigEntryString(PROM_KEY_ENV_LOADFILE, false);
-	gConfig->acceptConfigEntryString(PROM_KEY_DRIVER_GRAPHIC, "");
+	gConfig->acceptConfigEntryStringDef(PROM_KEY_DRIVER_GRAPHIC, "");
 }
 
 void prom_quiesce()

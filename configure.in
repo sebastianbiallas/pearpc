@@ -68,7 +68,7 @@ cygwin*)
 	SYSTEM_DIR=win32
 	echo "*** CYGWIN, building native Win32 version (no cygwin.dll)" 1>&2
 	FLAGS_ALL="$FLAGS_ALL -mno-cygwin"
-        PPC_LDFLAGS="-lgdi32 -lcomdlg32 -lmsvcp60"
+        PPC_LDFLAGS="-lgdi32 -lcomdlg32"
 	NEED_PTHREAD=0
 	NASM_OPTS="--prefix _ -f gnuwin32"
 ;;

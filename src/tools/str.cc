@@ -489,7 +489,7 @@ int String::replace(const String &what, const String &with, int start, int maxRe
 			maxReplacements--;
 			if (!maxReplacements) break;
 		}
-		p = findFirstString(what, p+1);
+		p = findFirstString(what, p+withlen);
 	}
 	return numRepl;
 }

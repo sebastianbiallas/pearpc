@@ -1444,7 +1444,7 @@ void ppc_opc_mullwx()
 }
 JITCFlow ppc_opc_gen_mullwx()
 {
-/*	int rD, rA, rB;
+	int rD, rA, rB;
 	PPC_OPC_TEMPL_XO(gJITC.current_opc, rD, rA, rB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		jitcClobberCarry();
@@ -1471,9 +1471,9 @@ JITCFlow ppc_opc_gen_mullwx()
 		asmALURegReg(X86_OR, d, d);
 		jitcMapFlagsDirty();
 	}
-	return flowContinue;*/
-	ppc_opc_gen_interpret(ppc_opc_mullwx);
-	return flowEndBlock;
+	return flowContinue;
+/*	ppc_opc_gen_interpret(ppc_opc_mullwx);
+	return flowEndBlock;*/
 }
 
 /*
@@ -1963,7 +1963,7 @@ void ppc_opc_slwx()
 }
 JITCFlow ppc_opc_gen_slwx()
 {
-/*	int rS, rA, rB;
+	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		jitcClobberCarry();
@@ -1992,17 +1992,17 @@ JITCFlow ppc_opc_gen_slwx()
 		jitcMapClientRegisterDirty(PPC_GPR(rA), NATIVE_REG | a);
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
-		*
+		/*
 		 *	Welcome to the wonderful world of braindead 
 		 *	processor design.
 		 *	(shl x, cl doesn't update the flags in case of cl==0)
-		 *
+		 */
 		asmALURegReg(X86_OR, a, a);
 		jitcMapFlagsDirty();
 	}
-	return flowContinue;*/
-	ppc_opc_gen_interpret(ppc_opc_slwx);
-	return flowEndBlock;
+	return flowContinue;
+/*	ppc_opc_gen_interpret(ppc_opc_slwx);
+	return flowEndBlock;*/
 }
 /*
  *	srawx		Shift Right Algebraic Word
@@ -2097,7 +2097,7 @@ void ppc_opc_srwx()
 }
 JITCFlow ppc_opc_gen_srwx()
 {
-/*	int rS, rA, rB;
+	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		jitcClobberCarry();
@@ -2126,17 +2126,17 @@ JITCFlow ppc_opc_gen_srwx()
 		jitcMapClientRegisterDirty(PPC_GPR(rA), NATIVE_REG | a);
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
-		*
+		/*
 		 *	Welcome to the wonderful world of braindead 
 		 *	processor design.
 		 *	(shr x, cl doesn't update the flags in case of cl==0)
-		 *
+		 */
 		asmALURegReg(X86_OR, a, a);
 		jitcMapFlagsDirty();
 	}
-	return flowContinue;*/
-	ppc_opc_gen_interpret(ppc_opc_srwx);
-	return flowEndBlock;
+	return flowContinue;
+/*	ppc_opc_gen_interpret(ppc_opc_srwx);
+	return flowEndBlock;*/
 }
 
 /*
