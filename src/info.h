@@ -22,7 +22,7 @@
 #define __INFO_H__
 
 #define APPNAME "PearPC"
-#define APPVERSION "0.2pre"
+#define APPVERSION "0.3pre"
 #define EMULATOR_MODEL "PowerPC ("APPNAME" "APPVERSION")"
 #define COPYRIGHT "(c) 2003, 2004 Sebastian Biallas <sb@biallas.net>"
 
