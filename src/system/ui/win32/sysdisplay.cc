@@ -180,6 +180,7 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 			* mClientChar.height * mClientChar.bytesPerPixel);
 		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
+		createBitmap();
 		damageFrameBufferAll();
 		mFullscreenChanged = true;
 		LeaveCriticalSection(&gDrawCS);
