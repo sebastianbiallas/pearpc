@@ -1471,12 +1471,12 @@ void rxUPD(UPD *upd)
 	// FIXME: threading to care about (mRegisters.DmaCtrl & DC_upAltSeqDisable)
 	IO_3C90X_TRACE("rxUPD()\n");
 
-/*	if (upd->UpPktStatus & UPS_upComplete) {
-		IO_3C90X_TRACE("UPD already upComplete! stalling.\n");
+	if (upd->UpPktStatus & UPS_upComplete) {
+		IO_3C90X_WARN("UPD already upComplete!\n");
 		// it's already been used, stall...
-		mUpStalled = true;
-		return;
-	}*/
+/*		mUpStalled = true;
+		return;*/
+	}
 
 	bool error = false;
 	if (mRegisters.UpPoll) {
@@ -1518,6 +1518,7 @@ void rxUPD(UPD *upd)
 	while (!error && (i<63)) {	// (up to 63 fragments)
 		uint32 addr = frags->UpFragAddr;
 		uint len = frags->UpFragLen & 0x1fff;
+		IO_3C90X_TRACE("frag %d: %08x, len %04x (full: %08x)\n", i, addr, len, frags->UpFragLen);
 		if (p-mRxPacket+len > sizeof mRxPacket) {
 	    		upPktStatus |= UPS_upError | UPS_upOverflow;
 			upd->UpPktStatus = upPktStatus;
@@ -1528,8 +1529,6 @@ void rxUPD(UPD *upd)
 		}
 
 		byte *frag;
-		// HACK: remove it!!!
-//		addr = createHostInt(&addr, 4, big_endian);
 		if (ppc_direct_physical_memory_handle(addr, frag) != PPC_MMU_OK) {
 			upPktStatus |= UPS_upError;
 			upd->UpPktStatus = upPktStatus;
@@ -1564,8 +1563,6 @@ void rxUPD(UPD *upd)
 	upPktStatus |= UPS_upComplete;
 	upd->UpPktStatus = upPktStatus;
 	mRegisters.UpListPtr = upd->UpNextPtr;
-	// HACK: remove it!!!
-//	mRegisters.UpListPtr = createHostInt(&mRegisters.UpListPtr, 4, big_endian);
 
 	// indications
 	mRegisters.DmaCtrl |= DC_upComplete;
