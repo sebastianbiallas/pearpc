@@ -45,17 +45,12 @@
 #include "configparser.h"
 
 #include "system/gif.h"
-#include "system/gui/gui.h"
+#include "system/ui/gui.h"
 
 #include "ppc_font.h"
 #include "ppc_img.h"
 #include "ppc_button_changecd.h"
 
-
-/*
- *
- */
- 
 void changeCDFunc(void *p)
 {
 	int *i = (int *)p;
@@ -271,21 +266,21 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		int msec = gConfig->getConfigInt("redraw_interval_msec");
-		if (msec < 1 || msec > 999) {
-			ht_printf("%s: 'redraw_interval_msec' must be between 1 and 999.", argv[1]);
+		if (msec < 10 || msec > 500) {
+			ht_printf("%s: 'redraw_interval_msec' must be between 10 and 500 (inclusive).", argv[1]);
 			exit(1);
 		}
-		
+
 		int gm = gConfig->getConfigInt("ppc_start_resolution");
 		if (gm >= MAX_GRAPHIC_MODES) {
 			ht_printf("%s: invalid '%s'\n", argv[1], "ppc_start_resolution");
 			exit(1);
-		}
-		
+		}				
+
 		/*
 		 *	begin hardware init
 		 */
-		
+
 		if (!ppc_init_physical_memory(gConfig->getConfigInt("memory_size"))) {
 			ht_printf("cannot initialize memory.\n");
 			exit(1);
@@ -324,6 +319,8 @@ int main(int argc, char *argv[])
 
 		initMenu();
 		drawLogo();
+		damageFrameBufferAll();
+		gDisplay->displayShow();
 		
 		// now gDisplay->printf works
 		gDisplay->printf("CPU: PVR=%08x\n", gCPU.pvr);
