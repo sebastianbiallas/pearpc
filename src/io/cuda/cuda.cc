@@ -877,15 +877,20 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 	ht_printf("process  %d\n", ev.key.pressed);
 	while (sys_get_hiresclk_ticks() < time_end) {
 		sys_lock_mutex(gCUDAMutex);
+		static int lockuphack = 0;
 		if (gCUDA.state == cuda_idle) {
 			if (!gCUDA.left /*&& !(gCUDA.rIFR & SR_INT)*/) {
+				lockuphack = 0;
 				bool k = doProcessCudaEvent(ev);
 				sys_unlock_mutex(gCUDAMutex);
 //				IO_CUDA_WARN("Tried to process event: %d.\n", k);
 				return k;
 			} else {
 				IO_CUDA_WARN("left: %d\n", gCUDA.left);
-//					pic_raise_interrupt(IO_PIC_IRQ_CUDA);
+				if (lockuphack++ == 20) {
+					gCUDA.left = 0;
+					lockuphack = 0;
+				}
 			}
 		} else {
 			IO_CUDA_TRACE2("cuda not idle (%d)!\n", gCUDA.state);
