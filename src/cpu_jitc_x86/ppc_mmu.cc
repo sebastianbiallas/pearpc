@@ -334,12 +334,12 @@ bool FASTCALL ppc_mmu_set_sdr1(uint32 newval, bool quiesce)
 		x<<=1;
 	}
 	if (htabmask & ~xx) {
-		PPC_MMU_TRACE("new pagetable: broken htabmask (%05x)\n", htabmask);
+		PPC_MMU_WARN("new pagetable: broken htabmask (%05x)\n", htabmask);
 		return false;
 	}
 	uint32 htaborg = SDR1_HTABORG(newval);
 	if (htaborg & xx) {
-		PPC_MMU_TRACE("new pagetable: broken htaborg (%05x)\n", htaborg);
+		PPC_MMU_WARN("new pagetable: broken htaborg (%05x)\n", htaborg);
 		return false;
 	}
 	gCPU.pagetable_base = htaborg<<16;
@@ -347,7 +347,7 @@ bool FASTCALL ppc_mmu_set_sdr1(uint32 newval, bool quiesce)
 	gCPU.pagetable_hashmask = ((xx<<10)|0x3ff);
 	uint a = (0xffffffff & gCPU.pagetable_hashmask) | gCPU.pagetable_base;
 	if (a > gMemorySize) {
-		PPC_MMU_TRACE("new pagetable: not in memory (%08x)\n", a);
+		PPC_MMU_WARN("new pagetable: not in memory (%08x)\n", a);
 		return false;
 	}	
 	PPC_MMU_TRACE("new pagetable: sdr1 accepted\n");

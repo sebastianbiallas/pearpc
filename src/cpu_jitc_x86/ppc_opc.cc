@@ -1161,6 +1161,8 @@ void ppc_opc_mtspr()
 		case 18: gCPU.sprg[2] = gCPU.gpr[rS]; return;
 		case 19: gCPU.sprg[3] = gCPU.gpr[rS]; return;
 /*		case 26: gCPU.gpr[rD] = gCPU.ear; return;
+		case 28: TB (lower)
+		case 29: TB (upper)
 		case 31: gCPU.gpr[rD] = gCPU.pvr; return;*/
 		}
 		break;
@@ -1322,6 +1324,8 @@ JITCFlow ppc_opc_gen_mtspr()
 		case 17: move_reg(PPC_SPRG(1), PPC_GPR(rS)); return flowContinue;
 		case 18: move_reg(PPC_SPRG(2), PPC_GPR(rS)); return flowContinue;
 		case 19: move_reg(PPC_SPRG(3), PPC_GPR(rS)); return flowContinue;
+/*		case 28: TB (lower)
+		case 29: TB (upper)*/
 		}
 		break;
 	case 16: {

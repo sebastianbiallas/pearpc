@@ -187,7 +187,7 @@ public:
 		rect.bottom = rect.top+mWinChar.height+gMenuHeight;
 		AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
 			| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
-		MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, FALSE);
+		MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, TRUE);
 
 		damageFrameBufferAll();
 		return true;
@@ -366,8 +366,9 @@ public:
 		byte *buf = gFramebuffer;
 		byte *xbuf = winframebuffer;
 		if (win32_vaccel_func) {
-			// FIXME: take advantage of first/lastLine
-			win32_vaccel_func(mClientChar.height*mClientChar.width, buf, xbuf);
+			win32_vaccel_func((lastLine-firstLine+1)*mClientChar.width, 
+				buf+(firstLine*mClientChar.width*mClientChar.bytesPerPixel),
+				xbuf+(firstLine*mWinChar.width*mWinChar.bytesPerPixel));
 		} else {
 			for (int y=firstLine; y <= lastLine; y++) {
 				for (int x=0; x < mClientChar.width; x++) {
