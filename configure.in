@@ -106,7 +106,8 @@ beos*)
 	SYSTEM_DIR=beos
 	echo "*** BEOS, building native BeOS version (no pthread)" 1>&2
         PPC_LDFLAGS="-lbe -lgame"
-	FLAGS_ALL="$FLAGS_ALL -Wno-multichar"
+	PPC_CFLAGS="$PPC_CFLAGS -Wno-multichar"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -Wno-multichar"
 ;;
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
@@ -129,6 +130,7 @@ generic*)
 *)
 	AC_MSG_WARN([configure: warning: $enable_cpu: unknown cpu, using generic...])
 	CPU_DIR="cpu_generic"
+	enable_cpu="generic"
 ;;	
 esac
 

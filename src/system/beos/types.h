@@ -27,6 +27,11 @@
 
 typedef signed int	sint;
 
+typedef int8		sint8;
+typedef int16		sint16;
+typedef int32		sint32;
+typedef int641		sint64;
+
 typedef uint8		byte;
 
 #endif

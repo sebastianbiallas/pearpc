@@ -8,7 +8,7 @@ version 0.2 (in progress):
 	  improvements
 	- tools/regex.h dos2unixed
 	- configure support for mingw
-	- applied Francois Revol's BeOS patch (no.2).
+	- applied Francois Revol's BeOS patches (no.2+4).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
 	- HFS partition code fixes
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c

@@ -28,15 +28,21 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <limits.h>    /* for PAGESIZE */
-#ifndef PAGESIZE
-#define PAGESIZE 4096
-#endif
-
 #include <OS.h>
 #include <Entry.h>
 #include <Path.h>
 
+#include <limits.h>    /* for PAGESIZE */
+#ifndef PAGESIZE
+#ifdef B_PAGE_SIZE
+#define PAGESIZE B_PAGE_SIZE
+#else
+#define PAGESIZE 4096
+#endif
+#endif
+
+
+#define USE_AREAS
 
 #ifndef HAVE_REALPATH
 char *realpath(const char *filename, char *result)
@@ -51,10 +57,6 @@ char *realpath(const char *filename, char *result)
 	return result;
 }
 #endif
-
-// BeOs *is* 64 bits :p
-#define ftello ftell
-#define fseeko fseek
 
 #include "system/file.h"
 
@@ -267,9 +269,9 @@ int sys_fseek(SYS_FILE *file, FileOfs newofs, int seekmode)
 {
 	int r;
 	switch (seekmode) {
-	case SYS_SEEK_SET: r = fseeko((FILE *)file, newofs, SEEK_SET); break;
-	case SYS_SEEK_REL: r = fseeko((FILE *)file, newofs, SEEK_CUR); break;
-	case SYS_SEEK_END: r = fseeko((FILE *)file, newofs, SEEK_END); break;
+	case SYS_SEEK_SET: r = _fseek((FILE *)file, newofs, SEEK_SET); break;
+	case SYS_SEEK_REL: r = _fseek((FILE *)file, newofs, SEEK_CUR); break;
+	case SYS_SEEK_END: r = _fseek((FILE *)file, newofs, SEEK_END); break;
 	default: return EINVAL;
 	}
 	return r ? errno : 0;
@@ -277,20 +279,31 @@ int sys_fseek(SYS_FILE *file, FileOfs newofs, int seekmode)
 
 FileOfs	sys_ftell(SYS_FILE *file)
 {
-	return ftello((FILE *)file);
+	fpos_t pos;
+	int err;
+
+// BeOS *is* 64 bits :p
+// ftell and fseek use long !! whoever invented the buffered io stuff should be slapped :^)
+// _fseek does work, but not _ftell... use _fgetpos
+
+	err = fgetpos((FILE *)file, &pos);
+	if (err < 0)
+		return err;
+	return pos;
 }
 
 void *sys_alloc_read_write_execute(int size)
 {
+#ifdef USE_AREAS
 	area_id id;
 	void *addr;
-	size += PAGESIZE-1;
-	size %= PAGESIZE;
+	size = ((size + PAGESIZE-1) & ~(PAGESIZE-1));
 	id = create_area("PearPC rwx area", &addr, B_ANY_ADDRESS, size, B_NO_LOCK, B_READ_AREA|B_WRITE_AREA);
+	fprintf(stderr, "create_area(, , , %d, , ) = 0x%08lx\n", size, id);
 	if (id < B_OK)
 		return NULL;
 	return addr;
-#if 0	
+#else
 	void *p = malloc(size+PAGESIZE-1);
 	if (!p) return NULL;
 	
@@ -308,9 +321,11 @@ void *sys_alloc_read_write_execute(int size)
 
 void sys_free_read_write_execute(void *p)
 {
+#ifdef USE_AREAS
 	area_id id;
 	id = area_for(p);
 	if (id < B_OK)
 		return;
 	//delete_area(id);
+#endif
 }

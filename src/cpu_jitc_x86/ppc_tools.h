@@ -38,7 +38,7 @@
 static inline __attribute__((const)) uint32 ppc_word_to_BE(uint32 data)
 {
 	asm (
-		"bswapl %0": "=r" (data) : "0" (data)
+		"bswap %0": "=r" (data) : "0" (data)
 	);
 	return data;
 }

@@ -34,7 +34,7 @@
 #include "jitc_asm.h"
 
 byte *gMemory = NULL;
-uint gMemorySize;
+uint32 gMemorySize;
 
 #undef TLB
 
