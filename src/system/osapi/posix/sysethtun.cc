@@ -36,6 +36,7 @@
 
 #include "system/sysethtun.h"
 #include "tools/snprintf.h"
+#include "tools/data.h"
 #include "tools/str.h"
 
 #ifdef HAVE_CONFIG_H
@@ -59,6 +60,10 @@ UnixEthTunDevice()
 	// this is yet another case where C++ constructors suck
 	// (ohh lovely Borland Pascal, where art thou?)
 	mFD = -1;
+}
+
+virtual ~UnixEthTunDevice()
+{
 }
 
 virtual	uint recvPacket(void *buf, uint size)
@@ -181,9 +186,9 @@ LinuxLikeEthTunDevice(const char *netif_prefix)
 		char c = netif_buffer[i];
 		// Delete all characters not suitable for below command
 		if (!(c >= 'a' && c <= 'z')
-		&& (!(c >= 'A' && c <= 'Z')
-		&& (!(c >= '0' && c <= '9')
-		&& (c != '_') {
+		 && !(c >= 'A' && c <= 'Z')
+		 && !(c >= '0' && c <= '9')
+		 && (c != '_')) {
 			netif_buffer[i] = '_';
 		}
 	}
@@ -219,7 +224,7 @@ int initDevice()
 
 	if (::strlen(mIfName)+1 > IFNAMSIZ) {
 		throw new MsgfException("Interface name too long (%d > %d bytes)"
-			" in '%s'\n", ::strlen(mIfName)+1, IFNAMSIZ, mIfName);
+			" in '%y'\n", ::strlen(mIfName)+1, IFNAMSIZ, &mIfName);
 	}
 
 	::strncpy(ifr.ifr_name, mIfName, IFNAMSIZ);
