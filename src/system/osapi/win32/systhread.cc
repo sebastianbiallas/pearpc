@@ -63,6 +63,8 @@ void sys_destroy_mutex(sys_mutex m)
 
 void sys_destroy_semaphore(sys_semaphore s)
 {
+	DeleteCriticalSection(&((sys_win32_semaphore *)*s)->cs);
+	CloseHandle(((sys_win32_semaphore *)*s)->sem);
 	free(s);
 }
 
