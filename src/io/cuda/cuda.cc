@@ -207,6 +207,8 @@ struct cuda_control {
 	int	keybhandler;
 	int	mouseid;
 	int	mousehandler;
+
+	sys_semaphore idle_sem;
 };
 
 static cuda_control	gCUDA;
@@ -604,6 +606,7 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				gCUDA.pos = 0;
 			}
 			gCUDA.state = cuda_idle;
+			sys_signal_semaphore(gCUDA.idle_sem);
 			IO_CUDA_TRACE2("CUDA CHANGE STATE %d: to %d\n", __LINE__, gCUDA.state);
 		} else {
 			gCUDA.rB = data;
@@ -819,7 +822,7 @@ static Queue		gCUDAEvents(true);
 static bool cudaEventHandler(const SystemEvent &ev)
 {
 	sys_lock_semaphore(gCUDAEventSem);
-	ht_printf("queue  %d\n", ev.key.pressed);
+//	ht_printf("queue  %d\n", ev.key.pressed);
 	gCUDAEvents.enQueue(new SystemEventObject(ev));
 	sys_unlock_semaphore(gCUDAEventSem);
 	sys_signal_semaphore(gCUDAEventSem);
@@ -874,7 +877,7 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 	uint timeout_msec = 100;
 	uint64 time_end = sys_get_hiresclk_ticks() + sys_get_hiresclk_ticks_per_second()
 		* timeout_msec / 1000;
-	ht_printf("process  %d\n", ev.key.pressed);
+//	ht_printf("process  %d\n", ev.key.pressed);
 	while (sys_get_hiresclk_ticks() < time_end) {
 		sys_lock_mutex(gCUDAMutex);
 		static int lockuphack = 0;
@@ -886,7 +889,7 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 //				IO_CUDA_WARN("Tried to process event: %d.\n", k);
 				return k;
 			} else {
-				IO_CUDA_WARN("left: %d\n", gCUDA.left);
+				IO_CUDA_TRACE2("left: %d\n", gCUDA.left);
 				if (lockuphack++ == 20) {
 					gCUDA.left = 0;
 					lockuphack = 0;
@@ -896,7 +899,9 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 			IO_CUDA_TRACE2("cuda not idle (%d)!\n", gCUDA.state);
 		}
 		sys_unlock_mutex(gCUDAMutex);
-		sys_suspend();
+		sys_lock_mutex(gCUDA.idle_sem);
+		sys_wait_semaphore_bounded(gCUDA.idle_sem, 20);
+		sys_unlock_mutex(gCUDA.idle_sem);
 	}
 	IO_CUDA_WARN("Event processing timed out. Event dropped.\n");
 	return false;
@@ -936,6 +941,10 @@ void cuda_init()
 
 	if (sys_create_mutex(&gCUDAMutex)) {
 		IO_CUDA_ERR("Can't create mutex\n");
+	}
+
+	if (sys_create_semaphore(&gCUDA.idle_sem)) {
+		IO_CUDA_ERR("Can't create semaphore\n");
 	}
 
 	sys_thread cudaEventLoopThread;
