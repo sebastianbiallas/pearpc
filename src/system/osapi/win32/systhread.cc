@@ -103,6 +103,11 @@ void sys_wait_semaphore(sys_semaphore s)
 	WaitForSingleObject(((sys_win32_semaphore *)s)->sem, INFINITE);
 }
 
+void sys_wait_semaphore_bounded(sys_semaphore s, ms)
+{
+	WaitForSingleObject(((sys_win32_semaphore *)s)->sem, INFINITE);
+}
+
 void sys_lock_semaphore(sys_semaphore s)
 {
 	EnterCriticalSection(&((sys_win32_semaphore *)s)->cs);

@@ -97,6 +97,16 @@ void sys_wait_semaphore(sys_semaphore s)
 	pthread_cond_wait(&((sys_pthread_semaphore*)s)->cond, &((sys_pthread_semaphore*)s)->mutex);
 }
 
+void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+        uint64 nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
+        ts.tv_sec = ts.tv_sec+(uint)(nsec/1000000000);
+        ts.tv_nsec = (nsec % 1000000000ULL);
+	pthread_cond_timedwait(&((sys_pthread_semaphore*)s)->cond, &((sys_pthread_semaphore*)s)->mutex, &ts);
+}
+
 void sys_lock_semaphore(sys_semaphore s)
 {
 	pthread_mutex_lock(&((sys_pthread_semaphore*)s)->mutex);

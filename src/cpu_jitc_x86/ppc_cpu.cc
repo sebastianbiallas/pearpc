@@ -74,9 +74,11 @@ sys_semaphore gCPUDozeSem;
 
 extern "C" void cpu_doze()
 {
+//	ht_printf("doze!\n");
 	sys_lock_semaphore(gCPUDozeSem);
-	if (!gCPU.exception_pending) sys_wait_semaphore(gCPUDozeSem);	
+	if (!gCPU.exception_pending) sys_wait_semaphore_bounded(gCPUDozeSem, 10);	
 	sys_unlock_semaphore(gCPUDozeSem);
+//	ht_printf("undoze!\n");
 }
 
 void cpu_wakeup()
@@ -87,7 +89,7 @@ void cpu_wakeup()
 static void decTimerCB(sys_timer t)
 {
 	ppc_cpu_atomic_raise_dec_exception();
-	cpu_wakeup();
+//	cpu_wakeup();
 }
 
 void ppc_run()
