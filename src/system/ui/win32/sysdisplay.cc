@@ -41,7 +41,7 @@
 
 byte *gFrameBuffer = NULL;
 uint gFrameBufferScanLineLength;
-uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+int gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 static HINSTANCE gHInst;
 static HWND gHWNDMain;
