@@ -1055,6 +1055,22 @@ void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1)
 		instr[0] = 0xf7;
 		instr[1] = 0xd8+reg1;
 		break;
+	case X86_MUL:
+		instr[0] = 0xf7;
+		instr[1] = 0xe0+reg1;
+		break;
+	case X86_IMUL:
+		instr[0] = 0xf7;
+		instr[1] = 0xe8+reg1;
+		break;
+	case X86_DIV:
+		instr[0] = 0xf7;
+		instr[1] = 0xf0+reg1;
+		break;
+	case X86_IDIV:
+		instr[0] = 0xf7;
+		instr[1] = 0xf8+reg1;
+		break;
 	}
 	jitcEmit(instr, 2);
 }

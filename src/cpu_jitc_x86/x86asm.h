@@ -110,6 +110,10 @@ enum X86ALUopc {
 enum X86ALUopc1 {
 	X86_NOT,
 	X86_NEG,
+	X86_MUL,
+	X86_IMUL,
+	X86_DIV,
+	X86_IDIV,
 };
 enum X86MOVxx {
 	X86_MOVSX = 0xbe,
