@@ -2,7 +2,7 @@
  *	PearPC
  *	cuda.cc
  *
- *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2003-2004 Sebastian Biallas (sb@biallas.net)
  *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
@@ -905,6 +905,8 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 				IO_CUDA_TRACE2("left: %d\n", gCUDA.left);
 				if (lockuphack++ == 20) {
 					gCUDA.left = 0;
+					gCUDA.rA = TREQ;
+					gCUDA.rACR = 0;
 					lockuphack = 0;
 					IO_CUDA_WARN("lock-up parachute\n");
 				}
