@@ -61,6 +61,7 @@ struct X86CPUCaps {
 	bool mmx;
 	bool sse;
 	bool sse2;
+	int  loop_align;
 };
 
 void x86GetCaps(X86CPUCaps &caps);

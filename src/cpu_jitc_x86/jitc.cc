@@ -40,8 +40,9 @@ TranslationCacheFragment *jitcAllocFragment();
 /*
  *	Intern
  *	Called whenever a new fragment is needed
+ *	returns true if a new fragment was really necessary
  */
-void FASTCALL jitcEmitNextFragment()
+bool FASTCALL jitcEmitNextFragment()
 {
 	// save old
 	TranslationCacheFragment *tcf_old = gJITC.currentPage->tcf_current;
@@ -55,6 +56,7 @@ void FASTCALL jitcEmitNextFragment()
 	// FIXME: use 0xeb if possible
 	tcp_old[0] = 0xe9;
 	*((uint32 *)&tcp_old[1]) = gJITC.currentPage->tcp - (tcp_old+5);
+	return true;
 }
 
 /*
@@ -101,6 +103,20 @@ bool FASTCALL jitcEmitAssure(int size)
 	return true;
 }
 
+void FASTCALL jitcEmitAlign(int align)
+{
+	do {
+		int missalign = ((uint)gJITC.currentPage->tcp) % align;
+		if (missalign) {
+			int bytes = align - missalign;
+			if ((gJITC.currentPage->bytesLeft - bytes) < 5) {
+				if (jitcEmitNextFragment()) continue;
+			}
+			gJITC.currentPage->tcp += bytes;
+			gJITC.currentPage->bytesLeft -= bytes;
+		}
+	} while (false);
+}
 /*
  *	Intern.
  *	Maps ClientPage to base address
@@ -329,10 +345,13 @@ NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32
 	gJITCRunTicks += jitcDebugGetTicks() - gJITCRunTicksStart;
 	uint64 jitcCompileStartTicks = jitcDebugGetTicks();
 	jitcDebugLogAdd("=== jitcNewEntrypoint: %08x Beginning jitc ===\n", baseaddr+ofs);
+	
+	gJITC.currentPage = cp;
+	
+	jitcEmitAlign(gJITC.hostCPUCaps.loop_align);
+	
 	NativeAddress entry = cp->tcp;
 	jitcCreateEntrypoint(cp, ofs);
-
-	gJITC.currentPage = cp;
 
 	byte *physpage;
 	ppc_direct_physical_memory_handle(baseaddr, physpage);
@@ -370,7 +389,6 @@ NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32
 			 *	We must use jump to the next page via 
 			 *	ppc_new_pc_asm
 			 */
-			jitcDebugLogAdd("interesting\n");
 			jitcClobberAll();
 			asmALURegImm(X86_MOV, ESI, 4096-4);
 			asmALURegImm(X86_MOV, EAX, 4096);

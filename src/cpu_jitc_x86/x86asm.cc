@@ -32,6 +32,8 @@ void x86GetCaps(X86CPUCaps &caps)
 {
 	memset(&caps, 0, sizeof caps);
 
+	caps.loop_align = 8;
+
 	struct {
 		uint32 level, c, d, b;
 	} id;
