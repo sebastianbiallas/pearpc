@@ -257,26 +257,33 @@ qt*)
 	CFLAGS="$CFLAGS -I$QTDIR/include"
 	LIBS="-L$QTDIR/lib -L/usr/X11R6/lib"
 
-	AC_CACHE_CHECK([for Qt library version >= 3.1.1],
-	  ac_qtlib_version, [
-	  AC_TRY_LINK([#include "qglobal.h"], [
-	#if QT_VERSION < 0x030101
-	#error Qt library 3.1.1 or greater required.
-	#endif
-	    ],
-	    [
-	      ac_qtlib_version="yes"
-	      QT_CFLAGS="$CFLAGS"
-	      QT_LIBS="-l$ac_qtlib"
-	      QT_LDFLAGS="$LIBS"
-	    ], [
-	      QT_CFLAGS=""
-	      QT_LIBS=""
-	      QT_LDFLAGS=""
-	    ])
-	    CFLAGS="$ac_save_CFLAGS"
-	    LIBS="$ac_save_LIBS"
-	])
+	AC_CACHE_CHECK(
+		[for Qt library version >= 3.0.0], ac_qtlib_version,
+		[	AC_TRY_LINK(
+			[
+				#include "qglobal.h"
+			],
+			[
+				#if QT_VERSION < 0x030000
+				#error Qt library 3.0.0 or greater required.
+				#endif
+			],
+			[
+				ac_qtlib_version="yes"
+				QT_CFLAGS="$CFLAGS"
+				QT_LIBS="-l$ac_qtlib"
+				QT_LDFLAGS="$LIBS"
+			],
+			[
+				QT_CFLAGS=""
+				QT_LIBS=""
+				QT_LDFLAGS=""
+				AC_MSG_ERROR([*** QT version 3.0.0 is required for QT gui.  Upgrade or try a different --enable-gui option.])
+			])
+			CFLAGS="$ac_save_CFLAGS"
+			LIBS="$ac_save_LIBS"
+		]
+	)
 
 	AC_SUBST(QT_CFLAGS)
 
