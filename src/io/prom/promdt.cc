@@ -27,6 +27,8 @@
 #include "io/graphic/gcard.h"
 #include "io/pic/pic.h"
 #include "io/ide/ide.h"
+#include "io/3c90x/3c90x.h"
+#include "io/rtl8139/rtl8139.h"
 #include "system/display.h"
 #include "prommem.h"
 #include "promdt.h"
@@ -1371,79 +1373,78 @@ void prom_init_device_tree()
 	/*
 	 *	Eth0
 	 */
-#if 0
-	PromNode *eth0 = new PromNode("pci10b7,9200@4");
-	bridge->addNode(eth0);
-	bridge->addNodeShort("pci10b7,9200", "pci10b7,9200@4");
-	eth0->addProp(new PromPropMemory("compatible", 
+	if (_3c90x_installed) {
+		PromNode *eth0 = new PromNode("pci10b7,9200@4");
+		bridge->addNode(eth0);
+		bridge->addNodeShort("pci10b7,9200", "pci10b7,9200@4");
+		eth0->addProp(new PromPropMemory("compatible", 
 		"pci10b7,9200\x00pciclass,020000\x00", 29));
-//	eth0->addProp(new PromPropString("device_type", "network"));
-	eth0->addProp(new PromPropInt("vendor-id", 0x10b7));
-	eth0->addProp(new PromPropInt("device-id", 0x9200));
-	eth0->addProp(new PromPropInt("revision-id", 0x0));
-	eth0->addProp(new PromPropInt("class-code", 0x020000));
-	eth0->addProp(new PromPropInt("interrupts", 1));
-	eth0->addProp(new PromPropInt("min-grant", 0));
-	eth0->addProp(new PromPropInt("max-latency", 0));
-	eth0->addProp(new PromPropInt("subsystem-vendor-id", 0x10b7));
-	eth0->addProp(new PromPropInt("subsystem-id", 0x9200));
-	eth0->addProp(new PromPropInt("devsel-speed", 1));
-	eth0->addProp(new PromPropString("fast-back-to-back", ""));
-//	eth0->addProp(new PromPropString("driver,AAPL,MacOSX,PowerPC", ""));
+//		eth0->addProp(new PromPropString("device_type", "network"));
+		eth0->addProp(new PromPropInt("vendor-id", 0x10b7));
+		eth0->addProp(new PromPropInt("device-id", 0x9200));
+		eth0->addProp(new PromPropInt("revision-id", 0x0));
+		eth0->addProp(new PromPropInt("class-code", 0x020000));
+		eth0->addProp(new PromPropInt("interrupts", 1));
+		eth0->addProp(new PromPropInt("min-grant", 0));
+		eth0->addProp(new PromPropInt("max-latency", 0));
+		eth0->addProp(new PromPropInt("subsystem-vendor-id", 0x10b7));
+		eth0->addProp(new PromPropInt("subsystem-id", 0x9200));
+		eth0->addProp(new PromPropInt("devsel-speed", 1));
+		eth0->addProp(new PromPropString("fast-back-to-back", ""));
 
-	byte eth0reg[] = {
-	0x00,0x01,0x60,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-	0x00,0x00,0x00,0x00,
-	0x01,0x01,0x60,0x10, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-	0x00,0x00,0x01,0x00,
-	};
-	eth0->addProp(new PromPropMemory("reg", &eth0reg, sizeof eth0reg));
-	byte eth0aa[] = {
-	0x81,0x01,0x60,0x10, 0x00,0x00,0x00,0x00,
-	/* 4 bytes address from 3c90x/3c90x.cc: */ 0x00,0x00,0x10,0x00,
-	0x00,0x00,0x00,0x00,
-	0x00,0x00,0x01,0x00,
-	};
-	eth0->addProp(new PromPropMemory("assigned-addresses", &eth0aa, sizeof eth0aa));
-#endif
+		byte eth0reg[] = {
+		0x00,0x01,0x60,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+		0x00,0x00,0x00,0x00,
+		0x01,0x01,0x60,0x10, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+		0x00,0x00,0x01,0x00,
+		};
+		eth0->addProp(new PromPropMemory("reg", &eth0reg, sizeof eth0reg));
+		byte eth0aa[] = {
+		0x81,0x01,0x60,0x10, 0x00,0x00,0x00,0x00,
+		/* 4 bytes address from 3c90x/3c90x.cc: */ 0x00,0x00,0x10,0x00,
+		0x00,0x00,0x00,0x00,
+		0x00,0x00,0x01,0x00,
+		};
+		eth0->addProp(new PromPropMemory("assigned-addresses", &eth0aa, sizeof eth0aa));
+	}
 
 	/*
 	 *	Eth1
 	 */
-	PromNode *eth1 = new PromNode("pci10ec,8139@4");
-	bridge->addNode(eth1);
-	bridge->addNodeShort("pci10ec,8139", "pci10ec,8139@4");
-	eth1->addProp(new PromPropMemory("compatible", 
-		"pci10ec,8139\x00pciclass,020000\x00", 29));
-//	eth1->addProp(new PromPropString("device_type", "network"));
-	eth1->addProp(new PromPropInt("vendor-id", 0x10ec));
-	eth1->addProp(new PromPropInt("device-id", 0x8139));
-	eth1->addProp(new PromPropInt("revision-id", 0x0));
-	eth1->addProp(new PromPropInt("class-code", 0x020000));
-	eth1->addProp(new PromPropInt("interrupts", 1));
-	eth1->addProp(new PromPropInt("min-grant", 0));
-	eth1->addProp(new PromPropInt("max-latency", 0));
-	eth1->addProp(new PromPropInt("subsystem-vendor-id", 0x10ec));
-	eth1->addProp(new PromPropInt("subsystem-id", 0x8139));
-	eth1->addProp(new PromPropInt("devsel-speed", 1));
-	eth1->addProp(new PromPropString("fast-back-to-back", ""));
-//	eth1->addProp(new PromPropString("driver,AAPL,MacOSX,PowerPC", ""));
+	if (rtl8139_installed) {
+		PromNode *eth1 = new PromNode("pci10ec,8139@4");
+		bridge->addNode(eth1);
+		bridge->addNodeShort("pci10ec,8139", "pci10ec,8139@4");
+		eth1->addProp(new PromPropMemory("compatible", 
+			"pci10ec,8139\x00pciclass,020000\x00", 29));
+//		eth1->addProp(new PromPropString("device_type", "network"));
+		eth1->addProp(new PromPropInt("vendor-id", 0x10ec));
+		eth1->addProp(new PromPropInt("device-id", 0x8139));
+		eth1->addProp(new PromPropInt("revision-id", 0x0));
+		eth1->addProp(new PromPropInt("class-code", 0x020000));
+		eth1->addProp(new PromPropInt("interrupts", 1));
+		eth1->addProp(new PromPropInt("min-grant", 0));
+		eth1->addProp(new PromPropInt("max-latency", 0));
+		eth1->addProp(new PromPropInt("subsystem-vendor-id", 0x10ec));
+		eth1->addProp(new PromPropInt("subsystem-id", 0x8139));
+		eth1->addProp(new PromPropInt("devsel-speed", 1));
+		eth1->addProp(new PromPropString("fast-back-to-back", ""));
 
-	byte eth1reg[] = {
-	0x00,0x01,0x60,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-	0x00,0x00,0x00,0x00,
-	0x01,0x01,0x60,0x10, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-	0x00,0x00,0x01,0x00,
-	};
-	eth1->addProp(new PromPropMemory("reg", &eth1reg, sizeof eth1reg));
-	byte eth1aa[] = {
-	0x81,0x01,0x60,0x10, 0x00,0x00,0x00,0x00,
-	/* 4 bytes address from rtl8139/rtl8139.cc: */ 0x00,0x00,0x18,0x00,
-	0x00,0x00,0x00,0x00,
-	0x00,0x00,0x01,0x00,
-	};
-	eth1->addProp(new PromPropMemory("assigned-addresses", &eth1aa, sizeof eth1aa));
-
+		byte eth1reg[] = {
+		0x00,0x01,0x60,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+		0x00,0x00,0x00,0x00,
+		0x01,0x01,0x60,0x10, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+		0x00,0x00,0x01,0x00,
+		};
+		eth1->addProp(new PromPropMemory("reg", &eth1reg, sizeof eth1reg));
+		byte eth1aa[] = {
+		0x81,0x01,0x60,0x10, 0x00,0x00,0x00,0x00,
+		/* 4 bytes address from rtl8139/rtl8139.cc: */ 0x00,0x00,0x18,0x00,
+		0x00,0x00,0x00,0x00,
+		0x00,0x00,0x01,0x00,
+		};
+		eth1->addProp(new PromPropMemory("assigned-addresses", &eth1aa, sizeof eth1aa));
+	}
 	/*
 	 *	USB
 	 */

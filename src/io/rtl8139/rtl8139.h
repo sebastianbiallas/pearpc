@@ -22,6 +22,8 @@
 #ifndef __IO_RTL8139_H__
 #define __IO_RTL8139_H__
 
+extern bool rtl8139_installed;
+
 void rtl8139_init();
 void rtl8139_init_config();
 

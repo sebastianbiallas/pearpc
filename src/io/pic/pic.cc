@@ -145,9 +145,11 @@ void pic_read(uint32 addr, uint32 &data, int size)
 extern uint64 gJITCCompileTicks;
 extern uint64 gJITCRunTicks;
 extern uint64 gJITCRunTicksStart;
+//#include "cpu_jitc_x86/jitc.h"
 
 extern "C" bool pic_check_interrupt()
 {
+//	ht_printf("stata: %016qx %016qx %08x   %08x\n", &gJITC.stata, &gCPU.tb, gCPU.dec, gCPU.lr);
 //	ht_printf("tb: %016qx %08x   %08x\n", &gCPU.tb, gCPU.dec, gCPU.lr);
 //	ht_printf("jitcTicks: compile: %08qx   run: %08qx\n", &gJITCCompileTicks, &gJITCRunTicks);
 //	PIC_pending_low |= (1<<IO_PIC_IRQ_NMI_XMON);	

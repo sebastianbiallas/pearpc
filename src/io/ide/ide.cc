@@ -193,9 +193,9 @@ enum {
 #define IDE_ATAPI_TRANSFER_DATA 0x10
 #define IDE_ATAPI_TRANSFER_ECC 0x08
 
-struct IDEState {
+struct IDEDriveState {
 	uint8 status;
-	uint8 drive_head;
+	uint8 head;
 	uint8 outreg;
 	uint8 error;
 	uint8 feature;
@@ -209,7 +209,6 @@ struct IDEState {
 		uint16 byte_count;
 	};
 	
-	int drive;
 	int sectorpos;
 	int drqpos;
 	uint8 sector[2352];
@@ -220,8 +219,14 @@ struct IDEState {
 
 	int mode;
 	int atapi_transfer_request;
+};
 
+struct IDEState {
+	int drive;
+	uint8 drive_head;
 	IDEConfig config[2];
+	IDEDriveState state[2];
+
 	bool one_time_shit;
 };
 
@@ -362,26 +367,25 @@ public:
 
 	void incAddress()
 	{
-		gIDEState.sector_count--;
+		gIDEState.state[gIDEState.drive].sector_count--;
 
 		if (gIDEState.config[gIDEState.drive].lba) {
-			uint32 cur = makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no);
+			uint32 cur = makeLogical(gIDEState.state[gIDEState.drive].head, 
+				gIDEState.state[gIDEState.drive].cyl, 
+				gIDEState.state[gIDEState.drive].sector_no);
 			cur++;
-			gIDEState.drive_head &= ~0x0f;
-			gIDEState.drive_head |= (cur>>24) & 0xf;
-			gIDEState.cyl = cur>>8;
-			gIDEState.sector_no = cur & 0xff;
+			gIDEState.state[gIDEState.drive].head      = (cur>>24) & 0xf;
+			gIDEState.state[gIDEState.drive].cyl       = cur>>8;
+			gIDEState.state[gIDEState.drive].sector_no = cur & 0xff;
 		} else {
-			gIDEState.sector_no++;
-			if (gIDEState.sector_no > gIDEState.config[gIDEState.drive].hd.spt) {
-				gIDEState.sector_no = 1;
-				uint8 hd = gIDEState.drive_head & 0xf;
-				hd++;
-				if (hd >= gIDEState.config[gIDEState.drive].hd.heads) {
-					hd = 0;
-					gIDEState.cyl++;
+			gIDEState.state[gIDEState.drive].sector_no++;
+			if (gIDEState.state[gIDEState.drive].sector_no > gIDEState.config[gIDEState.drive].hd.spt) {
+				gIDEState.state[gIDEState.drive].sector_no = 1;
+				gIDEState.state[gIDEState.drive].head++;
+				if (gIDEState.state[gIDEState.drive].head >= gIDEState.config[gIDEState.drive].hd.heads) {
+					gIDEState.state[gIDEState.drive].head = 0;
+					gIDEState.state[gIDEState.drive].cyl++;
 				}
-				gIDEState.drive_head = (gIDEState.drive_head & 0xf0)+hd;
 			}
 		}
 	};
@@ -389,7 +393,7 @@ public:
 	void raiseInterrupt(int bus)
 	{
 		IO_IDE_TRACE("MRDMODE: %02x\n", mConfig[MRDMODE]);
-		if (!(gIDEState.outreg & IDE_OUTPUT_INT) && !(mConfig[MRDMODE] & MRDMODE_BLK_CH0)) {
+		if (!(gIDEState.state[gIDEState.drive].outreg & IDE_OUTPUT_INT) && !(mConfig[MRDMODE] & MRDMODE_BLK_CH0)) {
 			pic_raise_interrupt(mConfig[0x3c]);
 		}
 		mConfig[MRDMODE] |= MRDMODE_INTR_CH0 << bus;
@@ -406,10 +410,10 @@ void drive_ident()
 #define AW(a, b) (((a)<<8)|(b))
 	uint16 id[256];
 	if (gIDEState.config[gIDEState.drive].installed) {
-		gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
+		gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
 	} else {
-		gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-		gIDEState.error = 0x4; // abort command
+		gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+		gIDEState.state[gIDEState.drive].error = 0x4; // abort command
 		return;
 	}
 	memset(&id, 0, sizeof id);
@@ -561,29 +565,29 @@ void drive_ident()
 		id[80] = 0x1e; // supports up to ATA/ATAPI-4		
 	}
 
-	gIDEState.sectorpos = 0;
-	gIDEState.sector_count = 0;
+	gIDEState.state[gIDEState.drive].sectorpos = 0;
+	gIDEState.state[gIDEState.drive].sector_count = 0;
 
 	for (int i=0; i<256; i++) {
-		gIDEState.sector[i*2] = id[i];
-		gIDEState.sector[i*2+1] = id[i]>>8;
+		gIDEState.state[gIDEState.drive].sector[i*2] = id[i];
+		gIDEState.state[gIDEState.drive].sector[i*2+1] = id[i]>>8;
 	}
 };
 
 	void atapi_command_nop()
 	{
-		gIDEState.intr_reason |= IDE_ATAPI_INTR_REASON_C_D|IDE_ATAPI_INTR_REASON_I_O;
-		gIDEState.intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
-		gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+		gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_C_D|IDE_ATAPI_INTR_REASON_I_O;
+		gIDEState.state[gIDEState.drive].intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
+		gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
 	};
 
 	void atapi_command_error(uint8 sense_key, uint8 asc)
 	{
 		memset(&gIDEState.config[gIDEState.drive].cdrom.sense, 0, sizeof gIDEState.config[gIDEState.drive].cdrom.sense);
-		gIDEState.error = sense_key << 4;
-		gIDEState.intr_reason |= IDE_ATAPI_INTR_REASON_C_D|IDE_ATAPI_INTR_REASON_I_O;
-		gIDEState.intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
-		gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+		gIDEState.state[gIDEState.drive].error = sense_key << 4;
+		gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_C_D|IDE_ATAPI_INTR_REASON_I_O;
+		gIDEState.state[gIDEState.drive].intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
+		gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
     
 		gIDEState.config[gIDEState.drive].cdrom.sense.sense_key = sense_key;
 		gIDEState.config[gIDEState.drive].cdrom.sense.asc = asc;
@@ -592,38 +596,38 @@ void drive_ident()
 
 	void atapi_start_send_command(uint8 command, int reqlen, int alloclen, int sectorpos=0, int sectorsize=2048)
 	{
-		if (gIDEState.byte_count == 0xffff) gIDEState.byte_count = 0xfffe;
-		if ((gIDEState.byte_count & 1) && !(alloclen <= gIDEState.byte_count)) {
-			gIDEState.byte_count--;
+		if (gIDEState.state[gIDEState.drive].byte_count == 0xffff) gIDEState.state[gIDEState.drive].byte_count = 0xfffe;
+		if ((gIDEState.state[gIDEState.drive].byte_count & 1) && !(alloclen <= gIDEState.state[gIDEState.drive].byte_count)) {
+			gIDEState.state[gIDEState.drive].byte_count--;
 		}
-		if (!gIDEState.byte_count) {
+		if (!gIDEState.state[gIDEState.drive].byte_count) {
 			IO_IDE_ERR("byte_count==0\n");
 		}
-		if (!alloclen) alloclen = gIDEState.byte_count;
-		gIDEState.intr_reason |= IDE_ATAPI_INTR_REASON_I_O;
-		gIDEState.intr_reason &= ~IDE_ATAPI_INTR_REASON_C_D;
-		gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
-		gIDEState.sectorpos = sectorpos;
-		gIDEState.current_sector_size = sectorsize;
-		gIDEState.drqpos = 0;
-		if (gIDEState.byte_count > reqlen) gIDEState.byte_count = reqlen;
-		if (gIDEState.byte_count > alloclen) gIDEState.byte_count = alloclen;
+		if (!alloclen) alloclen = gIDEState.state[gIDEState.drive].byte_count;
+		gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_I_O;
+		gIDEState.state[gIDEState.drive].intr_reason &= ~IDE_ATAPI_INTR_REASON_C_D;
+		gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
+		gIDEState.state[gIDEState.drive].sectorpos = sectorpos;
+		gIDEState.state[gIDEState.drive].current_sector_size = sectorsize;
+		gIDEState.state[gIDEState.drive].drqpos = 0;
+		if (gIDEState.state[gIDEState.drive].byte_count > reqlen) gIDEState.state[gIDEState.drive].byte_count = reqlen;
+		if (gIDEState.state[gIDEState.drive].byte_count > alloclen) gIDEState.state[gIDEState.drive].byte_count = alloclen;
 
 		gIDEState.config[gIDEState.drive].cdrom.atapi.command = command;
-		gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes = gIDEState.byte_count;
+		gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes = gIDEState.state[gIDEState.drive].byte_count;
 		gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain = MIN(reqlen, alloclen);
 	};
 
 	void atapi_start_mode_sense(const byte *src, int size)
 	{
-		gIDEState.sector[0] = (size-2) >> 8;
-		gIDEState.sector[1] =  size-2;
-		gIDEState.sector[2] = 0;
-		gIDEState.sector[3] = 0;
-		gIDEState.sector[4] = 0;
-		gIDEState.sector[5] = 0;
-		gIDEState.sector[6] = 0;
-		gIDEState.sector[7] = 0;
+		gIDEState.state[gIDEState.drive].sector[0] = (size-2) >> 8;
+		gIDEState.state[gIDEState.drive].sector[1] =  size-2;
+		gIDEState.state[gIDEState.drive].sector[2] = 0;
+		gIDEState.state[gIDEState.drive].sector[3] = 0;
+		gIDEState.state[gIDEState.drive].sector[4] = 0;
+		gIDEState.state[gIDEState.drive].sector[5] = 0;
+		gIDEState.state[gIDEState.drive].sector[6] = 0;
+		gIDEState.state[gIDEState.drive].sector[7] = 0;
 	}
 
 	static uint8 bcd_encode(uint8 value)
@@ -637,12 +641,14 @@ void drive_ident()
 	bool atapi_check_dma()
 	{
 		if (gIDEState.config[gIDEState.drive].cdrom.dma) {
-			gIDEState.dma_lba_count = gIDEState.config[gIDEState.drive].cdrom.remain;
-			gIDEState.dma_lba_start = gIDEState.config[gIDEState.drive].cdrom.next_lba;
-			gIDEState.config[gIDEState.drive].device->setMode(gIDEState.atapi_transfer_request, gIDEState.current_sector_size);
-			gIDEState.config[gIDEState.drive].device->seek(gIDEState.dma_lba_start);
-			gIDEState.status &= ~IDE_STATUS_DRQ;
-			gIDEState.intr_reason |= IDE_ATAPI_INTR_REASON_C_D;
+			gIDEState.state[gIDEState.drive].dma_lba_count = gIDEState.config[gIDEState.drive].cdrom.remain;
+			gIDEState.state[gIDEState.drive].dma_lba_start = gIDEState.config[gIDEState.drive].cdrom.next_lba;
+			gIDEState.config[gIDEState.drive].device->setMode(
+				gIDEState.state[gIDEState.drive].atapi_transfer_request, 
+				gIDEState.state[gIDEState.drive].current_sector_size);
+			gIDEState.config[gIDEState.drive].device->seek(gIDEState.state[gIDEState.drive].dma_lba_start);
+			gIDEState.state[gIDEState.drive].status &= ~IDE_STATUS_DRQ;
+			gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_C_D;
 			bmide_start_dma(false);
 			return true;
 		}
@@ -651,9 +657,10 @@ void drive_ident()
 	
 void receive_atapi_packet()
 {
-	uint8 command = gIDEState.sector[0];
+	uint8 command = gIDEState.state[gIDEState.drive].sector[0];
 	IO_IDE_TRACE("ATAPI command(%02x)\n", command);
 	CDROMDevice *dev = (CDROMDevice *)gIDEState.config[gIDEState.drive].device;
+	uint8 *sector = gIDEState.state[gIDEState.drive].sector;
 	switch (command) {
 	case IDE_ATAPI_COMMAND_TEST_READY:
 		if (dev->isReady()) {
@@ -665,58 +672,58 @@ void receive_atapi_packet()
 		break;
 	case IDE_ATAPI_COMMAND_REQ_SENSE: {
 		// .450
-		int len = gIDEState.sector[4];
+		int len = sector[4];
 		atapi_start_send_command(command, 18, len);
-		gIDEState.sector[0] = 0xf0; // valid + current error info
-		gIDEState.sector[1] = 0x00;
-		gIDEState.sector[2] = gIDEState.config[gIDEState.drive].cdrom.sense.sense_key;
-		gIDEState.sector[3] = gIDEState.config[gIDEState.drive].cdrom.sense.info[0];
-		gIDEState.sector[4] = gIDEState.config[gIDEState.drive].cdrom.sense.info[1];
-		gIDEState.sector[5] = gIDEState.config[gIDEState.drive].cdrom.sense.info[2];
-		gIDEState.sector[6] = gIDEState.config[gIDEState.drive].cdrom.sense.info[3];
-		gIDEState.sector[7] = 10;
-		gIDEState.sector[8] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[0];
-		gIDEState.sector[9] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[1];
-		gIDEState.sector[10] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[2];
-		gIDEState.sector[11] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[3];
-		gIDEState.sector[12] = gIDEState.config[gIDEState.drive].cdrom.sense.asc;
-		gIDEState.sector[13] = gIDEState.config[gIDEState.drive].cdrom.sense.ascq;
-		gIDEState.sector[14] = gIDEState.config[gIDEState.drive].cdrom.sense.fruc;
-		gIDEState.sector[15] = gIDEState.config[gIDEState.drive].cdrom.sense.key_spec[0];
-		gIDEState.sector[16] = gIDEState.config[gIDEState.drive].cdrom.sense.key_spec[1];
-		gIDEState.sector[17] = gIDEState.config[gIDEState.drive].cdrom.sense.key_spec[2];
+		sector[0] = 0xf0; // valid + current error info
+		sector[1] = 0x00;
+		sector[2] = gIDEState.config[gIDEState.drive].cdrom.sense.sense_key;
+		sector[3] = gIDEState.config[gIDEState.drive].cdrom.sense.info[0];
+		sector[4] = gIDEState.config[gIDEState.drive].cdrom.sense.info[1];
+		sector[5] = gIDEState.config[gIDEState.drive].cdrom.sense.info[2];
+		sector[6] = gIDEState.config[gIDEState.drive].cdrom.sense.info[3];
+		sector[7] = 10;
+		sector[8] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[0];
+		sector[9] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[1];
+		sector[10] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[2];
+		sector[11] = gIDEState.config[gIDEState.drive].cdrom.sense.spec_info[3];
+		sector[12] = gIDEState.config[gIDEState.drive].cdrom.sense.asc;
+		sector[13] = gIDEState.config[gIDEState.drive].cdrom.sense.ascq;
+		sector[14] = gIDEState.config[gIDEState.drive].cdrom.sense.fruc;
+		sector[15] = gIDEState.config[gIDEState.drive].cdrom.sense.key_spec[0];
+		sector[16] = gIDEState.config[gIDEState.drive].cdrom.sense.key_spec[1];
+		sector[17] = gIDEState.config[gIDEState.drive].cdrom.sense.key_spec[2];
 		raiseInterrupt(0);
 		break;
 	}
 	case IDE_ATAPI_COMMAND_INQUIRY: {
 		// .310
-		int len = gIDEState.sector[4];
+		int len = sector[4];
 		atapi_start_send_command(command, 36, len);
-		memset(gIDEState.sector, 0, sizeof gIDEState.sector);
-		gIDEState.sector[0] = 0x05; 
-		gIDEState.sector[1] = 0x80; // Removable Medium
-		gIDEState.sector[2] = 0x00; // ATAPI
-		gIDEState.sector[3] = 0x32; // ATAPI / format = 2
-		gIDEState.sector[4] = 62-4;
-		gIDEState.sector[5] = 0x00;
-		gIDEState.sector[6] = 0x00;
-		gIDEState.sector[7] = 0x00;
+		memset(sector, 0, sizeof gIDEState.state[gIDEState.drive].sector);
+		sector[0] = 0x05; 
+		sector[1] = 0x80; // Removable Medium
+		sector[2] = 0x00; // ATAPI
+		sector[3] = 0x32; // ATAPI / format = 2
+		sector[4] = 62-4;
+		sector[5] = 0x00;
+		sector[6] = 0x00;
+		sector[7] = 0x00;
 
-		memcpy(gIDEState.sector+8, "SPIRO   ", 8);
-		memcpy(gIDEState.sector+16, "MULTIMAX 3000   ", 16);
-		memcpy(gIDEState.sector+32, "0.1 ", 4);
+		memcpy(sector+8, "SPIRO   ", 8);
+		memcpy(sector+16, "MULTIMAX 3000   ", 16);
+		memcpy(sector+32, "0.1 ", 4);
 		
-		gIDEState.sector[58] = 0x03;
-		gIDEState.sector[59] = 0xa0; // MMC-4
-		gIDEState.sector[60] = 0x15;
-		gIDEState.sector[61] = 0xe0; // ATA/ATAPI-6
+		sector[58] = 0x03;
+		sector[59] = 0xa0; // MMC-4
+		sector[60] = 0x15;
+		sector[61] = 0xe0; // ATA/ATAPI-6
 		
 		raiseInterrupt(0);
 		break;
 	}
 	case IDE_ATAPI_COMMAND_START_STOP: {
-		bool eject = gIDEState.sector[4] & 2;
-		bool start = gIDEState.sector[4] & 1;
+		bool eject = sector[4] & 2;
+		bool start = sector[4] & 1;
 		if (!eject && !start) {
 			atapi_command_nop();
 		} else if (!eject && start) {
@@ -731,7 +738,7 @@ void receive_atapi_packet()
 	}
 	case IDE_ATAPI_COMMAND_TOGGLE_LOCK:
 		if (dev->isReady()) {
-			dev->setLock(gIDEState.sector[4] & 1);
+			dev->setLock(sector[4] & 1);
 			atapi_command_nop();
 		} else {
 			atapi_command_error(IDE_ATAPI_SENSE_NOT_READY, IDE_ATAPI_ASC_MEDIUM_NOT_PRESENT);
@@ -742,14 +749,14 @@ void receive_atapi_packet()
 		if (dev->isReady()) {
 			atapi_start_send_command(command, 8, 8);
 			uint32 capacity = dev->getCapacity();
-			gIDEState.sector[0] = capacity >> 24;
-			gIDEState.sector[1] = capacity >> 16;
-			gIDEState.sector[2] = capacity >> 8;
-			gIDEState.sector[3] = capacity;
-			gIDEState.sector[4] = 2048 >> 24;
-			gIDEState.sector[5] = 2048 >> 16;
-			gIDEState.sector[6] = 2048 >> 8;
-			gIDEState.sector[7] = 2048;
+			sector[0] = capacity >> 24;
+			sector[1] = capacity >> 16;
+			sector[2] = capacity >> 8;
+			sector[3] = capacity;
+			sector[4] = 2048 >> 24;
+			sector[5] = 2048 >> 16;
+			sector[6] = 2048 >> 8;
+			sector[7] = 2048;
 		} else {
 			atapi_command_error(IDE_ATAPI_SENSE_NOT_READY, IDE_ATAPI_ASC_MEDIUM_NOT_PRESENT);
 		}
@@ -757,18 +764,19 @@ void receive_atapi_packet()
 		break;
 	case IDE_ATAPI_COMMAND_READ10:
 		if (dev->isReady()) {
-			uint16 len = ((uint16)gIDEState.sector[7]<<8)|(gIDEState.sector[8]);
+			uint16 len = ((uint16)sector[7]<<8)|(sector[8]);
 			if (!len) {
 				atapi_command_nop();
 			} else {
-				uint32 lba = ((uint32)gIDEState.sector[2]<<24)|((uint32)gIDEState.sector[3]<<16)|((uint32)gIDEState.sector[4]<<8)|gIDEState.sector[5];
+				uint32 lba = ((uint32)sector[2]<<24)|((uint32)sector[3]<<16)|((uint32)sector[4]<<8)|sector[5];
 				if (lba + len > dev->getCapacity()) {
 					atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_LOGICAL_BLOCK_OOR);
 				} else {
 					IO_IDE_TRACE("read cd: lba: 0x%08x len: %d\n", lba, len);
-					gIDEState.current_sector_size = 2048;
-					gIDEState.atapi_transfer_request = 0x10; // only data
-					atapi_start_send_command(command, len*gIDEState.current_sector_size, len*gIDEState.current_sector_size, gIDEState.current_sector_size, gIDEState.current_sector_size);
+					gIDEState.state[gIDEState.drive].current_sector_size = 2048;
+					gIDEState.state[gIDEState.drive].atapi_transfer_request = 0x10; // only data
+					uint secsize = gIDEState.state[gIDEState.drive].current_sector_size;
+					atapi_start_send_command(command, len*secsize, len*secsize, secsize, secsize);
 					gIDEState.config[gIDEState.drive].cdrom.remain = len;
 					gIDEState.config[gIDEState.drive].cdrom.next_lba = lba;
 					if (atapi_check_dma()) return;
@@ -781,7 +789,7 @@ void receive_atapi_packet()
 		break;
 	case IDE_ATAPI_COMMAND_SEEK10:
 		if (dev->isReady()) {
-			uint32 lba = ((uint32)gIDEState.sector[2]<<24)|((uint32)gIDEState.sector[3]<<16)|((uint32)gIDEState.sector[4]<<8)|gIDEState.sector[5];
+			uint32 lba = ((uint32)sector[2]<<24)|((uint32)sector[3]<<16)|((uint32)sector[4]<<8)|sector[5];
 			if (lba > dev->getCapacity()) {
 				atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_LOGICAL_BLOCK_OOR);
 			} else {
@@ -800,41 +808,41 @@ void receive_atapi_packet()
 	case IDE_ATAPI_COMMAND_READ_TOC:
 		// .413
 		if (dev->isReady()) {
-			bool msf = gIDEState.sector[1] & 2;
-			uint8 start_track = gIDEState.sector[6];
-			int len = ((uint16)gIDEState.sector[7]<<8)|(gIDEState.sector[8]);
+			bool msf = sector[1] & 2;
+			uint8 start_track = sector[6];
+			int len = ((uint16)sector[7]<<8)|(sector[8]);
 			// first check for ATAPI-SFF 8020 style
-			uint8 format = gIDEState.sector[2] & 0xf;
+			uint8 format = sector[2] & 0xf;
 			if (!format) {
 				// then for MMC-2 style 
-				format = gIDEState.sector[9] >> 6;
+				format = sector[9] >> 6;
 			}
 			switch (format) {
 			case 0: {
 				// .415
 				// start_track == track
 				atapi_start_send_command(command, 12, len);	
-				gIDEState.sector[0] = 0;
-				gIDEState.sector[1] = 10;
-				gIDEState.sector[2] = 1; // first track
-				gIDEState.sector[3] = 1; // last track
-				gIDEState.sector[4] = 0x00; // res
-				gIDEState.sector[5] = 0x16; // .408 (Data track, copy allowed :) )
-				gIDEState.sector[6] = 1;    // track number
-				gIDEState.sector[7] = 0x00; // res
+				sector[0] = 0;
+				sector[1] = 10;
+				sector[2] = 1; // first track
+				sector[3] = 1; // last track
+				sector[4] = 0x00; // res
+				sector[5] = 0x16; // .408 (Data track, copy allowed :) )
+				sector[6] = 1;    // track number
+				sector[7] = 0x00; // res
 				if (msf) {
 //					SINGLESTEP("");
 					MSF m;
 					CDROMDevice::MSFfromLBA(m, 0);
-					gIDEState.sector[8] = 0x00;
-					gIDEState.sector[9] = m.m;
-					gIDEState.sector[10] = m.s;
-					gIDEState.sector[11] = m.f; 
+					sector[8] = 0x00;
+					sector[9] = m.m;
+					sector[10] = m.s;
+					sector[11] = m.f; 
 				} else {
-					gIDEState.sector[8] = 0x00; // LBA
-					gIDEState.sector[9] = 0x00;
-					gIDEState.sector[10] = 0x00;
-					gIDEState.sector[11] = 0x00; // LBA 
+					sector[8] = 0x00; // LBA
+					sector[9] = 0x00;
+					sector[10] = 0x00;
+					sector[11] = 0x00; // LBA 
 				}
 				break;				
 			}
@@ -842,88 +850,88 @@ void receive_atapi_packet()
 				// .418 Multisession information
 				// start_track == 0
 				atapi_start_send_command(command, 12, len);
-				gIDEState.sector[0] = 0;
-				gIDEState.sector[1] = 10;
-				gIDEState.sector[2] = 1; // first session
-				gIDEState.sector[3] = 1; // last session
-				gIDEState.sector[4] = 0x00; // res
-				gIDEState.sector[5] = 0x16; // .408 (Data track, copy allowed :) )
-				gIDEState.sector[6] = 1;    // first track number in last complete session
-				gIDEState.sector[7] = 0x00; // res
+				sector[0] = 0;
+				sector[1] = 10;
+				sector[2] = 1; // first session
+				sector[3] = 1; // last session
+				sector[4] = 0x00; // res
+				sector[5] = 0x16; // .408 (Data track, copy allowed :) )
+				sector[6] = 1;    // first track number in last complete session
+				sector[7] = 0x00; // res
 				if (msf) {
 					MSF m;
 					CDROMDevice::MSFfromLBA(m, 0);
-					gIDEState.sector[8] = 0x00;
-					gIDEState.sector[9] = m.m;
-					gIDEState.sector[10] = m.s;
-					gIDEState.sector[11] = m.f; 
+					sector[8] = 0x00;
+					sector[9] = m.m;
+					sector[10] = m.s;
+					sector[11] = m.f; 
 				} else {
-					gIDEState.sector[8] = 0x00; // LBA
-					gIDEState.sector[9] = 0x00;
-					gIDEState.sector[10] = 0x00;
-					gIDEState.sector[11] = 0x00; // LBA 
+					sector[8] = 0x00; // LBA
+					sector[9] = 0x00;
+					sector[10] = 0x00;
+					sector[11] = 0x00; // LBA 
 				}
 				break;
 			case 2:
 				// .420 Raw TOC
 				// start_track == session number
 				atapi_start_send_command(command, 48, len);
-				gIDEState.sector[0] = 0;
-				gIDEState.sector[1] = 46;
-				gIDEState.sector[2] = 1; // first session
-				gIDEState.sector[3] = 1; // last session
+				sector[0] = 0;
+				sector[1] = 46;
+				sector[2] = 1; // first session
+				sector[3] = 1; // last session
 				// points a0-af tracks b0-bf				
-				gIDEState.sector[4] = 1;    // session number
-				gIDEState.sector[5] = 0x16; // .408 (Data track, copy allowed :) )
-				gIDEState.sector[6] = 0;    // track number
-				gIDEState.sector[7] = 0xa0; // point (lead-in)
-				gIDEState.sector[8] = 0x00; // min
-				gIDEState.sector[9] = 0x00; // sec
-				gIDEState.sector[10] = 0x00; // frame
-				gIDEState.sector[11] = 0x00;   // zero
-				gIDEState.sector[12] = 0x01;   // first track
-				gIDEState.sector[13] = 0x00;   // disk type
-				gIDEState.sector[14] = 0x00;   // 				
+				sector[4] = 1;    // session number
+				sector[5] = 0x16; // .408 (Data track, copy allowed :) )
+				sector[6] = 0;    // track number
+				sector[7] = 0xa0; // point (lead-in)
+				sector[8] = 0x00; // min
+				sector[9] = 0x00; // sec
+				sector[10] = 0x00; // frame
+				sector[11] = 0x00;   // zero
+				sector[12] = 0x01;   // first track
+				sector[13] = 0x00;   // disk type
+				sector[14] = 0x00;   // 				
 
-				gIDEState.sector[15] = 1;    // session number
-				gIDEState.sector[16] = 0x16; // .408 (Data track, copy allowed :) )
-				gIDEState.sector[17] = 0;    // track number
-				gIDEState.sector[18] = 0xa1; // point
-				gIDEState.sector[19] = 0x00; // min
-				gIDEState.sector[20] = 0x00; // sec
-				gIDEState.sector[21] = 0x00; // frame
-				gIDEState.sector[22] = 0x00;   // zero
-				gIDEState.sector[23] = 0x01;   // last track
-				gIDEState.sector[24] = 0x00;   // 
-				gIDEState.sector[25] = 0x00;   // 
+				sector[15] = 1;    // session number
+				sector[16] = 0x16; // .408 (Data track, copy allowed :) )
+				sector[17] = 0;    // track number
+				sector[18] = 0xa1; // point
+				sector[19] = 0x00; // min
+				sector[20] = 0x00; // sec
+				sector[21] = 0x00; // frame
+				sector[22] = 0x00;   // zero
+				sector[23] = 0x01;   // last track
+				sector[24] = 0x00;   // 
+				sector[25] = 0x00;   // 
 
-				gIDEState.sector[26] = 1;    // session number
-				gIDEState.sector[27] = 0x16; // .408 (Data track, copy allowed :) )
-				gIDEState.sector[28] = 0;    // track number
-				gIDEState.sector[29] = 0xa2; // point (lead-out)
-				gIDEState.sector[30] = 0x00; // min
-				gIDEState.sector[31] = 0x00; // sec
-				gIDEState.sector[32] = 0x00; // frame
+				sector[26] = 1;    // session number
+				sector[27] = 0x16; // .408 (Data track, copy allowed :) )
+				sector[28] = 0;    // track number
+				sector[29] = 0xa2; // point (lead-out)
+				sector[30] = 0x00; // min
+				sector[31] = 0x00; // sec
+				sector[32] = 0x00; // frame
 				MSF msf;
 				// FIXME?
 				CDROMDevice::MSFfromLBA(msf, dev->getCapacity()+0);
-				gIDEState.sector[33] = 0x00;   // zero
-				gIDEState.sector[34] = msf.m;   // start
-				gIDEState.sector[35] = msf.s;   //  of
-				gIDEState.sector[36] = msf.f;   //  leadout
+				sector[33] = 0x00;   // zero
+				sector[34] = msf.m;   // start
+				sector[35] = msf.s;   //  of
+				sector[36] = msf.f;   //  leadout
 
-				gIDEState.sector[37] = 1;    // session number
-				gIDEState.sector[38] = 0x16; // .408 (Data track, copy allowed :) )
-				gIDEState.sector[39] = 0;    // track number
-				gIDEState.sector[40] = 1;    // point
-				gIDEState.sector[41] = 0x00; // min
-				gIDEState.sector[42] = 0x00; // sec
-				gIDEState.sector[43] = 0x00; // frame
+				sector[37] = 1;    // session number
+				sector[38] = 0x16; // .408 (Data track, copy allowed :) )
+				sector[39] = 0;    // track number
+				sector[40] = 1;    // point
+				sector[41] = 0x00; // min
+				sector[42] = 0x00; // sec
+				sector[43] = 0x00; // frame
 				CDROMDevice::MSFfromLBA(msf, 0);
-				gIDEState.sector[44] = 0x00;   // zero
-				gIDEState.sector[45] = msf.m;  // start
-				gIDEState.sector[46] = msf.s;  //  of
-				gIDEState.sector[47] = msf.f;  //  track
+				sector[44] = 0x00;   // zero
+				sector[45] = msf.m;  // start
+				sector[46] = msf.s;  //  of
+				sector[47] = msf.f;  //  track
 				break;
 			case 3:
 				// PMA
@@ -953,15 +961,15 @@ void receive_atapi_packet()
 	case IDE_ATAPI_COMMAND_MODE_SENSE6:
 	case IDE_ATAPI_COMMAND_MODE_SENSE10: {
 		// .324
-		uint8 pc = gIDEState.sector[2] >> 6;
-		uint8 pagecode = gIDEState.sector[2] & 0x3f;
+		uint8 pc = sector[2] >> 6;
+		uint8 pagecode = sector[2] & 0x3f;
 		int len;
 		if (command == IDE_ATAPI_COMMAND_MODE_SENSE6) {
-			len = ((uint16)gIDEState.sector[4]<<8)|(gIDEState.sector[5]);
+			len = ((uint16)sector[4]<<8)|(sector[5]);
 		} else {
-			len = ((uint16)gIDEState.sector[7]<<8)|(gIDEState.sector[8]);
+			len = ((uint16)sector[7]<<8)|(sector[8]);
 		}
-		memset(gIDEState.sector, 0, sizeof gIDEState.sector);
+		memset(sector, 0, sizeof gIDEState.state[gIDEState.drive].sector);
 		// pagecode: .517
 		switch (pc) {
 		case 0x00:
@@ -973,69 +981,69 @@ void receive_atapi_packet()
 				// Power Condition Page
 				// .537
 				atapi_start_send_command(command, 20, len);
-				atapi_start_mode_sense(gIDEState.sector+8, 20);
-				gIDEState.sector[8] = 0x1a;
-				gIDEState.sector[9] = 10;
-				gIDEState.sector[10] = 0x00;
-				gIDEState.sector[11] = 0x00; // idle=0, standby=0
-				gIDEState.sector[12] = 0x00;
-				gIDEState.sector[13] = 0x00;
-				gIDEState.sector[14] = 0x00;
-				gIDEState.sector[15] = 0x00;
-				gIDEState.sector[16] = 0x00;
-				gIDEState.sector[17] = 0x00;
-				gIDEState.sector[18] = 0x00;
-				gIDEState.sector[19] = 0x00;
+				atapi_start_mode_sense(sector+8, 20);
+				sector[8] = 0x1a;
+				sector[9] = 10;
+				sector[10] = 0x00;
+				sector[11] = 0x00; // idle=0, standby=0
+				sector[12] = 0x00;
+				sector[13] = 0x00;
+				sector[14] = 0x00;
+				sector[15] = 0x00;
+				sector[16] = 0x00;
+				sector[17] = 0x00;
+				sector[18] = 0x00;
+				sector[19] = 0x00;
 				raiseInterrupt(0);
 				break;
 			case 0x2a:
 				// Capabilities and Mechanical Status Page
 				// .573
 				atapi_start_send_command(command, 36, len);
-				atapi_start_mode_sense(gIDEState.sector+8, 36);
-				gIDEState.sector[8] = 0x2a;
-				gIDEState.sector[9] = 28;
-				gIDEState.sector[10] = 0x3; // CD-RW + CD-R read
-				gIDEState.sector[11] = 0;
-				gIDEState.sector[12] = 0;
-				gIDEState.sector[13] = 3<<5;
-				gIDEState.sector[14] = (dev->isLocked() ? (1<<1):0)
+				atapi_start_mode_sense(sector+8, 36);
+				sector[8] = 0x2a;
+				sector[9] = 28;
+				sector[10] = 0x3; // CD-RW + CD-R read
+				sector[11] = 0;
+				sector[12] = 0;
+				sector[13] = 3<<5;
+				sector[14] = (dev->isLocked() ? (1<<1):0)
 					| 1 | (1<<3) | (1<<5);
-				gIDEState.sector[15] = 0;
-				gIDEState.sector[16] = 706 >> 8;
-				gIDEState.sector[17] = 706;
-				gIDEState.sector[18] = 0;
-				gIDEState.sector[19] = 2;
-				gIDEState.sector[20] = 512 >> 8;
-				gIDEState.sector[21] = 512;
-				gIDEState.sector[22] = 706 >> 8;
-				gIDEState.sector[23] = 706;
-				gIDEState.sector[24] = 0;
-				gIDEState.sector[25] = 0;
-				gIDEState.sector[26] = 0;
-				gIDEState.sector[27] = 0;
-				gIDEState.sector[28] = 0;
-				gIDEState.sector[29] = 0;
-				gIDEState.sector[30] = 0;
-				gIDEState.sector[31] = 0;
-				gIDEState.sector[32] = 0;
-				gIDEState.sector[33] = 0;
-				gIDEState.sector[34] = 0;
-				gIDEState.sector[35] = 0;
+				sector[15] = 0;
+				sector[16] = 706 >> 8;
+				sector[17] = 706;
+				sector[18] = 0;
+				sector[19] = 2;
+				sector[20] = 512 >> 8;
+				sector[21] = 512;
+				sector[22] = 706 >> 8;
+				sector[23] = 706;
+				sector[24] = 0;
+				sector[25] = 0;
+				sector[26] = 0;
+				sector[27] = 0;
+				sector[28] = 0;
+				sector[29] = 0;
+				sector[30] = 0;
+				sector[31] = 0;
+				sector[32] = 0;
+				sector[33] = 0;
+				sector[34] = 0;
+				sector[35] = 0;
 				raiseInterrupt(0);
 				break;
 			case 0x31:
 				// Apple Features
 				atapi_start_send_command(command, 16, len);
-				atapi_start_mode_sense(gIDEState.sector+8, 16);
-				gIDEState.sector[8] = 0x31;
-				gIDEState.sector[9] = 6;
-				gIDEState.sector[10] = '.';
-				gIDEState.sector[11] = 'A';
-				gIDEState.sector[12] = 'p';
-				gIDEState.sector[13] = 'p';
-				gIDEState.sector[14] = 0;
-				gIDEState.sector[15] = 0;
+				atapi_start_mode_sense(sector+8, 16);
+				sector[8] = 0x31;
+				sector[9] = 6;
+				sector[10] = '.';
+				sector[11] = 'A';
+				sector[12] = 'p';
+				sector[13] = 'p';
+				sector[14] = 0;
+				sector[15] = 0;
 				raiseInterrupt(0);
 				break;
 			case 0x0d:
@@ -1086,29 +1094,29 @@ void receive_atapi_packet()
 	}
 	case IDE_ATAPI_COMMAND_GET_CONFIG: {
 		// .173 .242 .284
-		uint8 RT = gIDEState.sector[1] & 3;
-		int len = ((uint16)gIDEState.sector[7]<<8)|(gIDEState.sector[8]);
-		int feature = ((uint16)gIDEState.sector[2]<<8)|(gIDEState.sector[3]);
+		uint8 RT = sector[1] & 3;
+		int len = ((uint16)sector[7]<<8)|(sector[8]);
+		int feature = ((uint16)sector[2]<<8)|(sector[3]);
 		IO_IDE_TRACE("get_config: RT=%x len=%d f=%x\n", RT, len, feature);
-		memset(gIDEState.sector, 0, sizeof gIDEState.sector);
-		gIDEState.sector[0] = 0x00; // length msb
-		gIDEState.sector[1] = 0x00;
-		gIDEState.sector[2] = 0x00;
+		memset(sector, 0, sizeof gIDEState.state[gIDEState.drive].sector);
+		sector[0] = 0x00; // length msb
+		sector[1] = 0x00;
+		sector[2] = 0x00;
 		
-		gIDEState.sector[6] = 0x00;
-		gIDEState.sector[7] = 0x08; // Current: Profile 8: CDROM
+		sector[6] = 0x00;
+		sector[7] = 0x08; // Current: Profile 8: CDROM
 		if (RT == 2) {
 			switch (feature) {
 			case 0: // Profile List
-				gIDEState.sector[3] = 16-4;
-				gIDEState.sector[8] = 0x00;
-				gIDEState.sector[9] = 0x00;  // Profile List
-				gIDEState.sector[10] = 0x03; // Version 0, Persistent=1, Current=1
-				gIDEState.sector[11] = 0x04; // Additional Length
-				gIDEState.sector[12] = 0x00;
-				gIDEState.sector[13] = 0x08; // CDROM
-				gIDEState.sector[14] = 0x01; // active	
-				gIDEState.sector[15] = 0x00;
+				sector[3] = 16-4;
+				sector[8] = 0x00;
+				sector[9] = 0x00;  // Profile List
+				sector[10] = 0x03; // Version 0, Persistent=1, Current=1
+				sector[11] = 0x04; // Additional Length
+				sector[12] = 0x00;
+				sector[13] = 0x08; // CDROM
+				sector[14] = 0x01; // active	
+				sector[15] = 0x00;
 				atapi_start_send_command(command, 16, len);
 				break;
 			case 0x21:  // Incremental Streaming Writable .192
@@ -1116,11 +1124,11 @@ void receive_atapi_packet()
 			case 0x2e:  // Session At Once Feature .214
 			case 0x103: // CD Audio External Play Feature .224				
 			case 0x106: // DVD CSS Feature .106
-				gIDEState.sector[3] = 4; // not av.
+				sector[3] = 4; // not av.
 				atapi_start_send_command(command, 8, len);
 				break;
 			default: 
-				gIDEState.sector[3] = 4; // not av.
+				sector[3] = 4; // not av.
 				atapi_start_send_command(command, 8, len);
 				IO_IDE_WARN("moep\n");
 			}
@@ -1128,88 +1136,88 @@ void receive_atapi_packet()
 			break;
 		}
 		if (RT != 0) IO_IDE_ERR("moepmoep\n");
-		gIDEState.sector[3] = 0x44; // length lsb (72-4)
+		sector[3] = 0x44; // length lsb (72-4)
 		
 		// Features:
 		//  Feature 1, Profile List
-		gIDEState.sector[8] = 0x00;
-		gIDEState.sector[9] = 0x00;  // Profile List
-		gIDEState.sector[10] = 0x03; // Version 0, Persistent=1, Current=1
-		gIDEState.sector[11] = 0x04; // Additional Length
-		gIDEState.sector[12] = 0x00;
-		gIDEState.sector[13] = 0x08; // CDROM
-		gIDEState.sector[14] = 0x01; // active	
-		gIDEState.sector[15] = 0x00;
+		sector[8] = 0x00;
+		sector[9] = 0x00;  // Profile List
+		sector[10] = 0x03; // Version 0, Persistent=1, Current=1
+		sector[11] = 0x04; // Additional Length
+		sector[12] = 0x00;
+		sector[13] = 0x08; // CDROM
+		sector[14] = 0x01; // active	
+		sector[15] = 0x00;
 		
 		//  Feature 2, Core
-		gIDEState.sector[16] = 0x00;
-		gIDEState.sector[17] = 0x01; // Core
-		gIDEState.sector[18] = 0x03; // Version 0, Persistent=1, Current=1
-		gIDEState.sector[19] = 0x04; // Additional Length
-		gIDEState.sector[20] = 0x00;
-		gIDEState.sector[21] = 0x00;
-		gIDEState.sector[22] = 0x00;
-		gIDEState.sector[23] = 0x02; // 02=ATAPI
+		sector[16] = 0x00;
+		sector[17] = 0x01; // Core
+		sector[18] = 0x03; // Version 0, Persistent=1, Current=1
+		sector[19] = 0x04; // Additional Length
+		sector[20] = 0x00;
+		sector[21] = 0x00;
+		sector[22] = 0x00;
+		sector[23] = 0x02; // 02=ATAPI
 
 		//  Feature 3, Morphing
-		gIDEState.sector[24] = 0x00;
-		gIDEState.sector[25] = 0x02; // Morphing
-		gIDEState.sector[26] = 0x07; // Version 1, Persistent=1, Current=1
-		gIDEState.sector[27] = 0x04; // Additional Length
-		gIDEState.sector[28] = 0x00; // ASYNC = 0 (ATAPI)
-		gIDEState.sector[29] = 0x00;
-		gIDEState.sector[30] = 0x00;
-		gIDEState.sector[31] = 0x00;
+		sector[24] = 0x00;
+		sector[25] = 0x02; // Morphing
+		sector[26] = 0x07; // Version 1, Persistent=1, Current=1
+		sector[27] = 0x04; // Additional Length
+		sector[28] = 0x00; // ASYNC = 0 (ATAPI)
+		sector[29] = 0x00;
+		sector[30] = 0x00;
+		sector[31] = 0x00;
 		
 		//  Feature 4, Removable
-		gIDEState.sector[32] = 0x00;
-		gIDEState.sector[33] = 0x03; // Removable
-		gIDEState.sector[34] = 0x03; // Version 0, Persistent=1, Current=1
-		gIDEState.sector[35] = 0x04; // Additional Length
-		gIDEState.sector[36] = 0x19; // Tray-Type-Loading, Eject=1, Jmpr=0, LockAllow=1
-		gIDEState.sector[37] = 0x00;
-		gIDEState.sector[38] = 0x00;
-		gIDEState.sector[39] = 0x00;
+		sector[32] = 0x00;
+		sector[33] = 0x03; // Removable
+		sector[34] = 0x03; // Version 0, Persistent=1, Current=1
+		sector[35] = 0x04; // Additional Length
+		sector[36] = 0x19; // Tray-Type-Loading, Eject=1, Jmpr=0, LockAllow=1
+		sector[37] = 0x00;
+		sector[38] = 0x00;
+		sector[39] = 0x00;
 		
 		//  Feature 5, Random Readable
-		gIDEState.sector[40] = 0x00;
-		gIDEState.sector[41] = 0x10; // Random Readable
-		gIDEState.sector[42] = 0x03; // Version 0, Persistent=1, Current=1 [FIXME?]
-		gIDEState.sector[43] = 0x08; // Additional Length
-		gIDEState.sector[44] = 0x00; // Logical Block Size MSB
-		gIDEState.sector[45] = 0x00;
-		gIDEState.sector[46] = 0x08;
-		gIDEState.sector[47] = 0x00; // Logical Block Size LSB
-		gIDEState.sector[48] = 0x00; // Blocking MSB
-		gIDEState.sector[49] = 0x10; // Blocking LSB
-		gIDEState.sector[50] = 0x00;
-		gIDEState.sector[51] = 0x00; // PP=0
+		sector[40] = 0x00;
+		sector[41] = 0x10; // Random Readable
+		sector[42] = 0x03; // Version 0, Persistent=1, Current=1 [FIXME?]
+		sector[43] = 0x08; // Additional Length
+		sector[44] = 0x00; // Logical Block Size MSB
+		sector[45] = 0x00;
+		sector[46] = 0x08;
+		sector[47] = 0x00; // Logical Block Size LSB
+		sector[48] = 0x00; // Blocking MSB
+		sector[49] = 0x10; // Blocking LSB
+		sector[50] = 0x00;
+		sector[51] = 0x00; // PP=0
 		
 		//  Feature 6, CD Read
-		gIDEState.sector[52] = 0x00;
-		gIDEState.sector[53] = 0x1e; // CD Read
-		gIDEState.sector[54] = 0x0b; // Version 2, Persistent=1, Current=1 [FIXME?]
-		gIDEState.sector[55] = 0x04; // Additional Length
-		gIDEState.sector[56] = 0x00; // DAP=0, C2=0, CD-Text=0
-		gIDEState.sector[57] = 0x00;
-		gIDEState.sector[58] = 0x00;
-		gIDEState.sector[59] = 0x00;
+		sector[52] = 0x00;
+		sector[53] = 0x1e; // CD Read
+		sector[54] = 0x0b; // Version 2, Persistent=1, Current=1 [FIXME?]
+		sector[55] = 0x04; // Additional Length
+		sector[56] = 0x00; // DAP=0, C2=0, CD-Text=0
+		sector[57] = 0x00;
+		sector[58] = 0x00;
+		sector[59] = 0x00;
 		
 		//  Feature 7, Power Managment
-		gIDEState.sector[60] = 0x01;
-		gIDEState.sector[61] = 0x00; // Power Managment
-		gIDEState.sector[62] = 0x03; // Version 0, Persistent=1, Current=1 [FIXME?]
-		gIDEState.sector[63] = 0x00; // Additional Length
+		sector[60] = 0x01;
+		sector[61] = 0x00; // Power Managment
+		sector[62] = 0x03; // Version 0, Persistent=1, Current=1 [FIXME?]
+		sector[63] = 0x00; // Additional Length
 		
 		//  Feature 8, Timeout
-		gIDEState.sector[64] = 0x01;
-		gIDEState.sector[65] = 0x05; // Timeout
-		gIDEState.sector[66] = 0x07; // Version 0, Persistent=1, Current=1 [FIXME?]
-		gIDEState.sector[67] = 0x04; // Additional Length
-		gIDEState.sector[68] = 0x00; // Group 3=0
-		gIDEState.sector[69] = 0x00;
-		gIDEState.sector[70] = 0x00;
-		gIDEState.sector[71] = 0x00;
+		sector[64] = 0x01;
+		sector[65] = 0x05; // Timeout
+		sector[66] = 0x07; // Version 0, Persistent=1, Current=1 [FIXME?]
+		sector[67] = 0x04; // Additional Length
+		sector[68] = 0x00; // Group 3=0
+		sector[69] = 0x00;
+		sector[70] = 0x00;
+		sector[71] = 0x00;
 		
 /*		IO_IDE_WARN("ATAPI command 0x%08x not impl.\n", command);
 		atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);*/
@@ -1225,43 +1233,44 @@ void receive_atapi_packet()
 	case IDE_ATAPI_COMMAND_READ_CD: {
 		// .352
 		if (dev->isReady()) {
-			uint32 len = ((uint32)gIDEState.sector[6]<<16)|((uint32)gIDEState.sector[7]<<8)|(gIDEState.sector[8]);
+			uint32 len = ((uint32)sector[6]<<16)|((uint32)sector[7]<<8)|(sector[8]);
 			if (!len) {
 				atapi_command_nop();
 			} else {
-				int sec_type = (gIDEState.sector[1] >> 2) & 7;  // .353
-		    		bool dap = (gIDEState.sector[1] >> 1) & 1;
-				bool rel = gIDEState.sector[1] & 1;
-				uint32 lba = ((uint32)gIDEState.sector[2]<<24)|((uint32)gIDEState.sector[3]<<16)|((uint32)gIDEState.sector[4]<<8)|gIDEState.sector[5];
-				int sub_ch = gIDEState.sector[10] & 3;
+				int sec_type = (sector[1] >> 2) & 7;  // .353
+		    		bool dap = (sector[1] >> 1) & 1;
+				bool rel = sector[1] & 1;
+				uint32 lba = ((uint32)sector[2]<<24)|((uint32)sector[3]<<16)|((uint32)sector[4]<<8)|sector[5];
+				int sub_ch = sector[10] & 3;
 				if (sec_type) IO_IDE_ERR("sec_type not supported\n");
 				if (rel) IO_IDE_ERR("rel not supported\n");
 				if (sub_ch) IO_IDE_ERR("sub-channel not supported\n");
 				// .95 .96
-				gIDEState.atapi_transfer_request = gIDEState.sector[9];
-				if (gIDEState.atapi_transfer_request & 7) IO_IDE_ERR("c2 not supported\n");
+				gIDEState.state[gIDEState.drive].atapi_transfer_request = sector[9];
+				if (gIDEState.state[gIDEState.drive].atapi_transfer_request & 7) IO_IDE_ERR("c2 not supported\n");
 				if (lba + len > dev->getCapacity()) {
 					atapi_command_error(IDE_ATAPI_SENSE_ILLEGAL_REQUEST, IDE_ATAPI_ASC_LOGICAL_BLOCK_OOR);
 				} else {
 					IO_IDE_TRACE("read cd: lba: %08x len: %08x\n", lba, len);
-					switch (gIDEState.atapi_transfer_request & 0xf8) {  // .355
+					switch (gIDEState.state[gIDEState.drive].atapi_transfer_request & 0xf8) {  // .355
 					case 0x00: // nothing
-						gIDEState.current_sector_size = 0;
+						gIDEState.state[gIDEState.drive].current_sector_size = 0;
 						atapi_command_nop();
 						raiseInterrupt(0);
 						return;
 					case 0x10: // user data
-						gIDEState.current_sector_size = 2048;
+						gIDEState.state[gIDEState.drive].current_sector_size = 2048;
 						break;
 					case 0xf8: // everything
 						// SYNC+HEADER+UserDATA+EDC+(Mode1 Pad)+ECC
-						gIDEState.current_sector_size = 12+4+2048+288;
-						gIDEState.atapi_transfer_request = 0xb8; // mode1 -> skip sub-header
+						gIDEState.state[gIDEState.drive].current_sector_size = 12+4+2048+288;
+						gIDEState.state[gIDEState.drive].atapi_transfer_request = 0xb8; // mode1 -> skip sub-header
 						break;
 					default:
 						IO_IDE_ERR("unknown main channel selection in READ_CD\n");
 					}
-					atapi_start_send_command(command, len*gIDEState.current_sector_size, len*gIDEState.current_sector_size, gIDEState.current_sector_size, gIDEState.current_sector_size);
+					uint cursize = gIDEState.state[gIDEState.drive].current_sector_size;
+					atapi_start_send_command(command, len*cursize, len*cursize, cursize, cursize);
 					gIDEState.config[gIDEState.drive].cdrom.remain = len;
 					gIDEState.config[gIDEState.drive].cdrom.next_lba = lba;
 					if (atapi_check_dma()) return;
@@ -1299,7 +1308,7 @@ void receive_atapi_packet()
 
 	bool bm_ide_dotransfer(bool &prd_exhausted, uint32 bmide_prd_addr, byte bmide_command, byte bmide_status, uint32 lba, uint32 count)
 	{
-		IO_IDE_TRACE("BM IDE transfer: prd_addr = %08x, lba = %08x, size = %08x\n", bmide_prd_addr, lba, count ? count : gIDEState.sector_count);
+		IO_IDE_TRACE("BM IDE transfer: prd_addr = %08x, lba = %08x, size = %08x\n", bmide_prd_addr, lba, count ? count : gIDEState.state[gIDEState.drive].sector_count);
 //		printf("holla die waldfee v2\n");
 
 		struct prd_entry {
@@ -1326,7 +1335,7 @@ void receive_atapi_packet()
 		bool write_to_mem = bmide_command & BM_IDE_CR_WRITE;
 		bool write_to_device = !write_to_mem;
 		while (true) {
-			int to_transfer = gIDEState.current_sector_size;
+			int to_transfer = gIDEState.state[gIDEState.drive].current_sector_size;
 			int transfer_at_once = to_transfer;
 			if (transfer_at_once > pr_left) transfer_at_once = pr_left;
 			do {
@@ -1354,7 +1363,7 @@ void receive_atapi_packet()
 						if (count) {
 							ready = false;
 						} else {
-							ready = gIDEState.sector_count > 1;
+							ready = gIDEState.state[gIDEState.drive].sector_count > 1;
 						}
 						if (to_transfer || ready) {
 							IO_IDE_ERR("false1\n");
@@ -1380,7 +1389,7 @@ void receive_atapi_packet()
 				if (!count) break;
 			} else {
 				incAddress();
-				if (!gIDEState.sector_count) break;
+				if (!gIDEState.state[gIDEState.drive].sector_count) break;
 			}
 		}
 		gIDEState.config[gIDEState.drive].device->release();
@@ -1431,14 +1440,14 @@ void receive_atapi_packet()
 	
 	bool bmide_start_dma(bool startbit)
 	{
-		IO_IDE_TRACE("start dma %d\n", gIDEState.mode);
-		switch (gIDEState.mode) {
+		IO_IDE_TRACE("start dma %d\n", gIDEState.state[gIDEState.drive].mode);
+		switch (gIDEState.state[gIDEState.drive].mode) {
 		case IDE_TRANSFER_MODE_NONE:
 			/*
 			 * wait for both:
 			 * bmide start and appropriate device command
 			 */
-			gIDEState.mode = IDE_TRANSFER_MODE_DMA;
+			gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_DMA;
 			if (startbit) mConfig[BMIDESR0] |= BM_IDE_SR_ACTIVE;
 			mConfig[BMIDESR0] &= ~BM_IDE_SR_ERROR;
 			return true;
@@ -1447,11 +1456,14 @@ void receive_atapi_packet()
 		default:
 			IO_IDE_ERR("invalid gIDEState.mode in write_bmdma_reg\n");
 		} 
-		gIDEState.mode = IDE_TRANSFER_MODE_NONE;
+		gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_NONE;
 		bool prd_exhausted;
 		uint32 bmide_prd_addr;
 		memcpy(&bmide_prd_addr, &mConfig[DTPR0], 4);	// FIXME: endianess
-		if (bm_ide_dotransfer(prd_exhausted, bmide_prd_addr, mConfig[BMIDECR0], mConfig[BMIDESR0], gIDEState.dma_lba_start, gIDEState.dma_lba_count)) {
+		if (bm_ide_dotransfer(prd_exhausted, bmide_prd_addr, 
+				mConfig[BMIDECR0], mConfig[BMIDESR0], 
+				gIDEState.state[gIDEState.drive].dma_lba_start, 
+				gIDEState.state[gIDEState.drive].dma_lba_count)) {			
 			if (prd_exhausted) {
 				mConfig[BMIDESR0] &= ~BM_IDE_SR_ACTIVE;
 			} else {
@@ -1553,42 +1565,44 @@ void receive_atapi_packet()
 				IO_IDE_ERR("ide size bla\n");
 			}
 //			IO_IDE_TRACE("data <- %04x\n", data);
-			switch (gIDEState.current_command) {
+			switch (gIDEState.state[gIDEState.drive].current_command) {
 			case IDE_COMMAND_WRITE_SECTOR: 
-				gIDEState.sector[gIDEState.sectorpos++] = data >> 8;
-				gIDEState.sector[gIDEState.sectorpos++] = data;
-				if (gIDEState.sectorpos == 512) {
-					if (gIDEState.mode == IDE_TRANSFER_MODE_WRITE) {
-						uint32 pos = makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no);
+				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data >> 8;
+				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data;
+				if (gIDEState.state[gIDEState.drive].sectorpos == 512) {
+					if (gIDEState.state[gIDEState.drive].mode == IDE_TRANSFER_MODE_WRITE) {
+						uint32 pos = makeLogical(gIDEState.state[gIDEState.drive].head, 
+							gIDEState.state[gIDEState.drive].cyl, 
+							gIDEState.state[gIDEState.drive].sector_no);
 						incAddress();
-						IO_IDE_TRACE(" write sector cont. (%08x, %d)\n", pos, gIDEState.sector_count);
+						IO_IDE_TRACE(" write sector cont. (%08x, %d)\n", pos, gIDEState.state[gIDEState.drive].sector_count);
 						IDEDevice *dev = gIDEState.config[gIDEState.drive].device;
 						dev->acquire();
 						dev->setMode(ATA_DEVICE_MODE_PLAIN, 512);
 						dev->seek(pos);
-						dev->writeBlock(gIDEState.sector);
+						dev->writeBlock(gIDEState.state[gIDEState.drive].sector);
 						dev->release();
-						if (gIDEState.sector_count) {
-							gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
+						if (gIDEState.state[gIDEState.drive].sector_count) {
+							gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
 						} else {
-							gIDEState.mode = IDE_TRANSFER_MODE_NONE;
-							gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+							gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_NONE;
+							gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
 						}
 						raiseInterrupt(0);
 					} else {
 						IO_IDE_ERR("invalid state in %s:%d\n", __FILE__, __LINE__);
-						gIDEState.mode = IDE_TRANSFER_MODE_NONE;
+						gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_NONE;
 					}
-					gIDEState.sectorpos = 0;
+					gIDEState.state[gIDEState.drive].sectorpos = 0;
 				}
 				break;
 			case IDE_COMMAND_PACKET:
-				if (gIDEState.sectorpos >= IDE_ATAPI_PACKET_SIZE) {
+				if (gIDEState.state[gIDEState.drive].sectorpos >= IDE_ATAPI_PACKET_SIZE) {
 					IO_IDE_ERR("sectorpos >= PACKET_SIZE\n");
 				}
-				gIDEState.sector[gIDEState.sectorpos++] = data >> 8;
-				gIDEState.sector[gIDEState.sectorpos++] = data;
-				if (gIDEState.sectorpos >= IDE_ATAPI_PACKET_SIZE) {
+				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data >> 8;
+				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data;
+				if (gIDEState.state[gIDEState.drive].sectorpos >= IDE_ATAPI_PACKET_SIZE) {
 					// ATAPI packet received
 					IDEDevice *dev = gIDEState.config[gIDEState.drive].device;
 					dev->acquire();
@@ -1602,113 +1616,124 @@ void receive_atapi_packet()
 		switch (addr) {
 		case IDE_ADDRESS_FEATURE: {
 			IO_IDE_TRACE("feature <- %x\n", data);
-			gIDEState.feature = data;
+			gIDEState.state[gIDEState.drive].feature = data;
 			return;
 		}
 		case IDE_ADDRESS_COMMAND: {
 			IO_IDE_TRACE("command register (%02x)\n", data);
-			gIDEState.current_command = data;
+			gIDEState.state[gIDEState.drive].current_command = data;
 			gIDEState.one_time_shit = true;
 			switch (data) {
 			case IDE_COMMAND_RESET_ATAPI: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATAPI) {
 					IO_IDE_WARN("reset non ATAPI-Drive\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
-				gIDEState.error = 0; 
-				gIDEState.sector_count = 1;
-				gIDEState.sector_no = 1;
-				gIDEState.cyl = 0xeb14;
-				gIDEState.drive_head &= ~0x0f;
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+				gIDEState.state[gIDEState.drive].error = 0; 
+				gIDEState.state[gIDEState.drive].sector_count = 1;
+				gIDEState.state[gIDEState.drive].sector_no = 1;
+				gIDEState.state[gIDEState.drive].cyl = 0xeb14;
+				gIDEState.state[gIDEState.drive].head = 0;
 				// no interrupt:
 				return;
 			}
 			case IDE_COMMAND_RECALIBRATE: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATA) {
 					IO_IDE_WARN("recalibrate non ATA-Drive\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
 				if (gIDEState.config[gIDEState.drive].installed) {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
-					gIDEState.error = 0; 
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+					gIDEState.state[gIDEState.drive].error = 0; 
 				} else {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x2; // Track 0 not found
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x2; // Track 0 not found
 				}
 				break;
 			}
 			case IDE_COMMAND_READ_SECTOR: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATA) {
 					IO_IDE_WARN("read sector from non ATA-Disk\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
-				uint32 pos = makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no);
-				IO_IDE_TRACE("read sector(%08x, %d)\n", pos, gIDEState.sector_count);
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
+				uint32 pos = makeLogical(gIDEState.state[gIDEState.drive].head, 
+					gIDEState.state[gIDEState.drive].cyl, 
+					gIDEState.state[gIDEState.drive].sector_no);
+				IO_IDE_TRACE("read sector(%08x, %d)\n", pos, gIDEState.state[gIDEState.drive].sector_count);
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
 
-				gIDEState.mode = IDE_TRANSFER_MODE_READ;
+				gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_READ;
 				IDEDevice *dev = gIDEState.config[gIDEState.drive].device;
 				dev->acquire();
 				dev->setMode(ATA_DEVICE_MODE_PLAIN, 512);
 				dev->seek(pos);
-				dev->readBlock(gIDEState.sector);
+				dev->readBlock(gIDEState.state[gIDEState.drive].sector);
 				dev->release();
-				gIDEState.sectorpos = 0;
-				gIDEState.error = 0;
+				gIDEState.state[gIDEState.drive].sectorpos = 0;
+				gIDEState.state[gIDEState.drive].error = 0;
 				break;
 			}
 			case IDE_COMMAND_WRITE_SECTOR: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATA) {
 					IO_IDE_WARN("write sector to non ATA-Disk\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
-				IO_IDE_TRACE("write sector(%08x, %d)\n", makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no), gIDEState.sector_count);
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
-				gIDEState.mode = IDE_TRANSFER_MODE_WRITE;
-				gIDEState.sectorpos = 0;
-				gIDEState.error = 0;
+				IO_IDE_TRACE("write sector(%08x, %d)\n", 
+					makeLogical(gIDEState.state[gIDEState.drive].head, 
+						gIDEState.state[gIDEState.drive].cyl, 
+						gIDEState.state[gIDEState.drive].sector_no), 
+					gIDEState.state[gIDEState.drive].sector_count);
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
+				gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_WRITE;
+				gIDEState.state[gIDEState.drive].sectorpos = 0;
+				gIDEState.state[gIDEState.drive].error = 0;
 				return;
 			}
 			case IDE_COMMAND_FIX_PARAM: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATA) {
 					IO_IDE_WARN("recalibrate non ATA-Drive\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
 				if (gIDEState.config[gIDEState.drive].installed) {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
-					gIDEState.error = 0;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+					gIDEState.state[gIDEState.drive].error = 0;
 				} else {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x2; // Track 0 not found
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x2; // Track 0 not found
 				}
 				break;
 			}
 			case IDE_COMMAND_READ_SECTOR_DMA: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATA) {
 					IO_IDE_WARN("read sector from non ATA-Disk\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
-				gIDEState.dma_lba_start = makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no);
-				gIDEState.dma_lba_count = 0;
-				gIDEState.current_sector_size = 512;
-				IO_IDE_TRACE("read sector dma(%08x, %d)\n", gIDEState.dma_lba_start, gIDEState.sector_count);
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+				gIDEState.state[gIDEState.drive].dma_lba_start = makeLogical(
+					gIDEState.state[gIDEState.drive].head, 
+					gIDEState.state[gIDEState.drive].cyl, 
+					gIDEState.state[gIDEState.drive].sector_no);
+				gIDEState.state[gIDEState.drive].dma_lba_count = 0;
+				gIDEState.state[gIDEState.drive].current_sector_size = 512;
+				IO_IDE_TRACE("read sector dma(%08x, %d)\n", 
+					gIDEState.state[gIDEState.drive].dma_lba_start, 
+					gIDEState.state[gIDEState.drive].sector_count);
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
 				gIDEState.config[gIDEState.drive].device->acquire();
 				gIDEState.config[gIDEState.drive].device->setMode(ATA_DEVICE_MODE_PLAIN, 512);
-				gIDEState.config[gIDEState.drive].device->seek(gIDEState.dma_lba_start);
+				gIDEState.config[gIDEState.drive].device->seek(gIDEState.state[gIDEState.drive].dma_lba_start);
 				bmide_start_dma(false);
 				// no interrupt here:
 				return;
@@ -1716,18 +1741,23 @@ void receive_atapi_packet()
 			case IDE_COMMAND_WRITE_SECTOR_DMA: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATA) {
 					IO_IDE_WARN("write sector to non ATA-Disk\n");
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
-				gIDEState.dma_lba_start = makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no);
-				gIDEState.dma_lba_count = 0;
-				gIDEState.current_sector_size = 512;
-				IO_IDE_TRACE("write sector dma(%08x, %d)\n", gIDEState.dma_lba_start, gIDEState.sector_count);
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+				gIDEState.state[gIDEState.drive].dma_lba_start = makeLogical(
+					gIDEState.state[gIDEState.drive].head, 
+					gIDEState.state[gIDEState.drive].cyl, 
+					gIDEState.state[gIDEState.drive].sector_no);
+				gIDEState.state[gIDEState.drive].dma_lba_count = 0;
+				gIDEState.state[gIDEState.drive].current_sector_size = 512;
+				IO_IDE_TRACE("write sector dma(%08x, %d)\n", 
+					gIDEState.state[gIDEState.drive].dma_lba_start, 
+					gIDEState.state[gIDEState.drive].sector_count);
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
 				gIDEState.config[gIDEState.drive].device->acquire();				
 				gIDEState.config[gIDEState.drive].device->setMode(ATA_DEVICE_MODE_PLAIN, 512);
-				gIDEState.config[gIDEState.drive].device->seek(gIDEState.dma_lba_start);
+				gIDEState.config[gIDEState.drive].device->seek(gIDEState.state[gIDEState.drive].dma_lba_start);
 				bmide_start_dma(false);
 				// no interrupt here:
 				return;
@@ -1735,11 +1765,11 @@ void receive_atapi_packet()
 			case IDE_COMMAND_IDENT: {
 				if (gIDEState.config[gIDEState.drive].protocol == IDE_ATAPI) {
 					gIDEState.drive_head &= ~0xf;
-					gIDEState.sector_no = 1;
-					gIDEState.sector_count = 1;
-					gIDEState.cyl = 0xeb14;
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].sector_no = 1;
+					gIDEState.state[gIDEState.drive].sector_count = 1;
+					gIDEState.state[gIDEState.drive].cyl = 0xeb14;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
 				drive_ident();
@@ -1747,8 +1777,8 @@ void receive_atapi_packet()
 			}
 			case IDE_COMMAND_IDENT_ATAPI: {			
 				if (gIDEState.config[gIDEState.drive].protocol == IDE_ATA) {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
 				drive_ident();
@@ -1756,27 +1786,27 @@ void receive_atapi_packet()
 			}
 			case IDE_COMMAND_PACKET: {
 				if (gIDEState.config[gIDEState.drive].protocol != IDE_ATAPI) {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
-				if (gIDEState.feature & 1) {
+				if (gIDEState.state[gIDEState.drive].feature & 1) {
 //					IO_IDE_WARN("ATAPI feature dma\n");
 					gIDEState.config[gIDEState.drive].cdrom.dma = true;
 				} else {
 					gIDEState.config[gIDEState.drive].cdrom.dma = false;
 				}				
-				if (gIDEState.feature & 2) {
+				if (gIDEState.state[gIDEState.drive].feature & 2) {
 					IO_IDE_ERR("ATAPI feature overlapped not supported\n");
 				}
-				gIDEState.sector_count = 1;
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC | IDE_STATUS_DRQ;
-				gIDEState.sectorpos = 0;
+				gIDEState.state[gIDEState.drive].sector_count = 1;
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC | IDE_STATUS_DRQ;
+				gIDEState.state[gIDEState.drive].sectorpos = 0;
 				// don't raise interrupt:
 				return;
 			}
 			case IDE_COMMAND_SET_FEATURE: {
-				switch (gIDEState.feature) {
+				switch (gIDEState.state[gIDEState.drive].feature) {
 				case IDE_COMMAND_FEATURE_ENABLE_WRITE_CACHE:
 				case IDE_COMMAND_FEATURE_SET_TRANSFER_MODE:
 				case IDE_COMMAND_FEATURE_ENABLE_APM:
@@ -1786,13 +1816,13 @@ void receive_atapi_packet()
 				case IDE_COMMAND_FEATURE_DISABLE_LOOKAHEAD:
 				case IDE_COMMAND_FEATURE_ENABLE_PW_DEFAULT:
 				case IDE_COMMAND_FEATURE_DISABLE_PW_DEFAULT:
-					gIDEState.status = IDE_STATUS_RDY;
-					gIDEState.error = 0;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY;
+					gIDEState.state[gIDEState.drive].error = 0;
 					break;
 				default:
-					IO_IDE_WARN("set feature: unkown sub-command (0x%02x)\n", gIDEState.feature);
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-					gIDEState.error = 0x4;
+					IO_IDE_WARN("set feature: unkown sub-command (0x%02x)\n", gIDEState.state[gIDEState.drive].feature);
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+					gIDEState.state[gIDEState.drive].error = 0x4;
 					break;
 				}
 				// FIXME: dont raise interrupt?
@@ -1812,13 +1842,13 @@ void receive_atapi_packet()
 				break;
 			case IDE_COMMAND_SET_MULTIPLE:
 				IO_IDE_WARN("command SET MULTIPLE not implemented\n");
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-				gIDEState.error = 0x4;
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+				gIDEState.state[gIDEState.drive].error = 0x4;
 				break;
 			case IDE_COMMAND_READ_NATIVE_MAX:
 				IO_IDE_WARN("command READ NATIVE MAX ADDRESS not implemented\n");
-				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_ERR;
-				gIDEState.error = 0x4;
+				gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_ERR;
+				gIDEState.state[gIDEState.drive].error = 0x4;
 				break;
 			default:			
 				IO_IDE_ERR("command '%x' not impl\n", data);
@@ -1831,22 +1861,22 @@ void receive_atapi_packet()
 			gIDEState.drive_head = data | 0xa0;
 			if (!(gIDEState.drive_head & IDE_DRIVE_HEAD_SLAVE)) {
 				if (gIDEState.config[0].installed) {
-					gIDEState.status &= ~IDE_STATUS_ERR;
-					gIDEState.status |= IDE_STATUS_RDY;
+					gIDEState.state[0].status &= ~IDE_STATUS_ERR;
+					gIDEState.state[0].status |= IDE_STATUS_RDY;
 					if (!gIDEState.one_time_shit) {
-						gIDEState.status |= IDE_STATUS_SKC;
+						gIDEState.state[0].status |= IDE_STATUS_SKC;
 						if (gIDEState.config[0].protocol == IDE_ATA) {
-							gIDEState.cyl = 0;
-							gIDEState.sector_count = 1;
-							gIDEState.sector_no = 1;
+							gIDEState.state[0].cyl = 0;
+							gIDEState.state[0].sector_count = 1;
+							gIDEState.state[0].sector_no = 1;
 						} else {
-							gIDEState.cyl = 0xeb14;
+							gIDEState.state[0].cyl = 0xeb14;
 						}
 					}
-					gIDEState.error = 1;
+					gIDEState.state[0].error = 1;
 				} else {
-					gIDEState.status |= IDE_STATUS_ERR;
-					gIDEState.error = 4; // abort
+					gIDEState.state[0].status |= IDE_STATUS_ERR;
+					gIDEState.state[0].error = 4; // abort
 					// FIXME: is this correct?
 					// should we allow setting gIDEState.drive
 					// to drives not present or return here?
@@ -1854,27 +1884,28 @@ void receive_atapi_packet()
 				gIDEState.drive = 0;
 			} else {
 				if (gIDEState.config[1].installed) {
-					gIDEState.status &= ~IDE_STATUS_ERR;
-					gIDEState.status |= IDE_STATUS_RDY;
+					gIDEState.state[1].status &= ~IDE_STATUS_ERR;
+					gIDEState.state[1].status |= IDE_STATUS_RDY;
 					if (!gIDEState.one_time_shit) {
-						gIDEState.status |= IDE_STATUS_SKC;
+						gIDEState.state[1].status |= IDE_STATUS_SKC;
 						if (gIDEState.config[1].protocol == IDE_ATA) {
-							gIDEState.cyl = 0;
-							gIDEState.sector_count = 1;
-							gIDEState.sector_no = 1;
+							gIDEState.state[1].cyl = 0;
+							gIDEState.state[1].sector_count = 1;
+							gIDEState.state[1].sector_no = 1;
 						} else {
-							gIDEState.cyl = 0xeb14;
+							gIDEState.state[1].cyl = 0xeb14;
 						}
 					}
-					gIDEState.error = 1;
+					gIDEState.state[1].error = 1;
 				} else {
-					gIDEState.status |= IDE_STATUS_ERR;
-					gIDEState.error = 4; // abort
+					gIDEState.state[1].status |= IDE_STATUS_ERR;
+					gIDEState.state[1].error = 4; // abort
 				}
 				gIDEState.drive = 1;
 				// FIXME: see above
 			}
 			gIDEState.config[gIDEState.drive].lba = gIDEState.drive_head & IDE_DRIVE_HEAD_LBA;
+			gIDEState.state[gIDEState.drive].head = gIDEState.drive_head & 0x0f;
 			return;
 		}
 		case IDE_ADDRESS_OUTPUT: {
@@ -1882,27 +1913,27 @@ void receive_atapi_packet()
 				// reset
 			}
 			IO_IDE_TRACE("output register <- %x\n", data);
-			gIDEState.outreg = data;
+			gIDEState.state[gIDEState.drive].outreg = data;
 			return;
 		}
 		case IDE_ADDRESS_SEC_CNT: {
 			IO_IDE_TRACE("sec_cnt <- %x\n", data);
-			gIDEState.sector_count = data;
+			gIDEState.state[gIDEState.drive].sector_count = data;
 			return;
 		}
 		case IDE_ADDRESS_SEC_NO: {
 			IO_IDE_TRACE("sec_no <- %x\n", data);
-			gIDEState.sector_no = data;
+			gIDEState.state[gIDEState.drive].sector_no = data;
 			return;
 		}
 		case IDE_ADDRESS_CYL_LSB: {
 			IO_IDE_TRACE("cyl_lsb <- %x\n", data);
-			gIDEState.cyl = (data&0xff) + (gIDEState.cyl & 0xff00);
+			gIDEState.state[gIDEState.drive].cyl = (data&0xff) + (gIDEState.state[gIDEState.drive].cyl & 0xff00);
 			return;
 		}
 		case IDE_ADDRESS_CYL_MSB: 
 			IO_IDE_TRACE("cyl_msb <- %x\n", data);
-			gIDEState.cyl = ((data<<8)&0xff00) + (gIDEState.cyl & 0xff);
+			gIDEState.state[gIDEState.drive].cyl = ((data<<8)&0xff00) + (gIDEState.state[gIDEState.drive].cyl & 0xff);
 			return;
 		}
 		IO_IDE_ERR("hae?\n");
@@ -1917,45 +1948,45 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 		if (addr != IDE_ADDRESS_DATA) {
 			IO_IDE_ERR("ide size bla\n");
 		}
-		if (!(gIDEState.status & IDE_STATUS_DRQ)) {
-			IO_IDE_WARN("read data w/o DRQ, last command: 0x%08x\n", gIDEState.current_command);
+		if (!(gIDEState.state[gIDEState.drive].status & IDE_STATUS_DRQ)) {
+			IO_IDE_WARN("read data w/o DRQ, last command: 0x%08x\n", gIDEState.state[gIDEState.drive].current_command);
 			return;
 		}
-		switch (gIDEState.current_command) {
+		switch (gIDEState.state[gIDEState.drive].current_command) {
 		case IDE_COMMAND_READ_SECTOR: 
 		case IDE_COMMAND_IDENT:
 		case IDE_COMMAND_IDENT_ATAPI:
-			data = ((uint16)gIDEState.sector[gIDEState.sectorpos++])<<8;
-			data |= gIDEState.sector[gIDEState.sectorpos++];
+			data = ((uint16)gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++])<<8;
+			data |= gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++];
 //			IO_IDE_TRACE("data: %04x\n", data);
-			if (gIDEState.sectorpos == 512) {
-				if (gIDEState.mode == IDE_TRANSFER_MODE_READ) {
+			if (gIDEState.state[gIDEState.drive].sectorpos == 512) {
+				if (gIDEState.state[gIDEState.drive].mode == IDE_TRANSFER_MODE_READ) {
 					incAddress();
-					if (gIDEState.sector_count) {
-						gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC | IDE_STATUS_DRQ;
-						gIDEState.mode = IDE_TRANSFER_MODE_READ;
-						uint32 pos = makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no);
-						IO_IDE_TRACE(" read sector cont. (%08x, %d)\n", pos, gIDEState.sector_count);
+					if (gIDEState.state[gIDEState.drive].sector_count) {
+						gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC | IDE_STATUS_DRQ;
+						gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_READ;
+						uint32 pos = makeLogical(gIDEState.drive_head & 0xf, gIDEState.state[gIDEState.drive].cyl, gIDEState.state[gIDEState.drive].sector_no);
+						IO_IDE_TRACE(" read sector cont. (%08x, %d)\n", pos, gIDEState.state[gIDEState.drive].sector_count);
 						IDEDevice *dev = gIDEState.config[gIDEState.drive].device;
 						dev->acquire();
 						dev->setMode(ATA_DEVICE_MODE_PLAIN, 512);
 						dev->seek(pos);
-						dev->readBlock(gIDEState.sector);
+						dev->readBlock(gIDEState.state[gIDEState.drive].sector);
 						dev->release();
 						raiseInterrupt(0);
 					} else {
-						gIDEState.mode = IDE_TRANSFER_MODE_NONE;
-						gIDEState.status = IDE_STATUS_RDY;
+						gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_NONE;
+						gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY;
 					}
 				} else {
-					gIDEState.mode = IDE_TRANSFER_MODE_NONE;
-					gIDEState.status = IDE_STATUS_RDY;
+					gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_NONE;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY;
 				}
-				gIDEState.sectorpos = 0;
+				gIDEState.state[gIDEState.drive].sectorpos = 0;
 			}
 			break;
 		case IDE_COMMAND_PACKET:
-			if (gIDEState.sectorpos == gIDEState.current_sector_size) {
+			if (gIDEState.state[gIDEState.drive].sectorpos == gIDEState.state[gIDEState.drive].current_sector_size) {
 				switch (gIDEState.config[gIDEState.drive].cdrom.atapi.command) {
 				case IDE_ATAPI_COMMAND_READ10:
 				case IDE_ATAPI_COMMAND_READ12: {
@@ -1964,13 +1995,14 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 						IO_IDE_ERR("read with cdrom not ready\n");
 					}
 					dev->acquire();
-					dev->setMode(IDE_ATAPI_TRANSFER_DATA, gIDEState.current_sector_size);
+					dev->setMode(IDE_ATAPI_TRANSFER_DATA, 
+						gIDEState.state[gIDEState.drive].current_sector_size);
 					dev->seek(gIDEState.config[gIDEState.drive].cdrom.next_lba);
-					dev->readBlock(gIDEState.sector);
+					dev->readBlock(gIDEState.state[gIDEState.drive].sector);
 					dev->release();
 					gIDEState.config[gIDEState.drive].cdrom.next_lba++;
 					gIDEState.config[gIDEState.drive].cdrom.remain--;
-					gIDEState.sectorpos = 0;
+					gIDEState.state[gIDEState.drive].sectorpos = 0;
 					break;
 				}
 				case IDE_ATAPI_COMMAND_READ_CD: {
@@ -1979,88 +2011,92 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 						IO_IDE_ERR("read with cdrom not ready\n");
 					}
 					dev->acquire();
-					dev->setMode(gIDEState.atapi_transfer_request, gIDEState.current_sector_size);
+					dev->setMode(gIDEState.state[gIDEState.drive].atapi_transfer_request, 
+						gIDEState.state[gIDEState.drive].current_sector_size);
 					dev->seek(gIDEState.config[gIDEState.drive].cdrom.next_lba);
-					dev->readBlock(gIDEState.sector);
+					dev->readBlock(gIDEState.state[gIDEState.drive].sector);
 					dev->release();
 					gIDEState.config[gIDEState.drive].cdrom.next_lba++;
 					gIDEState.config[gIDEState.drive].cdrom.remain--;
-					gIDEState.sectorpos = 0;
+					gIDEState.state[gIDEState.drive].sectorpos = 0;
 					break;
 				}
 				default:
 					IO_IDE_ERR("unknown atapi state\n");
 				}
 			}
-			data = ((uint16)gIDEState.sector[gIDEState.sectorpos++])<<8;
-			data |= gIDEState.sector[gIDEState.sectorpos++];
+			data = ((uint16)gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++])<<8;
+			data |= gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++];
 //			IO_IDE_TRACE("data: %04x\n", data);
-			gIDEState.drqpos += 2;
-			if (gIDEState.drqpos >= gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes) {
-				gIDEState.drqpos = 0;
+			gIDEState.state[gIDEState.drive].drqpos += 2;
+			if (gIDEState.state[gIDEState.drive].drqpos >= gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes) {
+				gIDEState.state[gIDEState.drive].drqpos = 0;
 				gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain -= gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes;
 				if (gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain > 0) {
-					gIDEState.status &= ~IDE_STATUS_BSY;
-					gIDEState.status |= IDE_STATUS_DRQ;
-					gIDEState.intr_reason |= IDE_ATAPI_INTR_REASON_I_O;
-					gIDEState.intr_reason &= ~IDE_ATAPI_INTR_REASON_C_D;
-					if (gIDEState.byte_count > gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain) {
-						gIDEState.byte_count = gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain;
+					gIDEState.state[gIDEState.drive].status &= ~IDE_STATUS_BSY;
+					gIDEState.state[gIDEState.drive].status |= IDE_STATUS_DRQ;
+					gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_I_O;
+					gIDEState.state[gIDEState.drive].intr_reason &= ~IDE_ATAPI_INTR_REASON_C_D;
+					if (gIDEState.state[gIDEState.drive].byte_count > gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain) {
+						gIDEState.state[gIDEState.drive].byte_count = gIDEState.config[gIDEState.drive].cdrom.atapi.total_remain;
 					}
-					gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes = gIDEState.byte_count;
+					gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes = gIDEState.state[gIDEState.drive].byte_count;
 				} else {
-					gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_SKC;
-					gIDEState.intr_reason |= IDE_ATAPI_INTR_REASON_I_O | IDE_ATAPI_INTR_REASON_C_D;
-					gIDEState.intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
+					gIDEState.state[gIDEState.drive].status = IDE_STATUS_RDY | IDE_STATUS_SKC;
+					gIDEState.state[gIDEState.drive].intr_reason |= IDE_ATAPI_INTR_REASON_I_O | IDE_ATAPI_INTR_REASON_C_D;
+					gIDEState.state[gIDEState.drive].intr_reason &= ~IDE_ATAPI_INTR_REASON_REL;
 				}
 				raiseInterrupt(0);
 			}
 			break;
 		default:
-			IO_IDE_ERR("data read + DRQ after 0x08%x\n", gIDEState.current_command);
+			IO_IDE_ERR("data read + DRQ after 0x08%x\n", gIDEState.state[gIDEState.drive].current_command);
 		}
 		return;
 	}
 	switch (addr) {
 	case IDE_ADDRESS_ERROR: {
-		IO_IDE_TRACE("error: %02x\n", gIDEState.error);
-		data = gIDEState.error;
-		gIDEState.status &= ~IDE_STATUS_ERR;
+		IO_IDE_TRACE("error: %02x\n", gIDEState.state[gIDEState.drive].error);
+		data = gIDEState.state[gIDEState.drive].error;
+		gIDEState.state[gIDEState.drive].status &= ~IDE_STATUS_ERR;
 		return ;
 	}
 	case IDE_ADDRESS_DRV_HEAD: {
 		IO_IDE_TRACE("drive_head: %02x\n", gIDEState.drive_head);
-		data = (gIDEState.drive_head & 0x1f) | 0xa0 | (gIDEState.config[gIDEState.drive].lba ? (1<<6): 0);
+		data = (gIDEState.state[gIDEState.drive].head & 0x0f)
+		 | (gIDEState.drive_head & 0x10)
+		 | 0xa0
+		 | (gIDEState.config[gIDEState.drive].lba ? (1<<6): 0);
 		return ;
 	}
 	case IDE_ADDRESS_STATUS: {
-		IO_IDE_TRACE("status: %02x\n", gIDEState.status);
-		data = gIDEState.status;
+		IO_IDE_TRACE("status: %02x\n", gIDEState.state[gIDEState.drive].status);
+		data = gIDEState.state[gIDEState.drive].status;
 		cancelInterrupt(0);
 		return ;
 	}
 	case IDE_ADDRESS_STATUS2: {
-		IO_IDE_TRACE("alt-status register: %02x\n", gIDEState.status);
-		data = gIDEState.status;
+		IO_IDE_TRACE("alt-status register: %02x\n", gIDEState.state[gIDEState.drive].status);
+		data = gIDEState.state[gIDEState.drive].status;
 		return;
 	}
 	case IDE_ADDRESS_SEC_CNT: {
-		data = gIDEState.sector_count;
+		data = gIDEState.state[gIDEState.drive].sector_count;
 		IO_IDE_TRACE("sec_cnt: %x (from: @%08x)\n", data, gCPU.pc);
 		return;
 	}
 	case IDE_ADDRESS_SEC_NO: {
-		data = gIDEState.sector_no;
+		data = gIDEState.state[gIDEState.drive].sector_no;
 		IO_IDE_TRACE("sec_no: %x\n", data);
 		return;
 	}
 	case IDE_ADDRESS_CYL_LSB: {
-		data = gIDEState.cyl & 0xff;
+		data = gIDEState.state[gIDEState.drive].cyl & 0xff;
 		IO_IDE_TRACE("cyl_lsb: %x\n", data);
 		return;
 	}
 	case IDE_ADDRESS_CYL_MSB: {
-		data = (gIDEState.cyl & 0xff00) >> 8;
+		data = (gIDEState.state[gIDEState.drive].cyl & 0xff00) >> 8;
 		IO_IDE_TRACE("cyl_msb: %x\n", data);
 		return;
 	}
@@ -2214,7 +2250,8 @@ void ide_init()
 		}
 	}
 
-	gIDEState.status = IDE_STATUS_RDY;
+	gIDEState.state[0].status = IDE_STATUS_RDY;
+	gIDEState.state[1].status = IDE_STATUS_RDY;
 	gIDEState.one_time_shit = false;
 	if (gIDEState.config[0].installed || gIDEState.config[1].installed) {
 		gPCI_Devices->insert(new IDE_Controller());

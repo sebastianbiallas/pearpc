@@ -709,6 +709,8 @@ static void *rtl8139HandleRxQueue(void *nic)
 	return NULL;
 }
 
+bool rtl8139_installed = false;
+
 #include "configparser.h"
 #include "tools/strtools.h"
 
@@ -722,6 +724,7 @@ void rtl8139_init()
 	verbose = gConfig->getConfigInt(RTL8139_KEY_VERBOSE); 
 
 	if (gConfig->getConfigInt(RTL8139_KEY_INSTALLED)) {
+		rtl8139_installed = true;
 		byte mac[6];
 		mac[0] = 0xde;
 		mac[1] = 0xad;

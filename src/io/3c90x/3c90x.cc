@@ -1909,12 +1909,15 @@ static void *_3c90xHandleRxQueue(void *nic)
 #include "configparser.h"
 #include "tools/strtools.h"
 
+bool _3c90x_installed = false;
+
 #define _3C90X_KEY_INSTALLED	"pci_3c90x_installed"
 #define _3C90X_KEY_MAC		"pci_3c90x_mac"
 
 void _3c90x_init()
 {
 	if (gConfig->getConfigInt(_3C90X_KEY_INSTALLED)) {
+		_3c90x_installed = true;
 		byte mac[6];
 		mac[0] = 0xde;
 		mac[1] = 0xad;

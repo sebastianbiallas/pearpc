@@ -21,6 +21,7 @@
 #ifndef __IO_3C90X_H__
 #define __IO_3C90X_H__
 
+extern bool _3c90x_installed;
 void _3c90x_init();
 void _3c90x_init_config();
 
