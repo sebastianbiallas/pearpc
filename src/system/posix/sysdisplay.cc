@@ -242,7 +242,7 @@ public:
 		uint XDepth = mXChar.redSize + mXChar.greenSize + mXChar.blueSize;
 		// Maybe client and (X-)server display characeristics match
 		if (0 && memcmp(&mClientChar, &mXChar, sizeof (mClientChar)) == 0) {
-			fprintf(stderr, "client and server display characteristics match!!\n");
+//			fprintf(stderr, "client and server display characteristics match!!\n");
 			Xframebuffer = NULL;
 
 			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
@@ -251,7 +251,7 @@ public:
 				mXChar.bytesPerPixel*8, 0);
 		} else {
 			// Otherwise we need a second framebuffer
-			fprintf(stderr, "client and server display characteristics DONT match :-(\n");
+//			fprintf(stderr, "client and server display characteristics DONT match :-(\n");
 			Xframebuffer = (byte*)malloc(mXChar.width
 				* mXChar.height * mXChar.bytesPerPixel);
 
