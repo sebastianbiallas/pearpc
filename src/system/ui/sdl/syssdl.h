@@ -41,12 +41,13 @@ public:
 
 		void finishMenu();
 		void updateTitle();
-	virtual	int toString(char *buf, int buflen) const;
-		void ToggleFullScreen();
+	virtual	int  toString(char *buf, int buflen) const;
+		void toggleFullScreen();
 	virtual	void displayShow();
 	virtual	void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar);
 	virtual	bool changeResolution(const DisplayCharacteristics &aCharacteristics);
 	virtual	void getHostCharacteristics(Container &modes);
+	virtual void setMouseGrab(bool enable);
 };
 
 #endif

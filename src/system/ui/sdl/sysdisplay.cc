@@ -98,7 +98,7 @@ int SDLSystemDisplay::toString(char *buf, int buflen) const
 	return snprintf(buf, buflen, "SDL");
 }
 
-void SDLSystemDisplay::ToggleFullScreen()
+void SDLSystemDisplay::toggleFullScreen()
 {
 /*
 	SDL_Surface *backup, *backup2;
@@ -244,6 +244,13 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 void SDLSystemDisplay::getHostCharacteristics(Container &modes)
 {
 	// FIXME: implement me
+}
+
+void SDLSystemDisplay::setMouseGrab(bool enable)
+{
+	if (enable == isMouseGrabbed()) return;
+	SystemDisplay::setMouseGrab(enable);
+	SDL_ShowCursor(enable ? SDL_DISABLE : SDL_ENABLE);
 }
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
