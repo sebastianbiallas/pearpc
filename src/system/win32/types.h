@@ -19,49 +19,21 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#ifndef __WIN32_TYPES_H__
+#define __WIN32_TYPES_H__
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+// >> FIXME: only works on x86
+typedef unsigned char	uint8;
+typedef unsigned short	uint16;
+typedef unsigned int	uint32;
+typedef unsigned long long uint64;
 
-#ifdef MIN
-#undef MIN
-#endif
-#ifdef MAX
-#undef MAX
-#endif
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
+typedef signed char	sint8;
+typedef signed short	sint16;
+typedef signed int	sint32;
+typedef signed long long sint64;
+// <<
 
-/*
- *	compiler magic
- */
-
-#ifdef __GNUC__
-#define FUNCTION_CONST __attribute__((const))
-#define FASTCALL __attribute__((regparm (3)))
-#define PACKED __attribute__((packed))
-#define UNUSED __attribute__((unused))
-#else
-#error "you're not using the GNU C compiler :-( please add the macros and conditionals for your compiler"
-#endif /* !__GNUC__ */
-
-/*
- *	integers
- */
-
-#include <sys/types.h>
-
-#include SYSTEM_TYPES_HDR
-
-/*
- *	NULL
- */
-
-#ifndef NULL
-#	define NULL 0
-#endif
+typedef unsigned int	uint;
 
 #endif

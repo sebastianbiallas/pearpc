@@ -111,6 +111,8 @@ beos*)
 ;;	
 esac
 
+AC_DEFINE_UNQUOTED(SYSTEM_TYPES_HDR, "system/$SYSTEM_DIR/types.h", [Location of system/$SYSTEM_DIR/types.h])
+
 case "$enable_cpu" in
 jitc_x86*)
 	CPU_DIR="cpu_jitc_x86"
