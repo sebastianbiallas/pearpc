@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <cstring>
 
+#include "system/sysclk.h"
 #include "system/display.h"
 #include "system/keyboard.h"
 
@@ -74,7 +75,6 @@ static void handleX11Event(const XEvent &event)
 		KeySym keysym;
 
 		ev.key.keycode = x11_key_to_adb_key[event.xkey.keycode];
-		if (ev.key.keycode == KEY_F12) break;
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = false;
@@ -84,7 +84,6 @@ static void handleX11Event(const XEvent &event)
 		sys_unlock_mutex(gX11Mutex);
 		ev.key.chr = buffer[0];
 
-//		ht_printf("key '%c' released\n", ev.key.chr);
 		gKeyboard->handleEvent(ev);
 		break;
 	}
@@ -105,7 +104,6 @@ static void handleX11Event(const XEvent &event)
 		sys_unlock_mutex(gX11Mutex);
 		ev.key.chr = buffer[0];
 
-//		ht_printf("key '%c' pressed\n", ev.key.chr);
 		gKeyboard->handleEvent(ev);
 		break;
 	}
@@ -116,26 +114,44 @@ static void *X11eventLoop(void *p)
 {
 	int fd = ConnectionNumber(gX11Display);
 
-	int redraw_quantum_msec = 40;
+	int redraw_interval_msec = 40;
+	uint64 redraw_interval_clk = redraw_interval_msec*sys_get_hiresclk_ticks_per_second()/1000;
+	uint64 clk_per_sec = sys_get_hiresclk_ticks_per_second();
+	uint64 next_redraw_clk = sys_get_hiresclk_ticks();
 
 	while (1) {
 		XEvent event;
-		timeval tm;
-		fd_set zerofds;
-		fd_set xfds;
 
 		while (1) {
+			uint64 clk = sys_get_hiresclk_ticks();
+
+			if (clk >= next_redraw_clk) {
+				uint64 d = clk - next_redraw_clk;
+				// We may have missed some scheduled display
+				// redraws. We'll just ignore this and
+				// keep drawing every 'redraw_interval_msec' msecs
+				d %= redraw_interval_clk;
+				next_redraw_clk = clk + redraw_interval_clk - d;
+				gDisplay->displayShow();
+			}
+			timeval tm;
+			fd_set zerofds;
+			fd_set xfds;
+
 			FD_ZERO(&zerofds);
 			FD_ZERO(&xfds);
 			FD_SET(fd, &xfds);
+
+			uint64 x = (next_redraw_clk - clk) * 1000000 / clk_per_sec;
 			tm.tv_sec = 0;
-			tm.tv_usec = redraw_quantum_msec*1000;
+			tm.tv_usec = x;
 
 			if (select(fd+1, &xfds, &zerofds, &zerofds, &tm)) break;
-			gDisplay->displayShow();
 		}
 
-		while (1) {
+		// kind of limit the number of X events we handle to give the above
+		// code a chance
+		for (int i=0; i<500; i++) {
 			sys_lock_mutex(gX11Mutex);
 			if (!XCheckWindowEvent(gX11Display, gX11Window,
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
