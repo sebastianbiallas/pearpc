@@ -19,6 +19,7 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include "tools/snprintf.h"
 #include "mouse.h"
 #include "display.h"
 
@@ -27,12 +28,13 @@ SystemMouse *gMouse = NULL;
 bool SystemMouse::handleEvent(const SystemEvent &ev)
 {
 	if (ev.type != sysevMouse) return false;
-	if (!gDisplay->isMouseGrabbed()) {
+	if (gDisplay->isMouseGrabbed()) {
+		return SystemDevice::handleEvent(ev);
+	} else {
 		if (ev.mouse.type == sme_buttonReleased) {
 			gDisplay->setMouseGrab(true);
 			return true;
 		}
 		return false;
 	}
-	return SystemDevice::handleEvent(ev);
 }

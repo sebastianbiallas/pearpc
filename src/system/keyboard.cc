@@ -20,6 +20,7 @@
  */
 
 #include "keyboard.h"
+#include "display.h"
 
 SystemKeyboard *gKeyboard = NULL;
 
@@ -41,8 +42,9 @@ NULL,"F12",NULL,"Pause","Insert","Home","Pageup","Delete","F4","End",
 
 bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 {
-	if ((ev.type == sysevKey) && (ev.key.keycode == KEY_F12)) {
-		// do sth.
+	if (ev.type != sysevKey) return false;
+	if (ev.key.keycode == KEY_F12 && ev.key.pressed) {
+		gDisplay->setMouseGrab(!gDisplay->isMouseGrabbed());
 		return true;
 	} else {
 		return SystemDevice::handleEvent(ev);

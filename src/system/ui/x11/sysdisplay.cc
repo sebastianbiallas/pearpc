@@ -342,7 +342,7 @@ public:
 			mResetMouseY = mCurMouseY;
 
 			static Cursor cursor;
-			static unsigned cursor_created = 0;
+			static bool cursor_created = false;
 
 			static char shape_bits[16*16] = {0, };
 			static char mask_bits[16*16] = {0, };
@@ -360,7 +360,7 @@ public:
 				XParseColor(gX11Display, mDefaultColormap, "white", &white);
 				cursor = XCreatePixmapCursor(gX11Display, shape, mask,
 						&white, &black, 1, 1);
-				cursor_created = 1;
+				cursor_created = true;
 			}
 
 			XDefineCursor(gX11Display, gX11Window, cursor);
