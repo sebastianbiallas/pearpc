@@ -59,6 +59,7 @@ uint64 ppc_get_cpu_ideal_timebase()
 {
 	uint64 ticks = sys_get_hiresclk_ticks();
 	if (gHostClockScale < 0) {
+		// negative shift count -> make it positive
 		return (ticks - gStartHostCLKTicks) >> (-gHostClockScale);
 	} else {
 		return (ticks - gStartHostCLKTicks) << gHostClockScale;
@@ -234,7 +235,6 @@ bool ppc_cpu_init()
 	gClientTimeBaseFrequency = q;
 	gClientBusFrequency = gClientTimeBaseFrequency * 4;
 	gClientClockFrequency = gClientBusFrequency * 5;
-	ht_printf("%qd %qd %qd %d\n", gClientTimeBaseFrequency, gClientBusFrequency, gClientClockFrequency, gHostClockScale);
 
 	return jitc_init(2048, 16*1024*1024);
 }
