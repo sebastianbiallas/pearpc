@@ -415,7 +415,7 @@ public:
 		return snprintf(buf, buflen, "POSIX X11");
 	}
 
-	void clientMouseEnable(bool enable)
+	void setClientMouseGrab(bool enable)
 	{
 		mMouseEnabled = enable;
 		updateTitle();
@@ -489,7 +489,7 @@ public:
 			case KeyPress:
 				ev.keyEvent.keycode = x11_key_to_adb_key[event.xkey.keycode];
 				if ((ev.keyEvent.keycode == KEY_F12) && getCatchMouseToggle()) {
-					clientMouseEnable(!mMouseEnabled);
+					setClientMouseGrab(!mMouseEnabled);
 					break;
 				}
 				if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
@@ -555,7 +555,7 @@ public:
 			case KeyPress:
 				ev.keyEvent.keycode = x11_key_to_adb_key[event.xkey.keycode];
 				if (ev.keyEvent.keycode == KEY_F12 && mCurMouseX != -1) {
-					clientMouseEnable(!mMouseEnabled);
+					setClientMouseGrab(!mMouseEnabled);
 					break;
 				}
 				if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
@@ -595,6 +595,9 @@ public:
 						sys_unlock_mutex(mutex);
 						clickMenu(mCurMouseX, mCurMouseY);
 						sys_lock_mutex(mutex);
+					} else {
+						setClientMouseGrab(true);
+						break;
 					}
 				} else {
 					ev.type = evMouse;
