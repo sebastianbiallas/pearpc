@@ -1400,8 +1400,17 @@ void ppc_opc_extshx()
 }
 JITCFlow ppc_opc_gen_extshx()
 {
-	ppc_opc_gen_interpret(ppc_opc_extshx);
-	return flowEndBlock;
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
+	NativeReg s = jitcGetClientRegister(PPC_GPR(rS));
+	NativeReg a = jitcMapClientRegisterDirty(PPC_GPR(rA));
+	asmMOVxxRegReg16(X86_MOVSX, a, s);
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcClobberCarry();
+		asmALURegReg(X86_TEST, a, a);
+		jitcMapFlagsDirty();
+	}
+	return flowContinue;
 }
 
 /*

@@ -188,6 +188,7 @@ void FASTCALL asmTESTDMemImm(uint32 disp, uint32 imm);
 void FASTCALL asmANDDMemImm(uint32 disp, uint32 imm);
 void FASTCALL asmORDMemImm(uint32 disp, uint32 imm);
 void FASTCALL asmMOVxxRegReg8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2);
+void FASTCALL asmMOVxxRegReg16(X86MOVxx opc, NativeReg reg1, NativeReg reg2);
 void FASTCALL asmSimple(X86SimpleOpc simple);
 
 enum X86ShiftOpc {

@@ -1359,6 +1359,12 @@ void FASTCALL asmMOVxxRegReg8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2)
 	jitcEmit(instr, sizeof(instr));
 }
 
+void FASTCALL asmMOVxxRegReg16(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x0f, opc+1, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
 void FASTCALL asmSETReg8(X86FlagTest flags, NativeReg8 reg1)
 {
 	byte instr[3] = {0x0f, 0x90+flags, 0xc0+reg1};
