@@ -3,10 +3,12 @@
 
 version 0.2 (in progress):
 	- JITC: all crXX implemented
+	- JITC: tlbie only invalidate one entry
+	- JITC: optimize tlb_invalidate_all
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
 	  improvements
-	- tools/regex.h dos2unixed
+	- tools/regex.h dos2unixed and then removed (in no particular order)
 	- configure support for mingw
 	- applied Francois Revol's BeOS patches (no.2+4).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
