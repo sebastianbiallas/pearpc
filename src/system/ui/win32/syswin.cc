@@ -313,12 +313,16 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 		ev.mouse.rely = gDisplay->mCurMouseY - gDisplay->mHomeMouseY;
 
 		gMouse->handleEvent(ev);
-
-		RECT wndRect;
-		GetWindowRect(hwnd, &wndRect);
-		SetCursorPos(wndRect.left + gDisplay->mHomeMouseX + GetSystemMetrics(SM_CXFIXEDFRAME), 
-				wndRect.top + gDisplay->mHomeMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
-				+ GetSystemMetrics(SM_CYCAPTION));
+		
+		if (gDisplay->mFullscreen) {
+			SetCursorPos(gDisplay->mHomeMouseX, gDisplay->mHomeMouseY);
+		} else {
+			RECT wndRect;
+			GetWindowRect(hwnd, &wndRect);
+			SetCursorPos(wndRect.left + gDisplay->mHomeMouseX + GetSystemMetrics(SM_CXFIXEDFRAME), 
+					wndRect.top + gDisplay->mHomeMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
+					+ GetSystemMetrics(SM_CYCAPTION));
+		}
 		break;
 	}
 	case WM_SIZE:
@@ -328,6 +332,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 		MainWndProc_OnCommand(hwnd, (int)(LOWORD(wParam)), (HWND)lParam, (UINT)HIWORD(wParam));
 		break;     
 	case WM_DESTROY:
+		gDisplay->setFullscreenMode(false);
 		PostQuitMessage(0);
 		break;
 	default:

@@ -53,12 +53,16 @@ bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 {
 	if (ev.type != sysevKey) return false;
 	if (ev.key.keycode == KEY_CONTROL) mCtrl = ev.key.pressed ? KEYCODE_CTRL : 0;
-	if (ev.key.keycode == KEY_ALT) mLAlt = ev.key.pressed ? KEYCODE_RALT : 0;
-	if (ev.key.keycode == KEY_ALTGR) mRAlt = ev.key.pressed ? KEYCODE_LALT : 0;
+	if (ev.key.keycode == KEY_ALT) mLAlt = ev.key.pressed ? KEYCODE_LALT : 0;
+	if (ev.key.keycode == KEY_ALTGR) mRAlt = ev.key.pressed ? KEYCODE_RALT : 0;
 	if (ev.key.keycode == KEY_SHIFT) mShift = ev.key.pressed ? KEYCODE_SHIFT : 0;
 	int keycode = ev.key.keycode | mCtrl | mRAlt | mLAlt | mShift;
-	if (keycode == KEY_F12) {
+	if ((keycode & 0xff)== KEY_F12) {
 		if (ev.key.pressed) gDisplay->setMouseGrab(!gDisplay->isMouseGrabbed());
+		return true;
+	} else if (keycode == (KEY_RETURN | KEYCODE_LALT | KEYCODE_CTRL)) {
+		ht_printf("Hallo!\n");
+		if (ev.key.pressed) gDisplay->setFullscreenMode(!gDisplay->mFullscreen);
 		return true;
 	} else {
 		return SystemDevice::handleEvent(ev);

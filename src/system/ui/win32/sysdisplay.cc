@@ -116,6 +116,24 @@ void Win32Display::convertCharacteristicsToHost(DisplayCharacteristics &aHostCha
 		aHostChar.scanLineLength = aHostChar.bytesPerPixel * aHostChar.width;
 		ReleaseDC(dw, ddc);
 	}
+	switch (aHostChar.bytesPerPixel) {
+	case 2: 
+		aHostChar.redShift = 10;
+		aHostChar.redSize = 5;
+		aHostChar.greenShift = 5;
+		aHostChar.greenSize = 5;
+		aHostChar.blueShift = 0;
+		aHostChar.blueSize = 5;
+		break;
+	case 4:
+		aHostChar.redShift = 16;
+		aHostChar.redSize = 8;
+		aHostChar.greenShift = 8;
+		aHostChar.greenSize = 8;
+		aHostChar.blueShift = 0;
+		aHostChar.blueSize = 8;
+		break;
+	}
 }
 
 bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
@@ -129,48 +147,55 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 
 		DEVMODE dm;
 		dm.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-		dm.dmBitsPerPel = (mWinChar.bytesPerPixel == 2) ? 15 : 32;
+//		dm.dmBitsPerPel = (mWinChar.bytesPerPixel == 2) ? 15 : 32; // GRRRR
+		dm.dmBitsPerPel = (mWinChar.bytesPerPixel == 2) ? 16 : 32;
 		dm.dmPelsWidth = mWinChar.width;
 		dm.dmPelsHeight = mWinChar.height;
+		ht_printf("*** %d **\n", mWinChar.vsyncFrequency);
 		dm.dmDisplayFrequency = mWinChar.vsyncFrequency;
-		if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
-			ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
-			gMenuHeight = 0;
-			damageFrameBufferAll();
-			mFullscreenChanged = true;
-			LeaveCriticalSection(&gDrawCS);
-			return true;
-		} else {
-			if (mWinChar.bytesPerPixel == 2) {
-				dm.dmBitsPerPel = 16;
-				if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
-					ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
-					gMenuHeight = 0;
-					damageFrameBufferAll();
-					mFullscreenChanged = true;
-					LeaveCriticalSection(&gDrawCS);
-					return true;
+		do {
+			if (ChangeDisplaySettings(&dm, CDS_TEST) != DISP_CHANGE_SUCCESSFUL) {
+				if (mWinChar.bytesPerPixel == 2) {
+					dm.dmBitsPerPel = 16;
+					if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
+						break; // dirty trick to avoid goto
+					}
 				}
+				mWinChar = oldhost;
+				mClientChar = oldclient;
+				LeaveCriticalSection(&gDrawCS);
+				/*
+				 * FIXME: maybe we should switch back to windowed mode
+				 *        here if running in fullscreen mode.
+				 */
+				if (mFullscreenChanged) {
+					// do something
+				}
+				return false;
 			}
-			mWinChar = oldhost;
-			mClientChar = oldclient;
-			LeaveCriticalSection(&gDrawCS);
-			/*
-			 * FIXME: maybe we should switch back to windowed mode
-			 *        here if running in fullscreen mode.
-			 */
-			if (mFullscreenChanged) {
-				// do something
-			}
-			return false;
-		}
+		} while (false);
+		ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
+		gMenuHeight = 0;
+		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
+			* mClientChar.height * mClientChar.bytesPerPixel);
+		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
+			* mWinChar.height * mWinChar.bytesPerPixel);
+		damageFrameBufferAll();
+		mFullscreenChanged = true;
+		LeaveCriticalSection(&gDrawCS);
+		SetWindowLong(gHWNDMain, GWL_STYLE, WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_SYSMENU | WS_OVERLAPPED);
+		SetWindowPos(gHWNDMain, HWND_TOP, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED, 0, 0, 0, 0);
+		SetWindowPos(gHWNDMain, HWND_TOPMOST, 0, 0, mWinChar.width, mWinChar.height, 0);
+		ShowWindow(gHWNDMain, SW_SHOWMAXIMIZED);
+		setMouseGrab(true);
+		return true;
 	} else {
 		EnterCriticalSection(&gDrawCS);
 		if (mFullscreenChanged) {
 			// switch out of fullscreen mode
-			setMouseGrab(false);
 			gMenuHeight = 28;
 
+			setMouseGrab(false);
 			ChangeDisplaySettings(NULL, 0);
 		}
 
@@ -188,7 +213,7 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 				 * Want shall we do if switching out of full-
 				 * screen mode does not work?
 				 */
-				if (mFullscreen) {
+				if (mFullscreenChanged) {
 					// FIXME: insert clever code here
 				} else {
 					return false;
@@ -201,11 +226,14 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 			* mClientChar.height * mClientChar.bytesPerPixel);
 		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
-		memset(gFrameBuffer, 0, mClientChar.width 
-			* mClientChar.height * mClientChar.bytesPerPixel);
+
 		mHomeMouseX = mWinChar.width/2;
 		mHomeMouseY = mWinChar.height/2;
 		createBitmap();
+		SetWindowLong(gHWNDMain, GWL_STYLE, WS_VISIBLE | WS_SYSMENU | WS_CAPTION | WS_BORDER | WS_MINIMIZEBOX);
+		SetWindowPos(gHWNDMain, HWND_NOTOPMOST, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED, 0, 0, 0, 0);
+		SetWindowPos(gHWNDMain, HWND_TOP, 0, 0,	mWinChar.width + GetSystemMetrics(SM_CXFIXEDFRAME) * 2,
+						mWinChar.height + gMenuHeight + GetSystemMetrics(SM_CYFIXEDFRAME) * 2 + GetSystemMetrics(SM_CYCAPTION),	0);
 		LeaveCriticalSection(&gDrawCS);
 
 		RECT rect;
@@ -214,14 +242,10 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		GetWindowRect(gHWNDMain, &rect2);
 		rect.right = rect.left+mWinChar.width;
 		rect.bottom = rect.top+mWinChar.height+gMenuHeight;
-		/*
-			SetWindowLong(gHWNDMain, GWL_STYLE, WS_VISIBLE | WS_SYSMENU | WS_CAPTION | WS_BORDER | WS_MINIMIZEBOX);
-			SetWindowPos(gHWNDMain, HWND_NOTOPMOST, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED, 0, 0, 0, 0);
-			SetWindowPos(gHWNDMain, HWND_TOP, 0, 0,	mWinChar.width + GetSystemMetrics(SM_CXFIXEDFRAME) * 2,
-						mWinChar.height + gMenuHeight + GetSystemMetrics(SM_CYFIXEDFRAME) * 2 + GetSystemMetrics(SM_CYCAPTION),	0);
-		*/
+
 		AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
 			| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
+
 		MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, TRUE);
 		ShowWindow(gHWNDMain, SW_SHOWNORMAL);
 	}
@@ -271,23 +295,31 @@ void Win32Display::setMouseGrab(bool enable)
 {
 	if (mMouseGrabbed == enable) return;
 	SystemDisplay::setMouseGrab(enable);
-	updateTitle();
+	if (!mFullscreenChanged) updateTitle();
 	if (enable) {
 		mResetMouseX = mCurMouseX;
 		mResetMouseY = mCurMouseY;
 
 		ShowCursor(FALSE);
-		RECT wndRect;
-		GetWindowRect(gHWNDMain, &wndRect);
-		SetCursorPos(wndRect.left + mHomeMouseX + GetSystemMetrics(SM_CXFIXEDFRAME), 
-			wndRect.top + mHomeMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
-			+ GetSystemMetrics(SM_CYCAPTION));
+		if (mFullscreenChanged) {
+			SetCursorPos(mHomeMouseX, mHomeMouseY);
+		} else {
+			RECT wndRect;
+			GetWindowRect(gHWNDMain, &wndRect);
+			SetCursorPos(wndRect.left + mHomeMouseX + GetSystemMetrics(SM_CXFIXEDFRAME), 
+				wndRect.top + mHomeMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
+				+ GetSystemMetrics(SM_CYCAPTION));
+		}
 	} else {
-		RECT wndRect;
-		GetWindowRect(gHWNDMain, &wndRect);
-		SetCursorPos(wndRect.left + mResetMouseX + GetSystemMetrics(SM_CXFIXEDFRAME), 
-			wndRect.top + mResetMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
-			+ GetSystemMetrics(SM_CYCAPTION));
+		if (mFullscreenChanged) {
+			SetCursorPos(mResetMouseX, mResetMouseY);
+		} else {
+			RECT wndRect;
+			GetWindowRect(gHWNDMain, &wndRect);
+			SetCursorPos(wndRect.left + mResetMouseX + GetSystemMetrics(SM_CXFIXEDFRAME), 
+				wndRect.top + mResetMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
+				+ GetSystemMetrics(SM_CYCAPTION));
+		}
 		ShowCursor(TRUE);
 	}
 }
