@@ -109,7 +109,8 @@ extern cpu_doze
 global ppc_isi_exception_asm, ppc_dsi_exception_asm
 global ppc_sc_exception_asm, ppc_no_fpu_exception_asm
 global ppc_program_exception_asm
-global ppc_flush_carry_and_flags_asm, ppc_flush_flags_asm
+;;global ppc_flush_carry_and_flags_asm, 
+global ppc_flush_flags_asm
 global ppc_flush_flags_signed_even_asm
 global ppc_flush_flags_signed_odd_asm
 global ppc_flush_flags_signed_0_asm

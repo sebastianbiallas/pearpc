@@ -56,7 +56,7 @@ void x86GetCaps(X86CPUCaps &caps)
 	caps.sse = id2.features & (1<<25);
 	caps.sse2 = id2.features & (1<<26);
 
-	ht_printf("%s%s%s%s\n", caps.cmov?" CMOV":"", caps.cmov?" MMX":"", caps.cmov?" SSE":"", caps.sse2?" SSE2":"");
+	ht_printf("%s%s%s%s\n", caps.cmov?" CMOV":"", caps.mmx?" MMX":"", caps.sse?" SSE":"", caps.sse2?" SSE2":"");
 }
 
 /*

@@ -224,10 +224,10 @@ JITCFlow ppc_opc_gen_bcx()
 				}
 				// FIXME: optimize me
 				if (jitcCarryMapped()) {
-					asmCALL((NativeAddress)ppc_flush_carry_and_flags_asm);
-				} else {
-					asmCALL((NativeAddress)ppc_flush_flags_asm);
+					byte modrm[6];
+					asmSETMem(X86_C, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca));					
 				}
+				asmCALL((NativeAddress)ppc_flush_flags_asm);
 				jitcFlushRegisterDirty();
 				if (gJITC.current_opc & PPC_OPC_LK) {
 					asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
