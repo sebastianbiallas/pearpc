@@ -1649,7 +1649,7 @@ void ppc_opc_rfi()
 		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
 		return;
 	}
-	ppc_set_msr(gCPU.srr[1] & 0xff73);
+	ppc_set_msr(gCPU.srr[1] & MSR_RFI_SAVE_MASK);
 	gCPU.npc = gCPU.srr[0] & 0xfffffffc;
 }
 JITCFlow ppc_opc_gen_rfi()
@@ -1658,7 +1658,7 @@ JITCFlow ppc_opc_gen_rfi()
 	jitcFlushRegister();
 	ppc_opc_gen_check_privilege();
 	jitcGetClientRegister(PPC_SRR1, NATIVE_REG | EAX);
-	asmALURegImm(X86_AND, EAX, 0xff73);
+	asmALURegImm(X86_AND, EAX, MSR_RFI_SAVE_MASK);
 	asmCALL((NativeAddress)ppc_set_msr_asm);
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)(&gCPU.srr[0])));
@@ -1821,18 +1821,18 @@ JITCFlow ppc_opc_gen_tw()
 		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_TRAP);
 		asmJMP((NativeAddress)ppc_program_exception_asm);
-		return flowEndBlock;
+		return flowEndBlockUnreachable;
 	} else if (TO) {
 		NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 		jitcClobberAll();
 		asmALURegImm(X86_CMP, a, b);
 		NativeAddress fixup1=NULL, fixup2=NULL, fixup3=NULL, fixup4=NULL, fixup5=NULL;
-		if (TO & 16) fixup1 = asmJxxFixup(X86_GE);
-		if (TO & 8) fixup2 = asmJxxFixup(X86_LE);
-		if (TO & 4) fixup3 = asmJxxFixup(X86_NE);
-		if (TO & 2) fixup4 = asmJxxFixup(X86_AE);
-		if (TO & 1) fixup5 = asmJxxFixup(X86_BE);
+		if (TO & 16) fixup1 = asmJxxFixup(X86_L);
+		if (TO & 8) fixup2 = asmJxxFixup(X86_G);
+		if (TO & 4) fixup3 = asmJxxFixup(X86_E);
+		if (TO & 2) fixup4 = asmJxxFixup(X86_B);
+		if (TO & 1) fixup5 = asmJxxFixup(X86_A);
 		NativeAddress fixup6 = asmJMPFixup();
 		if (fixup1) asmResolveFixup(fixup1, asmHERE());
 		if (fixup2) asmResolveFixup(fixup2, asmHERE());
@@ -1843,7 +1843,7 @@ JITCFlow ppc_opc_gen_tw()
 		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_TRAP);
 		asmJMP((NativeAddress)ppc_program_exception_asm);
 		asmResolveFixup(fixup6, asmHERE());
-		return flowContinue;
+		return flowEndBlock;
 	} else {
 		// TRAP never
 		return flowContinue;
@@ -1879,17 +1879,17 @@ JITCFlow ppc_opc_gen_twi()
 		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_TRAP);
 		asmJMP((NativeAddress)ppc_program_exception_asm);
-		return flowEndBlock;
+		return flowEndBlockUnreachable;
 	} else if (TO) {
 		NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 		jitcClobberAll();
 		asmALURegImm(X86_CMP, a, imm);
 		NativeAddress fixup1=NULL, fixup2=NULL, fixup3=NULL, fixup4=NULL, fixup5=NULL;
-		if (TO & 16) fixup1 = asmJxxFixup(X86_GE);
-		if (TO & 8) fixup2 = asmJxxFixup(X86_LE);
-		if (TO & 4) fixup3 = asmJxxFixup(X86_NE);
-		if (TO & 2) fixup4 = asmJxxFixup(X86_AE);
-		if (TO & 1) fixup5 = asmJxxFixup(X86_BE);
+		if (TO & 16) fixup1 = asmJxxFixup(X86_L);
+		if (TO & 8) fixup2 = asmJxxFixup(X86_G);
+		if (TO & 4) fixup3 = asmJxxFixup(X86_E);
+		if (TO & 2) fixup4 = asmJxxFixup(X86_B);
+		if (TO & 1) fixup5 = asmJxxFixup(X86_A);
 		NativeAddress fixup6 = asmJMPFixup();
 		if (fixup1) asmResolveFixup(fixup1, asmHERE());
 		if (fixup2) asmResolveFixup(fixup2, asmHERE());
@@ -1900,7 +1900,7 @@ JITCFlow ppc_opc_gen_twi()
 		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_TRAP);
 		asmJMP((NativeAddress)ppc_program_exception_asm);
 		asmResolveFixup(fixup6, asmHERE());
-		return flowContinue;
+		return flowEndBlock;
 	} else {
 		// TRAP never
 		return flowContinue;
