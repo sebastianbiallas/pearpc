@@ -576,8 +576,8 @@ public:
 						// to the first (not last) byte accessed
 						// accesses are up to 4 bytes "long".
 
-		firstDamagedLine = gDamageAreaFirstAddr / (gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel);
-		lastDamagedLine = gDamageAreaLastAddr / (gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel);
+		firstDamagedLine = gDamageAreaFirstAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+		lastDamagedLine = gDamageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
 		// Overflow may happen, because of the hack used above
 		// and others, that set lastAddr = 0xfffffff0 (damageFrameBufferAll())
 		if (lastDamagedLine >= mClientChar.height) {
@@ -588,7 +588,7 @@ public:
 		sys_lock_mutex(mutex);
 		// draw menu
 		XPutImage(gXDisplay, gXWindow, gGC, gMenuXImage, 0, 0, 0, 0,
-			gDisplay->mClientChar.width,
+			mClientChar.width,
 			mMenuHeight);
 
 		XPutImage(gXDisplay, gXWindow, gGC, gXImage,
@@ -596,7 +596,7 @@ public:
 			firstDamagedLine,
 			0,
 			mMenuHeight+firstDamagedLine,
-			gDisplay->mClientChar.width,
+			mClientChar.width,
 			lastDamagedLine-firstDamagedLine+1);
 
 /*		if (mHWCursorVisible) {
