@@ -21,7 +21,8 @@
 #ifndef __SYSTEM_EVENT_H__
 #define __SYSTEM_EVENT_H__
 
-#include "keyboard.h"
+#include "system/types.h"
+#include "tools/data.h"
 
 enum SystemEventType {
 	sysevNone	= 0,
@@ -40,9 +41,22 @@ struct SystemEvent {
 			bool button1; // left mouse button
 			bool button2; // right mouse button
 			bool button3; // middle mouse button
-		} mouseEvent;
-		SystemKeyEvent key;
+		} mouse;
+		struct {
+			uint keycode;
+		    	bool pressed;
+			char chr;
+		} key;
 	};
 };
+
+class SystemEventObject: public Object {
+public:
+	SystemEvent	mEv;
+
+	SystemEventObject(const SystemEvent &ev) : mEv(ev) {}
+};
+
+typedef bool (*SystemEventHandler)(const SystemEvent &ev);
 
 #endif /* __SYSTEM_EVENT_H__ */

@@ -1,8 +1,9 @@
 /* 
- *	HT Editor
- *	sysinit.cc - POSIX-specific initialization
+ *	PearPC
+ *	keyboard.cc
  *
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003,2004 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,18 +19,27 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <signal.h>
-#include <unistd.h>
-#include <sys/types.h>
+#include <stdio.h>
 
-#include "system/sys.h"
+#include <tools/snprintf.h>
 
-bool initOSAPI()
+#include "device.h"
+
+SystemDevice::SystemDevice()
 {
-	setuid(getuid());
-	return true;
+	mAttachedEventHandler = NULL;
 }
 
-void doneOSAPI()
+bool SystemDevice::handleEvent(const SystemEvent &ev)
 {
+	return mAttachedEventHandler ? mAttachedEventHandler(ev) : false;
+}
+
+void SystemDevice::attachEventHandler(SystemEventHandler cevh)
+{
+	if (mAttachedEventHandler) {
+		ht_printf("INTERNAL ERROR: only 1 attached event handler allowed.\n");
+		exit(1);
+	}
+	mAttachedEventHandler = cevh;
 }

@@ -223,7 +223,8 @@ int main(int argc, char *argv[])
 
 	if (!initAtom()) return 3;
 	if (!initData()) return 4;
-	if (!initSystem()) return 5;
+	if (!initOSAPI()) return 5;
+	initUI();
 	try {
 		gConfig = new ConfigParser();
 		gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
@@ -315,6 +316,8 @@ int main(int argc, char *argv[])
 			ht_printf("cpu_init failed! Out of memory?\n");
 			exit(1);
 		}
+		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm);
+		gKeyboard = allocSystemKeyboard();
 		io_init();
 		ppc_dec_init();
 
@@ -324,8 +327,6 @@ int main(int argc, char *argv[])
 		 *	(the menu can only be inited when the hardware has parsed
 		 *	its config files.)
 		 */
-		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm);
-		gKeyboard = allocSystemKeyboard();
 		gcard_set_mode(gm);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);
@@ -405,6 +406,7 @@ int main(int argc, char *argv[])
 
 		gDisplay->print("now starting client...");
 		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
+		startUI();
 		gDisplay->startRedrawThread(msec);
 		ppc_run();
 		delete gDisplay;		
@@ -420,6 +422,8 @@ int main(int argc, char *argv[])
 		ht_printf("main() caught exception: %y\n", &res);
 		return 1;
 	}
+	doneUI();
+	doneOSAPI();
 	doneData();
 	doneAtom();
 	return 0;

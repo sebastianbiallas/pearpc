@@ -40,7 +40,10 @@
 #include "debug/tracers.h"
 #include "io/pic/pic.h"
 #include "system/keyboard.h"
+#include "system/sys.h"
 #include "system/sysclk.h"
+#include "system/systhread.h"
+
 #include "cuda.h"
 
 //#define IO_CUDA_TRACE2(str...) ht_printf(str)
@@ -205,9 +208,10 @@ struct cuda_control {
 	int	mousehandler;
 };
 
-cuda_control gCUDA;
+static cuda_control	gCUDA;
+static sys_mutex	gCUDAMutex;
 
-void cuda_send_packet(uint8 type, int nb, ...)
+static void cuda_send_packet(uint8 type, int nb, ...)
 {
 	gCUDA.data[0] = type;
 	va_list va;
@@ -225,7 +229,7 @@ void cuda_send_packet(uint8 type, int nb, ...)
 	pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 }
 
-void cuda_receive_adb_packet()
+static void cuda_receive_adb_packet()
 {
 	IO_CUDA_TRACE3("ADB_PACKET %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
 //	gSinglestep = true;
@@ -373,7 +377,7 @@ void cuda_receive_adb_packet()
 */	
 }
 
-void cuda_receive_cuda_packet()
+static void cuda_receive_cuda_packet()
 {
 	IO_CUDA_TRACE2("CUDA_PACKET ");
 	switch (gCUDA.data[1]) {
@@ -433,7 +437,7 @@ void cuda_receive_cuda_packet()
 	}
 }
 
-void cuda_receive_packet()
+static void cuda_receive_packet()
 {
 	IO_CUDA_TRACE2("cuda received packet: (%d) ", gCUDA.pos);
 	switch (gCUDA.data[0]) {
@@ -514,13 +518,15 @@ static void cuda_start_T1()
 
 void cuda_write(uint32 addr, uint32 data, int size)
 {
+	sys_lock_mutex(gCUDAMutex);
+
 	IO_CUDA_TRACE("%d write word @%08x: %08x\n", gCUDA.state, addr, data);
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
 	case A:
 		IO_CUDA_TRACE("->A\n");
 		gCUDA.rA = data;
-		return;
+		break;
 	case B: {
 		bool ack = false;
 		if (gCUDA.rB & TACK) {
@@ -558,7 +564,7 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				data |= TREQ;
 			}
 //			gCUDA.rB = data;
-//			return;
+//			break;
 		}
 		if ((gCUDA.rB & TIP) && !(data & TIP)) {
 			gCUDA.rIFR |= SR_INT;
@@ -602,22 +608,22 @@ void cuda_write(uint32 addr, uint32 data, int size)
 			gCUDA.rB = data;
 		}
 		IO_CUDA_TRACE("->B(%02x)\n", gCUDA.rB);
-		return;
+		break;
 	}
     	case DIRB:
 		IO_CUDA_TRACE("->DIRB\n");
 		gCUDA.rDIRB = data;
-		return;
+		break;
     	case DIRA:
 		IO_CUDA_TRACE("->DIRA\n");
 		gCUDA.rDIRA = data;
-		return;
+		break;
     	case T1CL:
 		IO_CUDA_TRACE("->T1CL\n");
 		// same as writing to T1LL
 		gCUDA.rT1CL = data;
 		gCUDA.rT1LL = data;
-		return;
+		break;
     	case T1CH:
 		IO_CUDA_TRACE("->T1CH\n");
 		/* from [1]: "[T1C-L] is loaded automatically from the low-order\
@@ -630,7 +636,7 @@ void cuda_write(uint32 addr, uint32 data, int size)
 		gCUDA.rT1CH = gCUDA.rT1LH;
 		gCUDA.rT1CL = gCUDA.rT1LL;
 		cuda_start_T1();
-		return;
+		break;
     	case T1LL:
 		IO_CUDA_TRACE("->T1LL\n");
 		/* from [1]: "this operation is no different than a write into reg 4"
@@ -638,73 +644,78 @@ void cuda_write(uint32 addr, uint32 data, int size)
 		 */
 		gCUDA.rT1CL = data;
 		gCUDA.rT1LL = data;
-		return;
+		break;
     	case T1LH:
 		IO_CUDA_TRACE("->T1LH\n");
 		gCUDA.rT1LH = data;
-		return;
+		break;
     	case T2CL:
 		IO_CUDA_ERR("->T2CL\n");
 		gCUDA.rT2CL = data;
-		return;
+		break;
     	case T2CH:
 		IO_CUDA_ERR("->T2CH\n");
 		gCUDA.rT2CH = data;
-		return;
+		break;
     	case ACR:
 		IO_CUDA_TRACE("->ACR\n");
 		gCUDA.rACR = data;
-		return;
+		break;
     	case SR:
 		IO_CUDA_TRACE("->SR\n");
 		gCUDA.rSR = data;
-		return;
+		break;
     	case PCR:
 		IO_CUDA_TRACE("->PCR\n");
 		gCUDA.rPCR = data;
-		return;
+		break;
     	case IFR:
 		IO_CUDA_TRACE("->IFR\n");
 		gCUDA.rIFR = data;
-		return;
+		break;
     	case IER:
 		IO_CUDA_TRACE("->IER\n");
 		gCUDA.rIER = data;
-		return;
+		break;
     	case ANH:
 		IO_CUDA_TRACE("->ANH\n");
 		gCUDA.rANH = data;
-		return;
+		break;
+	default:
+		IO_CUDA_ERR("unknown service\n");
 	}
-	IO_CUDA_ERR("unknown service\n");
+
+	sys_unlock_mutex(gCUDAMutex);
 }
 
 void cuda_read(uint32 addr, uint32 &data, int size)
 {
+	sys_lock_mutex(gCUDAMutex);
+
 	IO_CUDA_TRACE("%d read word @%08x\n", gCUDA.state, addr);
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
 	case A:
 		IO_CUDA_TRACE("A(%02x)->\n", gCUDA.rA);
 		data = gCUDA.rA;
-		return;
+		break;
 	case B:
 		IO_CUDA_TRACE("B(%02x)->\n", gCUDA.rB);
 		data = gCUDA.rB;
-		return;
+		break;
 	case DIRB:
 		IO_CUDA_TRACE("DIRB(%02x)->\n", gCUDA.rDIRB);
 		data = gCUDA.rDIRB;
-		return;
+		break;
 	case DIRA:
 		IO_CUDA_TRACE("DIRA->\n");
 		data = gCUDA.rDIRA;
-		return;
+		break;
 	case T1CL:
 		IO_CUDA_TRACE("T1CL->\n");
 		cuda_update_T1();
 		data = gCUDA.rT1CL;
-		return;
+		break;
 	case T1CH: {
 		IO_CUDA_TRACE("T1CH->\n");
 		cuda_update_T1();
@@ -714,28 +725,28 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 //			(gCUDA.rT1CH<<8) | gCUDA.rT1CL,
 //			&clk, &gCUDA.T1_end);
 		data = gCUDA.rT1CH;
-		return;
+		break;
 	}
 	case T1LL:
 		IO_CUDA_WARN("T1LL->\n");
 		data = gCUDA.rT1LL;
-		return;
+		break;
 	case T1LH:
 		IO_CUDA_WARN("T1LH->\n");
 		data = gCUDA.rT1LH;
-		return;
+		break;
 	case T2CL:
 		IO_CUDA_ERR("T2CL->\n");
 		data = gCUDA.rT2CL;
-		return;
+		break;
 	case T2CH:
 		IO_CUDA_ERR("T2CH->\n");
 		data = gCUDA.rT2CH;
-		return;
+		break;
 	case ACR:
 		IO_CUDA_TRACE("ACR->\n");
 		data = gCUDA.rACR;
-		return;
+		break;
 	case SR:
 		IO_CUDA_TRACE("SR->\n");
 		data = gCUDA.rSR;
@@ -759,11 +770,11 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 			gCUDA.rB |= TREQ;
 			gCUDA.rIFR &= ~SR_INT;
 		}
-		return;
+		break;
 	case PCR:
 		IO_CUDA_TRACE("PCR->\n");
 		data = gCUDA.rPCR;
-		return;
+		break;
 	case IFR:
 		data = gCUDA.rIFR;
 		if (gCUDA.state == cuda_idle) {
@@ -780,89 +791,123 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		}
 		cuda_update_T1();
 		IO_CUDA_TRACE("%d IFR->(%02x/%02x)\n", gCUDA.state, gCUDA.rIFR, data);
-		return;
+		break;
 	case IER:
 		IO_CUDA_TRACE("IER->\n");
 		data = gCUDA.rIER;
-		return;
+		break;
 	case ANH:
 		IO_CUDA_TRACE("ANH->\n");
 		data = gCUDA.rANH;
-		return;
+		break;
+	default:
+		IO_CUDA_ERR("unknown service\n");
 	}
-	IO_CUDA_ERR("unknown service\n");
+
+	sys_unlock_mutex(gCUDAMutex);
 }
 
 bool cuda_interrupt()
 {
-/*	uint key;
-	if (PollXWindowKeyb(key) && !(key & 0x80000000)) {
-//		gBreakpoint = 0xc021fc5c;
-		ht_printf("key pressed -- pause\n");
-		while (!(key & 0x80000000)) PollXWindowKeyb(key);
-		while (!PollXWindowKeyb(key));
-	}*/
-	if (gCUDA.state == cuda_idle) {
-		if (!gCUDA.left /*&& !(gCUDA.rIFR & SR_INT)*/) {
-redo:
-			SystemEvent ev;
-			if (gKeyboard->getEvent(ev, false) /*|| gMouse->getEvent(ev, false)*/) {
-				switch (ev.type) {
-				case sysevKey: {
-					if (ev.key.keycode == KEY_F11) {
-					// FIXME: implement it
-//						if (ev.keyEvent.pressed) gKeyboard->composeKeyDialog();
-						goto redo;
-					}
-/*					if (ev.keyEvent.pressed && ev.keyEvent.keycode == KEY_F12) {
-						gSinglestep = true;
-					}*/
-					uint8 k = ev.key.keycode;
-					if (!ev.key.pressed) {
-						k |= 0x80;
-					}
-					cuda_send_packet(ADB_PACKET, 4, 0x40, 0x2c, k, 0xff);
-					return true;
-				}
-				case sysevMouse: {
-					int dx = ev.mouseEvent.relx; //* 256 / gDisplay->mClientChar.width;
-					int dy = ev.mouseEvent.rely; //* 256 / gDisplay->mClientChar.height;
-					if (dx < 0) {
-						if (dx < -63) {
-							dx = 127;
-						} else {
-							dx += 128;
-						}
-					} else if (dx > 63) {
-						dx = 63;
-					}
-					if (dy < 0) {
-						if (dy < -63) {
-							dy = 127;
-						} else {
-							dy += 128;
-						}
-					} else if (dy > 63) {
-						dy = 63;
-					}
-					if (!ev.mouseEvent.button2) dx |= 0x80;
-					if (!ev.mouseEvent.button1) dy |= 0x80;
-//					ht_printf("adb mouse: cur: %d, %d d: %d, %d\n", ev.mouseEvent.x, ev.mouseEvent.y, dx, dy);
-					cuda_send_packet(ADB_PACKET, 4, 0x40, 0x3c, dy, dx);
-					return true;
-				}
-				default:;
-				}
-			}
-		} else {
-			IO_CUDA_TRACE2("left: %d\n", gCUDA.left);
-//			pic_raise_interrupt(IO_PIC_IRQ_CUDA);
+	return false;
+}
+
+static sys_semaphore	gCUDAEventSem;
+static Queue		gCUDAEvents(true);
+
+static bool cudaKeyboardEventHandler(const SystemEvent &ev)
+{
+	gCUDAEvents.enQueue(new SystemEventObject(ev));
+	sys_signal_semaphore(gCUDAEventSem);
+	return true;
+}
+
+static bool doProcessCudaEvent(const SystemEvent &ev)
+{
+	switch (ev.type) {
+	case sysevKey: {
+		uint8 k = ev.key.keycode;
+		if (!ev.key.pressed) {
+			k |= 0x80;
 		}
-	} else {
-		IO_CUDA_TRACE2("cuda not idle (%d)!\n", gCUDA.state);
+		cuda_send_packet(ADB_PACKET, 4, 0x40, 0x2c, k, 0xff);
 		return true;
 	}
+	case sysevMouse: {
+		int dx = ev.mouse.relx; //* 256 / gDisplay->mClientChar.width;
+		int dy = ev.mouse.rely; //* 256 / gDisplay->mClientChar.height;
+		if (dx < 0) {
+			if (dx < -63) {
+				dx = 127;
+			} else {
+				dx += 128;
+			}
+		} else if (dx > 63) {
+			dx = 63;
+		}
+		if (dy < 0) {
+			if (dy < -63) {
+				dy = 127;
+			} else {
+				dy += 128;
+			}
+		} else if (dy > 63) {
+			dy = 63;
+		}
+		if (!ev.mouse.button2) dx |= 0x80;
+		if (!ev.mouse.button1) dy |= 0x80;
+//		ht_printf("adb mouse: cur: %d, %d d: %d, %d\n", ev.mouseEvent.x, ev.mouseEvent.y, dx, dy);
+		cuda_send_packet(ADB_PACKET, 4, 0x40, 0x3c, dy, dx);
+		return true;
+	}
+	default:
+		return false;
+	}
+}
+
+static bool tryProcessCudaEvent(const SystemEvent &ev)
+{
+	uint timeout_msec = 100;
+	uint64 time_end = sys_get_hiresclk_ticks() + sys_get_hiresclk_ticks_per_second()
+		* timeout_msec / 1000;
+	while (sys_get_hiresclk_ticks() < time_end) {
+		sys_lock_mutex(gCUDAMutex);
+		if (gCUDA.state == cuda_idle) {
+			if (!gCUDA.left /*&& !(gCUDA.rIFR & SR_INT)*/) {
+				bool k = doProcessCudaEvent(ev);
+				sys_unlock_mutex(gCUDAMutex);
+//				IO_CUDA_WARN("Tried to process event: %d.\n", k);
+				return k;
+			} else {
+				IO_CUDA_TRACE2("left: %d\n", gCUDA.left);
+//					pic_raise_interrupt(IO_PIC_IRQ_CUDA);
+			}
+		} else {
+			IO_CUDA_TRACE2("cuda not idle (%d)!\n", gCUDA.state);
+		}
+		sys_unlock_mutex(gCUDAMutex);
+		sys_suspend();
+	}
+	IO_CUDA_WARN("Event processing timed out. Event dropped.\n");
 	return false;
+}
+
+static void *cudaEventLoop(void *arg)
+{
+	if (sys_create_semaphore(&gCUDAEventSem)) {
+		IO_CUDA_ERR("Can't create semaphore\n");
+	}
+	gKeyboard->connectEventHandler(cudaKeyboardEventHandler);
+	sys_lock_semaphore(gCUDAEventSem);
+	while (1) {
+		IO_CUDA_WARN("waiting on semaphore\n");
+		sys_wait_semaphore(gCUDAEventSem);
+		IO_CUDA_WARN("semaphore signalled\n");
+		SystemEventObject *seo = (SystemEventObject*)gCUDAEvents.deQueue();
+		if (!seo) IO_CUDA_ERR("seo == NULL\n");
+		tryProcessCudaEvent(seo->mEv);
+		delete seo;
+	}
 }
 
 void cuda_init()
@@ -876,6 +921,13 @@ void cuda_init()
 	gCUDA.T1_end = 0;
 	gCUDA.rT1LL = 0xff;
 	gCUDA.rT1LH = 0xff;
+
+	if (sys_create_mutex(&gCUDAMutex)) {
+		IO_CUDA_ERR("Can't create mutex\n");
+	}
+
+	sys_thread cudaEventLoopThread;
+	sys_create_thread(&cudaEventLoopThread, 0, cudaEventLoop, NULL);
 }
 
 void cuda_init_config()

@@ -1009,7 +1009,9 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 		uint choice = 0;
 		if (gPromBootMethod == prombmSelect) {
 			gDisplay->printf("\nYour choice (ESC abort):");
-			while (1) {
+			IO_PROM_ERR("currently b0rken in promboot.cc line 1012\n");
+			return false;
+/*			while (1) {
 				gDisplay->printf("\r\e[0K\rYour choice (ESC abort): %d", choice);
 	    			gDisplay->displayShow();
 				SystemEvent ev;
@@ -1026,7 +1028,7 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 					choice *= 10;
 					choice += key2digit[keycode];
 				}
-			}
+			}*/
 		} else {
 			choice = 1;
 		}

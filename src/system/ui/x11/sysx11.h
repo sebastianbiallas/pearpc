@@ -1,8 +1,8 @@
-/* 
+/*
  *	HT Editor
- *	sysinit.cc - POSIX-specific initialization
+ *	sysx11.h
  *
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,18 +18,15 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <signal.h>
-#include <unistd.h>
-#include <sys/types.h>
+#ifndef __SYSX11_H__
+#define __SYSX11_H__
 
-#include "system/sys.h"
+#include <X11/Xlib.h>
 
-bool initOSAPI()
-{
-	setuid(getuid());
-	return true;
-}
+#include "system/systhread.h"
 
-void doneOSAPI()
-{
-}
+extern sys_mutex	gX11Mutex;
+extern Display *	gX11Display;
+extern Window		gX11Window;
+
+#endif

@@ -485,12 +485,14 @@ uint32 PromInstanceKBD::read(uint32 buf, int length)
 	char *tobuf = (char*)prom_ea_string(buf);
 	if (tobuf) {
 		SystemEvent ev;
-		while (gKeyboard->getEvent(ev, false)) {
+		ht_printf("in promdt.cc line 488. keyboard access b0rken. looping...\n");
+		while (1);
+/*		while (gKeyboard->getEvent(ev, false)) {
 			if (ev.type == sysevKey && ev.key.pressed) {
 				*tobuf = ev.key.chr;
 				return 1;
 			}
-		}
+		}*/
 	}
 	return 0;
 }

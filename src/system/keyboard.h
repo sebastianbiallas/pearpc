@@ -23,13 +23,8 @@
 
 #include "system/types.h"
 
-struct SystemKeyEvent {
-	uint keycode;
-	bool pressed;
-	char chr;
-};
-
-#include "event.h"
+#include "system/device.h"
+#include "system/event.h"
 
 #include "tools/data.h"
 
@@ -156,16 +151,15 @@ struct SystemKeyEvent {
 */
 
 /* system-dependent (implementation in ui / $MYUI / *.cc) */
-class SystemKeyboard: public Object {
+class SystemKeyboard: public SystemDevice {
 public:
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
-
-	virtual bool	getEvent(SystemEvent &ev, bool mayBlock) = 0;
 };
 
 SystemKeyboard *allocSystemKeyboard();
 
 /* system-independent (implementation in keyboard.cc) */
 extern SystemKeyboard *gKeyboard;
+
 #endif /* __SYSTEM_KEYBOARD_H__ */

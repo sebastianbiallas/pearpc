@@ -34,7 +34,7 @@ int32 bapp_thread(void *)
 	be_app->Run();
 }
 
-bool initSystem()
+bool initOSAPI()
 {
 	thread_id bapp_tid;
 	setuid(getuid());
@@ -50,10 +50,9 @@ bool initSystem()
 	return true;
 }
 
-void doneSystem()
+void doneOSAPI()
 {
 	be_app->Lock();
 	be_app->Quit();
 	delete be_app;
 }
-

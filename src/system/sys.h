@@ -45,7 +45,11 @@ int		sys_native_clipboard_get_size();
 void *		sys_alloc_read_write_execute(int size);
 void		sys_free_read_write_execute(void *p);
 
-bool initSystem();
-void doneSystem();
+bool initOSAPI();
+void doneOSAPI();
+
+void initUI();
+void startUI();
+void doneUI();
 
 #endif /* __SYS_H__ */

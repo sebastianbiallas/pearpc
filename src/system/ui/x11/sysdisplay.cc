@@ -24,9 +24,7 @@
 #include <unistd.h>
 #include <cstring>
 
-#include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <X11/keysym.h>
 
 #include "system/display.h"
 #include "system/types.h"
@@ -35,7 +33,9 @@
 #include "system/sysvaccel.h"
 #include "tools/data.h"
 #include "tools/snprintf.h"
-#include "configparser.h"
+//#include "configparser.h"
+
+#include "sysx11.h"
 
 #define DPRINTF(a...)
 //#define DPRINTF(a...) ht_printf(a)
@@ -43,11 +43,6 @@
 // FIXME: these should be members of X11SystemDisplay
 static bool gVisible;
 static bool gMapped;
-
-// shared with keyboard.cc
-sys_mutex	gX11Mutex;
-Display *	gX11Display;
-Window		gX11Window;
 
 static void findMaskShiftAndSize(int &shift, int &size, uint bitmask)
 {
@@ -121,17 +116,6 @@ public:
 		mMenuHeight = 28;
 		menuData = NULL;
 
-		// X11 stuff
-		char *display = getenv("DISPLAY");
-		if (display == NULL) {
-			display = ":0.0";
-		}
-		gX11Display = XOpenDisplay(display);		
-		if (!gX11Display) {
-			printf("can't open X11 display (%s)!\n", display);
-			exit(1);
-		}
-
 		gMapped = true;
 		gVisible = true;
 
@@ -190,8 +174,6 @@ public:
 
 	virtual ~X11SystemDisplay()
 	{
-		if (!gX11Display) return;
-		XCloseDisplay(gX11Display);
 		gX11Display = NULL;
 		free(mTitle);
 		free(mouseData);
@@ -426,30 +408,30 @@ public:
 			lastDamagedLine = mClientChar.height-1;
 		}
 
-//		convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
 		if (mXFrameBuffer) {
 			sys_convert_display(mClientChar, mXChar, gFrameBuffer, mXFrameBuffer, firstDamagedLine, lastDamagedLine);
 		}
 
-		sys_lock_mutex(gX11Mutex);
-		// draw menu
-		XPutImage(gX11Display, gX11Window, mXGC, mMenuXImage, 0, 0, 0, 0,
-			mClientChar.width,
-			mMenuHeight);
+		if (sys_lock_mutex(gX11Mutex) == 0) {
+			// draw menu
+			XPutImage(gX11Display, gX11Window, mXGC, mMenuXImage, 0, 0, 0, 0,
+				mClientChar.width,
+				mMenuHeight);
 
-		XPutImage(gX11Display, gX11Window, mXGC, mXImage,
-			0,
-			firstDamagedLine,
-			0,
-			mMenuHeight+firstDamagedLine,
-			mClientChar.width,
-			lastDamagedLine-firstDamagedLine+1);
+			XPutImage(gX11Display, gX11Window, mXGC, mXImage,
+				0,
+				firstDamagedLine,
+				0,
+				mMenuHeight+firstDamagedLine,
+				mClientChar.width,
+				lastDamagedLine-firstDamagedLine+1);
 
 /*		if (mHWCursorVisible) {
 			XPutImage(gX11Display, gX11Window, mXGC, mMouseXImage, 0, 0, 
 				mHWCursorX, mHWCursorY, 2, 2);
 		}*/
-		sys_unlock_mutex(gX11Mutex);
+			sys_unlock_mutex(gX11Mutex);
+		}
 	}
 
 	static void *redrawThread(void *p)
@@ -460,35 +442,35 @@ public:
 			timespec ts;
 			ts.tv_sec = 0;
 			ts.tv_nsec = msec*1000*1000;
-			
+
 			// Safe not to lock for this test, if we catch the 
 			// values mid-update, we'll just reevaluate them the
 			// next time through the loop
-			if (gMapped && gVisible)
-			{
-				gDisplay->displayShow();
+			if (gMapped && gVisible) {
+				XExposeEvent ev;
+				ev.type = Expose;
+				ev.window = gX11Window;
+				ev.x = 0;
+				ev.y = 0;
+				ev.width = gDisplay->mClientChar.width;
+				ev.height = gDisplay->mClientChar.height;
+				XSendEvent(gX11Display, gX11Window, false, 0, (XEvent*)&ev);
+//				gDisplay->displayShow();
 			}
-			
+
 			nanosleep(&ts, NULL);
 		}
 		return NULL;
 	}
 
-	static void *eventLoop(void *p)
-	{
-		// FIXME: implement me
-		return NULL;
-	}
-	
 	virtual void startRedrawThread(int msec)
 	{
-		sys_create_thread(&redrawthread, 0, redrawThread, &msec);
+//		sys_create_thread(&redrawthread, 0, redrawThread, &msec);
 	}
-
 };
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr)
 {
-	if (gDisplay) return gDisplay;
+	if (gDisplay) return NULL;
 	return new X11SystemDisplay(title, chr);
 }

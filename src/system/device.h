@@ -1,8 +1,8 @@
-/* 
+/*
  *	HT Editor
- *	sysinit.cc - POSIX-specific initialization
+ *	device.h
  *
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,18 +18,24 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <signal.h>
-#include <unistd.h>
-#include <sys/types.h>
+#ifndef __SYSTEM_DEVICE_H__
+#define __SYSTEM_DEVICE_H__
 
-#include "system/sys.h"
+#include "tools/data.h"
+#include "system/event.h"
 
-bool initOSAPI()
-{
-	setuid(getuid());
-	return true;
-}
+class SystemDevice: public Object {
+protected:
+	SystemEventHandler	mAttachedEventHandler;
+public:
+	SystemDevice();
 
-void doneOSAPI()
-{
-}
+	/**
+	 *	@returns	true if the event has been handled, false otherwise
+	 */
+	virtual bool	handleEvent(const SystemEvent &ev);
+
+	virtual void	attachEventHandler(SystemEventHandler cevh);
+};
+
+#endif /* __SYSTEM_DEVICE_H__ */

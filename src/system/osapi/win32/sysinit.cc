@@ -25,7 +25,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-bool initSystem()
+bool initOSAPI()
 {
 #if 0
 	HMODULE h = GetModuleHandle(NULL);
@@ -34,6 +34,6 @@ bool initSystem()
 	return true;
 }
 
-void doneSystem()
+void doneOSAPI()
 {
 }
