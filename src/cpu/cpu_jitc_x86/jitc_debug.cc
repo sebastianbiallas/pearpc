@@ -198,7 +198,6 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_program_exception_asm), new String("ppc_program_exception_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_no_fpu_exception_asm), new String("ppc_no_fpu_exception_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_sc_exception_asm), new String("ppc_sc_exception_asm")));
-	symbols->insert(new KeyValue(new UInt((uint)&ppc_flush_carry_and_flags_asm), new String("ppc_flush_carry_and_flags_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_flush_flags_asm), new String("ppc_flush_flags_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_new_pc_asm), new String("ppc_new_pc_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_new_pc_rel_asm), new String("ppc_new_pc_rel_asm")));
