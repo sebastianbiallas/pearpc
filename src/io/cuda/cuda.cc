@@ -819,7 +819,6 @@ static bool cudaKeyboardEventHandler(const SystemEvent &ev)
 {
 	gCUDAEvents.enQueue(new SystemEventObject(ev));
 	sys_signal_semaphore(gCUDAEventSem);
-	return true;
 }
 
 static bool doProcessCudaEvent(const SystemEvent &ev)
@@ -895,16 +894,16 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 static void *cudaEventLoop(void *arg)
 {
 	if (sys_create_semaphore(&gCUDAEventSem)) {
-		IO_CUDA_ERR("Can't create semaphore\n");
+		IO_PROM_ERR("Can't create semaphore\n");
 	}
 	gKeyboard->connectEventHandler(cudaKeyboardEventHandler);
 	sys_lock_semaphore(gCUDAEventSem);
 	while (1) {
-		IO_CUDA_WARN("waiting on semaphore\n");
+		IO_PROM_WARN("waiting on semaphore\n");
 		sys_wait_semaphore(gCUDAEventSem);
-		IO_CUDA_WARN("semaphore signalled\n");
+		IO_PROM_WARN("semaphore signalled\n");
 		SystemEventObject *seo = (SystemEventObject*)gCUDAEvents.deQueue();
-		if (!seo) IO_CUDA_ERR("seo == NULL\n");
+		if (!seo) IO_PROM_ERR("seo == NULL\n");
 		tryProcessCudaEvent(seo->mEv);
 		delete seo;
 	}
@@ -923,7 +922,7 @@ void cuda_init()
 	gCUDA.rT1LH = 0xff;
 
 	if (sys_create_mutex(&gCUDAMutex)) {
-		IO_CUDA_ERR("Can't create mutex\n");
+		IO_PROM_ERR("Can't create mutex\n");
 	}
 
 	sys_thread cudaEventLoopThread;
