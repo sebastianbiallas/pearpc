@@ -42,7 +42,7 @@ Gif::Gif()
 
 Gif::~Gif()
 {
-	delete pic;
+	delete[] pic;
 }
 
 Gif::Gif(Stream &str)
