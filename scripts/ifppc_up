@@ -4,9 +4,29 @@
 # ONLY ROOT SHOULD HAVE WRITE-ACCESS TO THIS FILE.
 #
 echo UID=$UID
-PPC_NETMASK="255.255.255.0"
-PPC_HOST_IP="192.168.1.80"
-PPC_CLIENT_IP="192.168.1.1"
-/sbin/ifconfig ppc $PPC_HOST_IP netmask $PPC_NETMASK up &&\
-/sbin/iptables -t nat -s $PPC_CLIENT_IP -A POSTROUTING -j MASQUERADE &&\
-echo 1 > /proc/sys/net/ipv4/ip_forward
+
+. ./scripts/settings
+
+if [ $BRIDGE ]; then
+	touch $PPC_INTERFACE.active
+	ifconfig $BRIDGE_INTERFACE 1>/dev/null 2>&1
+	if [ $? != 0 ]; then
+		ifconfig $HOST_INTERFACE 0.0.0.0
+		ifconfig $PPC_INTERFACE 0.0.0.0
+		brctl addbr $BRIDGE_INTERFACE 
+		brctl addif $BRIDGE_INTERFACE $HOST_INTERFACE 
+		brctl addif $BRIDGE_INTERFACE $PPC_INTERFACE 
+		ifconfig $BRIDGE_INTERFACE $HOST_IP netmask $HOST_NETMASK up
+		route add -net default gw $HOST_DEFAULT_ROUTER
+	else
+		ifconfig $PPC_INTERFACE 0.0.0.0
+		brctl addif $BRIDGE_INTERFACE $PPC_INTERFACE
+	fi
+else
+	PPC_NETMASK="255.255.255.0"
+	PPC_HOST_IP="192.168.1.80"
+	PPC_CLIENT_IP="192.168.1.1"
+	/sbin/ifconfig $PPC_INTERFACE $PPC_HOST_IP netmask $PPC_NETMASK up &&\
+	/sbin/iptables -t nat -s $PPC_CLIENT_IP -A POSTROUTING -j MASQUERADE &&\
+	echo 1 > /proc/sys/net/ipv4/ip_forward
+fi

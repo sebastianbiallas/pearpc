@@ -36,7 +36,7 @@
 
 #include "system/sysethtun.h"
 #include "tools/snprintf.h"
-
+#include "tools/str.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -106,7 +106,7 @@ virtual const char *downScript()
 }
 
 // FIXME: How shall we configure networking??? This thing can only be a temporary solution
-virtual int execIFConfigScript(const char *arg)
+virtual int execIFConfigScript(const char *action, const char *interface)
 {
 //sleep(1000000);
 	int pid = fork();
@@ -114,11 +114,12 @@ virtual int execIFConfigScript(const char *arg)
 		printf("fork = %d, 0x%08x\n", pid, errno);
 	if (pid == 0) {
 		const char *progname;
-		if (strcmp(arg, "up") == 0) {
+		if (strcmp(action, "up") == 0) {
 			progname = upScript();
 		} else {
 			progname = downScript();
 		}
+		setenv("PPC_INTERFACE", interface,0);
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
 		execl(progname, progname, 0);
@@ -166,13 +167,43 @@ virtual int execIFConfigScript(const char *arg)
 #include <fcntl.h>
 
 class LinuxLikeEthTunDevice: public UnixEthTunDevice {
-const char *mIfName;
+String mIfName;
 public:
-LinuxLikeEthTunDevice(const char *netif_name)
+LinuxLikeEthTunDevice(const char *netif_prefix)
 : UnixEthTunDevice()
 {
-	mIfName = netif_name;
+	// We will allocate the next available interface name 
+	// First, trim passed interface name down to 6 letters.  To prevent
+	// overflow attacks and shell attacks.
+	String netif_buffer(netif_prefix);
+	netif_buffer.crop(6);
+	for (int i=0; i < netif_buffer.length(); i++) {
+		char c = netif_buffer[i];
+		// Delete all characters not suitable for below command
+		if (!(c >= 'a' && c <= 'z')
+		&& (!(c >= 'A' && c <= 'Z')
+		&& (!(c >= '0' && c <= '9')
+		&& (c != '_') {
+			netif_buffer[i] = '_';
+		}
+	}
+	for (int counter = 0; counter < 10; counter++) {
+		String command;
+		command.assignFormat("ifconfig %y%d", &netif_buffer, counter);
+		// FIXME: Is there anything else than command() that I can use here?  
+		// Seems a fork&exec is a bit too much...
+		int ret = system(command);
+		if (WEXITSTATUS(ret)) { 
+			mIfName.assignFormat("%y%d", &netif_buffer, counter);
+			ht_printf("mIfName = %y\n", &mIfName);
+			break;
+		}
+	}
+	// FIXME:There is more than 10 interfaces taken at this time.  What should we do ?
+	if (mIfName == (String)"") 
+		throw new MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
 }
+
 
 int initDevice()
 {
@@ -201,7 +232,7 @@ int initDevice()
 	::ioctl(mFD, TUNSETNOCSUM, 1);
 
 	/* Configure device */
-	if (execIFConfigScript("up")) {
+	if (execIFConfigScript("up", mIfName)) {
 		::close(mFD);
 		throw new MsgException("error executing ifconfig.");
 	}
@@ -211,7 +242,7 @@ int initDevice()
 int shutdownDevice()
 {
 	/* tear down the device */
-	execIFConfigScript("down");
+	execIFConfigScript("down", mIfName);
 	::close(mFD);
 	return 0;
 }
@@ -232,8 +263,8 @@ virtual const char *devicePath()
 
 class LinuxEthTunDevice: public LinuxLikeEthTunDevice {
 public:
-LinuxEthTunDevice(const char *netif_name)
-: LinuxLikeEthTunDevice(netif_name)
+LinuxEthTunDevice(const char *netif_prefix)
+: LinuxLikeEthTunDevice(netif_prefix)
 {
 }
 
