@@ -73,6 +73,11 @@ SDLSystemDisplay::SDLSystemDisplay(const char *title, const DisplayCharacteristi
 {
 	mTitle = strdup(title);
 
+	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
+		mClientChar.height * mClientChar.bytesPerPixel);
+	memset(gFrameBuffer, 0, mClientChar.width *
+		mClientChar.height * mClientChar.bytesPerPixel);
+
 	gSDLScreen = NULL;
 	mSDLFrameBuffer = NULL;
 }
@@ -169,15 +174,17 @@ void SDLSystemDisplay::displayShow()
 		mClientChar.height * mClientChar.bytesPerPixel);*/
 	}
 
-	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
-		SDL_UnlockSurface(gSDLScreen);
-	}
-	// If possible, we should use doublebuffering and SDL_Flip()
-	// SDL_Flip(); 
-	SDL_UpdateRect(gSDLScreen, 0, firstDamagedLine, 0, lastDamagedLine-firstDamagedLine+1);
+	if (gSDLScreen) {
+		if (SDL_MUSTLOCK(gSDLScreen)) {
+			SDL_UnlockSurface(gSDLScreen);
+		}
+		// If possible, we should use doublebuffering and SDL_Flip()
+		// SDL_Flip(); 
+		SDL_UpdateRect(gSDLScreen, 0, firstDamagedLine, 0, lastDamagedLine-firstDamagedLine+1);
 
-	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
-		SDL_LockSurface(gSDLScreen);
+		if (SDL_MUSTLOCK(gSDLScreen)) {
+			SDL_LockSurface(gSDLScreen);
+		}
 	}
 }
 

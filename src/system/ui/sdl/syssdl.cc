@@ -331,7 +331,7 @@ static void *SDLeventLoop(void *p)
 	}
 	SDLSystemDisplay *sd = (SDLSystemDisplay*)gDisplay;
 
-//	SDL_WM_SetCaption(sd->mTitle, sd->mTitle);
+	SDL_WM_SetCaption(sd->mTitle, sd->mTitle);
 
         SDL_WM_GrabInput(SDL_GRAB_OFF);
 
@@ -363,7 +363,7 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 	gKeyboard = allocSystemKeyboard();
 
 	if (sys_create_thread(&SDLeventLoopThread, 0, SDLeventLoop, NULL)) {
-		printf("SDL: can't create event thread!\n");
+		ht_printf("SDL: can't create event thread!\n");
 		exit(1);
 	}
 }
