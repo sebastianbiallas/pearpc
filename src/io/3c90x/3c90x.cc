@@ -42,7 +42,11 @@
 #include "crc32.h"
 #include "if.h"
 
-#if defined(WIN32) || defined(__WIN32__)
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
 #else
 
 #define MAX_PACKET_SIZE		1800
@@ -1716,12 +1720,13 @@ static void *_3c90xHandleRxQueue(void *nic)
 #define _3C90X_KEY_INSTALLED	"pci_3c90x_installed"
 #define _3C90X_KEY_MAC		"pci_3c90x_mac"
 
-#if defined(WIN32) || defined(__WIN32__)
+#if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
 
 void _3c90x_init()
 {
 	if (gConfig->getConfigInt(_3C90X_KEY_INSTALLED)) {
-		IO_3C90X_ERR("network can't be used in windows (implement me!)\n");
+		IO_3C90X_ERR("network can't be used on your system "
+			"(Not supported on Windows e.g.?)\n");
 	}
 }
 

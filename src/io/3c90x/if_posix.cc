@@ -20,7 +20,12 @@
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#if defined(WIN32) || defined(__WIN32__)
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
 #else
 
 #include <sys/ioctl.h>

@@ -6,6 +6,7 @@ version 0.2 (not released yet):
 	- fixed buggy copyTo() and copyAllTo() in stream.cc
 	- fixed IDEDevice::read(). must update "tel".
 	- fixed: Alt and AltGr are swapped
+	- incorporated Roman Bogorodskiy's FreeBSD patch
 
 version 0.1:
 	- initial release
