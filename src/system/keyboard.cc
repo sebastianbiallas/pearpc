@@ -61,7 +61,6 @@ bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 		if (ev.key.pressed) gDisplay->setMouseGrab(!gDisplay->isMouseGrabbed());
 		return true;
 	} else if (keycode == (KEY_RETURN | KEYCODE_LALT | KEYCODE_CTRL)) {
-		ht_printf("Hallo!\n");
 		if (ev.key.pressed) gDisplay->setFullscreenMode(!gDisplay->mFullscreen);
 		return true;
 	} else {
