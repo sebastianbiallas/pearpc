@@ -808,6 +808,24 @@ ppc_stop_jitc_asm:
 ;;
 ppc_cpuid_asm:
 	push	ebx
+
+	pushfd
+	pop	ebx
+	mov	ecx, ebx
+	xor	ebx, 0x00200000
+	push	ebx
+	popfd
+	pushfd
+	pop	ebx
+	cmp	ebx, ecx
+	je	.cpuid
+
+	pop	ebx
+	xor	eax, eax
+	ret
+
+.cpuid:
+	push	edi
 	push	edx
 	cpuid
 	pop	edi
@@ -815,7 +833,9 @@ ppc_cpuid_asm:
 	mov	[edi+4], ecx
 	mov	[edi+8], edx
 	mov	[edi+12], ebx
+	pop	edi
 	pop	ebx
+	mov	eax, 1
 	ret
 
 end
