@@ -28,6 +28,7 @@
 #include <cstring>
 #include <unistd.h>
 
+#include "system/sys.h"
 #include "system/systhread.h"
 #include "cpu_generic/ppc_cpu.h"
 #include "cpu_generic/ppc_mmu.h"
@@ -1875,7 +1876,7 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 void handleRxQueue()
 {
 	while (1) {
-		if (g_sys_ethtun_pd.wait_receive(&mENetIf) > 0) {
+		if (g_sys_ethtun_pd.wait_receive(&mENetIf) == 0) {
 			sys_lock_mutex(mLock);
 			if (mRxPacketSize) {
 				IO_3C90X_TRACE("Argh. old packet not yet uploaded. waiting some more...\n");
@@ -1893,6 +1894,9 @@ void handleRxQueue()
 			}
 		        checkUpWork();
 			sys_unlock_mutex(mLock);
+		} else {
+			// don't waste our timeslice
+			sys_suspend();
 		}
 	}
 }

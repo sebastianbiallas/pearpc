@@ -30,6 +30,7 @@
 #include <cstring>
 #include <unistd.h>
 
+#include "system/sys.h"
 #include "system/systhread.h"
 #include "cpu_generic/ppc_cpu.h"
 #include "cpu_generic/ppc_mmu.h"
@@ -700,8 +701,11 @@ void handleRxQueue()
 {
 	mRxPacketSize = 0; // no packets at the moment
 	while (1) {
-		if (g_sys_ethtun_pd.wait_receive(&mENetIf) > 0) {
+		if (g_sys_ethtun_pd.wait_receive(&mENetIf) == 0) {
 			handlePacket();
+		} else {
+			// don't waste our timeslice
+			sys_suspend();
 		}
 	}
 }
