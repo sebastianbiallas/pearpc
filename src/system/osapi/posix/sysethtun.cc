@@ -46,6 +46,22 @@
 #include "tools/except.h"
 #include "system/sysethtun.h"
 
+#ifndef HAVE_SETENV
+/* 
+ *  That is just to support BeOS R5, even Zeta has setenv() btw
+ *  Note that leaks env, but we can't do anything about that
+ *  (cf. glibc man page)
+ */
+static int setenv(const char *name, const char *value, int overwrite)
+{
+	String tmpenv;
+	tmpenv.assignFormat("%s=%s", name, value);
+	char *env = strdup(tmpenv); /* LEAK! */
+	putenv(env);
+	return 0;
+}
+#endif
+
 /**
  *	Unix ethernet tunnel devices should work using a file descriptor
  */
@@ -113,7 +129,6 @@ virtual const char *downScript()
 // FIXME: How shall we configure networking??? This thing can only be a temporary solution
 virtual int execIFConfigScript(const char *action, const char *interface)
 {
-	String tmpenv;
 	printf("UnixTun::execIFConfigScript(%s,%s)\n", action, interface);
 	int pid = fork();
 	if (pid < 0)
@@ -125,25 +140,7 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 		} else {
 			progname = downScript();
 		}
-		/*
-		 *	We will leak 'env'. We have to, since:
-		 *
-		 *	The libc4 and libc5 and glibc 2.1.2 versions conform 
-		 *	to SUSv2: the pointer string given to putenv() is used. 
-		 *	In particular, this string becomes part of the 
-		 *	environment; changing it later will change the 
-		 *	environment. (Thus, it is an error is to call putenv() 
-		 *	with an automatic variable as the argument, then return 
-		 *	from the calling function while string is still part of 
-		 *	the environment.) However, glibc 2.0-2.1.1 differs: 
-		 *	a copy of the string is used. On the one hand this 
-		 *	causes a memory leak, and on the other hand it 
-		 *	violates SUSv2. This has been fixed in glibc2.1.2.
-		 *
-		 */
-		tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface);
-		char *env = strdup(tmpenv);
-		putenv(env);
+		setenv("PPC_INTERFACE", interface, 1);
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
 		execl(progname, progname, 0);
@@ -354,7 +351,6 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 {
 	thread_id tid;
 	status_t status;
-	String tmpenv;
 	const char *progname;
 	if (strcmp(action, "up") == 0) {
 		progname = upScript();
@@ -363,8 +359,7 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 	}
 	const char *sargv[] = { "/bin/sh", progname, NULL };
 	int sargc = 2;
-	tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface);
-	putenv(tmpenv);
+	setenv("PPC_INTERFACE", interface, 1);
 	printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
 	//execl(progname, progname, 0);
