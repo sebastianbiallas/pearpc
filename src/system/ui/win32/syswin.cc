@@ -174,6 +174,7 @@ static void eventLoop(void *pvoid)
 
 	display->createBitmap();
 
+	gDisplay->setExposed(true);
 	display->displayShow();
 	ShowWindow(gHWNDMain, SW_SHOW);
 

@@ -302,6 +302,7 @@ void Win32Display::displayShow()
 	if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
 	        return;
 	}
+	ht_printf("tt2\n");
 	uint damageAreaFirstAddr = gDamageAreaFirstAddr;
 	uint damageAreaLastAddr = gDamageAreaLastAddr;
 	healFrameBuffer();
@@ -328,6 +329,7 @@ void Win32Display::displayShow()
 
 	HDC hdc = GetDC(gHWNDMain);
 
+	ht_printf("tt3\n");
 	SetDIBitsToDevice(
 		hdc,
 		0,

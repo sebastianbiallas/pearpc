@@ -100,7 +100,8 @@ void sys_convert_display(
 	byte *src = (byte*)aSrcBuf + aSrcChar.bytesPerPixel * aSrcChar.width * firstLine;
 	byte *dest = (byte*)aDestBuf + aDestChar.bytesPerPixel * aDestChar.width * firstLine;
 	uint32 pixel = (lastLine-firstLine+1) * aSrcChar.width;
-	if (aSrcChar.bytesPerPixel == 2 && aDestChar.bytesPerPixel == 2) {
+			genericConvertDisplay(aSrcChar, aDestChar, aSrcBuf, aDestBuf, firstLine, lastLine);
+/*	if (aSrcChar.bytesPerPixel == 2 && aDestChar.bytesPerPixel == 2) {
 		if (aDestChar.redSize == 5 && aDestChar.greenSize == 6 && aDestChar.blueSize == 5) {
 			x86_convert_2be555_to_2le565(pixel, src, dest);
 		} else if (aDestChar.redSize == 5 && aDestChar.greenSize == 5 && aDestChar.blueSize == 5) {
@@ -114,5 +115,5 @@ void sys_convert_display(
 		x86_convert_4be888_to_4le888(pixel, src, dest);
 	} else {
 		genericConvertDisplay(aSrcChar, aDestChar, aSrcBuf, aDestBuf, firstLine, lastLine);
-	}
+	}*/
 }
