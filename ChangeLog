@@ -5,6 +5,7 @@ version 0.2 (in progress):
 	- JITC: all crXX implemented
 	- JITC: tlbie only invalidate one entry
 	- JITC: optimize tlb_invalidate_all
+	- IO/IDE: regs are per device, not per controller
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
 	  improvements
