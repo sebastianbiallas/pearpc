@@ -351,51 +351,18 @@ gtk)
 beos)
 ;;
 sdl)
-	SDL_LIBS="-lSDLmain -lSDL"
-	
-	dnl Checks for SDL libraries.
-	AC_CACHE_CHECK([for SDL libraries],
-	  ac_sdllib, [
-	  for X in /usr/local /usr /; do
-	    if test "x$ac_sdllib" = "x"; then
-	      if test -f $X/lib/libSDL.a -a -f $X/lib/libSDLmain.a; then
-	        ac_sdllib=$X
-	        SDL_LDFLAGS=-L$X/lib
-	      fi
-	    fi
-	  done
-	])
-	if test "x$ac_sdllib" = "x"; then
-	  AC_MSG_ERROR([SDL libraries not found.])
-	fi
-	
-	dnl Checks for SDL includes.
-	AC_CACHE_CHECK([for SDL includes],
-	  ac_sdlinc, [
-	  for X in /usr/local /usr /; do
-	    if test "x$ac_sdlinc" = "x"; then
-	      if test -f $X/include/SDL/SDL.h; then
-	        ac_sdlinc=$X
-	        SDL_INCS=$X/include
-	      fi
-	    fi
-	  done
-	])
-	if test "x$ac_sdlinc" = "x"; then
-	  AC_MSG_ERROR([SDL includes not found.])
-	fi
+	SDL_VERSION=1.2.0
 
-	if test "x$target_os" = "xcygwin" -o "x$target_os" = "xmingw32"; then
-		SDL_LIBS="-lmingw32 $SDL_LIBS"
-	fi
+	AM_PATH_SDL($SDL_VERSION,
+		    :,
+		    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
+	)
 	
-	dnl Add SDL_LDFLAGS to the real LDFLAGs so AC_CHECK_LIB works so we get HAVE_LIBSDL defined
-	LDFLAGS="$LDFLAGS $SDL_LDFLAGS"
-	AC_CHECK_LIB(SDL, SDL_Init)
-	PPC_CFLAGS="$PPC_CFLAGS -I$SDL_INCS"
-	PPC_CXXFLAGS="$PPC_CXXFLAGS -I$SDL_INCS"
+	LDFLAGS="$LDFLAGS $SDL_LIBS"
+	PPC_CFLAGS="$PPC_CFLAGS $SDL_CFLAGS"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS $SDL_CFLAGS"
 	PPC_LDADD="$PPC_LDADD $SDL_LIBS"
-	PPC_LDFLAGS="$PPC_LDFLAGS $SDL_LDFLAGS"
+	PPC_LDFLAGS="$PPC_LDFLAGS $SDL_LIBS"
 ;;
 win32)
 ;;
@@ -419,6 +386,7 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([asm/types.h])
+AC_CHECK_HEADERS([stdint.h])
 
 case "$target_os" in
 linux*)

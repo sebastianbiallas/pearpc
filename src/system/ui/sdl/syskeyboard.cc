@@ -21,8 +21,7 @@
 
 #include <cstdlib>
 
-#include <SDL/SDL.h>
-//#include <SDL/SDL_keysym.h>
+#include <SDL.h>
 
 #include "system/display.h"
 #include "system/keyboard.h"

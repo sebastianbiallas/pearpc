@@ -22,7 +22,11 @@
 #ifndef __POSIX_TYPES_H__
 #define __POSIX_TYPES_H__
 
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#else
+#include <inttypes.h>
+#endif /* HAVE_STDINT_H */
 #include <sys/types.h>
 
 typedef uint8_t uint8;

@@ -26,8 +26,8 @@
 #include <cstring>
 #include <unistd.h>
 
-#include <SDL/SDL.h>
-#include <SDL/SDL_thread.h>
+#include <SDL.h>
+#include <SDL_thread.h>
 
 #ifdef __WIN32__
 // We need ChangeDisplaySettings
