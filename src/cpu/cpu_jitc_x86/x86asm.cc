@@ -38,7 +38,11 @@ void x86GetCaps(X86CPUCaps &caps)
 		uint32 level, c, d, b;
 	} id;
 
-	ppc_cpuid_asm(0, &id);
+	if (!ppc_cpuid_asm(0, &id)) {
+		ht_snprintf(caps.vendor, sizeof caps.vendor, "unknown");
+		return;
+	}
+
 	*((uint32 *)caps.vendor) = id.b;
 	*((uint32 *)(caps.vendor+4)) = id.d;
 	*((uint32 *)(caps.vendor+8)) = id.c;
@@ -47,16 +51,26 @@ void x86GetCaps(X86CPUCaps &caps)
 	if (id.level == 0) return;
 
 	struct {
-		uint32 model, c, features, b;
+		uint32 model, features2, features, b;
 	} id2;
 
 	ppc_cpuid_asm(1, &id2);
 	caps.cmov = id2.features & (1<<15);
 	caps.mmx = id2.features & (1<<23);
+	caps._3dnow = id2.features & (1<<31);
+	caps._3dnow2 = id2.features & (1<<30);
 	caps.sse = id2.features & (1<<25);
 	caps.sse2 = id2.features & (1<<26);
+	caps.sse3 = id2.features2 & (1<<0);
 
-	ht_printf("%s%s%s%s\n", caps.cmov?" CMOV":"", caps.mmx?" MMX":"", caps.sse?" SSE":"", caps.sse2?" SSE2":"");
+	ht_printf("%s%s%s%s%s%s%s\n",
+		caps.cmov?" CMOV":"",
+		caps.mmx?" MMX":"",
+		caps._3dnow?" 3DNOW":"",
+		caps._3dnow2?" 3DNOW+":"",
+		caps.sse?" SSE":"",
+		caps.sse2?" SSE2":"",
+		caps.sse3?" SSE3":"");
 }
 
 /*

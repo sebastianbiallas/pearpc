@@ -59,8 +59,11 @@ struct X86CPUCaps {
 	char vendor[13];
 	bool cmov;
 	bool mmx;
+	bool _3dnow;
+	bool _3dnow2;
 	bool sse;
 	bool sse2;
+	bool sse3;
 	int  loop_align;
 };
 
