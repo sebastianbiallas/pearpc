@@ -350,7 +350,7 @@ uint32 PromInstance::read(uint32 buf, int length)
 	return 0;
 }
 
-uint32 PromInstance::seek(uint32 pos_hi, uint32 pos_lo)
+uint32 PromInstance::seek(uint64 pos)
 {
 	IO_PROM_ERR("%s: seek not implemented\n", mType->name);
 	return (uint32)-1;
@@ -779,11 +779,10 @@ uint32 PromInstanceDiskFile::write(uint32 buf, int length)
 	return 0;
 }
 
-uint32 PromInstanceDiskFile::seek(uint32 pos_hi, uint32 pos_lo)
+uint32 PromInstanceDiskFile::seek(uint64 pos)
 {
-	FileOfs ofs = ((uint64)pos_hi << 32) | pos_lo;
 	try {
-	    	mFile->seek(ofs);
+	    	mFile->seek(pos);
 	} catch (IOException *x) {
 		delete x;
 	}
@@ -841,13 +840,10 @@ uint32 PromInstanceDiskPart::write(uint32 buf, int length)
 	return 0;
 }
 
-uint32 PromInstanceDiskPart::seek(uint32 pos_hi, uint32 pos_lo)
+uint32 PromInstanceDiskPart::seek(uint64 pos)
 {
 	IDEConfig *ic = ide_get_config(mNumber);
-	if (pos_hi) {
-		IO_PROM_ERR("seek > 2^32 not impl\n");
-	}
-	ic->device->promSeek(pos_lo + mOffset);
+	ic->device->promSeek(pos + mOffset);
 	return 0;
 }
 

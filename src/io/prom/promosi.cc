@@ -359,7 +359,7 @@ void prom_service_seek(prom_args *pa)
 	uint32 pos_lo = pa->args[2];
 	IO_PROM_TRACE("seek(%x, %x%032x)\n", ihandle, pos_hi, pos_lo);
 	PromInstance *pi = handleToInstance(ihandle);
-	pa->args[3] = pi ? pi->seek(pos_hi, pos_lo) : 0;
+	pa->args[3] = pi ? pi->seek((((uint64)pos_hi) << 32) | pos_lo) : 0;
 	IO_PROM_TRACE("= %08x\n", pa->args[3]);
 }
 void prom_service_claim(prom_args *pa)

@@ -114,7 +114,7 @@ public:
 		PromInstanceHandle	getIHandle();
 	virtual	void			callMethod(const char *method, prom_args *pa);
 	virtual	uint32			read(uint32 buf, int length);
-	virtual uint32			seek(uint32 pos_hi, uint32 pos_lo);
+	virtual uint32			seek(uint64 pos);
 	virtual	uint32			write(uint32 buf, int length);
 };
 
@@ -245,7 +245,7 @@ public:
 					PromInstanceDiskPart(PromNode *type, uint partnum);
 	virtual	void			callMethod(const char *method, prom_args *pa);
 	virtual	uint32			read(uint32 buf, int length);
-	virtual uint32			seek(uint32 pos_hi, uint32 pos_lo);
+	virtual uint32			seek(uint64 pos);
 	virtual	uint32			write(uint32 buf, int length);
 };
 
@@ -256,7 +256,7 @@ public:
 					PromInstanceDiskFile(PromNode *type, File *file);
 	virtual	void			callMethod(const char *method, prom_args *pa);
 	virtual	uint32			read(uint32 buf, int length);
-	virtual uint32			seek(uint32 pos_hi, uint32 pos_lo);
+	virtual uint32			seek(uint64 pos);
 	virtual	uint32			write(uint32 buf, int length);
 };
 

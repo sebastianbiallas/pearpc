@@ -1038,7 +1038,7 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 			choice--;
 			BootRec *bootrec = dynamic_cast<BootRec *>(brs[choice]);
 			if (bootrec->pe->mBootMethod == BM_none) {
-				gDisplay->printf("This partition is not bootable!\n");
+				gDisplay->printf("\nThis partition is not bootable!\n");
 				continue;
 			}
 			gDisplay->printf("\nBooting %d: '%y:%d'...\n", choice+1, bootrec->devname, bootrec->partnum);
