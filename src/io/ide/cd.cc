@@ -817,7 +817,7 @@ uint CDROMDeviceSCSI::readData(byte *buf, uint64 pos, uint count)
 uint CDROMDeviceSCSI::promRead(byte *buf, uint size)
 {
 	if (!isReady()) {
-		IO_IDE_WARN("CDROMDeviceASPI::promRead(): not ready.\n");
+		IO_IDE_WARN("CDROMDeviceSCSI::promRead(): not ready.\n");
 		return 0;
 	}
 	return readData(buf, prompos, size);
