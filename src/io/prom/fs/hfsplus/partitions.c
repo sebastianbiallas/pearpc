@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: partitions.c,v 1.2 2004/05/16 22:44:06 steveman Exp $
+ * $Id: partitions.c,v 1.3 2004/08/19 19:37:10 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -149,6 +149,20 @@ int partition_getPartitionMap( partition_map *map, void *fd) {
 
 
 /*
+ *	Works like you would expect just be look at the signature. It's not
+ *	necessary to consult this comment.
+ *
+ *						-- Sebastian
+ */
+UInt32 partition_getStartBlock(partition_map *map, const char *type, int num)
+{
+	ApplePartition **partitions = map->partitions;
+	if (num >= map->numparts) return 0;
+	if (strcmp(partitions[num]->pmPartType, type)) return 0;
+	return partitions[num]->pmPyPartStart;
+}
+
+/*
  * Returns the startblock of the <num>th partition of the given type from the given
  * Partition Map.
  * @param map Partition map to get the information from
@@ -156,28 +170,29 @@ int partition_getPartitionMap( partition_map *map, void *fd) {
  * @param num number of the desired partition (starting with 1)
  * @return the start block of the partition or 0 if no such partition could be found
  */
-UInt32 partition_getStartBlock( partition_map *map, const char *type, int num) {
-  
+/*UInt32 partition_getStartBlock(partition_map *map, const char *type, int num)
+{  
   int	    i, startblock   = 0;
   ApplePartition **partitions    = map->partitions;
 
-  for( i= 0; i< map->numparts && num> 0; i++) {
-    if( !strcmp( partitions[ i]->pmPartType, type)) {
-      startblock= partitions[ i]->pmPyPartStart;
+  for (i= 0; i< map->numparts && num> 0; i++) {
+    if (!strcmp(partitions[i]->pmPartType, type)) {
+      startblock= partitions[i]->pmPyPartStart;
       num--;
     }
   }
 
   return num ? 0 : startblock;
-}
+}*/
 
 /*
  * cleanup and free allocated memory.
  */
-void partition_release( partition_map *map) {
-  if( map->numparts > 0) {
-    free( map->partitions);
-    free( map->parray);
+void partition_release(partition_map *map) 
+{
+  if (map->numparts > 0) {
+    free(map->partitions);
+    free(map->parray);
     map->numparts = 0;
   }
 }
