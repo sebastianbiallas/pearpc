@@ -155,27 +155,30 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		dm.dmPelsHeight = mWinChar.height;
 		ht_printf("*** %d **\n", mWinChar.vsyncFrequency);
 		dm.dmDisplayFrequency = mWinChar.vsyncFrequency;
-		do {
-			if (ChangeDisplaySettings(&dm, CDS_TEST) != DISP_CHANGE_SUCCESSFUL) {
-				if (mWinChar.bytesPerPixel == 2) {
-					dm.dmBitsPerPel = 16;
-					if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
-						break; // dirty trick to avoid goto
-					}
-				}
-				mWinChar = oldhost;
-				mClientChar = oldclient;
-				LeaveCriticalSection(&gDrawCS);
-				/*
-				 * FIXME: maybe we should switch back to windowed mode
-				 *        here if running in fullscreen mode.
-				 */
-				if (mFullscreenChanged) {
-					// do something
-				}
-				return false;
+		LONG err = ChangeDisplaySettings(&dm, CDS_TEST);
+		if (err != DISP_CHANGE_SUCCESSFUL) {
+			if (mWinChar.bytesPerPixel == 2) {
+				dm.dmBitsPerPel = 16;
+				err = ChangeDisplaySettings(&dm, CDS_TEST);
 			}
-		} while (false);
+		}
+
+		if (err != DISP_CHANGE_SUCCESSFUL) {
+			mWinChar = oldhost;
+			mClientChar = oldclient;
+			LeaveCriticalSection(&gDrawCS);
+
+			/*
+			 * FIXME: maybe we should switch back to windowed mode
+			 *        here if running in fullscreen mode.
+			 */
+
+			if (mFullscreenChanged) {
+				// do something
+			}
+
+			return false;
+		}
 		ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
 		gMenuHeight = 0;
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
