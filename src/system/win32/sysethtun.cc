@@ -35,6 +35,7 @@
 #include "system/sysethtun.h"
 #include "tools/except.h"
 #include "tap_constants.h"
+#include "tools/snprintf.h"
 
 #define printm(s...) printf("[TAP-WIN32]: "s)
 #define BUFFER_SIZE	65536
@@ -80,7 +81,7 @@ static bool is_tap_win32_dev(const char *guid)
 		char net_cfg_instance_id[256];
 		DWORD data_type;
 
-		len = sizeof (enum_name);
+		len = sizeof enum_name;
 		status = RegEnumKeyEx(
 			netcard_key,
 			i,
@@ -98,7 +99,7 @@ static bool is_tap_win32_dev(const char *guid)
 			return false;
 		}
 	
-		snprintf (unit_string, sizeof(unit_string), "%s\\%s",
+		ht_snprintf(unit_string, sizeof unit_string, "%s\\%s",
 			  NETCARD_REG_KEY_2000, enum_name);
 
 		status = RegOpenKeyEx(
@@ -112,7 +113,7 @@ static bool is_tap_win32_dev(const char *guid)
 			printm("Error opening registry key: %s\n", unit_string); 
 			return false;
 		} else {
-			len = sizeof (component_id);
+			len = sizeof component_id;
 			status = RegQueryValueEx(
 				unit_key,
 				component_id_string,
@@ -122,7 +123,7 @@ static bool is_tap_win32_dev(const char *guid)
 				&len);
 
 			if (!(status != ERROR_SUCCESS || data_type != REG_SZ)) {
-				len = sizeof (net_cfg_instance_id);
+				len = sizeof net_cfg_instance_id;
 				status = RegQueryValueEx(
 					unit_key,
 					net_cfg_instance_id_string,
@@ -133,21 +134,21 @@ static bool is_tap_win32_dev(const char *guid)
 
 				if (status == ERROR_SUCCESS && data_type == REG_SZ)
 				{
-					if (!strcmp (component_id, "tap")
-					    && !strcmp (net_cfg_instance_id, guid))
+					if (!strcmp(component_id, "tap")
+					    && !strcmp(net_cfg_instance_id, guid))
 					{
-						RegCloseKey (unit_key);
-						RegCloseKey (netcard_key);
+						RegCloseKey(unit_key);
+						RegCloseKey(netcard_key);
 						return true;
 					}
 				}
 			}
-			RegCloseKey (unit_key);
+			RegCloseKey(unit_key);
 		}
-		++i;
+		i++;
 	}
 
-	RegCloseKey (netcard_key);
+	RegCloseKey(netcard_key);
 	return false;
 }
 
@@ -183,7 +184,7 @@ static int get_device_guid(
 		DWORD name_type;
 		const char name_string[] = "Name";
 
-		len = sizeof (enum_name);
+		len = sizeof enum_name;
 		status = RegEnumKeyEx(
 			control_net_key,
 			i,
@@ -202,8 +203,8 @@ static int get_device_guid(
 			return 1;
 		}
 
-		snprintf(connection_string, 
-			 sizeof(connection_string),
+		ht_snprintf(connection_string, 
+			 sizeof connection_string,
 			 "%s\\%s\\Connection",
 			 REG_CONTROL_NET, enum_name);
 
@@ -215,7 +216,7 @@ static int get_device_guid(
 			&connection_key);
 		
 		if (status == ERROR_SUCCESS) {
-			len = sizeof (name_data);
+			len = sizeof name_data;
 			status = RegQueryValueEx(
 				connection_key,
 				name_string,
@@ -229,25 +230,25 @@ static int get_device_guid(
 				       REG_CONTROL_NET, connection_string, name_string);
 			        return 1;
 			} else {
-				if (is_tap_win32_dev (enum_name)) {
+				if (is_tap_win32_dev(enum_name)) {
 					printm("Found TAP device named '%s'\n", name_data);
-					snprintf(name, name_size, "%s", enum_name);
-					if (actual_name)
-						snprintf(actual_name, actual_name_size, 
+					ht_snprintf(name, name_size, "%s", enum_name);
+					if (actual_name) {
+						 ht_snprintf(actual_name, actual_name_size, 
 							 "%s", name_data);
+					}
 					stop = 1;
 				}
 			}
 
-			RegCloseKey (connection_key);
+			RegCloseKey(connection_key);
 		}
-		++i;
+		i++;
 	}
 
-	RegCloseKey (control_net_key);
+	RegCloseKey(control_net_key);
 
-	if (stop == 0)
-		return 1;
+	if (stop == 0) return 1;
 
 	return 0; 
 }
@@ -266,7 +267,7 @@ bool tap_set_status(BOOL status)
 	ret = DeviceIoControl(mFile, TAP_IOCTL_SET_MEDIA_STATUS,
 				&status, sizeof (status),
 				&status, sizeof (status), &len, NULL);
-	if (!ret){
+	if (!ret) {
 		char errmsg[ERRORMSG_SIZE];
 		GetErrorString(errmsg, GetLastError());
 		printm("Failed: %s\n", errmsg);
@@ -284,7 +285,7 @@ Win32EthTunDevice()
 	HANDLE handle = NULL;
 
 	printm("Enumerating TAP devices...\n");
-	rc = get_device_guid(device_guid, sizeof(device_guid), NULL, 0);
+	rc = get_device_guid(device_guid, sizeof device_guid, NULL, 0);
 	if (rc != 0) {
 		throw new MsgException("Could not locate any installed TAP-WIN32 devices.");
 	}
@@ -292,11 +293,12 @@ Win32EthTunDevice()
 	/*
 	 * Open Windows TAP-Win32 adapter
 	 */
-	snprintf (device_path, sizeof(device_path), "%s%s%s",
+	 ht_snprintf(device_path, sizeof device_path, "%s%s%s",
 		  USERMODEDEVICEDIR,
 		  device_guid,
 		  ".tap");
-	handle = CreateFile (
+		  
+	handle = CreateFile(
 		device_path,
 		GENERIC_READ | GENERIC_WRITE,
 		0,
