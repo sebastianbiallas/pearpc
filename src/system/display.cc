@@ -179,9 +179,6 @@ void SystemDisplay::printf(const char *s, ...)
 	ht_vsnprintf(buf, sizeof buf, s, ap);
 	print(buf);
 	va_end(ap);
-	//these were added for sdl, put inside ifdef HAVE_LIBSDL if needed
-	damageFrameBufferAll();
-	displayShow();
 }
 
 void SystemDisplay::setAnsiColor(vcp color)
@@ -326,7 +323,7 @@ void SystemDisplay::fillRGBA(int x, int y, int w, int h, RGBA rgba)
 			putPixelRGBA(x+i, y, rgba);
 		}
 		y++;
-	}
+	}	
 }
 
 #include <math.h>
@@ -481,7 +478,7 @@ redo:
 
 	memmove(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
 	free(oldframebuffer);
-	damageFrameBufferAll();
+	inline void damageFrameBufferAll();
 }
 */
 
@@ -580,12 +577,12 @@ void SystemDisplay::putPixelRGB(int x, int y, RGB rgb)
 {
 	uint addr = x*mClientChar.bytesPerPixel + y*mClientChar.scanLineLength;
 	mixRGB(&gFrameBuffer[addr], rgb);
-	damageFrameBufferAll();
+	damageFrameBuffer(addr);
 }
 
 void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 {
 	uint addr = x*mClientChar.bytesPerPixel + y*mClientChar.scanLineLength;
 	mixRGBA(&gFrameBuffer[addr], rgba);
-	damageFrameBufferAll();
+	damageFrameBuffer(addr);
 }
