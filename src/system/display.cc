@@ -411,8 +411,8 @@ void SystemDisplay::clickMenu(int x, int y)
 
 void SystemDisplay::composeKeyDialog()
 {
-	byte *oldframebuffer = (byte*)malloc(gFrameBufferScanLineLength * mClientChar.height);
-	memmove(oldframebuffer, gFrameBuffer, gFrameBufferScanLineLength * mClientChar.height);
+	byte *oldframebuffer = (byte*)malloc(mClientChar.scanLineLength * mClientChar.height);
+	memmove(oldframebuffer, gFrameBuffer, mClientChar.scanLineLength * mClientChar.height);
 
 	const int w = 400;
 	const int h = 200;
@@ -428,7 +428,7 @@ void SystemDisplay::composeKeyDialog()
 	mCatchMouseToggle = false;
 	while (1) {
 redo:
-		memmove(gFrameBuffer, oldframebuffer, gFrameBufferScanLineLength * mClientChar.height);
+		memmove(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
 		drawBox(x, y, w, h, fg, bg);
 		outText(x+10, y+10, fg, tr, "Press keys to compose key sequence...");
 
@@ -479,7 +479,7 @@ redo:
 	}
 	mCatchMouseToggle = true;
 
-	memmove(gFrameBuffer, oldframebuffer, gFrameBufferScanLineLength * mClientChar.height);
+	memmove(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
 	free(oldframebuffer);
 	damageFrameBufferAll();
 }
@@ -577,14 +577,14 @@ void SystemDisplay::mixRGBA(byte *pixel, RGBA rgba)
 
 void SystemDisplay::putPixelRGB(int x, int y, RGB rgb)
 {
-	uint addr = x*mClientChar.bytesPerPixel + y*gFrameBufferScanLineLength;
+	uint addr = x*mClientChar.bytesPerPixel + y*mClientChar.scanLineLength;
 	mixRGB(&gFrameBuffer[addr], rgb);
 	damageFrameBufferAll();
 }
 
 void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 {
-	uint addr = x*mClientChar.bytesPerPixel + y*gFrameBufferScanLineLength;
+	uint addr = x*mClientChar.bytesPerPixel + y*mClientChar.scanLineLength;
 	mixRGBA(&gFrameBuffer[addr], rgba);
 	damageFrameBufferAll();
 }

@@ -51,6 +51,8 @@
 #include "ppc_img.h"
 #include "ppc_button_changecd.h"
 
+#include "system/sysfeatures.h"
+
 void changeCDFunc(void *p)
 {
 	int *i = (int *)p;

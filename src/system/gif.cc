@@ -226,7 +226,7 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 				f+=2;
 				p++;
 			}
-			f += gFrameBufferScanLineLength - mWidth*2;
+			f += display->mClientChar.scanLineLength - mWidth*2;
 		}
 		break;
 	}
@@ -242,7 +242,7 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 				f+=4;
 				p++;
 			}
-			f += gFrameBufferScanLineLength - mWidth*4;
+			f += display->mClientChar.scanLineLength - mWidth*4;
 		}
 		break;
 	}

@@ -42,7 +42,6 @@
 #define printm(s...) ht_printf("[Display/SDL]: "s)
 
 byte *gFrameBuffer = NULL;
-uint gFrameBufferScanLineLength = 0;
 uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 static SDL_Surface *screen;
 static int msec;
@@ -387,12 +386,6 @@ bool SDLSystemDisplay::getEvent(DisplayEvent &ev)
 		}
 	}
 	return false;
-}
-
-void SDLSystemDisplay::getFrameBufferInfo(DisplayFrameBufferInfo &fbi)
-{
-	fbi.frameBuffer = screen->pixels;
-	fbi.scanLineLength = screen->pitch;
 }
 
 void SDLSystemDisplay::displayShow()

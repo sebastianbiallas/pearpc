@@ -44,7 +44,6 @@ static bool gVisible;
 static bool gMapped;
 //
 byte *gFrameBuffer;
-uint gFrameBufferScanLineLength;
 uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 static uint8 x11_key_to_adb_key[256] = {
@@ -238,7 +237,6 @@ public:
 		// setup interna
 		gFrameBuffer = NULL;
 		reinitChar();
-		gFrameBufferScanLineLength = mClientChar.bytesPerPixel * mClientChar.width;
 
 #if 0
 		fprintf(stderr, "X Server display characteristics:\n");
@@ -483,12 +481,6 @@ public:
 				break;
 			}
 		}
-	}
-
-	virtual void getFrameBufferInfo(DisplayFrameBufferInfo &fbi)
-	{
-		fbi.frameBuffer = gFrameBuffer;
-		fbi.scanLineLength = mXChar.width * mXChar.bytesPerPixel;
 	}
 
 	virtual bool getEvent(DisplayEvent &ev)

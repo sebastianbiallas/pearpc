@@ -391,11 +391,11 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 		uint32 y = pa->args[4];
 		uint32 width = pa->args[3];
 		uint32 height = pa->args[2];
-		uint32 bpx = gDisplay->mClientChar.bytesPerPixel;
-		byte *f = gFrameBuffer + y*gDisplay->mClientChar.width*bpx + x*bpx;
+		uint32 bpp = gDisplay->mClientChar.bytesPerPixel;
+		byte *f = gFrameBuffer + (y*gDisplay->mClientChar.width + x)*bpp;
 		for (uint iy = 0; iy < height; iy++) {
 			for (uint ix = 0; ix < width; ix++) {
-				switch (bpx) {
+				switch (bpp) {
 				case 1: {
 					uint8 v;
 					ppc_read_effective_byte(data, v);
@@ -419,9 +419,9 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 					break;
 				}
 				}
-				data+=bpx;
+				data += bpp;
 			}
-			f += gFrameBufferScanLineLength - width*bpx;
+			f += gDisplay->mClientChar.scanLineLength - width*bpp;
 		}
 		damageFrameBufferAll();
 		pa->args[7] = 0;
@@ -431,18 +431,18 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 		uint32 y = pa->args[4];
 		uint32 width = pa->args[3];
 		uint32 height = pa->args[2];
-		uint32 bpx = gDisplay->mClientChar.bytesPerPixel;
-		uint32 f = y*gDisplay->mClientChar.width*bpx + x*bpx;
+		uint32 bpp = gDisplay->mClientChar.bytesPerPixel;
+		uint32 f = y*(gDisplay->mClientChar.width + x)*bpp;
 		for (uint iy=0; iy < height; iy++) {
 			for (uint ix=0; ix < width; ix++) {
-				if (bpx > 2) {
+				if (bpp > 2) {
 					gFrameBuffer[f++] = color >> 24;
 					gFrameBuffer[f++] = color >> 16;
 				}
-				if (bpx > 1) gFrameBuffer[f++] = color >> 8;
+				if (bpp > 1) gFrameBuffer[f++] = color >> 8;
 				gFrameBuffer[f++] = color;
 			}
-			f += gFrameBufferScanLineLength - width*bpx;
+			f += gDisplay->mClientChar.scanLineLength - width*bpp;
 		}
 		damageFrameBufferAll();
 		pa->args[7] = 0;

@@ -35,7 +35,6 @@
 #define	GC_TRANSPARENT		'0'		// transparent
 
 extern byte *	gFrameBuffer;
-extern uint	gFrameBufferScanLineLength;
 
 extern uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
@@ -123,6 +122,8 @@ struct DisplayEvent {
 struct DisplayCharacteristics {
 	int width, height;
 	uint bytesPerPixel;	// may only be 1, 2 or 4
+	uint scanLineLength;
+	uint vsyncFrequency;
 
 	uint redShift;
 	uint redSize;
@@ -130,11 +131,6 @@ struct DisplayCharacteristics {
 	uint greenSize;
 	uint blueShift;
 	uint blueSize;
-};
-
-struct DisplayFrameBufferInfo {
-	void *	frameBuffer;
-	uint	scanLineLength;
 };
 
 typedef uint32 RGB;
@@ -199,7 +195,6 @@ public:
 
 	virtual void	displayShow() = 0;
 	virtual bool	changeResolution(const DisplayCharacteristics &aCharacteristics) = 0;
-	virtual void	getFrameBufferInfo(DisplayFrameBufferInfo &fbi) = 0;
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
 
