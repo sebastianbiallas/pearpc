@@ -424,10 +424,10 @@ void ppc_opc_cmpi()
 	sint32 a = gCPU.gpr[rA];
 	sint32 b = imm;
 	uint32 c;
-	if (!VALGRIND_CHECK_READABLE(a, sizeof a)) {
+/*	if (!VALGRIND_CHECK_READABLE(a, sizeof a)) {
 		ht_printf("%08x <--i\n", gCPU.pc);
 //		SINGLESTEP("");
-	}
+	}*/
 	if (a < b) {
 		c = 8;
 	} else if (a > b) {
