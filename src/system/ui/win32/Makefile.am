@@ -9,7 +9,8 @@ sysmouse.cc resources.h resources.rc
 
 EXTRA_DIST = ppc.ico
 
-INCLUDES = -I ../../..
+INCLUDE_PATH = ../../..
+INCLUDES = -I $(INCLUDE_PATH)
 
 .rc.o:
-	windres -F pe-i386 $(INCLUDES) -i $< -o $@
+	windres -F pe-i386 --include-dir=$(INCLUDE_PATH) -i $< -o $@
