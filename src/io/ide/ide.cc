@@ -1602,8 +1602,8 @@ void receive_atapi_packet()
 				if (gIDEState.state[gIDEState.drive].sectorpos >= IDE_ATAPI_PACKET_SIZE) {
 					IO_IDE_ERR("sectorpos >= PACKET_SIZE\n");
 				}
-				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data >> 8;
-				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data;
+				*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]) = data;
+				gIDEState.state[gIDEState.drive].sectorpos += 2;
 				if (gIDEState.state[gIDEState.drive].sectorpos >= IDE_ATAPI_PACKET_SIZE) {
 					// ATAPI packet received
 					IDEDevice *dev = gIDEState.config[gIDEState.drive].device;
