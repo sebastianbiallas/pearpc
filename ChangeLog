@@ -1,7 +1,10 @@
  PearPC ChangeLog
 ==================
 
-version 0.3 (not yet released):
+version 0.4pre (not yet released):
+	-
+
+version 0.3 (released 13. August 2004):
 	- clean up everything on exit
 	- (experimental) idle sleep for the JITC CPU
 	- asynchronous keyboard and mouse events
