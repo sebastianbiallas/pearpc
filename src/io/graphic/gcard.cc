@@ -107,7 +107,7 @@ bool PCI_GCard::writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 
 #define MAYBE_PPC_HALF_TO_BE(a) ppc_half_from_LE(a)
 #define MAYBE_PPC_WORD_TO_BE(a) ppc_word_from_LE(a)
-#define MAYBE_PPC_DWORD_TO_BE(a) ppc_dword_form_LE(a)
+#define MAYBE_PPC_DWORD_TO_BE(a) ppc_dword_from_LE(a)
 
 /*#define MAYBE_PPC_HALF_TO_BE(a) (a)
 #define MAYBE_PPC_WORD_TO_BE(a) (a)
