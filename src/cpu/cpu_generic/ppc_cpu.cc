@@ -311,6 +311,12 @@ bool ppc_cpu_init()
 		gCPU.sr[i] = 0x2aa*i;
 	}
 	sys_create_mutex(&exception_mutex);
+
+	PPC_CPU_WARN("You are using the generic CPU!");
+	PPC_CPU_WARN("This is much slower than the just-in-time compiler and"
+	PPC_CPU_WARN("should only be used for debugging purposes or if there's");
+	PPC_CPU_WARN("no just-in-time compiler for your platform.");
+	
 	return true;
 }
 
