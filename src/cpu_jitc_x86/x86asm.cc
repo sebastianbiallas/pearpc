@@ -766,7 +766,7 @@ void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 	default:
 		instr[0] = 0x01+(opc<<3);
 	}
-	memmove(&instr[1], modrm, len);
+	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg2<<3);
 	jitcEmit(instr, len+1);
 }
@@ -776,13 +776,13 @@ void FASTCALL asmSimpleALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm
 	byte instr[15];
 	if (imm <= 0x7f || imm >= 0xffffff80) {
 		instr[0] = 0x83;
-		memmove(&instr[1], modrm, len);
+		memcpy(&instr[1], modrm, len);
 		instr[1] |= (opc<<3);
 		instr[len+1] = imm;
 		jitcEmit(instr, len+2);
 	} else {
 		instr[0] = 0x81;
-		memmove(&instr[1], modrm, len);
+		memcpy(&instr[1], modrm, len);
 		instr[1] |= (opc<<3);
 		*((uint32 *)&instr[len+1]) = imm;
 		jitcEmit(instr, len+5);
@@ -795,7 +795,7 @@ void FASTCALL asmALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm)
 	switch (opc) {
 	case X86_MOV: {
 		instr[0] = 0xc7;
-		memmove(&instr[1], modrm, len);
+		memcpy(&instr[1], modrm, len);
 		*((uint32 *)&instr[len+1]) = imm;
 		jitcEmit(instr, len+5);
 		break;
@@ -805,7 +805,7 @@ void FASTCALL asmALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm)
 		break;
 	case X86_TEST:
 		instr[0] = 0xf7;
-		memmove(&instr[1], modrm, len);
+		memcpy(&instr[1], modrm, len);
 		*((uint32 *)&instr[len+1]) = imm;
 		jitcEmit(instr, len+5);
 		break;
@@ -832,7 +832,7 @@ void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
 	default:
 		instr[0] = 0x03+(opc<<3);
 	}
-	memmove(&instr[1], modrm, len);
+	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg1<<3);
 	jitcEmit(instr, len+1);
 }
@@ -855,7 +855,7 @@ void FASTCALL asmALURegMem8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 	default:
 		instr[0] = 0x02+(opc<<3);
 	}
-	memmove(&instr[1], modrm, len);
+	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg2<<3);
 	jitcEmit(instr, len+1);
 }
@@ -876,7 +876,7 @@ void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 	default:
 		instr[0] = 0x00+(opc<<3);
 	}
-	memmove(&instr[1], modrm, len);
+	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg2<<3);
 	jitcEmit(instr, len+1);
 }
@@ -896,13 +896,13 @@ void FASTCALL asmALUMemImm8(X86ALUopc opc, byte *modrm, int len, uint8 imm)
 		break;
 	default:
 		instr[0] = 0x80;
-		memmove(&instr[1], modrm, len);
+		memcpy(&instr[1], modrm, len);
 		instr[1] |= (opc<<3);
 		instr[len+1] = imm;
 		jitcEmit(instr, len+2);
 		return;
 	}
-	memmove(&instr[1], modrm, len);
+	memcpy(&instr[1], modrm, len);
 	instr[len+1] = imm;
 	jitcEmit(instr, len+2);
 }
@@ -1096,7 +1096,7 @@ void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len)
 {
 	byte instr[15];
 	instr[0] = 0x8d;
-	memmove(instr+1, modrm, len);
+	memcpy(instr+1, modrm, len);
 	instr[1] |= reg1<<3;
 	jitcEmit(instr, len+1);
 }
@@ -1106,7 +1106,7 @@ void FASTCALL asmBTxMemImm(X86BitTest opc, byte *modrm, int len, int value)
 	byte instr[15];
 	instr[0] = 0x0f;
 	instr[1] = 0xba;
-	memmove(instr+2, modrm, len);
+	memcpy(instr+2, modrm, len);
 	instr[2] |= opc<<3;
 	instr[len+2] = value;
 	jitcEmit(instr, len+3);

@@ -133,7 +133,7 @@ int IDEDevice::read(byte *buf, int size)
 	byte *oldbuf = buf;
 	if (mSectorFirst && mSectorFirst < mSectorSize) {
 		int copy = MIN(mSectorSize-mSectorFirst, size);
-		memmove(buf, mSector+mSectorFirst, copy);
+		memcpy(buf, mSector+mSectorFirst, copy);
 		size -= copy;
 		buf += copy;
 		mSectorFirst += copy;
@@ -146,7 +146,7 @@ int IDEDevice::read(byte *buf, int size)
 		}
 		if (size > 0) {
 			readBlock(mSector);
-			memmove(buf, mSector, size);
+			memcpy(buf, mSector, size);
 			mSectorFirst = size;
 			buf += size;
 		}	
@@ -159,7 +159,7 @@ int IDEDevice::write(byte *buf, int size)
 	byte *oldbuf = buf;
 	if (mSectorFirst && mSectorFirst < mSectorSize) {
 		int copy = MIN(mSectorSize-mSectorFirst, size);
-		memmove(mSector+mSectorFirst, buf, copy);
+		memcpy(mSector+mSectorFirst, buf, copy);
 		size -= copy;
 		buf += copy;
 		mSectorFirst += copy;
@@ -174,7 +174,7 @@ int IDEDevice::write(byte *buf, int size)
 			buf += mSectorSize;
 		}
 		if (size > 0) {
-			memmove(mSector, buf, size);
+			memcpy(mSector, buf, size);
 			mSectorFirst = size;
 			buf += size;
 		}
