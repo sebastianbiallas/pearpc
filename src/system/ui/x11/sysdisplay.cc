@@ -98,7 +98,8 @@ public:
 		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
 
 		// menu
-		mMenuHeight = 28;
+//		mMenuHeight = 28;
+		mMenuHeight = 0;
 		menuData = NULL;
 
 		mXImage = NULL;
@@ -271,6 +272,21 @@ public:
 
 	virtual bool changeResolution(const DisplayCharacteristics &aClientChar)
 	{
+		if (aClientChar.width == mClientChar.width 
+		 && aClientChar.height == mClientChar.height
+		 && aClientChar.bytesPerPixel == mClientChar.bytesPerPixel) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	virtual bool doChangeResolution(const DisplayCharacteristics &aClientChar)
+	{
+		/*
+		 *	I don't understand how XResizeWindow is supposed to work
+		 *	If you understand, feel free to fix this:
+		 */
 		DisplayCharacteristics oldClientChar = mClientChar;
 		DisplayCharacteristics oldHostChar = mXChar;
 		DisplayCharacteristics newXChar;
