@@ -1022,7 +1022,10 @@ JITCFlow ppc_opc_gen_faddx()
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frC==0);
 	ppc_opc_gen_binary_floatop(X86_FADD, X86_FADD, frD, frA, frB);
-//f	jitcFloatRegisterClobberAll();
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		// update cr1 flags
+		PPC_FPU_ERR("fadd.\n");
+	}
 	return flowContinue;
 #else
 	ppc_opc_gen_interpret(ppc_opc_faddx);
@@ -1139,7 +1142,7 @@ void ppc_opc_fctiwx()
 	ppc_double B;
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	gCPU.fpr[frD] = ppc_fpu_double_to_int(B);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fctiw.\n");
 	}
@@ -1168,7 +1171,7 @@ JITCFlow ppc_opc_gen_fctiwx()
 	gJITC.clientFloatReg[frB] = JITC_FLOAT_REG_NONE;
 	gJITC.nativeFloatTOP--;
 	
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fctiw.\n");
 	}
@@ -1226,7 +1229,7 @@ JITCFlow ppc_opc_gen_fctiwzx()
 	
 	asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw));
 	
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fctiwz.\n");
 	}
@@ -1271,7 +1274,10 @@ JITCFlow ppc_opc_gen_fdivx()
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frC==0);
 	ppc_opc_gen_binary_floatop(X86_FDIV, X86_FDIVR, frD, frA, frB);
-//	jitcFloatRegisterClobberAll();
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		// update cr1 flags
+		PPC_FPU_ERR("fdiv.\n");
+	}
 	return flowContinue;
 #endif
 }
@@ -1333,7 +1339,7 @@ JITCFlow ppc_opc_gen_fmaddx()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	ppc_opc_gen_ternary_floatop(X86_FADD, X86_FADD, false, frD, frA, frC, frB);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmadd.\n");
 	}
@@ -1437,7 +1443,7 @@ JITCFlow ppc_opc_gen_fmsubx()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	ppc_opc_gen_ternary_floatop(X86_FSUB, X86_FSUBR, false, frD, frA, frC, frB);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmsub.\n");
 	}
@@ -1499,7 +1505,10 @@ JITCFlow ppc_opc_gen_fmulx()
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frB==0);
 	ppc_opc_gen_binary_floatop(X86_FMUL, X86_FMUL, frD, frA, frC);
-//	jitcFloatRegisterClobberAll();
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		// update cr1 flags
+		PPC_FPU_ERR("fmul.\n");
+	}
 	return flowContinue;
 #else
 	ppc_opc_gen_interpret(ppc_opc_fmulx);
@@ -1648,7 +1657,7 @@ JITCFlow ppc_opc_gen_fnmaddx()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	ppc_opc_gen_ternary_floatop(X86_FADD, X86_FADD, true, frD, frA, frC, frB);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmadd.\n");
 	}
@@ -1705,7 +1714,7 @@ JITCFlow ppc_opc_gen_fnmsubx()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	ppc_opc_gen_ternary_floatop(X86_FSUBR, X86_FSUB, false, frD, frA, frC, frB);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmsub.\n");
 	}
@@ -1815,7 +1824,7 @@ JITCFlow ppc_opc_gen_frsqrtex()
 	asmFSimpleST0(FLD1);
 	asmFArithSTiP(X86_FDIVR, jitcFloatRegisterToNative(jitcGetClientFloatRegisterMapping(frD)));
 	gJITC.nativeFloatTOP--;
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("frsqrte.\n");
 	}
@@ -1871,7 +1880,7 @@ JITCFlow ppc_opc_gen_fsqrtx()
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frA==0 && frC==0);
 	ppc_opc_gen_unary_floatop(FSQRT, frD, frB);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fsqrt.\n");
 	}
@@ -1929,7 +1938,10 @@ JITCFlow ppc_opc_gen_fsubx()
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frC==0);
 	ppc_opc_gen_binary_floatop(X86_FSUB, X86_FSUBR, frD, frA, frB);
-//	jitcFloatRegisterClobberAll();
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		// update cr1 flags
+		PPC_FPU_ERR("fsub.\n");
+	}
 	return flowContinue;
 #else
 	ppc_opc_gen_interpret(ppc_opc_fsubx);
