@@ -35,6 +35,7 @@
 #include "ide.h"
 #include "ata.h"
 #include "cd.h"
+#include "system/syscdrom.h"
 
 #define IDE_ADDRESS_ISA_BASE	0x1f0
 #define IDE_ADDRESS_ISA_BASE2	0x354
@@ -2213,8 +2214,10 @@ void ide_init()
 					ext = "img";
 				} else if (type == (String)"cdrom") {
 					ext = "iso";
+				} else if (type == (String)"nativecdrom") {
+					ext = "nativecdrom";
 				} else {
-					IO_IDE_ERR("key '%s' must be set to 'hd' or 'cdrom'\n", typekey);
+					IO_IDE_ERR("key '%s' must be set to 'hd', 'cdrom' or 'nativecdrom'\n", typekey);
 				}
 			} else {
 				// type isn't specified, so we must rely on the file extension
@@ -2243,8 +2246,19 @@ void ide_init()
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->setReady(true);
 				gIDEState.config[DISK].bps = 2048;
 				gIDEState.config[DISK].lba = false;
+			} else if (ext == (String)"nativecdrom") {
+				gIDEState.config[DISK].protocol = IDE_ATAPI;
+				CDROMDevice* cdrom = createNativeCDROMDevice(name, img);
+				if(!cdrom)
+				    IO_IDE_ERR("Error creating native CDROM device\n");
+				gIDEState.config[DISK].device = cdrom;
+				const char *error;
+				if(error = gIDEState.config[DISK].device->getError())
+				    IO_IDE_ERR("%s\n", error);
+				gIDEState.config[DISK].bps = 2048;
+				gIDEState.config[DISK].lba = false;
 			} else {
-				IO_IDE_ERR("unknown disk image (file extension is neither 'img' nor 'iso').\n");
+				IO_IDE_ERR("unknown disk image (file extension is neither 'img' nor 'iso' nor native CD infor).\n");
 			}
 			gIDEState.config[DISK].installed = true;
 		} else {

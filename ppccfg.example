@@ -111,12 +111,24 @@ prom_driver_graphic = "video.x"
 ##		.iso: CD-Rom
 ##	Or you can override this by specifying the type via
 ##	pci_ide0_master_type / pci_ide0_slave_type
+##
+##	Valid drive types are:
+##		hd:		A hdd image should be specified
+##				e.g. "test/imgs/linux.img"
+##		cdrom:		A cdrom image should be specified
+##				For Linux a cdrom device can be specified as well
+##				e.g. "/dev/cdrom"
+##		nativecdrom:	Platform dependant
+##			Win (SPTI): drive letter, e.g. "d:\"
+##			Win (ASPI): SCSI host adapter,target,lun e.g. "2,0,1"
 
 pci_ide0_master_installed = 1
 pci_ide0_master_image = "test/imgs/linux.img"
 #pci_ide0_master_type = "hd"
 
 pci_ide0_slave_installed = 1
+#pci_ide0_slave_image = "e:\"
+#pci_ide0_slave_image = "2,0,0"
 pci_ide0_slave_image = "/dev/cdrom"
 pci_ide0_slave_type = "cdrom"
 
