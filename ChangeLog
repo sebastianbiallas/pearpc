@@ -3,7 +3,6 @@
 
 version 0.2 (in progress):
 	- JITC: all crXX implemented
-	- JITC: overlapped mmio fixes
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
 	  improvements
@@ -11,7 +10,16 @@ version 0.2 (in progress):
 	- configure support for mingw
 	- applied Francois Revol's BeOS patch (no.2).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
-	- 3c90x: added MII support
+
+version 0.1.2:
+	- PROM: fixed: seek > 2^32 not impl.
+	- JITC: fixed mmio with overlapping pages 
+	  (should fix "mac os crashes when idle")
+	- numpad keys mapped
+	- (Win32) fixed: "'" key wasn't mapped
+	- (Win32) fixed: F8 key wasn't mapped
+	- (Win32) fixed: crash when unknown keys in F11 mode pressed
+	- 3c90x: added MII support, some bugs fixed
 
 version 0.1.1:
 	- (Win32) fixed: '=' key wasn't mapped
