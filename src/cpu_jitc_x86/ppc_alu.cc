@@ -2277,8 +2277,51 @@ void ppc_opc_subfcx()
 }
 JITCFlow ppc_opc_gen_subfcx()
 {
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_XO(gJITC.current_opc, rD, rA, rB);
+	if (!(gJITC.current_opc & PPC_OPC_Rc)) {
+		jitcClobberFlags();
+	}	
+	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
+	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
+	if (rA != rD) {
+		if (rD == rB) {
+			// b = b - a
+			asmALURegReg(X86_SUB, b, a);
+			jitcDirtyRegister(b);
+		} else {
+			// d = b - a
+			NativeReg d = jitcMapClientRegisterDirty(PPC_GPR(rD));
+			asmALURegReg(X86_MOV, d, b);
+			asmALURegReg(X86_SUB, d, a);
+		}
+	} else {
 	ppc_opc_gen_interpret(ppc_opc_subfcx);
 	return flowEndBlock;
+		// FIXME: optimize
+		jitcClobberCarry();
+		// a = b - a
+		NativeReg8 tmp = (NativeReg8)jitcAllocRegister(NATIVE_REG_8);
+		asmALUReg(X86_NOT, a);
+		asmALURegReg(X86_ADD, a, b);
+		asmSETReg8(X86_C, tmp);
+		asmALURegImm(X86_ADD, a, 1);
+		asmALURegImm8(X86_ADC, tmp, 0);
+		byte modrm[6];
+		asmALUMemReg8(X86_MOV, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca), tmp);
+		jitcDirtyRegister(a);
+		if (gJITC.current_opc & PPC_OPC_Rc) {
+			asmALURegReg(X86_TEST, a, a);
+			jitcMapFlagsDirty();
+		}
+		return flowContinue;
+	}
+	asmSimple(X86_CMC);
+	jitcMapCarryDirty();
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcMapFlagsDirty();
+	}
+	return flowContinue;
 }
 /*
  *	subfcox		Subtract From Carrying with Overflow
