@@ -1014,7 +1014,7 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 	    			gDisplay->displayShow();
 				SystemEvent ev;
 				do {
-					gKeyboard->getSyncEvent(ev);
+					gKeyboard->getEvent(ev, true);
 				} while (ev.type != sysevKey || !ev.key.pressed);
 
 				uint keycode = ev.key.keycode;

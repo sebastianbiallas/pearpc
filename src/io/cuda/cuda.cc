@@ -806,7 +806,7 @@ bool cuda_interrupt()
 		if (!gCUDA.left /*&& !(gCUDA.rIFR & SR_INT)*/) {
 redo:
 			SystemEvent ev;
-			if (gKeyboard->getEvent(ev) /*|| gMouse->getEvent(ev)*/) {
+			if (gKeyboard->getEvent(ev, false) /*|| gMouse->getEvent(ev, false)*/) {
 				switch (ev.type) {
 				case sysevKey: {
 					if (ev.key.keycode == KEY_F11) {

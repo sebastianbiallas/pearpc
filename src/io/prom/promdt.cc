@@ -485,7 +485,7 @@ uint32 PromInstanceKBD::read(uint32 buf, int length)
 	char *tobuf = (char*)prom_ea_string(buf);
 	if (tobuf) {
 		SystemEvent ev;
-		while (gKeyboard->getEvent(ev)) {
+		while (gKeyboard->getEvent(ev, false)) {
 			if (ev.type == sysevKey && ev.key.pressed) {
 				*tobuf = ev.key.chr;
 				return 1;
