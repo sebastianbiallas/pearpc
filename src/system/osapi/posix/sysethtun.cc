@@ -4,7 +4,7 @@
  *
  *	POSIX/UN*X-specific ethernet-tunnel access
  *
- *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003 Stefan Weyergraf
  *
  *	code taken from Mac-on-Linux 0.9.68:
  *	Copyright (C) 1999-2002 Samuel Rydh (samuel@ibrium.se)

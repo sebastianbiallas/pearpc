@@ -5,7 +5,7 @@
  *	win32-specific ethernet-tunnel access
  *
  *	Copyright (C) 2004 John Kelley (pearpc@kelley.ca)
- *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2004 Stefan Weyergraf
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as

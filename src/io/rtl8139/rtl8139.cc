@@ -9,7 +9,7 @@
  *	[3] realtek 8139 technical specification/programming guide
  *
  *	Copyright (C) 2004 John Kelley (pearpc@kelley.ca)
- *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003 Stefan Weyergraf
  *	Copyright (C) 2004 Eric Estabrooks (estabroo2battlefoundry.net)
  *
  *	This program is free software; you can redistribute it and/or modify

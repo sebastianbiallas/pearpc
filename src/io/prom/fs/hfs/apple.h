@@ -1,7 +1,7 @@
 /*
  * libhfs - library for reading and writing Macintosh HFS volumes
  * Copyright (C) 1996-1998 Robert Leslie
- * Modified for use with PearPC (c) 2004 Stefan Weyergraf <stefan@weyergraf.de>
+ * Modified for use with PearPC (c) 2004 Stefan Weyergraf
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: apple.h,v 1.2 2004/05/16 22:44:05 steveman Exp $
+ * $Id: apple.h,v 1.3 2004/08/04 14:22:40 seppel Exp $
  */
 
 typedef signed char	Char;

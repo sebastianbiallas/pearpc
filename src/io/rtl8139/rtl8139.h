@@ -2,7 +2,7 @@
  *	PearPC
  *	rtl8139.h
  *
- *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003 Stefan Weyergraf
  *	Copyright (C) 2004 Eric Estabrooks (estabroo@battlefoundry.net)
  *
  *	This program is free software; you can redistribute it and/or modify

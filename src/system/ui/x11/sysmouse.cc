@@ -2,7 +2,7 @@
  *	PearPC
  *	mouse.cc - mouse access functions for X11
  *
- *	Copyright (C) 1999-2004 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 1999-2004 Stefan Weyergraf
  *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify

@@ -2,7 +2,7 @@
  *	HT Editor
  *	data.h
  *
- *	Copyright (C) 2002, 2003 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2002, 2003 Stefan Weyergraf
  *	Copyright (C) 2002, 2003 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify

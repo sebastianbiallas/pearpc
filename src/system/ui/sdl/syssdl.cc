@@ -3,7 +3,7 @@
  *	syssdl.cc
  *
  *	Copyright (C)      2004 Jens v.d. Heydt (mailme@vdh-webservice.de)
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 1999-2002 Stefan Weyergraf
  *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
@@ -327,6 +327,7 @@ static bool handleSDLEvent(const SDL_Event &event)
 		}
 		return true;
 	case SDL_QUIT:		
+		gDisplay->setFullscreenMode(false);
 		return false;
 	}
 	return true;

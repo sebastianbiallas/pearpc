@@ -59,7 +59,7 @@ static void FASTCALL writeDEC(uint32 newdec)
 		// as a result of a memory overwrite or something else. Let's handle
 		// that until we figure out why.
 		if (q > 20 * 1000 * 1000) {
-			PPC_OPC_WARN("write dec > 20 millisec := %ld (%llu)\n", gCPU.dec, q);
+			PPC_OPC_WARN("write dec > 20 millisec := %ld (%qu)\n", gCPU.dec, q);
 			q = 10 * 1000 * 1000;
 			sys_set_timer(gDECtimer, 0, q, false);
 		} else {

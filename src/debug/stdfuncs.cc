@@ -2,7 +2,7 @@
  *	HT Editor
  *	stdfuncs.cc
  *
- *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003 Stefan Weyergraf
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as

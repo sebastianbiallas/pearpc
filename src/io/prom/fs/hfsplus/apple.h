@@ -7,7 +7,7 @@
  * Copyright (C) 2000 Klaus Halfmann <klaus.halfmann@feri.de>
  * Original code 1996-1998 by Robert Leslie <rob@mars.rog>
  * other work 2000 from Brad Boyer (flar@pants.nu) 
- * Additional work in 2004 by Stefan Weyergraf (stefan@weyergraf.de) for use in PearPC
+ * Additional work in 2004 by Stefan Weyergraf for use in PearPC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: apple.h,v 1.3 2004/05/16 22:44:06 steveman Exp $
+ * $Id: apple.h,v 1.4 2004/08/04 14:22:41 seppel Exp $
  */
 
 #define APPLE_H

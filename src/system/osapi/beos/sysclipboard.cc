@@ -2,7 +2,7 @@
  *	HT Editor
  *	clipboard.cc - BeOS-specific clipboard functions
  *
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 1999-2002 Stefan Weyergraf
  *	Copyright (C) 2004 Francois Revol (revol@free.fr)
  *
  *	This program is free software; you can redistribute it and/or modify
