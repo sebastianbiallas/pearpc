@@ -147,6 +147,8 @@ if (a > ((DisplayCharacteristics *)obj)->a) return 1;   \
 
 };
 
+void dumpDisplayChar(const DisplayCharacteristics &chr);
+
 typedef uint32 RGB;
 typedef uint32 RGBA;
 

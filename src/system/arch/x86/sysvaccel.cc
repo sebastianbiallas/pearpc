@@ -37,9 +37,9 @@ static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
 }
 
 static inline void genericConvertDisplay(
-	DisplayCharacteristics &aSrcChar,
-	DisplayCharacteristics &aDestChar,
-	void *aSrcBuf,
+	const DisplayCharacteristics &aSrcChar,
+	const DisplayCharacteristics &aDestChar,
+	const void *aSrcBuf,
 	void *aDestBuf,
 	int firstLine,
 	int lastLine)
@@ -90,9 +90,9 @@ static inline void genericConvertDisplay(
 }
 
 void sys_convert_display(
-	DisplayCharacteristics &aSrcChar,
-	DisplayCharacteristics &aDestChar,
-	void *aSrcBuf,
+	const DisplayCharacteristics &aSrcChar,
+	const DisplayCharacteristics &aDestChar,
+	const void *aSrcBuf,
 	void *aDestBuf,
 	int firstLine,
 	int lastLine)

@@ -105,6 +105,18 @@ static RGBA _16toRGBA[16] = {
 	MK_RGBA(0xff, 0xff, 0xff, 0xff)
 };
 
+#define MASK(shift, size) (((1 << (size))-1)<<(shift))
+void dumpDisplayChar(const DisplayCharacteristics &chr)
+{
+	fprintf(stderr, "\tdimensions:          %d x %d pixels\n", chr.width, chr.height);
+	fprintf(stderr, "\tpixel size in bytes: %d\n", chr.bytesPerPixel);
+	fprintf(stderr, "\tpixel size in bits:  %d\n", chr.bytesPerPixel*8);
+	fprintf(stderr, "\tred_mask:            %08x (%d bits)\n", MASK(chr.redShift, chr.redSize), chr.redSize);
+	fprintf(stderr, "\tgreen_mask:          %08x (%d bits)\n", MASK(chr.greenShift, chr.greenSize), chr.greenSize);
+	fprintf(stderr, "\tblue_mask:           %08x (%d bits)\n", MASK(chr.blueShift, chr.blueSize), chr.blueSize);
+	fprintf(stderr, "\tdepth:               %d\n", chr.redSize + chr.greenSize + chr.blueSize);
+}
+
 SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics)
 {
 	mClientChar = aCharacteristics;

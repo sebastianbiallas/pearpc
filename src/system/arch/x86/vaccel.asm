@@ -43,7 +43,9 @@ _2be555_mask_b	dd	0x001f001f
 ;;          ecx -- output
 
 x86_convert_2be555_to_2le555:
+	add		eax, 7
 	shr		eax, 3		; we can convert 8 pixels at a time
+	jz		.exit
 .loop:
 	movq		mm1, [edx]
 	movq		mm3, [edx+8]
@@ -68,6 +70,7 @@ x86_convert_2be555_to_2le555:
 	add		ecx, 16
 	dec		eax
 	jnz		.loop
+.exit
 	emms
 	ret
 
@@ -78,7 +81,9 @@ x86_convert_2be555_to_2le555:
 ;;          ecx -- output
 
 x86_convert_2be555_to_2le565:
+	add		eax, 7
 	shr		eax, 3		; we can convert 8 pixels at a time
+	jz		.exit
 .loop:
 	movq		mm1, [edx]
 	movq		mm3, [edx+8]
@@ -122,6 +127,7 @@ x86_convert_2be555_to_2le565:
 	add		ecx, 16
 	dec		eax
 	jnz		.loop
+.exit
 	emms
 	ret
 
@@ -132,6 +138,7 @@ x86_convert_2be555_to_2le565:
 ;;          ecx -- output
 
 x86_convert_2be555_to_4le888:
+	add		eax, 3
 	shr		eax, 2		; we can convert 4 pixels at a time
 	pxor		mm0, mm0
 .loop:
@@ -190,6 +197,7 @@ x86_convert_4be888_to_4le888:
 	push		ebp
 	push		esi
 	push		edi
+	add		eax, 3
 	shr		eax, 2		; we can convert 4 pixels at a time
 .loop1
 	mov		ebx, [edx]

@@ -32,9 +32,9 @@ static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
 }
 
 void sys_convert_display(
-	DisplayCharacteristics &aSrcChar,
-	DisplayCharacteristics &aDestChar,
-	void *aSrcBuf,
+	const DisplayCharacteristics &aSrcChar,
+	const DisplayCharacteristics &aDestChar,
+	const void *aSrcBuf,
 	void *aDestBuf,
 	int firstLine,
 	int lastLine)
