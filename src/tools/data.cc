@@ -330,7 +330,7 @@ Array::~Array()
 	delAll();
 }
 
-void	Array::delAll()
+void Array::delAll()
 {
 	// SB: Doppelte ueberpruefung von oo
 	if (elems) {
@@ -361,7 +361,7 @@ Object *Array::clone() const
 // SW: doch aber hab keinen bock dazu, kommt am schluss
 
 #ifdef HAVE_HT_OBJECTS
-bool	Array::instanceOf(ObjectID id) const
+bool Array::instanceOf(ObjectID id) const
 {
 	return (id == getObjectID()) || List::instanceOf(id);
 }
@@ -388,7 +388,7 @@ ObjectID Array::getObjectID() const
 	return OBJID_ARRAY;
 }
 
-void	Array::store(ObjectStream &s) const
+void Array::store(ObjectStream &s) const
 {
 	PUT_INT32D(s, ecount);
 	PUT_INT32X(s, hom_objid);
@@ -493,7 +493,7 @@ uint Array::getObjIdx(ObjHandle h) const
 
 ObjHandle Array::findByIdx(int i) const
 {
-	return validHandle((ObjHandle)(i+1)) ? (ObjHandle)(i+1) : InvObjHandle;
+	return validHandle(nativeToHandle(i)) ? nativeToHandle(i) : InvObjHandle;
 }
 
 ObjHandle Array::findFirst() const
@@ -588,12 +588,12 @@ bool Array::validHandle(ObjHandle h) const
 
 uint Array::handleToNative(ObjHandle h) const
 {
-	return ((int)h)-1;
+	return (Object**)h-elems;
 }
 
-ObjHandle Array::nativeToHandle(int i) const
+ObjHandle Array::nativeToHandle(uint i) const
 {
-	return (ObjHandle)(i+1);
+	return elems+i;
 }
 
 void Array::insertAt(ObjHandle h, Object *obj)
@@ -881,7 +881,7 @@ Object *LinkedList::remove(ObjHandle h)
 
 void LinkedList::insertAt(ObjHandle h, Object *obj)
 {
-	uint i = ((uint)h)-1;
+	uint i = handleToNative(h);
 	if (i>ecount-1) {
 		insert(obj);
 		return;

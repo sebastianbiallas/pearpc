@@ -2,15 +2,13 @@
 ==================
 
 version 0.2 (in progress):
-	- got rid of printf() and exit() in HFS and HFS+ code
-	- fixed buggy copyTo() and copyAllTo() in stream.cc
-	- fixed IDEDevice::read(). must update "tel".
 	- fixed: Alt and AltGr are swapped (POSIX)
 	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
 	  improvements
-	- HFS+ embedded in HFS should work now (untested though)
-	- FPU: multiply-add-type instructions now working correctly
 	- tools/regex.h dos2unixed
+	- configure support for mingw
+	- applied Francois Revol's BeOS patch (no.2).
+	- AMD64 portability fixes (mainly void* <-> int conversions)
 
 version 0.1.1:
 	- (Win32) fixed: '=' key wasn't mapped

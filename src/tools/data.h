@@ -545,7 +545,7 @@ private:
 		void		realloc(int n);
 	inline	bool		validHandle(ObjHandle h) const;
 	inline	uint		handleToNative(ObjHandle h) const;
-	inline	ObjHandle	nativeToHandle(int i) const;
+	inline	ObjHandle	nativeToHandle(uint i) const;
 public:
 #ifdef HAVE_HT_OBJECTS
 				Array(BuildCtorArg);
