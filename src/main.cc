@@ -352,6 +352,7 @@ int main(int argc, char *argv[])
 		testforth();
 
 		if (!prom_load_boot_file()) {
+			ht_printf("cannot load boot file.\n");
 			return 1;
 		}
 
