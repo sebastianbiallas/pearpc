@@ -19,7 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: os.cc,v 1.3 2004/08/04 14:22:41 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H

@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: partitions.c,v 1.3 2004/08/19 19:37:10 seppel Exp $
+ * $Id: partitions.c,v 1.4 2004/08/23 13:54:11 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -149,7 +149,7 @@ int partition_getPartitionMap( partition_map *map, void *fd) {
 
 
 /*
- *	Works like you would expect just be look at the signature. It's not
+ *	Works like you would expect just by looking at the signature. It's not
  *	necessary to consult this comment.
  *
  *						-- Sebastian
