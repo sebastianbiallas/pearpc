@@ -17,6 +17,7 @@ version 0.2 (in progress):
 	- code to minimize redraw races
 	- bnstr() is evil and has been banned. fixes: can't parse pci_3c90x_mac
 	- X11: only redraw when exposed (thanks ryan)
+	- Win32: only redraw when exposed
 	- new hardware
 		- RealTek-8139 network card driver by Eric Estabrooks (verbose15)
 	- porting efforts
