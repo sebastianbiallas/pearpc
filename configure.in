@@ -383,6 +383,9 @@ AM_CONDITIONAL(USE_UI_SDL, test x$UI_DIR = xsdl)
 AM_CONDITIONAL(USE_UI_WIN32, test x$UI_DIR = xwin32)
 AM_CONDITIONAL(USE_UI_X11, test x$UI_DIR = xx11)
 
+dnl Checks for some functions.
+AC_CHECK_FUNC(setenv)
+
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
