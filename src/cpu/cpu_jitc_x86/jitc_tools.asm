@@ -759,13 +759,15 @@ align 16
 ;;
 ;;
 ppc_new_pc_this_page_asm:
-	mov	esi, [esp]
-	mov	[esi-6], eax			;; patch it now, later we don't have the value
+;;	mov	esi, [esp]
+;;	mov	[esi-6], eax			;; patch it now, later we don't have the value
 	add	eax, [gCPU+current_code_base]
 	
 	push	4
 	call	ppc_effective_to_physical_code
 	call	jitcNewPC
+
+%if 0
 	pop	esi	
 	;	now eax and esi are both native addresses
 	;	eax is dest and esi is source
@@ -795,7 +797,7 @@ ppc_new_pc_this_page_asm:
 	mov	byte [esi-2], 0xe8	;; call	ppc_heartbeat_ext_rel_asm
 	mov	dword [esi-1], eax	;; the call is relative to (esi+3)
 	jmp	edx
-	
+%endif	
 	pop	edi
 	;	now eax and edi are both native addresses
 	;	eax is dest and edi is source
