@@ -28,6 +28,11 @@
 #include "tools/snprintf.h"
 #include "gif.h"
 
+// For key support
+#include "io/cuda/cuda.h"
+#include "system/sys.h"
+#include "system/keyboard.h"
+
 byte *	gFrameBuffer = NULL;
 int 	gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
@@ -412,11 +417,12 @@ void SystemDisplay::clickMenu(int x, int y)
 	}
 }
 
-/*
 void SystemDisplay::composeKeyDialog()
 {
+	return;
+	// Doesn't work since should get executed in the CPU thread
 	byte *oldframebuffer = (byte*)malloc(mClientChar.scanLineLength * mClientChar.height);
-	memmove(oldframebuffer, gFrameBuffer, mClientChar.scanLineLength * mClientChar.height);
+	memcpy(oldframebuffer, gFrameBuffer, mClientChar.scanLineLength * mClientChar.height);
 
 	const int w = 400;
 	const int h = 200;
@@ -429,28 +435,33 @@ void SystemDisplay::composeKeyDialog()
 	const RGBA bg = MK_RGBA(0xaa,0xee,0xee,0xb0);
 	const RGBA tr = MK_RGBA(0,0,0,0);
 	
-	mCatchMouseToggle = false;
+	bool regrabMouse = false;
+	if (isMouseGrabbed()) {
+		regrabMouse = true;
+		setMouseGrab(false);
+	}
+
 	while (1) {
 redo:
-		memmove(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
+		memcpy(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
 		drawBox(x, y, w, h, fg, bg);
 		outText(x+10, y+10, fg, tr, "Press keys to compose key sequence...");
 
 		String name;
 		for (int i=0; i<k; i++) {
-			name += key_names[keys[i]];
+			String key_name;
+			SystemKeyboard::convertKeycodeToString(key_name, keys[i]);
+			name += key_name;
 			if (i+1 < k) name += " + ";
 		}
 
 		outText(x+10, y+50, fg, tr, name);
 
-    		displayShow();
-		DisplayEvent ev;
+		uint32 keycode;
 		do {
-			getSyncEvent(ev);
-		} while (ev.type != evKey || !ev.keyEvent.pressed);
+			while (!cuda_prom_get_key(keycode)) sys_suspend();
+		} while (keycode & 0x80);
 
-		uint keycode = ev.keyEvent.keycode;
 		if (keycode == KEY_F11) break;
 
 		for (int i=0; i<k; i++) {
@@ -469,25 +480,24 @@ redo:
 		}
 	}
 
-	DisplayEvent ev;
-	ev.type = evKey;
-	ev.keyEvent.pressed = true;
+	SystemEvent ev;
+	ev.type = sysevKey;
+	ev.key.pressed = true;
 	for (int i=0; i<k; i++) {
-		ev.keyEvent.keycode = keys[i];
-		queueEvent(ev);
+		ev.key.keycode = keys[i];
+		gKeyboard->handleEvent(ev);
 	}
-	ev.keyEvent.pressed = false;
+	ev.key.pressed = false;
 	for (int i=k-1; i>=0; i--) {
-		ev.keyEvent.keycode = keys[i];
-		queueEvent(ev);
+		ev.key.keycode = keys[i];
+		gKeyboard->handleEvent(ev);
 	}
-	mCatchMouseToggle = true;
 
-	memmove(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
+	memcpy(gFrameBuffer, oldframebuffer, mClientChar.scanLineLength * mClientChar.height);
 	free(oldframebuffer);
-	inline void damageFrameBufferAll();
+	if (regrabMouse) setMouseGrab(true);
+	damageFrameBufferAll();
 }
-*/
 
 void SystemDisplay::outText(int x, int y, RGBA fg, RGBA bg, const char *text)
 {

@@ -244,7 +244,7 @@ public:
 	virtual	void finishMenu() = 0;
 		void drawMenu();
 		void clickMenu(int x, int y);
-//		void composeKeyDialog();
+		void composeKeyDialog();
 		void drawCircleFilled(int x, int y, int w, int h, int cx, int cy, int radius, RGBA fg, RGBA bg);
 		void drawBox(int x, int y, int w, int h, RGBA fg, RGBA bg);
 		void setHWCursor(int x, int y, bool visible, byte *data);

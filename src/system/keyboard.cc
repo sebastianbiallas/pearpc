@@ -63,9 +63,9 @@ bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 	} else if (keycode == keyConfig.key_toggle_full_screen) {
 		if (ev.key.pressed) gDisplay->setFullscreenMode(!gDisplay->mFullscreen);
 		return true;
-	/*} else if (keycode == keyConfig.key_compose_dialog) {
+	} else if (keycode == keyConfig.key_compose_dialog) {
 		if (ev.key.pressed) gDisplay->composeKeyDialog();
-		return true;*/
+		return true;
 	} else {
 		return SystemDevice::handleEvent(ev);
 	}
