@@ -23,12 +23,12 @@
 
 //#define JITC_DEBUG
 
-/*static inline UNUSED uint64 jitcDebugGetTicks()
+static inline UNUSED uint64 jitcDebugGetTicks()
 {
 	uint32 s0, s1;
 	asm("rdtsc" : "=a" (s0), "=d" (s1));
 	return ((uint64)s1)<<32 | s0;
-}*/
+}
 
 #ifdef JITC_DEBUG
 

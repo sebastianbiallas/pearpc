@@ -18,9 +18,13 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include <cerrno>
 #include <cstring>
 
 #include "debug/tracers.h"
+#include "system/sys.h"
+#include "system/systhread.h"
+#include "system/systimer.h"
 #include "ppc_cpu.h"
 #include "ppc_mmu.h"
 #include "jitc.h"
@@ -37,11 +41,39 @@ extern "C" void ppc_display_jitc_stats()
 	ht_printf("pg.dest:   write: %qd    out of pages: %qd   out of tc: %qd\r", &gJITC.destroy_write, &gJITC.destroy_oopages, &gJITC.destroy_ootc);
 }
 
+void ppc_fpu_test();
+
 uint64 gJITCCompileTicks;
 uint64 gJITCRunTicks;
 uint64 gJITCRunTicksStart;
 
-void ppc_fpu_test();
+uint64 gClientClockFrequency;
+uint64 gClientTimeBaseFrequency;
+uint64 gStartHostCPUTicks;
+
+uint64 ppc_get_cpu_ideal_timebase()
+{
+	uint64 ticks = sys_get_cpu_ticks();
+//	if (ticks < gElapsedHostCPUTicks) {
+//		FIXME: overflow		
+//	}
+	uint64 ticks_per_sec = sys_get_cpu_ticks_per_second();
+	return (ticks - gStartHostCPUTicks) * gClientTimeBaseFrequency / ticks_per_sec;
+}
+
+uint64 ppc_get_cpu_timebase()
+{
+	// FIXME: once "mttb" is implemented, keep track of modified TB register
+	//        So for now, itb = tb.
+	return ppc_get_cpu_ideal_timebase();
+}
+
+sys_timer gDECtimer;
+
+static void decTimerCB(sys_timer t)
+{
+	ppc_cpu_atomic_raise_dec_exception();
+}
 
 void ppc_run()
 {
@@ -49,9 +81,27 @@ void ppc_run()
 //	return;
 	gJITCRunTicks = 0;
 	gJITCCompileTicks = 0;
-//	gJITCRunTicksStart = jitcDebugGetTicks();
+	gJITCRunTicksStart = jitcDebugGetTicks();
 	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
 	jitcDebugInit();
+	gStartHostCPUTicks = sys_get_cpu_ticks();
+	gClientClockFrequency = PPC_CLOCK_FREQUENCY;
+	gClientTimeBaseFrequency = PPC_TIMEBASE_FREQUENCY;
+
+	uint64 q = sys_get_cpu_ticks_per_second();
+	PPC_CPU_WARN("clock ticks / second = %08qx\n", &q);
+	q = sys_get_cpu_ticks();
+	PPC_CPU_WARN("ticks = %08qx\n", &q);
+	q = sys_get_cpu_ticks();
+	PPC_CPU_WARN("ticks = %08qx\n", &q);
+	q = sys_get_cpu_ticks();
+	PPC_CPU_WARN("ticks = %08qx\n", &q);
+
+	if (!sys_create_timer(&gDECtimer, decTimerCB)) {
+		ht_printf("Unable to create timer\n");
+		exit(1);
+	}
+
 	ppc_start_jitc_asm(gCPU.pc);
 }
 

@@ -299,6 +299,9 @@ void ppc_opc_addi()
 }
 JITCFlow ppc_opc_gen_addi_addis(int rD, int rA, uint32 imm)
 {
+/*	byte modrm_zz[6];
+	asmLEA(EAX, modrm_zz, x86_mem_r(modrm_zz, EAX, 1));
+	asmLEA(EAX, modrm_zz, x86_mem_r(modrm_zz, EAX, 0xffffffff));*/
 	if (rA == 0) {
 		NativeReg d = jitcMapClientRegisterDirty(PPC_GPR(rD));
 		if (imm == 0 && !jitcFlagsMapped() && !jitcCarryMapped()) {

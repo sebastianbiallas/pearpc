@@ -21,6 +21,8 @@
 #ifndef __SYSTHREAD_H__
 #define __SYSTHREAD_H__
 
+#include "types.h"
+
 typedef void * sys_mutex;
 typedef void * sys_semaphore;
 typedef void * sys_thread;
@@ -29,21 +31,26 @@ typedef void * (*sys_thread_function)(void *);
 
 /* system-dependent (implementation in $MYSYSTEM/systhread.cc) */
 /* all return 0 on success */
-int sys_create_mutex(sys_mutex *m);
-int sys_create_semaphore(sys_semaphore *s);
-int sys_create_thread(sys_thread *t, int flags, sys_thread_function start_routine, void *arg);
-void sys_destroy_mutex(sys_mutex m);
-void sys_destroy_semaphore(sys_semaphore s);
-void sys_destroy_thread(sys_semaphore s);
-int sys_lock_mutex(sys_mutex m);
-int sys_trylock_mutex(sys_mutex m);
-void sys_unlock_mutex(sys_mutex m);
-void sys_signal_semaphore(sys_semaphore s);
-void sys_signal_all_semaphore(sys_semaphore s);
-void sys_wait_semaphore(sys_semaphore s);
-void sys_lock_semaphore(sys_semaphore s);
-void sys_unlock_semaphore(sys_semaphore s);
-void sys_exit_thread(void *ret);
-void *sys_join_thread(sys_thread t);
+int	sys_create_mutex(sys_mutex *m);
+int	sys_create_semaphore(sys_semaphore *s);
+int	sys_create_thread(sys_thread *t, int flags, sys_thread_function start_routine, void *arg);
+
+void	sys_destroy_mutex(sys_mutex m);
+void	sys_destroy_semaphore(sys_semaphore s);
+void	sys_destroy_thread(sys_semaphore s);
+
+int	sys_lock_mutex(sys_mutex m);
+int	sys_trylock_mutex(sys_mutex m);
+void	sys_unlock_mutex(sys_mutex m);
+
+void	sys_signal_semaphore(sys_semaphore s);
+void	sys_signal_all_semaphore(sys_semaphore s);
+void	sys_wait_semaphore(sys_semaphore s);
+
+void	sys_lock_semaphore(sys_semaphore s);
+void	sys_unlock_semaphore(sys_semaphore s);
+
+void	sys_exit_thread(void *ret);
+void *	sys_join_thread(sys_thread t);
 
 #endif

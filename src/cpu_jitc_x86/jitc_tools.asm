@@ -114,6 +114,7 @@ global ppc_new_pc_asm
 global ppc_new_pc_rel_asm
 global ppc_set_msr_asm
 global ppc_start_jitc_asm
+global ppc_cpu_atomic_raise_dec_exception
 global ppc_cpu_atomic_raise_ext_exception
 global ppc_cpu_atomic_cancel_ext_exception
 global ppc_new_pc_this_page_asm
@@ -356,6 +357,12 @@ ppc_set_msr_asm:
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ppc_cpu_atomic_raise_dec_exception:
+	ppc_atomic_raise_dec_exception_macro
+	ret
+	
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ppc_cpu_atomic_raise_ext_exception:
 	ppc_atomic_raise_ext_exception_macro
 	ret
@@ -543,18 +550,19 @@ align 16
 ;;
 ;;
 ppc_heartbeat_asm:
-	mov	eax, [gCPU+pc_ofs]
-	sub	eax, [gCPU+start_pc_ofs]
-	shr	eax, 2
-	inc	eax
-	add	[gCPU+tb], eax
-	adc	dword [gCPU+tb+4], 0
-	sub	[gCPU+decr], eax
-	jb	.set_dec_exc
 	ret
-.set_dec_exc:
-	ppc_atomic_raise_dec_exception_macro
-	ret
+;	mov	eax, [gCPU+pc_ofs]
+;	sub	eax, [gCPU+start_pc_ofs]
+;	shr	eax, 2
+;	inc	eax
+;	add	[gCPU+tb], eax
+;	adc	dword [gCPU+tb+4], 0
+;	sub	[gCPU+decr], eax
+;	jb	.set_dec_exc
+;	ret
+;.set_dec_exc:
+;	ppc_atomic_raise_dec_exception_macro
+;	ret
 	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -570,11 +578,11 @@ ppc_heartbeat_ext_rel_asm:
 	mov	[gCPU+start_pc_ofs], eax
 	jb	.check_intr
 .back2:
-	add	[gCPU+tb], ecx
+;	add	[gCPU+tb], ecx
 	mov	[gCPU+pc_ofs], eax
-	adc	dword [gCPU+tb+4], 0
-	sub	[gCPU+decr], ecx
-	jb	.set_dec_exception
+;	adc	dword [gCPU+tb+4], 0
+;	sub	[gCPU+decr], ecx
+;	jb	.set_dec_exception
 	test	byte [gCPU+exception_pending], 1
 	jnz	.handle_exception
 .back:
@@ -589,8 +597,8 @@ ppc_heartbeat_ext_rel_asm:
 	jz	.back2
 ;	ppc_atomic_raise_ext_exception_macro
 	jmp	.back2
-.set_dec_exception:
-	ppc_atomic_raise_dec_exception_macro
+;.set_dec_exception:
+;	ppc_atomic_raise_dec_exception_macro
 .handle_exception:
 	test	byte [gCPU+stop_exception], 1
 	jnz	.stop
@@ -626,12 +634,12 @@ ppc_heartbeat_ext_asm:
 	mov	[gCPU+start_pc_ofs], ebx
 	jb	.check_intr
 .back2:
-	add	[gCPU+tb], ecx
+;	add	[gCPU+tb], ecx
 	mov	[gCPU+pc_ofs], ebx
-	adc	dword [gCPU+tb+4], 0
-	sub	[gCPU+decr], ecx
+;	adc	dword [gCPU+tb+4], 0
+;	sub	[gCPU+decr], ecx
 	mov	[gCPU+current_code_base], edx
-	jb	.set_dec_exception
+;	jb	.set_dec_exception
 	test	byte [gCPU+exception_pending], 1
 	jnz	.handle_exception
 .back:
@@ -646,8 +654,8 @@ ppc_heartbeat_ext_asm:
 	jz	.back2
 ;	ppc_atomic_raise_ext_exception_macro
 	jmp	.back2
-.set_dec_exception:
-	ppc_atomic_raise_dec_exception_macro
+;.set_dec_exception:
+;	ppc_atomic_raise_dec_exception_macro
 .handle_exception:
 	test	byte [gCPU+stop_exception], 1
 	jnz	.stop

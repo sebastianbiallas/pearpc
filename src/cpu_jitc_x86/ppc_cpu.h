@@ -26,14 +26,14 @@
 
 #define PPC_MHz(v) ((v)*1000*1000)
 
-#define PPC_MODEL "ppc_model"
-#define PPC_CPU_MODEL "ppc_cpu"
-#define PPC_CLOCK_FREQUENCY PPC_MHz(20)
-#define PPC_BUS_FREQUENCY PPC_MHz(20)
-#define PPC_TIMEBASE_FREQUENCY PPC_MHz(20)
+#define PPC_MODEL		"ppc_model"
+#define PPC_CPU_MODEL		"ppc_cpu"
+#define PPC_CLOCK_FREQUENCY	PPC_MHz(200)
+#define PPC_BUS_FREQUENCY	(PPC_CLOCK_FREQUENCY/5)
+#define PPC_TIMEBASE_FREQUENCY	(PPC_BUS_FREQUENCY/4)
 
 struct PPC_CPU_State {
-	// offsetof first entry of this structure must no be 0
+	// offsetof first entry of this structure must not be 0
 	uint32 dummy;
 	
 	// * uisa
@@ -157,7 +157,15 @@ enum PPC_CRx {
 #define PPC_DBATU(n) ((PPC_Register)(offsetof(PPC_CPU_State, dbatu)+(n)*sizeof (uint32)))
 #define PPC_DBATL(n) ((PPC_Register)(offsetof(PPC_CPU_State, dbatl)+(n)*sizeof (uint32)))
 
+#include "system/systimer.h"
+
 extern PPC_CPU_State gCPU;
+extern uint64 gClientClockFrequency;
+extern uint64 gClientTimeBaseFrequency;
+extern sys_timer gDECtimer;
+
+uint64 ppc_get_cpu_timebase();
+uint64 ppc_get_cpu_ideal_timebase();
 
 void ppc_run();
 void ppc_stop();
@@ -506,6 +514,7 @@ PTE: .364
 void ppc_set_singlestep_v(bool v, const char *file, int line, const char *infoformat, ...);
 void ppc_set_singlestep_nonverbose(bool v);
 
+extern "C" void ppc_cpu_atomic_raise_dec_exception();
 extern "C" void ppc_cpu_atomic_raise_ext_exception();
 extern "C" void ppc_cpu_atomic_cancel_ext_exception();
 

@@ -22,8 +22,10 @@
 #include <cstdlib>
 #include "debug/tracers.h"
 #include "tools/debug.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_mmu.h"
+//#include "cpu_generic/ppc_cpu.h"
+//#include "cpu_generic/ppc_mmu.h"
+#include "cpu_jitc_x86/ppc_cpu.h"
+#include "cpu_jitc_x86/ppc_mmu.h"
 #include "io/graphic/gcard.h"
 #include "io/pic/pic.h"
 #include "io/ide/ide.h"

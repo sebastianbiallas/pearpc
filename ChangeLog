@@ -1,7 +1,10 @@
  PearPC ChangeLog
 ==================
 
-version 0.2 (in progress):
+version 0.3 (not yet released):
+	- correct clock/timing (Win32 + Posix) (still problems on linux clients)
+
+version 0.2 (soon to be released):
 	- JITC: all crXX implemented
 	- JITC: tlbie only invalidate one entry
 	- JITC: optimize tlb_invalidate_all
@@ -38,7 +41,7 @@ version 0.2 (in progress):
 	- 3c90x now correctly detected by Mac OS X (if driver is loaded)
 	- grab mouse on click / ungrab mouse on unfocus (Win32 + X11)
 
-version 0.1.2:
+version 0.1.2 (released 20.May 2004):
 	- PROM: fixed: seek > 2^32 not impl.
 	- JITC: fixed mmio with overlapping pages 
 	  (should fix "mac os crashes when idle")
@@ -48,7 +51,7 @@ version 0.1.2:
 	- (Win32) fixed: crash when unknown keys in F11 mode pressed
 	- 3c90x: added MII support, some bugs fixed
 
-version 0.1.1:
+version 0.1.1 (released 14.May 2004):
 	- (Win32) fixed: '=' key wasn't mapped
 	- fixed: JITC Error: cannot read page-table
 	- fixes for older BootX (for Mac OS X 10.0 and 10.1)
@@ -63,5 +66,5 @@ version 0.1.1:
 	- fixed IDEDevice::read(). must update "tel".
 	- no more "client and server display characteristics DONT match :-("
 
-version 0.1:
+version 0.1 (released 10.May 2004):
 	- initial release

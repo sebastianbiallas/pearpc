@@ -34,7 +34,7 @@ fi
 PPC_CFLAGS="-Wundef -Wall -fsigned-char"
 PPC_CXXFLAGS="-Wundef -Wall -Woverloaded-virtual -fsigned-char"
 PPC_LDADD=""
-PPC_LDFLAGS=""
+PPC_LDFLAGS="$LDFLAGS"
 
 if test "x$enable_release" = "xyes"; then
 	PPC_CFLAGS="$CFLAGS $PPC_CFLAGS -O2"
@@ -77,7 +77,7 @@ case "$target_os" in
 linux*) 
 	SYSTEM_DIR=posix
 	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread + X11.])
-	PPC_LDADD="$PPC_LDADD -lpthread"
+	PPC_LDADD="$PPC_LDADD -lpthread -lrt"
 	NEED_X11=yes
 ;;
 *freebsd*) 
@@ -91,13 +91,13 @@ cygwin*)
 	AC_MSG_RESULT([*** CYGWIN, building native Win32 version (without cygwin.dll)])
 	PPC_CFLAGS="$PPC_CFLAGS -mno-cygwin"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -mno-cygwin"
-        PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
+        PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
 	NASM_OPTS="--prefix _ -f gnuwin32"
 ;;
 mingw32*)
         SYSTEM_DIR=win32
 	AC_MSG_RESULT([*** MinGW, building native Win32 version])
-        PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
+        PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
         NASM_OPTS="--prefix _ -f win32"
 ;;
 darwin*)

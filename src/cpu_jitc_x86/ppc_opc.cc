@@ -31,6 +31,28 @@
 #include "jitc_asm.h"
 #include "x86asm.h"
 
+static uint64 gDECwriteITB;
+static uint64 gDECwriteValue;
+
+static void readDEC()
+{
+	uint64 itb = ppc_get_cpu_ideal_timebase() - gDECwriteITB;
+	gCPU.dec = gDECwriteValue - itb;
+//	PPC_OPC_WARN("read  dec=%08x\n", gCPU.dec);
+}
+
+static void writeDEC()
+{
+//	PPC_OPC_WARN("write dec=%08x\n", gCPU.dec);
+	uint64 q = 1000000000ULL*gCPU.dec / gClientTimeBaseFrequency;
+
+	sys_set_timer(gDECtimer, q / 1000000000ULL,
+				  q % 1000000000ULL, false);
+
+	gDECwriteValue = gCPU.dec;
+	gDECwriteITB = ppc_get_cpu_ideal_timebase();
+}
+
 void ppc_set_msr(uint32 newmsr)
 {
 /*	if ((newmsr & MSR_EE) && !(gCPU.msr & MSR_EE)) {
@@ -845,7 +867,12 @@ JITCFlow ppc_opc_gen_mfspr()
 		switch (spr1) {
 		case 18: move_reg(PPC_GPR(rD), PPC_DSISR); return flowContinue;
 		case 19: move_reg(PPC_GPR(rD), PPC_DAR); return flowContinue;
-		case 22: move_reg(PPC_GPR(rD), PPC_DEC); return flowContinue;
+		case 22: {
+			jitcClobberAll();
+			asmCALL((NativeAddress)readDEC);
+			move_reg(PPC_GPR(rD), PPC_DEC);
+			return flowContinue;
+		}
 		case 25: move_reg(PPC_GPR(rD), PPC_SDR1); return flowContinue;
 		case 26: move_reg(PPC_GPR(rD), PPC_SRR0); return flowContinue;
 		case 27: move_reg(PPC_GPR(rD), PPC_SRR1); return flowContinue;
@@ -963,8 +990,10 @@ void ppc_opc_mftb()
 	switch (spr2) {
 	case 8:
 		switch (spr1) {
-		case 12: gCPU.gpr[rD] = gCPU.tb; return;
-		case 13: gCPU.gpr[rD] = gCPU.tb >> 32; return;
+		case 12: gCPU.gpr[rD] = ppc_get_cpu_timebase(); return;
+		case 13: gCPU.gpr[rD] = ppc_get_cpu_timebase() >> 32; return;
+/*		case 12: gCPU.gpr[rD] = gCPU.tb; return;
+		case 13: gCPU.gpr[rD] = gCPU.tb >> 32; return;*/
 		}
 		break;
 	}
@@ -1151,7 +1180,10 @@ void ppc_opc_mtspr()
 		switch (spr1) {
 /*		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
 		case 19: gCPU.gpr[rD] = gCPU.dar; return;*/
-		case 22: gCPU.dec = gCPU.gpr[rS]; return;
+		case 22: {
+			gCPU.dec = gCPU.gpr[rS];
+			return;
+		}
 		case 25: 
 			if (!ppc_mmu_set_sdr1(gCPU.gpr[rS], true)) {
 				PPC_OPC_ERR("cannot set sdr1\n");
@@ -1309,7 +1341,9 @@ JITCFlow ppc_opc_gen_mtspr()
 		case 22: {
 			byte modrm[6];
 			asmALUMemImm(X86_MOV, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.start_pc_ofs), gJITC.pc);
-			move_reg(PPC_DEC, PPC_GPR(rS)); 
+			move_reg(PPC_DEC, PPC_GPR(rS));
+			jitcClobberAll();
+			asmCALL((NativeAddress)writeDEC);
 			return flowContinue;
 		}
 		case 25: {
@@ -1331,8 +1365,6 @@ JITCFlow ppc_opc_gen_mtspr()
 		case 17: move_reg(PPC_SPRG(1), PPC_GPR(rS)); return flowContinue;
 		case 18: move_reg(PPC_SPRG(2), PPC_GPR(rS)); return flowContinue;
 		case 19: move_reg(PPC_SPRG(3), PPC_GPR(rS)); return flowContinue;
-/*		case 28: TB (lower)
-		case 29: TB (upper)*/
 		}
 		break;
 	case 16: {

@@ -19,7 +19,10 @@
  */
 
 #include <cstdlib>
+#include <cerrno>
+#include <sys/time.h>
 #include <pthread.h>
+
 #include "system/systhread.h"
 
 struct sys_pthread_semaphore {
