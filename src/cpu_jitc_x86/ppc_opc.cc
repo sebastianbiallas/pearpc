@@ -1162,7 +1162,7 @@ JITCFlow ppc_opc_gen_mtfsfx()
 	} else {
 		jitcMapClientRegisterDirty(PPC_FPSCR, NATIVE_REG | fpscr);
 	}
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_OPC_ERR("mtfsf. unimplemented.\n");
 	}
@@ -1210,7 +1210,7 @@ JITCFlow ppc_opc_gen_mtfsfix()
 	} else {
 		jitcMapClientRegisterDirty(PPC_FPSCR, NATIVE_REG | fpscr);
 	}
-	if (gCPU.current_opc & PPC_OPC_Rc) {
+	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_OPC_ERR("mtfsfi. unimplemented.\n");
 	}
