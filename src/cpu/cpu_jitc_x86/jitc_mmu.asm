@@ -1318,8 +1318,8 @@ ppc_read_effective_dword_asm:
 	ret
 .mmio:
 	call	io_mem_read64_glue
-	mov	ecx, edx
-	mov	edx, eax
+	mov	ecx, eax
+	mov	edx, edx
 	bswap	ecx
 	bswap	edx
 	ret
