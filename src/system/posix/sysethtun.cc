@@ -184,7 +184,7 @@ EthTunDevice *createEthernetTunnel()
 	return new LinuxEthTunDevice("ppc" /* FIXME: hardcoding */);
 }
 
-#elif (defined(__APPLE__) && defined(__MACH__))
+#elif (defined(__APPLE__) && defined(__MACH__)) || defined (__FreeBSD__)
 /*
 	Interaction with Darin/Mac OS X "tun" device driver
 
@@ -196,11 +196,15 @@ EthTunDevice *createEthernetTunnel()
 
 #include <fcntl.h>
 
+#ifdef __FreeBSD__
+#define DEFAULT_DEVICE "/dev/tap0"
+#else
 #define DEFAULT_DEVICE "/dev/tun0"
+#endif
 
-class DarwinEthTunDevice: public UnixEthTunDevice {
+class SimpleEthTunDevice: public UnixEthTunDevice {
 public:
-DarwinEthTunDevice()
+SimpleEthTunDevice()
 : UnixEthTunDevice()
 {
 	/* allocate tun device */ 
@@ -215,11 +219,11 @@ virtual	uint getWriteFramePrefix()
 	return 14;
 }
 
-}; // end of DarwinEthTunDevice
+}; // end of SimpleEthTunDevice
 
 EthTunDevice *createEthernetTunnel()
 {
-	return new DarwinEthTunDevice();
+	return new SimpleEthTunDevice();
 }
 
 #else
