@@ -19,7 +19,7 @@ version 0.2 (in progress):
 	- code to minimize redraw races
 	- added RealTek-8139 network card driver by Eric Estabrooks
 	- configure support for mingw and darwin
-	- bnstr() is evil and has been banned. fixes: can't parse pci_3c90x_mac = "00:20:35:67:e7:0e" 
+	- bnstr() is evil and has been banned. fixes: can't parse pci_3c90x_mac
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

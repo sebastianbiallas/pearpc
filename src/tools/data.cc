@@ -881,7 +881,7 @@ Object *LinkedList::remove(ObjHandle h)
 
 void LinkedList::insertAt(ObjHandle h, Object *obj)
 {
-	if (h == InvObjHandle) {
+/*	if (h == InvObjHandle) {
 		insert(obj);
 		return;
 	}
@@ -907,7 +907,8 @@ void LinkedList::insertAt(ObjHandle h, Object *obj)
 		if (!last) last = m;
 	}
 	ecount++;
-	notifyInsertOrSet(obj);
+	notifyInsertOrSet(obj);*/
+	ASSERT(0);	// code needs review
 }
 
 bool LinkedList::moveTo(ObjHandle from, ObjHandle to)
@@ -1099,7 +1100,7 @@ ObjHandle BinaryTree::findByIdxR(BinTreeNode *n, int &i) const
 	if (!n) return InvObjHandle;
 	ObjHandle h;
 	if ((h = findByIdxR(n->left, i))) return h;
-	if (i == 0) return (ObjHandle)n;
+	if (i == 0) return nativeToHandle(n);
 	i--;
 	if ((h = findByIdxR(n->right, i))) return h;
 	return InvObjHandle;
