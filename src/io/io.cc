@@ -35,7 +35,7 @@
  */
 extern "C" uint32 FASTCALL io_mem_read_glue(uint32 addr, int size)
 {
-	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
 	uint32 ret;
 	io_mem_read(addr, ret, size);
 	return ret;
@@ -43,13 +43,13 @@ extern "C" uint32 FASTCALL io_mem_read_glue(uint32 addr, int size)
 
 extern "C" void FASTCALL io_mem_write_glue(uint32 addr, uint32 data, int size)
 {
-	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
 	io_mem_write(addr, data, size);
 }
 
 extern "C" uint64 FASTCALL io_mem_read64_glue(uint32 addr)
 {
-	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
 	uint64 ret;
 	io_mem_read64(addr, ret);
 	return ret;
@@ -57,7 +57,7 @@ extern "C" uint64 FASTCALL io_mem_read64_glue(uint32 addr)
 
 extern "C" void FASTCALL io_mem_write64_glue(uint32 addr, uint64 data)
 {
-	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
 	io_mem_write64(addr, data);
 }
  

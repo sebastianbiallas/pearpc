@@ -1,22 +1,24 @@
 ## PearPC Configuration File
 
 ##
-## Resolution
-##	
-##	0: 640x480x15
-##	1: 640x480x32
-##	2: 800x600x15
-##	3: 800x600x32
-##	4: 1024x768x15
-##	5: 1024x768x32
+## Start Resolution
 ##
-##	default: 2
+## (client that use video.x can change the resolution at runtime,
+##  so this would be used only for starting up)
+##
+##	format:  "(width)x(height)x(depth)"
+##	    or   "(width)x(height)x(depth)@(frequency)"
+##
+##	depth can only be 15 or 32
+##
+##	default: "800x600x15"
+##
 
-ppc_start_resolution = 2
+ppc_start_resolution = "800x600x15"
 
 ##
 ## Redraw interval (in ms)
-## must be between 1 and 999
+## must be between 10 and 500
 ##
 ## If you set this higher, PearPC will spend less time doing redraws (and so run faster)
 ## but feel less responsive. You should adjust this to your computer speed and personal

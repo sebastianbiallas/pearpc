@@ -28,12 +28,46 @@
 #include "io/pic/pic.h"
 #include "gcard.h"
 
-DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES] = {
+struct VMode {
+	int width, height, bytesPerPixel;
+};
+
+static VMode stdVModes[] = {
+	{width: 640, height: 480, bytesPerPixel: 2},
+	{width: 640, height: 480, bytesPerPixel: 4},
+	{width: 800, height: 600, bytesPerPixel: 2},
+	{width: 800, height: 600, bytesPerPixel: 4},
+	{width: 1024, height: 768, bytesPerPixel: 2},
+	{width: 1024, height: 768, bytesPerPixel: 4},
+	{width: 1152, height: 864, bytesPerPixel: 2},
+	{width: 1152, height: 864, bytesPerPixel: 4},
+	{width: 1280, height: 720, bytesPerPixel: 2},
+	{width: 1280, height: 720, bytesPerPixel: 4},
+	{width: 1280, height: 768, bytesPerPixel: 2},
+	{width: 1280, height: 768, bytesPerPixel: 4},
+	{width: 1280, height: 960, bytesPerPixel: 2},
+	{width: 1280, height: 960, bytesPerPixel: 4},
+	{width: 1280, height: 1024, bytesPerPixel: 2},
+	{width: 1280, height: 1024, bytesPerPixel: 4},
+	{width: 1360, height: 768, bytesPerPixel: 2},
+	{width: 1360, height: 768, bytesPerPixel: 4},
+	{width: 1600, height: 900, bytesPerPixel: 2},
+	{width: 1600, height: 900, bytesPerPixel: 4},
+	{width: 1600, height: 1024, bytesPerPixel: 2},
+	{width: 1600, height: 1024, bytesPerPixel: 4},
+	{width: 1600, height: 1200, bytesPerPixel: 2},
+	{width: 1600, height: 1200, bytesPerPixel: 4},
+};
+
+static Container *gGraphicModes;
+
+/*
+ [MAX_GRAPHIC_MODES] = {
 	{width: 640, height: 480, bytesPerPixel: 2, scanLineLength: 1280, vsyncFrequency: 60,
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
 };
 
-/*
+
 DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES] = {
 	{width: 640, height: 480, bytesPerPixel: 2,
 	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
@@ -198,12 +232,8 @@ void gcard_raise_interrupt()
 	if (gVBLon) pic_raise_interrupt(IO_PIC_IRQ_GCARD);
 }
 
-void gcard_set_mode(int mode)
-{
-	gCurrentGraphicMode = mode;
-}
-
 #include "cpu_generic/ppc_cpu.h"
+
 void gcard_osi()
 {
 	IO_GRAPHIC_TRACE("osi: %d\n", gCPU.gpr[5]);
@@ -215,12 +245,13 @@ void gcard_osi()
 	case 28: {
 		// set_vmode
 		uint vmode = gCPU.gpr[6]-1;
-		if (vmode > MAX_GRAPHIC_MODES || gCPU.gpr[7]) {
+		if (vmode > gGraphicModes->count() || gCPU.gpr[7]) {
 			gCPU.gpr[3] = 1;
 			return;
 		}
+		DisplayCharacteristics *chr = (DisplayCharacteristics *)(*gGraphicModes)[vmode];
 		IO_GRAPHIC_TRACE("set mode %d\n", vmode);
-		gCPU.gpr[3] = gDisplay->changeResolution(gGraphicModes[vmode]) ? 0 : 1;
+		gCPU.gpr[3] = gDisplay->changeResolution(*chr) ? 0 : 1;
 		return;
 	}
 	case 29: {
@@ -243,19 +274,20 @@ typedef struct osi_get_vmode_info {
 		int depth_mode = gCPU.gpr[7];
 		if (vmode == -1) {
 			vmode = gCurrentGraphicMode;
-			depth_mode = gGraphicModes[vmode].bytesPerPixel*8;
+			depth_mode = ((DisplayCharacteristics *)(*gGraphicModes)[vmode])->bytesPerPixel*8;
 		}
-		if (vmode > MAX_GRAPHIC_MODES || vmode < 0) {
+		if (vmode > (int)gGraphicModes->count() || vmode < 0) {
 			gCPU.gpr[3] = 1;
 			return;
 		}
+		DisplayCharacteristics *chr = ((DisplayCharacteristics *)(*gGraphicModes)[vmode]);
 		gCPU.gpr[3] = 0;
-		gCPU.gpr[4] = (MAX_GRAPHIC_MODES<<16) | (vmode+1);
+		gCPU.gpr[4] = (gGraphicModes->count()<<16) | (vmode+1);
 		gCPU.gpr[5] = (1<<16) | 0;
-		gCPU.gpr[6] = (gGraphicModes[vmode].width << 16) | gGraphicModes[vmode].height;
+		gCPU.gpr[6] = (chr->width << 16) | chr->height;
 		gCPU.gpr[7] = 85 << 16;
-		gCPU.gpr[8] = gGraphicModes[vmode].bytesPerPixel*8;
-		gCPU.gpr[9] = ((gGraphicModes[vmode].width * gGraphicModes[vmode].bytesPerPixel)<<16)
+		gCPU.gpr[8] = chr->bytesPerPixel*8;
+		gCPU.gpr[9] = ((chr->width * chr->bytesPerPixel)<<16)
 		              | 0;
 		return;
 	}
@@ -302,10 +334,121 @@ typedef struct osi_get_vmode_info {
 	IO_GRAPHIC_ERR("unknown osi function\n");
 }
 
+/*
+ * displayCharacteristicsFromString tries to create a(n unfinished) characteristic
+ * from a String of the form [0-9]+x[0-9]+x(15|32)(@[0-9]+)?
+ */
+ 
+bool displayCharacteristicsFromString(DisplayCharacteristics &aChar, const String &s)
+{
+	String width, height, depth;
+	String tmp, tmp2;
+	if (!s.leftSplit('x', width, tmp)) return false;
+	if (!width.toInt(aChar.width)) return false;
+	if (!tmp.leftSplit('x', height, tmp2)) return false;
+	if (!height.toInt(aChar.height)) return false;
+	if (tmp2.leftSplit('@', depth, tmp)) {
+		if (!depth.toInt(aChar.bytesPerPixel)) return false;	
+		if (!tmp.toInt(aChar.vsyncFrequency)) return false;	
+	} else {
+		aChar.vsyncFrequency = -1;
+		if (!tmp2.toInt(aChar.bytesPerPixel)) return false;
+	}
+	aChar.scanLineLength = -1;
+	aChar.vsyncFrequency = -1;
+	aChar.redShift = -1;
+	aChar.redSize = -1;
+	aChar.greenShift = -1;
+	aChar.greenSize = -1;
+	aChar.blueShift = -1;
+	aChar.blueSize = -1;
+	return true;
+}
+
+void gcard_add_characteristic(const DisplayCharacteristics &aChar)
+{
+	if (!gcard_supports_characteristic(aChar)) {
+		DisplayCharacteristics *chr = new DisplayCharacteristics;
+		*chr = aChar;
+		gGraphicModes->insert(chr);
+	}
+}
+
+bool gcard_supports_characteristic(const DisplayCharacteristics &aChar)
+{
+	return gGraphicModes->contains(&aChar);
+}
+
+/*
+ *	gcard_finish_characteristic will fill out all fields 
+ *	of aChar that aren't initialized yet (set to -1).
+ */
+bool gcard_finish_characteristic(DisplayCharacteristics &aChar)
+{
+	if (aChar.width == -1 || aChar.height == -1 || aChar.bytesPerPixel == -1) return false;
+	if (aChar.vsyncFrequency == -1) aChar.vsyncFrequency = 60;
+	if (aChar.scanLineLength == -1) aChar.scanLineLength = aChar.width * aChar.bytesPerPixel;
+	switch (aChar.bytesPerPixel) {
+	case 2:
+		
+		if (aChar.redShift == -1) aChar.redShift = 10;
+		if (aChar.redSize == -1) aChar.redSize = 5;
+		if (aChar.greenShift == -1) aChar.greenShift = 5;
+		if (aChar.greenSize == -1) aChar.greenSize = 5;
+		if (aChar.blueShift == -1) aChar.blueShift = 0;
+		if (aChar.blueSize == -1) aChar.blueSize = 5;
+		break;
+	case 4:
+		if (aChar.redShift == -1) aChar.redShift = 16;
+		if (aChar.redSize == -1) aChar.redSize = 8;
+		if (aChar.greenShift == -1) aChar.greenShift = 8;
+		if (aChar.greenSize == -1) aChar.greenSize = 8;
+		if (aChar.blueShift == -1) aChar.blueShift = 0;
+		if (aChar.blueSize == -1) aChar.blueSize = 8;
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+bool gcard_set_mode(DisplayCharacteristics &mode)
+{
+	uint tmp = gGraphicModes->getObjIdx(&mode);
+	if (tmp == InvIdx) {
+		return false;
+	} else {
+		gCurrentGraphicMode = tmp;
+		return true;
+	}
+}
+
+void gcard_init_modes()
+{
+	gGraphicModes = new Array(true);
+	for (uint i=0; i < (sizeof stdVModes / sizeof stdVModes[0]); i++) {
+		DisplayCharacteristics chr;
+		chr.width = stdVModes[i].width;
+		chr.height = stdVModes[i].height;
+		chr.bytesPerPixel = stdVModes[i].bytesPerPixel;
+		chr.scanLineLength = -1;
+		chr.vsyncFrequency = -1;
+		chr.redShift = -1;
+		chr.redSize = -1;
+		chr.greenShift = -1;
+		chr.greenSize = -1;
+		chr.blueShift = -1;
+		chr.blueSize = -1;
+		gcard_finish_characteristic(chr);
+		gcard_add_characteristic(chr);
+	}
+}
+
 void gcard_init()
 {
 	gPCI_Devices->insert(new PCI_GCard());
 }
+
 
 void gcard_init_config()
 {

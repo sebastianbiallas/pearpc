@@ -36,9 +36,9 @@
 
 extern byte *	gFrameBuffer;
 
-extern uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+extern int gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
-inline void damageFrameBuffer(uint addr)
+inline void damageFrameBuffer(int addr)
 {
 	if (addr < gDamageAreaFirstAddr) {
 		gDamageAreaFirstAddr = addr;
@@ -52,12 +52,12 @@ inline void damageFrameBuffer(uint addr)
 inline void damageFrameBufferAll()
 {
 	gDamageAreaFirstAddr = 0;
-	gDamageAreaLastAddr = 0xfffffff0;
+	gDamageAreaLastAddr = 0xffffff0;
 }
 
 inline void healFrameBuffer()
 {
-	gDamageAreaFirstAddr = 0xfffffff0;
+	gDamageAreaFirstAddr = 0xffffff0;
 	gDamageAreaLastAddr = 0;
 }
 
@@ -119,18 +119,59 @@ struct DisplayEvent {
 	};
 };
 
-struct DisplayCharacteristics {
+class DisplayCharacteristics: public Object {
+public:
 	int width, height;
-	uint bytesPerPixel;	// may only be 1, 2 or 4
-	uint scanLineLength;
-	uint vsyncFrequency;
+	int bytesPerPixel;	// may only be 1, 2 or 4
+	int scanLineLength;
+	int vsyncFrequency;
 
-	uint redShift;
-	uint redSize;
-	uint greenShift;
-	uint greenSize;
-	uint blueShift;
-	uint blueSize;
+	int redShift;
+	int redSize;
+	int greenShift;
+	int greenSize;
+	int blueShift;
+	int blueSize;
+	
+	inline DisplayCharacteristics & operator =(const DisplayCharacteristics &chr)
+	{
+		width = chr.width;
+		height = chr.height;
+		bytesPerPixel = chr.bytesPerPixel;
+		scanLineLength = chr.scanLineLength;
+		vsyncFrequency = chr.vsyncFrequency;
+
+		redShift = chr.redShift;
+		redSize = chr.redSize;
+		greenShift = chr.greenShift;
+		greenSize = chr.greenSize;
+		blueShift = chr.blueShift;
+		blueSize = chr.blueSize;
+		return *this;
+	}
+	
+#define COMPARE(a) do {                               \
+if (a < ((DisplayCharacteristics *)obj)->a) return -1;  \
+if (a > ((DisplayCharacteristics *)obj)->a) return 1;   \
+} while (0);
+
+	virtual	int compareTo(const Object *obj) const
+	{
+		COMPARE(width);
+		COMPARE(height);
+		COMPARE(bytesPerPixel);
+		COMPARE(scanLineLength);
+		COMPARE(vsyncFrequency);
+		COMPARE(redShift);
+		COMPARE(redSize);
+		COMPARE(greenShift);
+		COMPARE(greenSize);
+		COMPARE(blueShift);
+		COMPARE(blueSize);		
+		return 0;
+	}
+#undef COMPARE
+
 };
 
 typedef uint32 RGB;
@@ -194,7 +235,14 @@ public:
 	virtual 	~SystemDisplay();
 
 	virtual void	displayShow() = 0;
-	virtual bool	changeResolution(const DisplayCharacteristics &aCharacteristics) = 0;
+	
+	/*
+	 *	Note: this function might do different things when in / not in fullscreen
+	 *	mode.
+	 */
+	virtual void	convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar) = 0;
+	
+	virtual bool	changeResolution(const DisplayCharacteristics &aChar) = 0;
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
 

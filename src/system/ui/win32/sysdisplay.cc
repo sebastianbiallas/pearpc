@@ -151,7 +151,7 @@ public:
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
 	}
 
-	~Win32Display()
+	virtual ~Win32Display()
 	{
 		if (gMemoryBitmap) DeleteObject(gMemoryBitmap);
 
@@ -163,7 +163,11 @@ public:
 		free(winframebuffer);
 	}
 
-	bool changeResolution(const DisplayCharacteristics &aCharacteristics)
+	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
+	{
+	}
+	
+	virtual bool changeResolution(const DisplayCharacteristics &aHostChar)
 	{
 		/*
 		 * get size of desktop first

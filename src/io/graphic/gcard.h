@@ -50,17 +50,6 @@ void FASTCALL gcard_read_2(uint32 addr, uint32 &data);
 void FASTCALL gcard_read_4(uint32 addr, uint32 &data);
 void FASTCALL gcard_read_8(uint32 addr, uint64 &data);
 
-#define GRAPHIC_MODE_640_480_15 1
-#define GRAPHIC_MODE_640_480_32 2
-#define GRAPHIC_MODE_800_600_15 3
-#define GRAPHIC_MODE_800_600_32 4
-#define GRAPHIC_MODE_1024_768_15 5
-#define GRAPHIC_MODE_1024_768_32 6
-
-#define MAX_GRAPHIC_MODES 24
-
-extern DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES];
-
 static inline void gcard_write(uint32 addr, uint32 data, int size) 
 {
 	switch (size) {
@@ -108,10 +97,17 @@ static inline void gcard_read64(uint32 addr, uint64 &data)
 void gcard_raise_interrupt();
 
 void gcard_osi();
-void gcard_set_mode(int mode);
+bool gcard_set_mode(DisplayCharacteristics &mode);
+
 
 void gcard_init();
+void gcard_init_modes();
 void gcard_init_config();
+
+bool displayCharacteristicsFromString(DisplayCharacteristics &aChar, const String &s);
+void gcard_add_characteristic(const DisplayCharacteristics &aChar);
+bool gcard_supports_characteristic(const DisplayCharacteristics &aChar);
+bool gcard_finish_characteristic(DisplayCharacteristics &aChar);
 
 #endif
 

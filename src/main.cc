@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 	if (!initSystem()) return 5;
 	try {
 		gConfig = new ConfigParser();
-		gConfig->acceptConfigEntryIntDef("ppc_start_resolution", GRAPHIC_MODE_800_600_15);
+		gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
 		gConfig->acceptConfigEntryIntDef("memory_size", 128*1024*1024);
 		gConfig->acceptConfigEntryIntDef("page_table_pa", 0x00300000);
 		gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 200);
@@ -273,11 +273,36 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
-		int gm = gConfig->getConfigInt("ppc_start_resolution");
-		if (gm >= MAX_GRAPHIC_MODES) {
+
+		gcard_init_modes();
+		
+		String chr;
+		DisplayCharacteristics gm;
+		gConfig->getConfigString("ppc_start_resolution", chr);
+		if (!displayCharacteristicsFromString(gm, chr)) {
 			ht_printf("%s: invalid '%s'\n", argv[1], "ppc_start_resolution");
 			exit(1);
-		}				
+		}
+		switch (gm.bytesPerPixel) {
+		/*
+		 *	Are we confusing bytesPerPixel with bitsPerPixel?
+		 *	Yes! And I am proud of it!
+		 */
+		case 15:
+			gm.bytesPerPixel = 2;
+			break;
+		case 32:
+			gm.bytesPerPixel = 4;
+			break;
+		default:
+			ht_printf("%s: invalid depth in '%s'\n", argv[1], "ppc_start_resolution");
+			exit(1);
+		}
+		if (!gcard_finish_characteristic(gm)) {
+			ht_printf("%s: invalid '%s'\n", argv[1], "ppc_start_resolution");
+			exit(1);
+		}
+		gcard_add_characteristic(gm);
 
 		/*
 		 *	begin hardware init
@@ -300,7 +325,7 @@ int main(int argc, char *argv[])
 		 *	(the menu can only be inited when the hardware has parsed
 		 *	its config files.)
 		 */
-		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gGraphicModes[gm]);
+		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm);
 		gcard_set_mode(gm);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);

@@ -44,7 +44,7 @@ static bool gVisible;
 static bool gMapped;
 //
 byte *gFrameBuffer;
-uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+int gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 static uint8 x11_key_to_adb_key[256] = {
 	// 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
@@ -66,7 +66,7 @@ static uint8 x11_key_to_adb_key[256] = {
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 };
 
-static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
+static void findMaskShiftAndSize(int &shift, int &size, uint bitmask)
 {
 	if (!bitmask) {
 		shift = 0;
@@ -125,7 +125,7 @@ class X11SystemDisplay: public SystemDisplay
 		fprintf(stderr, "\tdepth:               %d\n", chr.redSize + chr.greenSize + chr.blueSize);
 	}
 
-	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel)
+	int bitsPerPixelToXBitmapPad(int bitsPerPixel)
 	{
 		if (bitsPerPixel <= 8) {
 			return 8;
@@ -170,42 +170,15 @@ public:
 		gMapped = true;
 		gVisible = true;
 
+		mClientChar = aClientChar;
+		convertCharacteristicsToHost(mXChar, mClientChar);
+		
 		int screen_num = DefaultScreen(mXDisplay);
 		mXWindow = XCreateSimpleWindow(mXDisplay, 
 			RootWindow(mXDisplay, screen_num), 0, 0,
 				mClientChar.width, mClientChar.height+mMenuHeight,
 				0, BlackPixel(mXDisplay, screen_num),
 				BlackPixel(mXDisplay, screen_num));
-
-		XVisualInfo info_tmpl;
-		int ninfo;
-		info_tmpl.screen = screen_num;
-		info_tmpl.visualid = XVisualIDFromVisual(DefaultVisual(mXDisplay, screen_num));
-		XVisualInfo *info = XGetVisualInfo(mXDisplay,
-			VisualScreenMask | VisualIDMask, &info_tmpl, &ninfo);
-#if 0
-		fprintf(stderr, "got %d XVisualInfo's:\n", ninfo);
-		for (int i=0; i<ninfo; i++) {
-			fprintf(stderr, "XVisualInfo %d:\n", i);
-			fprintf(stderr, "\tscreen = %d:\n", info[i].screen);
-			fprintf(stderr, "\tdepth = %d:\n", info[i].depth);
-			fprintf(stderr, "\tred   = %x:\n", info[i].red_mask);
-			fprintf(stderr, "\tgreen = %x:\n", info[i].green_mask);
-			fprintf(stderr, "\tblue  = %x:\n", info[i].blue_mask);
-		}
-#endif
-		// generate X characteristics from visual info
-		mXChar = mClientChar;
-		if (ninfo) {
-			mXChar.bytesPerPixel = bitsPerPixelToXBitmapPad(info->depth) >> 3;
-			findMaskShiftAndSize(mXChar.redShift, mXChar.redSize, info->red_mask);
-			findMaskShiftAndSize(mXChar.greenShift, mXChar.greenSize, info->green_mask);
-			findMaskShiftAndSize(mXChar.blueShift, mXChar.blueSize, info->blue_mask);
-		} else {
-			printf("ARGH! Couldn't get XVisualInfo...\n");
-			exit(1);
-		}
-		XFree(info);
 
 		XSetWindowAttributes attr;
 		attr.save_under = 1;
@@ -323,15 +296,56 @@ public:
 		sys_unlock_mutex(mutex);
 	}
 
-	bool changeResolution(const DisplayCharacteristics &aClientChar)
+	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 	{
-		if (bitsPerPixelToXBitmapPad(aClientChar.bytesPerPixel*8) != aClientChar.bytesPerPixel*8) {
-			fprintf(stderr, "bitsPerPixelToXBitmapPad(%d) failed\n", aClientChar.bytesPerPixel*8);
+		sys_lock_mutex(mutex);
+		aHostChar = aClientChar;
+		int screen_num = DefaultScreen(mXDisplay);
+
+		XVisualInfo info_tmpl;
+		int ninfo;
+		info_tmpl.screen = screen_num;
+		info_tmpl.visualid = XVisualIDFromVisual(DefaultVisual(mXDisplay, screen_num));
+		XVisualInfo *info = XGetVisualInfo(mXDisplay,
+			VisualScreenMask | VisualIDMask, &info_tmpl, &ninfo);
+		/*
+		fprintf(stderr, "got %d XVisualInfo's:\n", ninfo);
+		for (int i=0; i<ninfo; i++) {
+			fprintf(stderr, "XVisualInfo %d:\n", i);
+			fprintf(stderr, "\tscreen = %d:\n", info[i].screen);
+			fprintf(stderr, "\tdepth = %d:\n", info[i].depth);
+			fprintf(stderr, "\tred   = %x:\n", info[i].red_mask);
+			fprintf(stderr, "\tgreen = %x:\n", info[i].green_mask);
+			fprintf(stderr, "\tblue  = %x:\n", info[i].blue_mask);
+		}
+		*/
+		// generate X characteristics from visual info
+		aHostChar = aClientChar;
+		if (ninfo) {
+			mXChar.bytesPerPixel = bitsPerPixelToXBitmapPad(info->depth) >> 3;
+			findMaskShiftAndSize(aHostChar.redShift, aHostChar.redSize, info->red_mask);
+			findMaskShiftAndSize(aHostChar.greenShift, aHostChar.greenSize, info->green_mask);
+			findMaskShiftAndSize(aHostChar.blueShift, aHostChar.blueSize, info->blue_mask);
+		} else {
+			sys_unlock_mutex(mutex);
+			printf("ARGH! Couldn't get XVisualInfo...\n");
+			exit(1);
+		}
+		XFree(info);
+		sys_unlock_mutex(mutex);
+	}
+	
+	virtual bool changeResolution(const DisplayCharacteristics &aClientChar)
+	{
+		mClientChar = aClientChar;
+		convertCharacteristicsToHost(mXChar, aClientChar);
+		if (bitsPerPixelToXBitmapPad(mXChar.bytesPerPixel*8) != mXChar.bytesPerPixel*8) {
+			fprintf(stderr, "bitsPerPixelToXBitmapPad(%d) failed\n", mXChar.bytesPerPixel*8);
 			return false;
 		}
 
 		sys_lock_mutex(mutex);
-		XResizeWindow(mXDisplay, mXWindow, aClientChar.width, aClientChar.height+mMenuHeight);
+		XResizeWindow(mXDisplay, mXWindow, mXChar.width, mXChar.height+mMenuHeight);
 
 		XSync(mXDisplay, False);
 
@@ -343,17 +357,14 @@ public:
 			return false;
 		}
 
-		if (((int)attr.width < aClientChar.width) || ((int)attr.height < aClientChar.height+mMenuHeight)) {
-	    		fprintf(stderr, "Couldn't change X window size to %dx%d\n", aClientChar.width, aClientChar.height);
+		if (((int)attr.width < mXChar.width) || ((int)attr.height < mXChar.height+mMenuHeight)) {
+	    		fprintf(stderr, "Couldn't change X window size to %dx%d\n", mXChar.width, mXChar.height);
 	    		fprintf(stderr, "Reported new size: %dx(%d+%d)\n", attr.width, attr.height-mMenuHeight, mMenuHeight);
 			XResizeWindow(mXDisplay, mXWindow, mXChar.width, mXChar.height+mMenuHeight);
 			sys_unlock_mutex(mutex);
 			return false;
 		}
 
-		mClientChar = aClientChar;
-		mXChar.width = aClientChar.width;
-		mXChar.height = aClientChar.height;
 		sys_unlock_mutex(mutex);
 
 		reinitChar();
@@ -636,7 +647,7 @@ public:
 
 	virtual void displayShow()
 	{
-		uint firstDamagedLine, lastDamagedLine;
+		int firstDamagedLine, lastDamagedLine;
 		// We've got problems with races here because gcard_write1/2/4
 		// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
 		// We can't use mutexes in gcard for speed reasons. So we'll
@@ -683,7 +694,7 @@ public:
 		sys_unlock_mutex(mutex);
 	}
 
-	inline void convertDisplayClientToServer(uint firstLine, uint lastLine)
+	inline void convertDisplayClientToServer(int firstLine, int lastLine)
 	{
 		if (!mXFrameBuffer) return;	// great! nothing to do.
 		byte *buf = gFrameBuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
