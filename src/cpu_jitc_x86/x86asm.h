@@ -117,14 +117,15 @@ enum X86MOVxx {
 };
 
 enum X86SimpleOpc {
-	X86_PUSHA = 0x60,
-	X86_POPA = 0x61,
-	X86_PUSHF = 0x9c,
-	X86_POPF = 0x9d,
 	X86_CBW = 0x9866,
 	X86_CWDE = 0x98,
 	X86_CWD = 0x9966,
 	X86_CDQ = 0x99,
+	X86_CMC = 0xf5,
+	X86_PUSHA = 0x60,
+	X86_POPA = 0x61,
+	X86_PUSHF = 0x9c,
+	X86_POPF = 0x9d,
 	X86_RET = 0xc3,
 	X86_STC = 0xf9,
 };
@@ -170,11 +171,12 @@ void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len);
 void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1);
 void FASTCALL asmMOVRegImm_NoFlags(NativeReg reg1, uint32 imm);
 void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2);
-void FASTCALL asmSETReg(X86FlagTest flags, NativeReg reg1);
+void FASTCALL asmSETReg8(X86FlagTest flags, NativeReg8 reg1);
 void FASTCALL asmSETMem(X86FlagTest flags, byte *modrm, int len);
 void FASTCALL asmALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2);
-void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg reg1, byte *modrm, int len);
-void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2);
+void FASTCALL asmALURegImm8(X86ALUopc opc, NativeReg8 reg1, uint8 imm);
+void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg8 reg1, byte *modrm, int len);
+void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg8 reg2);
 void FASTCALL asmALUMemImm8(X86ALUopc opc, byte *modrm, int len, uint8 imm);
 void FASTCALL asmMOVDMemReg(uint32 disp, NativeReg reg1);
 void FASTCALL asmMOVRegDMem(NativeReg reg1, uint32 disp);

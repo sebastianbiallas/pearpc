@@ -905,6 +905,7 @@ void FASTCALL asmSimpleALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg
 	jitcEmit(instr, sizeof(instr));
 }
 
+
 void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 {
 	switch (opc) {
@@ -943,6 +944,46 @@ void FASTCALL asmALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
 	default:
 		asmSimpleALURegReg8(opc, reg1, reg2);
 	}	
+}
+
+void FASTCALL asmALURegImm8(X86ALUopc opc, NativeReg8 reg1, uint8 imm)
+{
+	byte instr[5];	
+	switch (opc) {
+	case X86_MOV:
+		instr[0] = 0xb0 + reg1;
+		instr[1] = imm;
+		jitcEmit(instr, 2);
+		break;
+	case X86_TEST:
+		if (reg1 == AL) {
+			instr[0] = 0xa8;
+			instr[1] = imm;
+			jitcEmit(instr, 2);		
+		} else {
+			instr[0] = 0xf6;
+			instr[0] = 0xc0 + reg1;
+			instr[1] = imm;
+			jitcEmit(instr, 3);		
+		}
+		break;	
+	case X86_XCHG:
+		// internal error
+		break;
+	default: {
+		if (reg1 == AL) {
+			instr[0] = (opc<<3)|0x4;
+			instr[1] = imm;
+			jitcEmit(instr, 2);			
+		} else {
+			instr[0] = 0x80;
+			instr[1] = 0xc0+(opc<<3)+reg1;
+			instr[2] = imm;
+			jitcEmit(instr, 3);
+		}
+		break;
+	}
+	}
 }
 
 void FASTCALL asmSimpleALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
@@ -1128,7 +1169,7 @@ void FASTCALL asmALURegMem8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 	jitcEmit(instr, len+1);
 }
 
-void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
+void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg8 reg2)
 {
 	byte instr[15];
 	switch (opc) {
@@ -1302,7 +1343,7 @@ void FASTCALL asmMOVxxRegReg8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2)
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmSETReg(X86FlagTest flags, NativeReg reg1)
+void FASTCALL asmSETReg8(X86FlagTest flags, NativeReg8 reg1)
 {
 	byte instr[3] = {0x0f, 0x90+flags, 0xc0+reg1};
 	jitcEmit(instr, sizeof(instr));
