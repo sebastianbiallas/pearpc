@@ -3,6 +3,7 @@
  *	ppc_dec.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Portions Copyright (C) 2004 Apple Computer, Inc.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -229,7 +230,7 @@ static void ppc_opc_init_group2()
 }
 
 // main opcode 31
-static void ppc_opc_group_2()
+inline static void ppc_opc_group_2()
 {
 	uint32 ext = PPC_OPC_EXT(gCPU.current_opc);
 	if (ext >= (sizeof ppc_opc_table_group2 / sizeof ppc_opc_table_group2[0])) {

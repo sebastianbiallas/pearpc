@@ -3,6 +3,7 @@
  *	ppc_mmu.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Portions Copyright (C) 2004 Apple Computer, Inc.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -60,7 +61,7 @@ static int ppc_pte_protection[] = {
 	0, // r
 };
 
-int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
+inline int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 {
 	if (flags & PPC_MMU_CODE) {
 		if (!(gCPU.msr & MSR_IR)) {
@@ -70,13 +71,15 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 		/*
 		 * BAT translation .329
 		 */
+
+		uint32 batu = (gCPU.msr & MSR_PR ? BATU_Vp : BATU_Vs);		
+
 		for (int i=0; i<4; i++) {
 			uint32 bl17 = gCPU.ibat_bl17[i];
 			uint32 addr2 = addr & (bl17 | 0xf001ffff);
 			if (BATU_BEPI(addr2) == BATU_BEPI(gCPU.ibatu[i])) {
 				// bat applies to this address
-				if (((gCPU.ibatu[i] & BATU_Vs) && !(gCPU.msr & MSR_PR))
-				 || ((gCPU.ibatu[i] & BATU_Vp) &&  (gCPU.msr & MSR_PR))) {
+				if (gCPU.ibatu[i] & batu) {
 					// bat entry valid
 					uint32 offset = BAT_EA_OFFSET(addr);
 					uint32 page = BAT_EA_11(addr);
@@ -96,13 +99,15 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 		/*
 		 * BAT translation .329
 		 */
+
+		uint32 batu = (gCPU.msr & MSR_PR ? BATU_Vp : BATU_Vs);
+
 		for (int i=0; i<4; i++) {
 			uint32 bl17 = gCPU.dbat_bl17[i];
 			uint32 addr2 = addr & (bl17 | 0xf001ffff);
 			if (BATU_BEPI(addr2) == BATU_BEPI(gCPU.dbatu[i])) {
 				// bat applies to this address
-				if (((gCPU.dbatu[i] & BATU_Vs) && !(gCPU.msr & MSR_PR))
-				 || ((gCPU.dbatu[i] & BATU_Vp) &&  (gCPU.msr & MSR_PR))) {
+				if (gCPU.dbatu[i] & batu) {
 					// bat entry valid
 					uint32 offset = BAT_EA_OFFSET(addr);
 					uint32 page = BAT_EA_11(addr);
@@ -154,6 +159,15 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 		// Hashfunction no 1 "xor" .360
 		uint32 hash1 = (VSID ^ page_index);
 		uint32 pteg_addr = ((hash1 & gCPU.pagetable_hashmask)<<6) | gCPU.pagetable_base;
+		int key;
+		if (gCPU.msr & MSR_PR) {
+			key = (sr & SR_Kp) ? 4 : 0;
+		} else {
+			key = (sr & SR_Ks) ? 4 : 0;
+		}
+
+		uint32 pte_protection_offset = ((flags&PPC_MMU_WRITE) ? 8:0) + key;
+
 		for (int i=0; i<8; i++) {
 			uint32 pte;
 			if (ppc_read_physical_word(pteg_addr, pte)) {
@@ -174,13 +188,7 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 						return PPC_MMU_FATAL;
 					}
 					// check accessmode .346
-					int key;
-					if (gCPU.msr & MSR_PR) {
-						key = (sr & SR_Kp) ? 4 : 0;
-					} else {
-						key = (sr & SR_Ks) ? 4 : 0;
-					}
-					if (!ppc_pte_protection[((flags&PPC_MMU_WRITE)?8:0) + key + PTE2_PP(pte)]) {
+					if (!ppc_pte_protection[pte_protection_offset + PTE2_PP(pte)]) {
 						if (!(flags & PPC_MMU_NO_EXC)) {
 							if (flags & PPC_MMU_CODE) {
 								PPC_MMU_WARN("correct impl? code + read protection\n");
@@ -384,12 +392,12 @@ bool FASTCALL ppc_mmu_page_create(uint32 ea, uint32 pa)
 	return false;
 }
 
-bool FASTCALL ppc_mmu_page_free(uint32 ea)
+inline bool FASTCALL ppc_mmu_page_free(uint32 ea)
 {
 	return true;
 }
 
-int FASTCALL ppc_direct_physical_memory_handle(uint32 addr, byte *&ptr)
+inline int FASTCALL ppc_direct_physical_memory_handle(uint32 addr, byte *&ptr)
 {
 	if (addr < gMemorySize) {
 		ptr = &gMemory[addr];
@@ -418,7 +426,7 @@ int FASTCALL ppc_direct_effective_memory_handle_code(uint32 addr, byte *&ptr)
 	return r;
 }
 
-int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
+inline int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -430,7 +438,7 @@ int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
 	return ret;
 }
 
-int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
+inline int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -442,7 +450,7 @@ int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
 	return ret;
 }
 
-int FASTCALL ppc_read_physical_half(uint32 addr, uint16 &result)
+inline int FASTCALL ppc_read_physical_half(uint32 addr, uint16 &result)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -455,7 +463,7 @@ int FASTCALL ppc_read_physical_half(uint32 addr, uint16 &result)
 	return ret;
 }
 
-int FASTCALL ppc_read_physical_byte(uint32 addr, uint8 &result)
+inline int FASTCALL ppc_read_physical_byte(uint32 addr, uint8 &result)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -468,7 +476,7 @@ int FASTCALL ppc_read_physical_byte(uint32 addr, uint8 &result)
 	return ret;
 }
 
-int FASTCALL ppc_read_effective_code(uint32 addr, uint32 &result)
+inline int FASTCALL ppc_read_effective_code(uint32 addr, uint32 &result)
 {
 	if (addr & 3) {
 		// EXC..bla
@@ -482,7 +490,7 @@ int FASTCALL ppc_read_effective_code(uint32 addr, uint32 &result)
 	return r;
 }
 
-int FASTCALL ppc_read_effective_dword(uint32 addr, uint64 &result)
+inline int FASTCALL ppc_read_effective_dword(uint32 addr, uint64 &result)
 {
 	uint32 p;
 	int r;
@@ -507,7 +515,7 @@ int FASTCALL ppc_read_effective_dword(uint32 addr, uint64 &result)
 	return r;
 }
 
-int FASTCALL ppc_read_effective_word(uint32 addr, uint32 &result)
+inline int FASTCALL ppc_read_effective_word(uint32 addr, uint32 &result)
 {
 	uint32 p;
 	int r;
@@ -532,7 +540,7 @@ int FASTCALL ppc_read_effective_word(uint32 addr, uint32 &result)
 	return r;
 }
 
-int FASTCALL ppc_read_effective_half(uint32 addr, uint16 &result)
+inline int FASTCALL ppc_read_effective_half(uint32 addr, uint16 &result)
 {
 	uint32 p;
 	int r;
@@ -553,7 +561,7 @@ int FASTCALL ppc_read_effective_half(uint32 addr, uint16 &result)
 	return r;
 }
 
-int FASTCALL ppc_read_effective_byte(uint32 addr, uint8 &result)
+inline int FASTCALL ppc_read_effective_byte(uint32 addr, uint8 &result)
 {
 	uint32 p;
 	int r;
@@ -563,7 +571,7 @@ int FASTCALL ppc_read_effective_byte(uint32 addr, uint8 &result)
 	return r;
 }
 
-int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
+inline int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -577,7 +585,7 @@ int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 	}
 }
 
-int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
+inline int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -587,7 +595,7 @@ int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
 	return io_mem_write(addr, ppc_bswap_word(data), 4);
 }
 
-int FASTCALL ppc_write_physical_half(uint32 addr, uint16 data)
+inline int FASTCALL ppc_write_physical_half(uint32 addr, uint16 data)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -597,7 +605,7 @@ int FASTCALL ppc_write_physical_half(uint32 addr, uint16 data)
 	return io_mem_write(addr, ppc_bswap_half(data), 2);
 }
 
-int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
+inline int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
 {
 	if (addr < gMemorySize) {
 		// big endian
@@ -607,7 +615,7 @@ int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
 	return io_mem_write(addr, data, 1);
 }
 
-int FASTCALL ppc_write_effective_dword(uint32 addr, uint64 data)
+inline int FASTCALL ppc_write_effective_dword(uint32 addr, uint64 data)
 {
 	uint32 p;
 	int r;
@@ -634,7 +642,7 @@ int FASTCALL ppc_write_effective_dword(uint32 addr, uint64 data)
 	return r;
 }
 
-int FASTCALL ppc_write_effective_word(uint32 addr, uint32 data)
+inline int FASTCALL ppc_write_effective_word(uint32 addr, uint32 data)
 {
 	uint32 p;
 	int r;
@@ -661,7 +669,7 @@ int FASTCALL ppc_write_effective_word(uint32 addr, uint32 data)
 	return r;
 }
 
-int FASTCALL ppc_write_effective_half(uint32 addr, uint16 data)
+inline int FASTCALL ppc_write_effective_half(uint32 addr, uint16 data)
 {
 	uint32 p;
 	int r;
@@ -680,7 +688,7 @@ int FASTCALL ppc_write_effective_half(uint32 addr, uint16 data)
 	return r;
 }
 
-int FASTCALL ppc_write_effective_byte(uint32 addr, uint8 data)
+inline int FASTCALL ppc_write_effective_byte(uint32 addr, uint8 data)
 {
 	uint32 p;
 	int r;
