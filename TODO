@@ -9,3 +9,4 @@
 - dma and who uses it
 - PVR testing
 - adapt startup logo (name is now PearPC, not PPC)
+- locked CDs can't be changed. GUI should reflect this.
