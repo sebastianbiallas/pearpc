@@ -1293,7 +1293,7 @@ x86opc_finsn x86_float_group_insns[8][8] = {
 },
 /* prefix DF */
 {
-{0},
+{0, {"ffreep", {{Ft}}}},
 {0},
 {0},
 {0},
