@@ -20,5 +20,19 @@
  */
 
 #include "mouse.h"
+#include "display.h"
 
 SystemMouse *gMouse = NULL;
+
+bool SystemMouse::handleEvent(const SystemEvent &ev)
+{
+	if (ev.type != sysevMouse) return false;
+	if (!gDisplay->isMouseGrabbed()) {
+		if (ev.mouse.type == sme_buttonReleased) {
+			gDisplay->setMouseGrab(true);
+			return true;
+		}
+		return false;
+	}
+	return SystemDevice::handleEvent(ev);
+}

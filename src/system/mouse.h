@@ -31,6 +31,7 @@
 /* system-dependent (implementation in ui / $MYUI / *.cc) */
 class SystemMouse: public SystemDevice {
 public:
+	virtual bool handleEvent(const SystemEvent &ev);
 };
 
 SystemMouse *allocSystemMouse();

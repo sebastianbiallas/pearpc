@@ -39,14 +39,6 @@ public:
 
 	virtual bool handleEvent(const SystemEvent &ev)
 	{
-		if (ev.type != sysevMouse) return false;
-		if (!gDisplay->isMouseGrabbed()) {
-			if (ev.mouse.type == sme_buttonReleased) {
-				gDisplay->setMouseGrab(true);
-				return true;
-			}
-			return false;
-		}
 		return SystemDevice::handleEvent(ev);
 	}
 };
