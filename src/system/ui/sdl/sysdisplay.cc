@@ -41,8 +41,8 @@
 
 #define printm(s...) ht_printf("[Display/SDL]: "s)
 
-byte *gFramebuffer = NULL;
-uint gFramebufferScanlineLen = 0;
+byte *gFrameBuffer = NULL;
+uint gFrameBufferScanLineLength = 0;
 uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 static SDL_Surface *screen;
 static int msec;
@@ -166,8 +166,8 @@ SDLSystemDisplay::SDLSystemDisplay(const char *name, int xres, int yres, const D
 
 	screen = SDL_SetVideoMode(mClientChar.width, mClientChar.height,
 		8*mClientChar.bytesPerPixel, SDL_HWSURFACE);
-	gFramebuffer = (byte*)screen->pixels;
-	gFramebufferScanlineLen = screen->pitch;
+	gFrameBuffer = (byte*)screen->pixels;
+	gFrameBufferScanLineLength = screen->pitch;
 	if (SDL_MUSTLOCK(screen))
 		SDL_LockSurface(screen);
 	SDL_ShowCursor(SDL_DISABLE);
@@ -201,10 +201,10 @@ void SDLSystemDisplay::ToggleFullScreen()
 		SDL_UnlockSurface(screen);
 	// we just copy the screen to a hw and sw surface and then decie *later which to use
 	backup = SDL_CreateRGBSurface(SDL_HWSURFACE, screen->w, screen->h,
-		8*aCharacteristics.bytesPerPixel, screen->format->Rmask,
+		8*mClientChar.bytesPerPixel, screen->format->Rmask,
 		screen->format->Gmask, screen->format->Bmask, 0);
 	backup2 = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, screen->h,
-		8*aCharacteristics.bytesPerPixel, screen->format->Rmask,
+		8*mClientChar.bytesPerPixel, screen->format->Rmask,
 		screen->format->Gmask, screen->format->Bmask, 0);
 	SDL_SetAlpha(backup, 0, 0);
 	SDL_SetAlpha(backup2, 0, 0);
@@ -214,12 +214,12 @@ void SDLSystemDisplay::ToggleFullScreen()
 	SDL_BlitSurface(screen, NULL, backup2, NULL);
 	printm("Toggled FullScreen\n");
        	if (SDL_VideoModeOK(screen->w, screen->h, 32, screen->flags ^ SDL_FULLSCREEN)) {
-       		screen = SDL_SetVideoMode(screen->w, screen->h, 8*aCharacteristics.bytesPerPixel,
+       		screen = SDL_SetVideoMode(screen->w, screen->h, 8*mClientChar.bytesPerPixel,
 			(screen->flags ^ SDL_FULLSCREEN)|SDL_HWSURFACE);
 	}
 
-	gFramebuffer = (byte*)screen->pixels;
-	gFramebufferScanlineLen = screen->pitch;
+	gFrameBuffer = (byte*)screen->pixels;
+	gFrameBufferScanLineLength = screen->pitch;
 
 	// *later: we decide which to use
 	if (screen->flags&SDL_HWSURFACE) {
@@ -388,6 +388,12 @@ bool SDLSystemDisplay::getEvent(DisplayEvent &ev)
 	return false;
 }
 
+void SDLSystemDisplay::getFrameBufferInfo(DisplayFrameBufferInfo &fbi)
+{
+	fbi.frameBuffer = screen->pixels;
+	fbi.scanLineLength = screen->pitch;
+}
+
 void SDLSystemDisplay::displayShow()
 {
 	uint firstDamagedLine, lastDamagedLine;
@@ -478,8 +484,8 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 		}
 	}
 
-	gFramebuffer = (byte*)screen->pixels;
-	gFramebufferScanlineLen = screen->pitch;
+	gFrameBuffer = (byte*)screen->pixels;
+	gFrameBufferScanLineLength = screen->pitch;
 
 	if (SDL_MUSTLOCK(screen)) {
 		SDL_LockSurface(screen);

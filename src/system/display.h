@@ -34,8 +34,8 @@
 
 #define	GC_TRANSPARENT		'0'		// transparent
 
-extern byte *	gFramebuffer;
-extern uint	gFramebufferScanlineLen;
+extern byte *	gFrameBuffer;
+extern uint	gFrameBufferScanLineLength;
 
 extern uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
@@ -134,6 +134,11 @@ struct DisplayCharacteristics {
 	uint blueSize;
 };
 
+struct DisplayFrameBufferInfo {
+	void *	frameBuffer;
+	uint	scanLineLength;
+};
+
 typedef uint32 RGB;
 typedef uint32 RGBA;
 
@@ -191,13 +196,14 @@ public:
 	DisplayCharacteristics	mClientChar;
 	BufferedChar	*buf;
 
-	SystemDisplay(const DisplayCharacteristics &aCharacteristics);
-	virtual ~SystemDisplay();
+			SystemDisplay(const DisplayCharacteristics &aCharacteristics);
+	virtual 	~SystemDisplay();
 
-	virtual void displayShow() = 0;
-	virtual bool changeResolution(const DisplayCharacteristics &aCharacteristics) = 0;
-	virtual int  getKeybLEDs() = 0;
-	virtual void setKeybLEDs(int leds) = 0;
+	virtual void	displayShow() = 0;
+	virtual bool	changeResolution(const DisplayCharacteristics &aCharacteristics) = 0;
+	virtual void	getFrameBufferInfo(DisplayFrameBufferInfo &fbi) = 0;
+	virtual int	getKeybLEDs() = 0;
+	virtual void	setKeybLEDs(int leds) = 0;
 
 	/* VT */
 	bool	openVT(int width, int height, int dx, int dy, File &font);

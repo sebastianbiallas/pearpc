@@ -217,7 +217,7 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 	case 1:
 		return;
 	case 2: {
-		byte *f = gFramebuffer+y*display->mClientChar.width*2+x*2;
+		byte *f = gFrameBuffer+y*display->mClientChar.width*2+x*2;
 		for (int i=0; i<mHeight; i++) {
 			for (int j=0; j<mWidth; j++) {
 				int c = pic[p]*3;
@@ -226,12 +226,12 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 				f+=2;
 				p++;
 			}
-			f += gFramebufferScanlineLen - mWidth*2;
+			f += gFrameBufferScanLineLength - mWidth*2;
 		}
 		break;
 	}
 	case 4: {
-		byte *f = gFramebuffer+y*display->mClientChar.width*4+x*4;
+		byte *f = gFrameBuffer+y*display->mClientChar.width*4+x*4;
 		for (int i=0; i<mHeight; i++) {
 			for (int j=0; j<mWidth; j++) {
 				int c = pic[p]*3;
@@ -242,7 +242,7 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 				f+=4;
 				p++;
 			}
-			f += gFramebufferScanlineLen - mWidth*4;
+			f += gFrameBufferScanLineLength - mWidth*4;
 		}
 		break;
 	}

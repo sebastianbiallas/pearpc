@@ -141,53 +141,53 @@ bool PCI_GCard::writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 void FASTCALL gcard_write_1(uint32 addr, uint32 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	*(uint8*)(gFramebuffer+addr) = data;
+	*(uint8*)(gFrameBuffer+addr) = data;
 	damageFrameBuffer(addr);
 }
 
 void FASTCALL gcard_write_2(uint32 addr, uint32 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	*(uint16*)(gFramebuffer+addr) = MAYBE_PPC_HALF_TO_BE(data);
+	*(uint16*)(gFrameBuffer+addr) = MAYBE_PPC_HALF_TO_BE(data);
 	damageFrameBuffer(addr);
 }
 
 void FASTCALL gcard_write_4(uint32 addr, uint32 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	*(uint32*)(gFramebuffer+addr) = MAYBE_PPC_WORD_TO_BE(data);
+	*(uint32*)(gFrameBuffer+addr) = MAYBE_PPC_WORD_TO_BE(data);
 	damageFrameBuffer(addr);
 }
 
 void FASTCALL gcard_write_8(uint32 addr, uint64 data)
 {
 	addr -= IO_GCARD_FRAMEBUFFER_PA_START;
-	*(uint64*)(gFramebuffer+addr) = MAYBE_PPC_DWORD_TO_BE(data);
+	*(uint64*)(gFrameBuffer+addr) = MAYBE_PPC_DWORD_TO_BE(data);
 	damageFrameBuffer(addr);
 }
 
 void FASTCALL gcard_read_1(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = (*(uint8*)(gFramebuffer+addr));
+	data = (*(uint8*)(gFrameBuffer+addr));
 }
 
 void FASTCALL gcard_read_2(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = MAYBE_PPC_HALF_TO_BE(*(uint16*)(gFramebuffer+addr));
+	data = MAYBE_PPC_HALF_TO_BE(*(uint16*)(gFrameBuffer+addr));
 }
 
 void FASTCALL gcard_read_4(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = MAYBE_PPC_WORD_TO_BE(*(uint32*)(gFramebuffer+addr));
+	data = MAYBE_PPC_WORD_TO_BE(*(uint32*)(gFrameBuffer+addr));
 }
 
 void FASTCALL gcard_read_8(uint32 addr, uint64 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(gFramebuffer+addr));
+	data = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(gFrameBuffer+addr));
 }
 
 static bool gVBLon = false;

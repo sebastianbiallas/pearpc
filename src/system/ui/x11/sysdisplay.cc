@@ -39,19 +39,13 @@
 #define DPRINTF(a...)
 //#define DPRINTF(a...) ht_printf(a)
 
-byte *gFramebuffer = NULL;
-uint gFramebufferScanlineLen = 0;
-
+// FIXME: these should be members of X11SystemDisplay
+static bool gVisible;
+static bool gMapped;
+//
+byte *gFrameBuffer;
+uint gFrameBufferScanLineLength;
 uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
-
-struct {
-	uint64 r_mask;
-	uint64 g_mask;
-	uint64 b_mask;
-} PACKED gPosixRGBMask;
-
-//extern "C" void __attribute__((regparm (3))) posix_vaccel_15_to_15(uint32 pixel, byte *input, byte *output);
-//extern "C" void __attribute__((regparm (3))) posix_vaccel_15_to_32(uint32 pixel, byte *input, byte *output);
 
 static uint8 x11_key_to_adb_key[256] = {
 	// 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
@@ -92,36 +86,34 @@ static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
 	}
 }
 
-static byte *gXframebuffer;
-static Display *gXDisplay;
-static Window gXWindow;
-static GC gWhiteGC, gBlackGC;
-static GC gGC;
-static XImage *gXImage;
-static XImage *gMenuXImage;
-static XImage *gMouseXImage;
-static Colormap gDefaultColormap;
-
-static Queue *mEventQueue;
-static DisplayCharacteristics mXChar;
-static int mLastMouseX, mLastMouseY;
-static int mCurMouseX, mCurMouseY;
-static int mResetMouseX, mResetMouseY;
-static int mHomeMouseX, mHomeMouseY;
-static bool mMouseButton[3];
-static bool mMouseGrabbed;
-static bool mVisible;
-static bool mMapped;
-static char *mTitle;
-static char mCurTitle[200];
-static byte *mouseData;
-static byte *menuData;
 
 class X11SystemDisplay: public SystemDisplay
 {
 	sys_thread redrawthread;
 	sys_mutex mutex;
-	
+
+	byte *		mXFrameBuffer;
+	Display *	mXDisplay;
+	Window		mXWindow;
+	GC		mXGC;
+	XImage *	mXImage;
+	XImage *	mMenuXImage;
+	XImage *	mMouseXImage;
+	Colormap	mDefaultColormap;
+
+	Queue *mEventQueue;
+	DisplayCharacteristics mXChar;
+	int mLastMouseX, mLastMouseY;
+	int mCurMouseX, mCurMouseY;
+	int mResetMouseX, mResetMouseY;
+	int mHomeMouseX, mHomeMouseY;
+	bool mMouseButton[3];
+	bool mMouseGrabbed;
+	char *mTitle;
+	char mCurTitle[200];
+	byte *mouseData;
+	byte *menuData;
+
 #define MASK(shift, size) (((1 << (size))-1)<<(shift))
 	void dumpDisplayChar(const DisplayCharacteristics &chr)
 	{
@@ -170,27 +162,27 @@ public:
 		if (display == NULL) {
 			display = ":0.0";
 		}
-		gXDisplay = XOpenDisplay(display);		
-		if (!gXDisplay) {
+		mXDisplay = XOpenDisplay(display);		
+		if (!mXDisplay) {
 			printf("can't open X11 display (%s)!\n", display);
 			exit(1);
 		}
 
-		mMapped = true;
-		mVisible = true;
+		gMapped = true;
+		gVisible = true;
 
-		int screen_num = DefaultScreen(gXDisplay);
-		gXWindow = XCreateSimpleWindow(gXDisplay, 
-			RootWindow(gXDisplay, screen_num), 0, 0,
+		int screen_num = DefaultScreen(mXDisplay);
+		mXWindow = XCreateSimpleWindow(mXDisplay, 
+			RootWindow(mXDisplay, screen_num), 0, 0,
 				mClientChar.width, mClientChar.height+mMenuHeight,
-				0, BlackPixel(gXDisplay, screen_num),
-				BlackPixel(gXDisplay, screen_num));
+				0, BlackPixel(mXDisplay, screen_num),
+				BlackPixel(mXDisplay, screen_num));
 
 		XVisualInfo info_tmpl;
 		int ninfo;
 		info_tmpl.screen = screen_num;
-		info_tmpl.visualid = XVisualIDFromVisual(DefaultVisual(gXDisplay, screen_num));
-		XVisualInfo *info = XGetVisualInfo(gXDisplay,
+		info_tmpl.visualid = XVisualIDFromVisual(DefaultVisual(mXDisplay, screen_num));
+		XVisualInfo *info = XGetVisualInfo(mXDisplay,
 			VisualScreenMask | VisualIDMask, &info_tmpl, &ninfo);
 #if 0
 		fprintf(stderr, "got %d XVisualInfo's:\n", ninfo);
@@ -219,58 +211,34 @@ public:
 		XSetWindowAttributes attr;
 		attr.save_under = 1;
 		attr.backing_store = Always;
-		XChangeWindowAttributes(gXDisplay, gXWindow, CWSaveUnder|CWBackingStore, &attr);
+		XChangeWindowAttributes(mXDisplay, mXWindow, CWSaveUnder|CWBackingStore, &attr);
 
-		gDefaultColormap = DefaultColormap(gXDisplay, screen_num);
+		mDefaultColormap = DefaultColormap(mXDisplay, screen_num);
 
-		XSelectInput(gXDisplay, gXWindow, 
+		XSelectInput(mXDisplay, mXWindow, 
 			ExposureMask | KeyPressMask | KeyReleaseMask 
 			| ButtonPressMask | ButtonReleaseMask | PointerMotionMask
 			| EnterWindowMask | LeaveWindowMask | StructureNotifyMask
 			| VisibilityChangeMask | FocusChangeMask);
 
-		XGCValues values;
-		gWhiteGC = XCreateGC(gXDisplay, gXWindow, 0, &values);
-		XSetForeground(gXDisplay, gWhiteGC, WhitePixel(gXDisplay, screen_num));
-
-		gBlackGC = XCreateGC(gXDisplay, gXWindow, 0, &values);
-		XSetForeground(gXDisplay, gBlackGC, BlackPixel(gXDisplay, screen_num));
-
-		XMapWindow(gXDisplay, gXWindow);
+		XMapWindow(mXDisplay, mXWindow);
 
 		XEvent event;
-		XNextEvent(gXDisplay, &event);
+		XNextEvent(mXDisplay, &event);
 
 		uint XDepth = mXChar.redSize + mXChar.greenSize + mXChar.blueSize;
 
-		gMouseXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
+		mMouseXImage = XCreateImage(mXDisplay, DefaultVisual(mXDisplay, screen_num),
 			XDepth, ZPixmap, 0, (char*)mouseData,
 			2, 2,
 			mXChar.bytesPerPixel*8, 0);
 
-		gGC = DefaultGC(gXDisplay, screen_num);
-
-		switch (mClientChar.bytesPerPixel) {
-			case 1:
-				ht_printf("nyi: %s::%d", __FILE__, __LINE__);
-				exit(-1);
-				break;
-			case 2:
-				gPosixRGBMask.r_mask = 0x7c007c007c007c00ULL;
-				gPosixRGBMask.g_mask = 0x03e003e003e003e0ULL;
-				gPosixRGBMask.b_mask = 0x001f001f001f001fULL;
-				break;
-			case 4:
-				gPosixRGBMask.r_mask = 0x00ff000000ff0000ULL;
-				gPosixRGBMask.g_mask = 0x0000ff000000ff00ULL;
-				gPosixRGBMask.b_mask = 0x000000ff000000ffULL;
-				break;
-		}
+		mXGC = DefaultGC(mXDisplay, screen_num);
 
 		// setup interna
-		gFramebuffer = NULL;
+		gFrameBuffer = NULL;
 		reinitChar();
-		gFramebufferScanlineLen = mClientChar.width * mClientChar.bytesPerPixel;
+		gFrameBufferScanLineLength = mClientChar.bytesPerPixel * mClientChar.width;
 
 #if 0
 		fprintf(stderr, "X Server display characteristics:\n");
@@ -286,12 +254,12 @@ public:
 
 	virtual ~X11SystemDisplay()
 	{
-		if (!gXDisplay) return;
-		XCloseDisplay(gXDisplay);
-		gXDisplay = NULL;
+		if (!mXDisplay) return;
+		XCloseDisplay(mXDisplay);
+		mXDisplay = NULL;
 		free(mTitle);
 		free(mouseData);
-		free(gFramebuffer);
+		free(gFrameBuffer);
 		if (menuData) free(menuData);
 	}
 
@@ -299,7 +267,7 @@ public:
 	{
 		menuData = (byte*)malloc(mXChar.width *
 			mMenuHeight * mXChar.bytesPerPixel);
-		gMenuXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, DefaultScreen(gXDisplay)),
+		mMenuXImage = XCreateImage(mXDisplay, DefaultVisual(mXDisplay, DefaultScreen(mXDisplay)),
 			mXChar.redSize+mXChar.greenSize+mXChar.blueSize, ZPixmap, 0, (char*)menuData,
 			mXChar.width, mMenuHeight,
 			mXChar.bytesPerPixel*8, 0);
@@ -308,11 +276,11 @@ public:
 		fillRGB(0, 0, mClientChar.width, mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
 		drawMenu();
 		convertDisplayClientToServer(0, mClientChar.height-1);
-		if (gXframebuffer) {
-			memmove(menuData, gXframebuffer, mXChar.width * mMenuHeight
+		if (mXFrameBuffer) {
+			memmove(menuData, mXFrameBuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		} else {
-			memmove(menuData, gFramebuffer, mXChar.width * mMenuHeight
+			memmove(menuData, gFrameBuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		}
 	}
@@ -320,9 +288,9 @@ public:
 	void reinitChar()
 	{
 		sys_lock_mutex(mutex);
-		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width *
+		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
-		memset(gFramebuffer, 0, mClientChar.width *
+		memset(gFrameBuffer, 0, mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
 		damageFrameBufferAll();
 
@@ -330,27 +298,27 @@ public:
 		mHomeMouseY = mClientChar.height / 2;
 
 		uint XDepth = mXChar.redSize + mXChar.greenSize + mXChar.blueSize;
-		int screen_num = DefaultScreen(gXDisplay);
+		int screen_num = DefaultScreen(mXDisplay);
 
-		if (gXImage) XDestroyImage(gXImage);	// no need to free gXFramebuffer. XDeleteImage does this.
+		if (mXImage) XDestroyImage(mXImage);	// no need to free gXFrameBuffer. XDeleteImage does this.
 
 		// Maybe client and (X-)server display characteristics match
 		if (0 && memcmp(&mClientChar, &mXChar, sizeof (mClientChar)) == 0) {
 //			fprintf(stderr, "client and server display characteristics match!!\n");
-			gXframebuffer = NULL;
+			mXFrameBuffer = NULL;
 
-			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-				XDepth, ZPixmap, 0, (char*)gFramebuffer,
+			mXImage = XCreateImage(mXDisplay, DefaultVisual(mXDisplay, screen_num),
+				XDepth, ZPixmap, 0, (char*)gFrameBuffer,
 				mXChar.width, mXChar.height,
 				mXChar.bytesPerPixel*8, 0);
 		} else {
 			// Otherwise we need a second framebuffer
 //			fprintf(stderr, "client and server display characteristics DONT match :-(\n");
-			gXframebuffer = (byte*)malloc(mXChar.width
+			mXFrameBuffer = (byte*)malloc(mXChar.width
 				* mXChar.height * mXChar.bytesPerPixel);
 
-			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-				XDepth, ZPixmap, 0, (char*)gXframebuffer,
+			mXImage = XCreateImage(mXDisplay, DefaultVisual(mXDisplay, screen_num),
+				XDepth, ZPixmap, 0, (char*)mXFrameBuffer,
 				mXChar.width, mXChar.height,
 				mXChar.bytesPerPixel*8, 0);
 		}
@@ -365,14 +333,14 @@ public:
 		}
 
 		sys_lock_mutex(mutex);
-		XResizeWindow(gXDisplay, gXWindow, aClientChar.width, aClientChar.height+mMenuHeight);
+		XResizeWindow(mXDisplay, mXWindow, aClientChar.width, aClientChar.height+mMenuHeight);
 
-		XSync(gXDisplay, False);
+		XSync(mXDisplay, False);
 
 		XWindowAttributes attr;
-		if (!XGetWindowAttributes(gXDisplay, gXWindow, &attr)) {
+		if (!XGetWindowAttributes(mXDisplay, mXWindow, &attr)) {
 			fprintf(stderr, "Couldn't get X window size\n");
-			XResizeWindow(gXDisplay, gXWindow, mXChar.width, mXChar.height+mMenuHeight);
+			XResizeWindow(mXDisplay, mXWindow, mXChar.width, mXChar.height+mMenuHeight);
 			sys_unlock_mutex(mutex);
 			return false;
 		}
@@ -380,7 +348,7 @@ public:
 		if (((int)attr.width < aClientChar.width) || ((int)attr.height < aClientChar.height+mMenuHeight)) {
 	    		fprintf(stderr, "Couldn't change X window size to %dx%d\n", aClientChar.width, aClientChar.height);
 	    		fprintf(stderr, "Reported new size: %dx(%d+%d)\n", attr.width, attr.height-mMenuHeight, mMenuHeight);
-			XResizeWindow(gXDisplay, gXWindow, mXChar.width, mXChar.height+mMenuHeight);
+			XResizeWindow(mXDisplay, mXWindow, mXChar.width, mXChar.height+mMenuHeight);
 			sys_unlock_mutex(mutex);
 			return false;
 		}
@@ -410,7 +378,7 @@ public:
 		XTextProperty name_prop;
 		char *mCurTitlep = mCurTitle;
 		XStringListToTextProperty(&mCurTitlep, 1, &name_prop);
-		XSetWMName(gXDisplay, gXWindow, &name_prop);
+		XSetWMName(mXDisplay, mXWindow, &name_prop);
 	}
 	
 	virtual	int toString(char *buf, int buflen) const
@@ -435,38 +403,38 @@ public:
 			if (!cursor_created) {
 				Pixmap shape, mask;
 				XColor white, black;
-				shape = XCreatePixmapFromBitmapData(gXDisplay,
-						RootWindow(gXDisplay, DefaultScreen(gXDisplay)),
+				shape = XCreatePixmapFromBitmapData(mXDisplay,
+						RootWindow(mXDisplay, DefaultScreen(mXDisplay)),
 						shape_bits, 16, 16, 1, 0, 1);
-				mask =  XCreatePixmapFromBitmapData(gXDisplay,
-						RootWindow(gXDisplay, DefaultScreen(gXDisplay)),
+				mask =  XCreatePixmapFromBitmapData(mXDisplay,
+						RootWindow(mXDisplay, DefaultScreen(mXDisplay)),
 						mask_bits, 16, 16, 1, 0, 1);
-				XParseColor(gXDisplay, gDefaultColormap, "black", &black);
-				XParseColor(gXDisplay, gDefaultColormap, "white", &white);
-				cursor = XCreatePixmapCursor(gXDisplay, shape, mask,
+				XParseColor(mXDisplay, mDefaultColormap, "black", &black);
+				XParseColor(mXDisplay, mDefaultColormap, "white", &white);
+				cursor = XCreatePixmapCursor(mXDisplay, shape, mask,
 						&white, &black, 1, 1);
 				cursor_created = 1;
 			}
 
-			XDefineCursor(gXDisplay, gXWindow, cursor);
-			XWarpPointer(gXDisplay, gXWindow, gXWindow, 0, 0, 0, 0, mHomeMouseX, mHomeMouseY);
+			XDefineCursor(mXDisplay, mXWindow, cursor);
+			XWarpPointer(mXDisplay, mXWindow, mXWindow, 0, 0, 0, 0, mHomeMouseX, mHomeMouseY);
 		} else {
-			XWarpPointer(gXDisplay, gXWindow, gXWindow, 0, 0, 0, 0, mResetMouseX, mResetMouseY);
-			XUndefineCursor(gXDisplay, gXWindow);
+			XWarpPointer(mXDisplay, mXWindow, mXWindow, 0, 0, 0, 0, mResetMouseX, mResetMouseY);
+			XUndefineCursor(mXDisplay, mXWindow);
 		}
 //		mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
 	}
 
 	virtual void getSyncEvent(DisplayEvent &ev)
 	{
-		if (!gXDisplay) return;
+		if (!mXDisplay) return;
 		XEvent event;
 		XComposeStatus compose;
 		KeySym keysym;
 		char buffer[4];
 		while (1) {
 			sys_lock_mutex(mutex);
-			XWindowEvent(gXDisplay, gXWindow,
+			XWindowEvent(mXDisplay, mXWindow,
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
 			| ButtonReleaseMask | PointerMotionMask
 			| EnterWindowMask | LeaveWindowMask | StructureNotifyMask
@@ -505,21 +473,27 @@ public:
 				sys_unlock_mutex(mutex);
 				return;
 			case MapNotify:
-				mMapped = true;
+				gMapped = true;
 				break;
 			case UnmapNotify:
-				mMapped = false;
+				gMapped = false;
 				break;
 			case VisibilityNotify:
-				mVisible = (event.xvisibility.state != VisibilityFullyObscured);
+				gVisible = (event.xvisibility.state != VisibilityFullyObscured);
 				break;
 			}
 		}
 	}
 
+	virtual void getFrameBufferInfo(DisplayFrameBufferInfo &fbi)
+	{
+		fbi.frameBuffer = gFrameBuffer;
+		fbi.scanLineLength = mXChar.width * mXChar.bytesPerPixel;
+	}
+
 	virtual bool getEvent(DisplayEvent &ev)
 	{
-		if (!gXDisplay) return false;
+		if (!mXDisplay) return false;
 		if (!mEventQueue->isEmpty()) {
 			Pointer *p = (Pointer *)mEventQueue->deQueue();
 			ev = *(DisplayEvent *)p->value;
@@ -532,7 +506,7 @@ public:
 		XComposeStatus compose;
 		KeySym keysym;
 		char buffer[4];
-		while (XCheckWindowEvent(gXDisplay, gXWindow, 
+		while (XCheckWindowEvent(mXDisplay, mXWindow, 
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
 			| ButtonReleaseMask | PointerMotionMask 
 			| EnterWindowMask | LeaveWindowMask  | StructureNotifyMask
@@ -640,7 +614,7 @@ public:
 				ev.mouseEvent.button3 = mMouseButton[2];
 				ev.mouseEvent.relx = mCurMouseX - mHomeMouseX;
 				ev.mouseEvent.rely = mCurMouseY - mHomeMouseY;
-				XWarpPointer(gXDisplay, gXWindow, gXWindow, 0, 0, 0, 0, mHomeMouseX, mHomeMouseY);
+				XWarpPointer(mXDisplay, mXWindow, mXWindow, 0, 0, 0, 0, mHomeMouseX, mHomeMouseY);
 				sys_unlock_mutex(mutex);
 				return true;
 			case EnterNotify:
@@ -654,13 +628,13 @@ public:
 				if (mMouseGrabbed) setClientMouseGrab(false);
 				break;
 			case MapNotify:
-				mMapped = true;
+				gMapped = true;
 				break;
 			case UnmapNotify:
-				mMapped = false;
+				gMapped = false;
 				break;
 			case VisibilityNotify:
-				mVisible = (event.xvisibility.state != VisibilityFullyObscured);
+				gVisible = (event.xvisibility.state != VisibilityFullyObscured);
 				break;
 			}
 		}
@@ -698,11 +672,11 @@ public:
 
 		sys_lock_mutex(mutex);
 		// draw menu
-		XPutImage(gXDisplay, gXWindow, gGC, gMenuXImage, 0, 0, 0, 0,
+		XPutImage(mXDisplay, mXWindow, mXGC, mMenuXImage, 0, 0, 0, 0,
 			mClientChar.width,
 			mMenuHeight);
 
-		XPutImage(gXDisplay, gXWindow, gGC, gXImage,
+		XPutImage(mXDisplay, mXWindow, mXGC, mXImage,
 			0,
 			firstDamagedLine,
 			0,
@@ -711,7 +685,7 @@ public:
 			lastDamagedLine-firstDamagedLine+1);
 
 /*		if (mHWCursorVisible) {
-			XPutImage(gXDisplay, gXWindow, gGC, gMouseXImage, 0, 0, 
+			XPutImage(mXDisplay, mXWindow, mXGC, mMouseXImage, 0, 0, 
 				mHWCursorX, mHWCursorY, 2, 2);
 		}*/
 		sys_unlock_mutex(mutex);
@@ -719,9 +693,9 @@ public:
 
 	inline void convertDisplayClientToServer(uint firstLine, uint lastLine)
 	{
-		if (!gXframebuffer) return;	// great! nothing to do.
-		byte *buf = gFramebuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
-		byte *xbuf = gXframebuffer + mXChar.bytesPerPixel * mXChar.width * firstLine;
+		if (!mXFrameBuffer) return;	// great! nothing to do.
+		byte *buf = gFrameBuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
+		byte *xbuf = mXFrameBuffer + mXChar.bytesPerPixel * mXChar.width * firstLine;
 /*		if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 2)) {
 			posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);
 		} else if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 4)) {
@@ -789,7 +763,7 @@ public:
 			// Safe not to lock for this test, if we catch the 
 			// values mid-update, we'll just reevaluate them the
 			// next time through the loop
-			if (mMapped && mVisible)
+			if (gMapped && gVisible)
 			{
 				gDisplay->displayShow();
 			}

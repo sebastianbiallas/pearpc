@@ -31,7 +31,7 @@ class SDLSystemDisplay: public SystemDisplay
 {
 	sys_thread redrawthread;
 	sys_mutex mutex;
-	
+
 	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel)
 	{
 		if (bitsPerPixel <= 8) {
@@ -42,6 +42,7 @@ class SDLSystemDisplay: public SystemDisplay
 			return 32;
 		}
 	}
+
 	void dumpDisplayChar(const DisplayCharacteristics &chr)
 	{
 		fprintf(stderr, "\tdimensions:          %d x %d pixels\n", chr.width, chr.height);
@@ -52,24 +53,26 @@ class SDLSystemDisplay: public SystemDisplay
 		fprintf(stderr, "\tblue_mask:           %08x (%d bits)\n", MASK(chr.blueShift, chr.blueSize), chr.blueSize);
 		fprintf(stderr, "\tdepth:               %d\n", chr.redSize + chr.greenSize + chr.blueSize);
 	}
-	void precalcPointers();
-	void ToggleFullScreen();
+		void precalcPointers();
+		void ToggleFullScreen();
 public:
-	SDLSystemDisplay(const char *name, int xres, int yres, const DisplayCharacteristics &chr);
-	virtual SDLSystemDisplay::~SDLSystemDisplay();
-	virtual bool changeResolution(const DisplayCharacteristics &aCharacteristics);
-	inline void convertDisplayClientToServer(uint firstLine, uint lastLine);
-	virtual void displayShow();
-	static void *eventLoop(void *p);
-	virtual	void finishMenu();
-	virtual bool getEvent(DisplayEvent &ev);
-	virtual int getKeybLEDs();
-	virtual void getSyncEvent(DisplayEvent &ev);
-	void putpixel(uint32 x, uint32 y, uint32 data);
-	virtual void queueEvent(DisplayEvent &ev);
-	static void *redrawThread(void *p);
-	virtual void setKeybLEDs(int leds);
-	virtual void startRedrawThread(int msec);
+			SDLSystemDisplay(const char *name, int xres, int yres,
+				const DisplayCharacteristics &chr);
+	virtual		SDLSystemDisplay::~SDLSystemDisplay();
+	virtual	bool	changeResolution(const DisplayCharacteristics &aCharacteristics);
+	inline	void	convertDisplayClientToServer(uint firstLine, uint lastLine);
+	virtual	void	displayShow();
+	static	void *	eventLoop(void *p);
+	virtual	void	finishMenu();
+	virtual	bool	getEvent(DisplayEvent &ev);
+	virtual	void	getFrameBufferInfo(DisplayFrameBufferInfo &fbi);
+	virtual	int	getKeybLEDs();
+	virtual	void	getSyncEvent(DisplayEvent &ev);
+		void	putpixel(uint32 x, uint32 y, uint32 data);
+	virtual	void	queueEvent(DisplayEvent &ev);
+	static	void *	redrawThread(void *p);
+	virtual	void	setKeybLEDs(int leds);
+	virtual	void	startRedrawThread(int msec);
 	
 	virtual	int toString(char *buf, int buflen) const;
 	void updateTitle();	
