@@ -449,6 +449,16 @@ void gcard_init_modes()
 	}
 }
 
+void gcard_init_host_modes()
+{
+	Array modes(true);	
+	gDisplay->getHostCharacteristics(modes);
+	foreach (DisplayCharacteristics, chr, modes, {
+		gcard_finish_characteristic(*chr);
+		gcard_add_characteristic(*chr);
+	});
+}
+
 void gcard_init()
 {
 	gPCI_Devices->insert(new PCI_GCard());

@@ -351,6 +351,7 @@ int main(int argc, char *argv[])
 		io_init();
 		ppc_dec_init();
 
+		gcard_init_host_modes();
 		gcard_set_mode(gm);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);

@@ -102,6 +102,7 @@ bool gcard_set_mode(DisplayCharacteristics &mode);
 
 void gcard_init();
 void gcard_init_modes();
+void gcard_init_host_modes();
 void gcard_init_config();
 
 bool displayCharacteristicsFromString(DisplayCharacteristics &aChar, const String &s);

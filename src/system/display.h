@@ -185,12 +185,12 @@ protected:
 	int		mHWCursorVisible;
 	byte *		mHWCursorData;
 
+public: // until we know better
 	/* menu */
 	int		mMenuX, mMenuHeight;
 	Array *		mMenu;
 
 	bool		mMouseGrabbed;
-public: // until we know better
 	int		mRedraw_ms;
 	int mCurMouseX, mCurMouseY;
 	int mResetMouseX, mResetMouseY;

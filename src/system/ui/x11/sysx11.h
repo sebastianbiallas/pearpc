@@ -1,5 +1,5 @@
 /*
- *	HT Editor
+ *	PearPC
  *	sysx11.h
  *
  *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
