@@ -41,7 +41,7 @@
 //#define IO_PCI_TRACE(msg...) ht_printf("[IO/PCI] "msg)
 #define IO_MACIO_TRACE(msg...) ht_printf("[IO/MACIO] "msg)
 //#define IO_NVRAM_TRACE(msg...) ht_printf("[IO/NVRAM] "msg)
-//#define IO_IDE_TRACE(msg...) ht_printf("[IO/IDE] "msg)
+#define IO_IDE_TRACE(msg...) ht_printf("[IO/IDE] "msg)
 //#define IO_USB_TRACE(msg...) ht_printf("[IO/USB] "msg)
 #define IO_CORE_TRACE(msg...) ht_printf("[IO/Generic] "msg)
 

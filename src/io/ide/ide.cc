@@ -1650,7 +1650,8 @@ void receive_atapi_packet()
 					gIDEState.error = 0x4;
 					break;
 				}
-				IO_IDE_TRACE("write sector(%08x, %d)\n", pos, gIDEState.sector_count);
+
+				IO_IDE_TRACE("write sector(%08x, %d)\n", makeLogical(gIDEState.drive_head & 0xf, gIDEState.cyl, gIDEState.sector_no), gIDEState.sector_count);
 				gIDEState.status = IDE_STATUS_RDY | IDE_STATUS_DRQ | IDE_STATUS_SKC;
 				gIDEState.mode = IDE_TRANSFER_MODE_WRITE;
 				gIDEState.sectorpos = 0;
