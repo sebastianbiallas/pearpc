@@ -1657,6 +1657,7 @@ _3c90x_NIC(EthTunDevice *aEthTun, const byte *mac)
 
 virtual ~_3c90x_NIC()
 {
+	mEthTun->shutdownDevice();
 	delete mEthTun;
 	sys_destroy_mutex(mLock);
 }
@@ -1924,6 +1925,10 @@ void _3c90x_init()
 		EthTunDevice *ethTun = createEthernetTunnel();
 		if (!ethTun) {
 			IO_3C90X_ERR("Couldn't create ethernet tunnel\n");
+			exit(1);
+		}
+		if (ethTun->initDevice()) {
+			IO_3C90X_ERR("Couldn't initialize ethernet tunnel\n");
 			exit(1);
 		}
 #if 0

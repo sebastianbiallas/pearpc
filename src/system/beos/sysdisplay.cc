@@ -31,6 +31,7 @@
 #include <Cursor.h>
 #include <GraphicsDefs.h>
 #include <List.h>
+#include <Locker.h>
 #include <Message.h>
 #include <Screen.h>
 #include <View.h>
@@ -48,7 +49,9 @@
 #define DPRINTF(a...)
 //#define DPRINTF(a...) ht_printf(a)
 
-//#define BMP_MENU
+#define BMP_MENU
+
+uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 struct {
 	uint64 r_mask;
@@ -111,7 +114,7 @@ static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
 
 
 byte *gFramebuffer = NULL;
-static byte *beosframebuffer = NULL;
+static byte *gBeOSFramebuffer = NULL;
 /* old value of framebuffer, after replacing with BBitmap::Bits() */
 /*
 static Display *gXDisplay;
@@ -164,6 +167,7 @@ virtual void	Pulse();
 	BMessage	*UnqueueMessage(bool sync);
 private:
 	BList	fMsgList;
+	BLocker	*fMsgListLock;
 	BeOSSystemDisplay	*fSystemDisplay;
 	BBitmap	*fFramebuffer;
 	sem_id	fMsgSem;
@@ -191,7 +195,7 @@ public:
 	virtual void getSyncEvent(DisplayEvent &ev);
 	virtual bool getEvent(DisplayEvent &ev);
 	virtual void displayShow();
-	void convertDisplayClientToServer();
+	void convertDisplayClientToServer(uint firstLine, uint lastLine);
 	virtual void queueEvent(DisplayEvent &ev);
 	static void *eventLoop(void *p);
 	virtual void startRedrawThread(int msec);
@@ -225,11 +229,17 @@ SDView::SDView(BeOSSystemDisplay *sd, BRect frame, const char *name)
 	//SetViewColor(0,255,0);
 	SetViewColor(B_TRANSPARENT_32_BIT);
 	fMsgSem = create_sem(1, "PearPC MessageList sem");
+	// here we don't use the View's looper to lock the msg list,
+	// so the window thread and main thread aren't interleaved 
+	// just because they are playing with the msg list.
+	// much better on my dual :))
+	fMsgListLock = new BLocker("PearPC MessageList lock", true);
 }
 
 SDView::~SDView()
 {
 	delete_sem(fMsgSem);
+	delete fMsgListLock;
 }
 
 void SDView::MessageReceived(BMessage *msg)
@@ -247,14 +257,18 @@ void SDView::MessageReceived(BMessage *msg)
 
 void SDView::Draw(BRect updateRect)
 {
-	// FIXME: use conditional redraw code (see posix/sysdisplay.cc)
-	fSystemDisplay->convertDisplayClientToServer();
+	//fSystemDisplay->convertDisplayClientToServer();
 #ifdef BMP_MENU
-	if (fSystemDisplay->fMenuBitmap)
-		DrawBitmap(fSystemDisplay->fMenuBitmap, fSystemDisplay->fMenuBitmap->Bounds());
-	DrawBitmap(fFramebuffer, Bounds().OffsetByCopy(0,fSystemDisplay->mMenuHeight));
+	BRect r(updateRect);
+	r.bottom = MIN(fSystemDisplay->mMenuHeight-1, r.bottom);
+	if (fSystemDisplay->fMenuBitmap && (r.top <= fSystemDisplay->mMenuHeight))
+		DrawBitmap(fSystemDisplay->fMenuBitmap, r, r);
+	BRect src(updateRect);
+	src.OffsetBySelf(0,-fSystemDisplay->mMenuHeight);
+	//src.top = MAX(0, src.top);
+	DrawBitmap(fFramebuffer, src, updateRect);
 #else
-	DrawBitmap(fFramebuffer, Bounds());
+	DrawBitmap(fFramebuffer, updateRect, updateRect);
 #endif
 	if (fSystemDisplay->mHWCursorVisible) {
 		//XPutImage(gXDisplay, gXWindow, gGC, gMouseXImage, 0, 0, 
@@ -294,12 +308,17 @@ void SDView::KeyUp(const char *bytes, int32 numBytes)
 
 void SDView::Pulse()
 {
-	Invalidate(Bounds()); /* cause a redraw */
+	BWindow *w = Window();
+	if (w && !w->IsHidden() && !w->IsMinimized())
+		fSystemDisplay->displayShow();
+	//Invalidate(Bounds()); /* cause a redraw */
 }
 
 void SDView::QueueMessage(BMessage *msg)
 {
+	fMsgListLock->Lock(); /* BList not threadsafe */
 	fMsgList.AddItem(msg, fMsgList.CountItems());
+	fMsgListLock->Unlock();
 	release_sem(fMsgSem);
 }
 
@@ -307,9 +326,11 @@ BMessage *SDView::UnqueueMessage(bool sync)
 {
 	BMessage *msg;
 	acquire_sem_etc(fMsgSem, 1, sync?0:B_RELATIVE_TIMEOUT, 0LL);
-	LockLooper(); /* BList not threadsafe */
+	//LockLooper();
+	fMsgListLock->Lock(); /* BList not threadsafe */
 	msg = (BMessage *)fMsgList.RemoveItem(0L);
-	UnlockLooper();
+	//UnlockLooper();
+	fMsgListLock->Unlock();
 /*	if (msg)
 		msg->PrintToStream();*/
 	return msg;
@@ -352,7 +373,7 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 	view = NULL;
 	window = NULL;
 	gBlankCursor = new BCursor(blank_cursor_data);
-	beosframebuffer = NULL;
+	gBeOSFramebuffer = NULL;
 	
 	if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
 		printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
@@ -437,7 +458,7 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 #endif
 	} else {
 		// Otherwise we need a second framebuffer
-		beosframebuffer = (byte *)fbBitmap->Bits();
+		gBeOSFramebuffer = (byte *)fbBitmap->Bits();
 		gFramebuffer = (byte*)malloc(mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
 		memset(gFramebuffer, 0, mClientChar.width *
@@ -447,11 +468,14 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 	
 	}
 	
-	//fbbounds.bottom += mMenuHeight;
+#ifdef BMP_MENU
+	fbbounds.bottom += mMenuHeight;
+#endif
 	window = new SDWindow(frame, name);
 	view = new SDView(this/*fbBitmap*/, fbbounds, "framebuffer");
 	window->AddChild(view);
 	view->MakeFocus(true);
+	//view->Invalidate(view->Bounds());
 	
 	window->Show();
 	
@@ -489,10 +513,10 @@ BeOSSystemDisplay::~BeOSSystemDisplay()
 	
 	free(mTitle);
 	free(mouseData);
-	if (beosframebuffer)
+	if (gBeOSFramebuffer)
 		free(gFramebuffer);
 	gFramebuffer = NULL;
-	beosframebuffer = NULL;
+	gBeOSFramebuffer = NULL;
 #ifdef BMP_MENU
 	//if (menuData) free(menuData);
 #endif
@@ -511,23 +535,28 @@ void BeOSSystemDisplay::finishMenu()
 	// Is this ugly? Yes!
 	fillRGB(0, 0, mClientChar.width, mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
 	drawMenu();
-	convertDisplayClientToServer();
+	convertDisplayClientToServer(0, mClientChar.height-1);
 	fMenuBitmap = new BBitmap(BRect(0,0,mBeChar.width-1,mMenuHeight-1), 0, fbBitmap->ColorSpace());
 	menuData = (byte *)fMenuBitmap->Bits();
-	if (beosframebuffer) {
-		memmove(menuData, beosframebuffer, mBeChar.width * mMenuHeight
+	if (gBeOSFramebuffer) {
+		memmove(menuData, gBeOSFramebuffer, mBeChar.width * mMenuHeight
 			* mBeChar.bytesPerPixel);
 	} else {
 		memmove(menuData, gFramebuffer, mBeChar.width * mMenuHeight
 			* mBeChar.bytesPerPixel);
 	}
+	view->LockLooper();
+	view->Invalidate(BRect(0, 0, mBeChar.width-1, mMenuHeight-1));
+	view->UnlockLooper();
+
+/*
 	if (fMenuBitmap) {
 		BWindow *w = new BWindow(fMenuBitmap->Bounds(), "debug", B_TITLED_WINDOW, 0L);
 		BView *v = new BView(fMenuBitmap->Bounds(), "debugview", B_FOLLOW_NONE, B_WILL_DRAW);
 		w->AddChild(v);
 		v->SetViewBitmap(fMenuBitmap);
 		w->Show();
-	}
+	}*/
 	
 #endif
 }
@@ -832,10 +861,46 @@ bool BeOSSystemDisplay::getEvent(DisplayEvent &ev)
 
 void BeOSSystemDisplay::displayShow()
 {
+	uint firstDamagedLine, lastDamagedLine;
+	// We've got problems with races here because gcard_write1/2/4
+	// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
+	// We can't use mutexes in gcard for speed reasons. So we'll
+	// try to minimize the probability of loosing the race.
+	if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
+	        return;
+	}
+	uint damageAreaFirstAddr = gDamageAreaFirstAddr;
+	uint damageAreaLastAddr = gDamageAreaLastAddr;
+	healFrameBuffer();
+	// end of race
+	damageAreaLastAddr += 3;	// this is a hack. For speed reasons we
+					// inaccurately set gDamageAreaLastAddr
+					// to the first (not last) byte accessed
+					// accesses are up to 4 bytes "long".
+
+	firstDamagedLine = damageAreaFirstAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+	lastDamagedLine = damageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+	// Overflow may happen, because of the hack used above
+	// and others, that set lastAddr = 0xfffffff0 (damageFrameBufferAll())
+	if (lastDamagedLine >= mClientChar.height) {
+		lastDamagedLine = mClientChar.height-1;
+	}
+	convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
+	
 	view->LockLooper();
+	
 	//view->Invalidate(view->Bounds());
-	view->Draw(view->Bounds());
+	
+	// supposedly faster than Invalidate() ...
+	BRect bounds(view->Bounds());
+	bounds.top = firstDamagedLine;
+	bounds.bottom = lastDamagedLine;
+#ifdef BMP_MENU
+	bounds.OffsetBySelf(0, mMenuHeight);
+#endif
+	view->Draw(bounds);
 	view->Flush();
+	
 	view->UnlockLooper();
 /*
 	convertDisplayClientToServer();
@@ -854,17 +919,17 @@ void BeOSSystemDisplay::displayShow()
 */
 }
 
-void BeOSSystemDisplay::convertDisplayClientToServer()
+void BeOSSystemDisplay::convertDisplayClientToServer(uint firstLine, uint lastLine)
 {
-	if (!beosframebuffer) return;	// great! nothing to do.
-	byte *buf = gFramebuffer;
-	byte *xbuf = beosframebuffer;
+	if (!gBeOSFramebuffer) return;	// great! nothing to do.
+	byte *buf = gFramebuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
+	byte *bbuf = gBeOSFramebuffer + mBeChar.bytesPerPixel * mBeChar.width * firstLine;
 /*	if ((mClientChar.bytesPerPixel == 2) && (mBeChar.bytesPerPixel == 2)) {
 		posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);
 	} else if ((mClientChar.bytesPerPixel == 2) && (mBeChar.bytesPerPixel == 4)) {
 		posix_vaccel_15_to_32(mClientChar.height*mClientChar.width, buf, xbuf);
 	} else */
-	for (int y=0; y < mClientChar.height; y++) {
+	for (int y=firstLine; y <= lastLine; y++) {
 		for (int x=0; x < mClientChar.width; x++) {
 			uint r, g, b;
 			uint p;
@@ -893,16 +958,16 @@ void BeOSSystemDisplay::convertDisplayClientToServer()
 				| (b << mBeChar.blueShift);
 			switch (mBeChar.bytesPerPixel) {
 				case 1:
-					xbuf[0] = p;
+					bbuf[0] = p;
 					break;
 				case 2:
-					xbuf[1] = p>>8; xbuf[0] = p;
+					bbuf[1] = p>>8; bbuf[0] = p;
 					break;
 				case 4:
-					*(uint32*)xbuf = p;
+					*(uint32*)bbuf = p;
 					break;
 			}
-			xbuf += mBeChar.bytesPerPixel;
+			bbuf += mBeChar.bytesPerPixel;
 			buf += mClientChar.bytesPerPixel;
 		}
 	}

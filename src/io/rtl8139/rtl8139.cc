@@ -435,6 +435,8 @@ void verbose(int level)
 
 virtual ~rtl8139_NIC()
 {
+	mEthTun->shutdownDevice();
+	delete mEthTun;
 	sys_destroy_mutex(mLock);
 }
 

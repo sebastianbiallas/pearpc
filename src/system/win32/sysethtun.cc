@@ -218,6 +218,16 @@ public:
 
 Win32EthTunDevice()
 {
+}
+
+virtual ~Win32EthTunDevice()
+{
+	if (mFile != INVALID_HANDLE_VALUE)
+		shutdownDevice();
+}
+
+int initDevice()
+{
 	char device_path[256];
 	char device_guid[0x100];
 	int rc;
@@ -294,9 +304,10 @@ Win32EthTunDevice()
 		}
 		throw new MsgfException("Setting Media Status to connected failed (handle is %d)\n", handle);
 	}
+	return 0;
 }
 
-virtual ~Win32EthTunDevice()
+int shutdownDevice()
 {
 	printm("Setting Media Status to disconnected.\n");
 	if (!tap_set_status(false)) {
@@ -305,6 +316,7 @@ virtual ~Win32EthTunDevice()
 	printm("Closing TAP-WIN32 handle.\n");
 	CloseHandle(mFile);
 	mFile = INVALID_HANDLE_VALUE;
+	return 0;
 }
 
 virtual	uint recvPacket(void *buf, uint size)

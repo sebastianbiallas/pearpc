@@ -87,6 +87,18 @@ public:
 	 *	@returns number of bytes in write frame prefix
 	 */
 	virtual	uint	getWriteFramePrefix() = 0;
+	/**
+	 *	Initialize the device.
+	 *
+	 *	@returns init status (0 = ok)
+	 */
+	virtual int		initDevice() = 0;
+	/**
+	 *	Uninitialize the device.
+	 *
+	 *	@returns shutdown status (0 = ok)
+	 */
+	virtual int		shutdownDevice() = 0;
 };
 
 /* system-dependent (implementation in $MYSYSTEM/ *.cc) */

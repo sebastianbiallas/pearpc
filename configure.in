@@ -315,18 +315,32 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
 AC_CHECK_HEADERS([sys/socket.h])
-AC_CHECK_HEADERS([asm/types.h])
 
-dnl Have Linux TUN?
-AC_CHECK_HEADERS(linux/netlink.h, AC_DEFINE(HAVE_LINUX_TUN, 1, [Have TUN/TAP headers?]),,
-     [[
-     #if HAVE_ASM_TYPES_H
-     # include <asm/types.h>
-     #endif
-     #if HAVE_SYS_SOCKET_H
-     # include <sys/socket.h>
-     #endif
-     ]])
+case "$target_os" in
+linux*)
+        AC_CHECK_HEADERS([asm/types.h])
+        
+        dnl Have Linux TUN?
+        AC_CHECK_HEADERS(linux/netlink.h, AC_DEFINE(HAVE_LINUX_TUN, 1, [Have TUN/TAP headers?]),,
+             [[
+             #if HAVE_ASM_TYPES_H
+             # include <asm/types.h>
+             #endif
+             #if HAVE_SYS_SOCKET_H
+             # include <sys/socket.h>
+             #endif
+             ]])
+;;
+beos*)
+        dnl Have BeOS TUN ? (same API as Linux, except the device path)
+        dnl might be in linux/ for compatibility
+        AC_CHECK_HEADERS(linux/if_tun.h, AC_DEFINE(HAVE_BEOS_TUN, 1, [Have TUN/TAP headers?]))
+        dnl but it really makes more sense in net/ (WTF does Linux put that in linux/ ?)
+        dnl AC_CHECK_HEADERS(net/if_tun.h, AC_DEFINE(HAVE_BEOS_TUN, 1, [Have TUN/TAP headers?]))
+;;
+dnl BSD, Darwin, OSX don't need any header
+esac
+
 
 dnl AC_CONFIG_HEADER(config.h)
 

@@ -58,6 +58,7 @@ UnixEthTunDevice()
 	// super-class constructor MUST set mFD!!!
 	// this is yet another case where C++ constructors suck
 	// (ohh lovely Borland Pascal, where art thou?)
+	mFD = -1;
 }
 
 virtual	uint recvPacket(void *buf, uint size)
@@ -73,6 +74,8 @@ virtual	int waitRecvPacket()
 	fd_set zerofds;
 	FD_ZERO(&rfds);
 	FD_ZERO(&zerofds);
+	if (mFD < 0)
+		return ENODEV;
 	FD_SET(mFD, &rfds);
 
 	int e = select(mFD+1, &rfds, &zerofds, &zerofds, NULL);
@@ -87,18 +90,33 @@ virtual	uint sendPacket(void *buf, uint size)
 	return e;
 }
 
-}; // end of UnixEthTunDevice
+virtual const char *devicePath()
+{
+	return NULL;
+}
+
+virtual const char *upScript()
+{
+	return "scripts/ifppc_up.setuid";
+}
+
+virtual const char *downScript()
+{
+	return "scripts/ifppc_down.setuid";
+}
 
 // FIXME: How shall we configure networking??? This thing can only be a temporary solution
-static int execIFConfigScript(const char *arg)
+virtual int execIFConfigScript(const char *arg)
 {
+//sleep(1000000);
 	int pid = fork();
+	printf("fork = %d, 0x%08lx\n", pid, errno);
 	if (pid == 0) {
-		char *progname;
+		const char *progname;
 		if (strcmp(arg, "up") == 0) {
-			progname = "scripts/ifppc_up.setuid";
+			progname = upScript();
 		} else {
-			progname = "scripts/ifppc_down.setuid";
+			progname = downScript();
 		}
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
@@ -121,60 +139,101 @@ static int execIFConfigScript(const char *arg)
 	return 1;
 }
 
-#if defined(HAVE_LINUX_TUN)
+}; // end of UnixEthTunDevice
+
+#if defined(HAVE_LINUX_TUN) || defined(HAVE_BEOS_TUN)
 /*
  *	This is how it's done in Linux
  */
 
-#include <asm/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+
+#ifdef HAVE_LINUX_TUN
+#include <asm/types.h>
 #include <linux/netlink.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#else /* BeOS */
+#include <net/if.h>
+#include <linux/if_tun.h> // should be moved to net/ someday too...
+#include <image.h>
+#endif /* HAVE_LINUX_TUN */
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
-class LinuxEthTunDevice: public UnixEthTunDevice {
+class LinuxLikeEthTunDevice: public UnixEthTunDevice {
+const char *mIfName;
 public:
-LinuxEthTunDevice(const char *netif_name)
+LinuxLikeEthTunDevice(const char *netif_name)
 : UnixEthTunDevice()
 {
+	mIfName = netif_name;
+}
+
+int initDevice()
+{
+
 	/* allocate tun device */ 
-	if ((mFD = ::open("/dev/net/tun", O_RDWR)) < 0) {
-		throw new MsgException("Failed to open /dev/net/tun");
+	if ((mFD = ::open(devicePath(), O_RDWR)) < 0) {
+		throw new MsgfException("Failed to open %s", devicePath());
 	}
 
 	struct ifreq ifr;
 	::memset(&ifr, 0, sizeof(ifr));
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
-	if (::strlen(netif_name)+1 > IFNAMSIZ) {
+	if (::strlen(mIfName)+1 > IFNAMSIZ) {
 		throw new MsgfException("Interface name too long (%d > %d bytes)"
-			" in '%s'\n", ::strlen(netif_name)+1, IFNAMSIZ, netif_name);
+			" in '%s'\n", ::strlen(mIfName)+1, IFNAMSIZ, mIfName);
 	}
 
-	::strncpy(ifr.ifr_name, netif_name, IFNAMSIZ);
+	::strncpy(ifr.ifr_name, mIfName, IFNAMSIZ);
 	if (::ioctl(mFD, TUNSETIFF, &ifr) < 0) {
 		::close(mFD);
 		throw new MsgException("TUNSETIFF failed.");
 	}
 
 	/* don't checksum */
-	ioctl(mFD, TUNSETNOCSUM, 1);
+	::ioctl(mFD, TUNSETNOCSUM, 1);
 
 	/* Configure device */
 	if (execIFConfigScript("up")) {
 		::close(mFD);
 		throw new MsgException("error executing ifconfig.");
 	}
+	return 0;
+}
+
+int shutdownDevice()
+{
+	/* tear down the device */
+	execIFConfigScript("down");
+	::close(mFD);
+	return 0;
 }
 
 virtual	uint getWriteFramePrefix()
 {
 	return 0;
+}
+
+virtual const char *devicePath()
+{
+	return "/dev/net/tun";
+}
+
+}; // end of LinuxLikeEthTunDevice
+
+#ifdef HAVE_LINUX_TUN
+
+class LinuxEthTunDevice: public LinuxLikeEthTunDevice {
+public:
+LinuxEthTunDevice(const char *netif_name)
+: LinuxLikeEthTunDevice(netif_name)
+{
 }
 
 }; // end of LinuxEthTunDevice
@@ -183,6 +242,77 @@ EthTunDevice *createEthernetTunnel()
 {
 	return new LinuxEthTunDevice("ppc" /* FIXME: hardcoding */);
 }
+
+#else /* BeOS */
+
+class BeOSEthTunDevice: public LinuxLikeEthTunDevice {
+public:
+BeOSEthTunDevice(const char *netif_name)
+: LinuxLikeEthTunDevice(netif_name)
+{
+}
+
+virtual const char *devicePath()
+{
+	return TUN_DEVICE;
+}
+
+virtual const char *upScript()
+{
+	return "scripts/ifppc_up.beos";
+}
+
+virtual const char *downScript()
+{
+	return "scripts/ifppc_down.beos";
+}
+
+
+#if 1
+// FIXME: How shall we configure networking??? This thing can only be a temporary solution
+// XXX: BeOS doesn't seem to like forking from PearPC... out of swap !?
+// what you get from playing dirty tricks. :)
+virtual int execIFConfigScript(const char *arg)
+{
+	thread_id tid;
+	status_t status;
+	const char *progname;
+	if (strcmp(arg, "up") == 0) {
+		progname = upScript();
+	} else {
+		progname = downScript();
+	}
+	const char *sargv[] = { "/bin/sh", progname, NULL };
+	int sargc = 2;
+	printf("executing '%s' ...\n"
+"********************************************************************************\n", progname);
+	//execl(progname, progname, 0);
+	tid = load_image(sargc, sargv, (const char **)environ);
+	if ((tid < B_OK) || (resume_thread(tid) < B_OK)) {
+		printf("couldn't exec '%s': %s\n", progname, strerror(tid));
+		return 1;
+	}
+	sleep(1);
+	wait_for_thread(tid, &status);
+	if (!WIFEXITED(status)) {
+		printf("program terminated abnormally...\n");
+		return 1;
+	}
+	if (WEXITSTATUS(status)) {
+		printf("program terminated with exit code %d\n", WEXITSTATUS(status));
+		return 1;
+	}
+	return 0;
+}
+#endif
+}; // end of BeOSEthTunDevice
+
+EthTunDevice *createEthernetTunnel()
+{
+	return new BeOSEthTunDevice("ppc" /* FIXME: hardcoding */);
+}
+
+#endif /* HAVE_LINUX_TUN */
 
 #elif (defined(__APPLE__) && defined(__MACH__)) || defined (__FreeBSD__)
 /*
@@ -211,10 +341,18 @@ public:
 SimpleEthTunDevice()
 : UnixEthTunDevice()
 {
+}
+
+int initDevice()
+{
 	/* allocate tun device */ 
 	if ((mFD = ::open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
 		throw new MsgException("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded?");
 	}
+}
+
+int shutdownDevice()
+{
 }
 
 virtual	uint getWriteFramePrefix()

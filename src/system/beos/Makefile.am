@@ -11,3 +11,6 @@ INCLUDES = -I ../..
 
 .asm.o:
 	nasm -O2 @NASM_OPTS@ -o $@ -- $<
+
+sysethtun.cc:
+	ln -s ../posix/$@ $@
