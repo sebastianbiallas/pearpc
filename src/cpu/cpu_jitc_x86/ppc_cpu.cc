@@ -236,7 +236,7 @@ bool ppc_cpu_init()
 	gClientBusFrequency = gClientTimeBaseFrequency * 4;
 	gClientClockFrequency = gClientBusFrequency * 5;
 
-	return jitc_init(2048, 16*1024*1024);
+	return jitc_init(4096, 32*1024*1024);
 }
 
 void ppc_cpu_init_config()
