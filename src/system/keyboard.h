@@ -176,6 +176,7 @@ public:
 	static	bool	convertStringToKeycode(int &keycode, const String &s);
 	static	bool	adbKeyToAscii(char &chr, int adbcode);
 	bool		setKeyConfig(KeyboardCharacteristics keyConfig);
+	KeyboardCharacteristics &getKeyConfig();
 private:
 	KeyboardCharacteristics keyConfig;
 };

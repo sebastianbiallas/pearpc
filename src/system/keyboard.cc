@@ -170,3 +170,8 @@ bool SystemKeyboard::setKeyConfig(KeyboardCharacteristics keycon)
 	keyConfig=keycon;
 	return true;
 }
+
+KeyboardCharacteristics &SystemKeyboard::getKeyConfig()
+{
+	return keyConfig;
+}
