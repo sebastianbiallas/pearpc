@@ -893,6 +893,7 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 				if (lockuphack++ == 20) {
 					gCUDA.left = 0;
 					lockuphack = 0;
+					IO_CUDA_WARN("lock-up parachute\n");
 				}
 			}
 		} else {
