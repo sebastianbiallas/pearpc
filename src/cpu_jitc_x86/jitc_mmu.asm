@@ -18,6 +18,9 @@
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ;
 
+%define TLB_ENTRIES 32
+
+
 struc PPC_CPU_State
 	dummy:	resd  1
         gpr:	resd 32
@@ -92,12 +95,19 @@ endstruc
 struc JITC
 	clientPages resd 1
 	
-	tlb_code_0_eff resd 32
-	tlb_data_0_eff resd 32
-	tlb_data_8_eff resd 32
-	tlb_code_0_phys resd 32
-	tlb_data_0_phys resd 32
-	tlb_data_8_phys resd 32
+	tlb_code_0_eff resd TLB_ENTRIES
+	tlb_data_0_eff resd TLB_ENTRIES
+	tlb_data_8_eff resd TLB_ENTRIES
+	tlb_code_0_phys resd TLB_ENTRIES
+	tlb_data_0_phys resd TLB_ENTRIES
+	tlb_data_8_phys resd TLB_ENTRIES
+	resd 1
+	tlb_code_0_hits resq 1
+	tlb_data_0_hits resq 1
+	tlb_data_8_hits resq 1
+	tlb_code_0_misses resq 1
+	tlb_data_0_misses resq 1
+	tlb_data_8_misses resq 1
 
 	nativeReg resd 8        ; FIXME: resb?
 	
@@ -153,7 +163,7 @@ global ppc_opc_icbi_asm
 ppc_mmu_tlb_invalidate_all_asm:
 	cld
 	or	eax, -1
-	mov	ecx, 32*4*3 / 4
+	mov	ecx, TLB_ENTRIES*4*3 / 4
 	mov	edi, gJITC+tlb_code_0_eff
 	rep	stosd
 	ret
@@ -166,7 +176,7 @@ ppc_mmu_tlb_invalidate_entry_asm:
 	mov	ecx, eax
 	or	eax, -1
 	shr	ecx, 12
-	and	ecx, 32-1
+	and	ecx, TLB_ENTRIES-1
 	mov	[gJITC+tlb_code_0_eff+ecx*4], eax
 	mov	[gJITC+tlb_data_0_eff+ecx*4], eax
 	mov	[gJITC+tlb_data_8_eff+ecx*4], eax
@@ -248,10 +258,12 @@ ppc_pte_protection:
 	and	esi, 0xfffff000
 	shr	edi, 12
 	mov	edx, eax
-	and	edi, 32-1
+	and	edi, TLB_ENTRIES-1
 	and	edx, 0xfffff000
 	mov	[gJITC+tlb_%4_%3_eff+edi*4], esi
 	mov	[gJITC+tlb_%4_%3_phys+edi*4], edx
+;;	add	dword [gJITC+tlb_%4_%3_misses], 1
+;;	adc	dword [gJITC+tlb_%4_%3_misses+4], 0
 ;;;	
 	ret	4
 %%bat_lookup_failed:
@@ -327,9 +339,11 @@ ppc_pte_protection:
 	mov	ecx, eax
 	shr	edx, 12
 	and	ecx, 0xfffff000
-	and	edx, 32-1
+	and	edx, TLB_ENTRIES-1
 	mov	[gJITC+tlb_%3_%2_eff+edx*4], ecx
 	mov	[gJITC+tlb_%3_%2_phys+edx*4], esi
+;;	add	dword [gJITC+tlb_%3_%2_misses], 1
+;;	adc	dword [gJITC+tlb_%3_%2_misses+4], 0
 ;;;
 	and	eax, 0x00000fff
 	or	eax, esi
@@ -371,13 +385,15 @@ protection_fault_8_data:
 	mov	ecx, eax
 	shr	edx, 12
 	and	ecx, 0xfffff000
-	and	edx, 32-1
+	and	edx, TLB_ENTRIES-1
 	cmp	ecx, [gJITC+tlb_%2_%1_eff+edx*4]
 	jne	%%tlb_lookup_failed
 	;
 	;	if an tlb entry is invalid, its 
 	;	lower 12 bits are 1, so the cmp is guaranteed to fail.
 	;
+;;	add	dword [gJITC+tlb_%2_%1_hits], 1
+;;	adc	dword [gJITC+tlb_%2_%1_hits+4], 0
 	and	eax, 0x00000fff
 	or	eax, [gJITC+tlb_%2_%1_phys+edx*4]
 	ret	4

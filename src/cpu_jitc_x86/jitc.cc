@@ -498,6 +498,12 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 	memset(gJITC.tlb_code_eff, 0xff, sizeof gJITC.tlb_code_eff);
 	memset(gJITC.tlb_data_read_eff, 0xff, sizeof gJITC.tlb_data_read_eff);
 	memset(gJITC.tlb_data_write_eff, 0xff, sizeof gJITC.tlb_data_write_eff);
+	gJITC.tlb_code_hits = 0;
+	gJITC.tlb_data_read_hits = 0;
+	gJITC.tlb_data_write_hits = 0;
+	gJITC.tlb_code_misses = 0;
+	gJITC.tlb_data_read_misses = 0;
+	gJITC.tlb_data_write_misses = 0;
 	return true;
 }
 

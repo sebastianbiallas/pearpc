@@ -91,6 +91,8 @@ enum RegisterState {
 	rsDirty = 2,
 };
 
+#define TLB_ENTRIES 32
+
 struct JITC {	
 	/*
 	 *	This is the array of all (physical) pages of the client.
@@ -102,14 +104,19 @@ struct JITC {
 	/*
 	 *	These are the TLB-Entries
 	 */
-	uint32 tlb_code_eff[32];
-	uint32 tlb_data_read_eff[32];
-	uint32 tlb_data_write_eff[32];
-	uint32 tlb_code_phys[32];
-	uint32 tlb_data_read_phys[32];
-	uint32 tlb_data_write_phys[32];
-	
-	
+	uint32 tlb_code_eff[TLB_ENTRIES];
+	uint32 tlb_data_read_eff[TLB_ENTRIES];
+	uint32 tlb_data_write_eff[TLB_ENTRIES];
+	uint32 tlb_code_phys[TLB_ENTRIES];
+	uint32 tlb_data_read_phys[TLB_ENTRIES];
+	uint32 tlb_data_write_phys[TLB_ENTRIES];
+	uint64 tlb_code_hits;
+	uint64 tlb_data_read_hits;
+	uint64 tlb_data_write_hits;
+	uint64 tlb_code_misses;
+	uint64 tlb_data_read_misses;
+	uint64 tlb_data_write_misses;
+
 	/*
 	 *	If nativeReg[i] is set, it indicates to which client
 	 *	register this native register corrensponds.

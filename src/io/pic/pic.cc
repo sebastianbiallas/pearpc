@@ -152,6 +152,7 @@ extern "C" bool pic_check_interrupt()
 //	ht_printf("stata: %016qx %016qx %08x   %08x\n", &gJITC.stata, &gCPU.tb, gCPU.dec, gCPU.lr);
 //	ht_printf("tb: %016qx %08x   %08x\n", &gCPU.tb, gCPU.dec, gCPU.lr);
 //	ht_printf("jitcTicks: compile: %08qx   run: %08qx\n", &gJITCCompileTicks, &gJITCRunTicks);
+//	ht_printf("miss: %qd %qd %qd hit: %qd %qd %qd\n", &gJITC.tlb_code_misses, &gJITC.tlb_data_read_misses, &gJITC.tlb_data_write_misses, &gJITC.tlb_code_hits, &gJITC.tlb_data_read_hits, &gJITC.tlb_data_write_hits);
 //	PIC_pending_low |= (1<<IO_PIC_IRQ_NMI_XMON);	
 	cuda_interrupt();
 	if (((PIC_pending_low | PIC_pending_level) & PIC_enable_low) || (PIC_pending_high & PIC_enable_high)) {
