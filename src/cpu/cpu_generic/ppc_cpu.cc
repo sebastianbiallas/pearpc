@@ -42,7 +42,7 @@
 PPC_CPU_State gCPU;
 Debugger *gDebugger;
 
-static bool gSinglestep = true;
+static bool gSinglestep = false;
 
 //uint32 gBreakpoint2 = 0x11b3acf4;
 uint32 gBreakpoint3 = 0xc016ee74&0;
