@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: partitions.c,v 1.5 2004/08/25 13:30:22 seppel Exp $
+ * $Id: partitions.c,v 1.6 2004/08/25 13:31:32 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -158,7 +158,8 @@ int partition_getPartitionMap( partition_map *map, void *fd) {
 UInt32 partition_getStartBlock(partition_map *map, const char *type, int num)
 {
 	ApplePartition **partitions = map->partitions;
-	for (int i=0; i < map->numparts; i++) {
+	int i;
+	for (i=0; i < map->numparts; i++) {
 		printf("getStartBlock: %d %s\n", i, partitions[num]->pmPartType);
 	}
 	if (num >= map->numparts) return 0;
