@@ -113,7 +113,8 @@ virtual const char *downScript()
 // FIXME: How shall we configure networking??? This thing can only be a temporary solution
 virtual int execIFConfigScript(const char *action, const char *interface)
 {
-//sleep(1000000);
+	String tmpenv;
+	printf("UnixTun::execIFConfigScript(%s,%s)\n", action, interface);
 	int pid = fork();
 	if (pid < 0)
 		printf("fork = %d, 0x%08x\n", pid, errno);
@@ -124,7 +125,9 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 		} else {
 			progname = downScript();
 		}
-		setenv("PPC_INTERFACE", interface,0);
+		//setenv("PPC_INTERFACE", interface,0);
+		tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface);
+		putenv(tmpenv);
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
 		execl(progname, progname, 0);
@@ -172,7 +175,9 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 #include <fcntl.h>
 
 class LinuxLikeEthTunDevice: public UnixEthTunDevice {
+protected:
 String mIfName;
+String mIfPrefix;
 public:
 LinuxLikeEthTunDevice(const char *netif_prefix)
 : UnixEthTunDevice()
@@ -192,21 +197,7 @@ LinuxLikeEthTunDevice(const char *netif_prefix)
 			netif_buffer[i] = '_';
 		}
 	}
-	for (int counter = 0; counter < 10; counter++) {
-		String command;
-		command.assignFormat("ifconfig %y%d", &netif_buffer, counter);
-		// FIXME: Is there anything else than command() that I can use here?  
-		// Seems a fork&exec is a bit too much...
-		int ret = system(command);
-		if (WEXITSTATUS(ret)) { 
-			mIfName.assignFormat("%y%d", &netif_buffer, counter);
-			ht_printf("mIfName = %y\n", &mIfName);
-			break;
-		}
-	}
-	// FIXME:There is more than 10 interfaces taken at this time.  What should we do ?
-	if (mIfName == (String)"") 
-		throw new MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
+	mIfPrefix = netif_buffer;
 }
 
 
@@ -271,6 +262,21 @@ public:
 LinuxEthTunDevice(const char *netif_prefix)
 : LinuxLikeEthTunDevice(netif_prefix)
 {
+	for (int counter = 0; counter < 10; counter++) {
+		String command;
+		command.assignFormat("ifconfig %y%d", &mIfPrefix, counter);
+		// FIXME: Is there anything else than command() that I can use here?  
+		// Seems a fork&exec is a bit too much...
+		int ret = system(command);
+		if (WEXITSTATUS(ret)) { 
+			mIfName.assignFormat("%y%d", &mIfPrefix, counter);
+			ht_printf("mIfName = %y\n", &mIfName);
+			break;
+		}
+	}
+	// FIXME:There is more than 10 interfaces taken at this time.  What should we do ?
+	if (mIfName == (String)"") 
+		throw new MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
 }
 
 }; // end of LinuxEthTunDevice
@@ -287,6 +293,25 @@ public:
 BeOSEthTunDevice(const char *netif_name)
 : LinuxLikeEthTunDevice(netif_name)
 {
+	int s = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s < 0)
+		throw new MsgfException("Can't get a socket to enumerate interfaces.");
+	for (int counter = 0; counter < 10; counter++) {
+		String ifName;
+		ifreq_t ifr;
+		ifName.assignFormat("%y%d", &mIfPrefix, counter);
+		
+		strncpy(ifr.ifr_name, ifName, IFNAMSIZ);
+		if (::ioctl(s, SIOCGIFADDR, &ifr, sizeof(ifr)) < 0) {
+			mIfName.assignFormat("%y%d", &mIfPrefix, counter); // is it safe ?
+			ht_printf("mIfName = %y\n", &mIfName);
+			break;
+		}
+	}
+	close(s);
+	// FIXME:There is more than 10 interfaces taken at this time.  What should we do ?
+	if (mIfName == (String)"") 
+		throw new MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
 }
 
 virtual const char *devicePath()
@@ -309,18 +334,21 @@ virtual const char *downScript()
 // FIXME: How shall we configure networking??? This thing can only be a temporary solution
 // XXX: BeOS doesn't seem to like forking from PearPC... out of swap !?
 // what you get from playing dirty tricks. :)
-virtual int execIFConfigScript(const char *arg)
+virtual int execIFConfigScript(const char *action, const char *interface)
 {
 	thread_id tid;
 	status_t status;
+	String tmpenv;
 	const char *progname;
-	if (strcmp(arg, "up") == 0) {
+	if (strcmp(action, "up") == 0) {
 		progname = upScript();
 	} else {
 		progname = downScript();
 	}
 	const char *sargv[] = { "/bin/sh", progname, NULL };
 	int sargc = 2;
+	tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface);
+	putenv(tmpenv);
 	printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
 	//execl(progname, progname, 0);
