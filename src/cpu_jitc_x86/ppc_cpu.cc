@@ -49,7 +49,7 @@ void ppc_run()
 //	return;
 	gJITCRunTicks = 0;
 	gJITCCompileTicks = 0;
-	gJITCRunTicksStart = jitcDebugGetTicks();
+//	gJITCRunTicksStart = jitcDebugGetTicks();
 	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
 	jitcDebugInit();
 	ppc_start_jitc_asm(gCPU.pc);

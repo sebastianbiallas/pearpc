@@ -18,6 +18,10 @@
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ;
 
+;;	Define this if you want exact handling of the SO bit.
+;;
+;%define EXACT_SO
+
 struc PPC_CPU_State
 	dummy:	resd  1
         gpr:	resd 32
@@ -133,30 +137,38 @@ ppc_flush_carry_and_flags_asm:
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+%macro handle_so 0
+%ifdef EXACT_SO
+	test	byte [gCPU+xer+3], 1<<7
+	jnz	.so
+%endif
+%endmacro
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ppc_flush_flags_asm:
 	js	.lt
 	jnz	.gt
 .eq:
 	and	byte [gCPU+cr+3], 0x0f
 	or	byte [gCPU+cr+3], 1<<5
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .gt:
 	and	byte [gCPU+cr+3], 0x0f
 	or	byte [gCPU+cr+3], 1<<6
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .lt:
 	and	byte [gCPU+cr+3], 0x0f
 	or	byte [gCPU+cr+3], 1<<7
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
+%ifdef EXACT_SO
 .so:
 	or	byte [gCPU+cr+3], 1<<4
 	ret
+%endif
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -167,24 +179,23 @@ ppc_flush_flags_signed_even_asm:
 .eq:
 	and	byte [gCPU+cr+eax], 0x0f
 	or	byte [gCPU+cr+eax], 1<<5
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .gt:
 	and	byte [gCPU+cr+eax], 0x0f
 	or	byte [gCPU+cr+eax], 1<<6
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .lt:
 	and	byte [gCPU+cr+eax], 0x0f
 	or	byte [gCPU+cr+eax], 1<<7
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
+%ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+eax], 1<<4
+	or	byte [gCPU+cr+3], 1<<4
 	ret
+%endif
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -195,24 +206,23 @@ ppc_flush_flags_unsigned_even_asm:
 .eq:
 	and	byte [gCPU+cr+eax], 0x0f
 	or	byte [gCPU+cr+eax], 1<<5
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .gt:
 	and	byte [gCPU+cr+eax], 0x0f
 	or	byte [gCPU+cr+eax], 1<<6
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .lt:
 	and	byte [gCPU+cr+eax], 0x0f
 	or	byte [gCPU+cr+eax], 1<<7
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
+%ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+eax], 1<<4
+	or	byte [gCPU+cr+3], 1<<4
 	ret
+%endif
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -223,24 +233,23 @@ ppc_flush_flags_signed_odd_asm:
 .eq:
 	and	byte [gCPU+cr+eax], 0xf0
 	or	byte [gCPU+cr+eax], 1<<1
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .gt:
 	and	byte [gCPU+cr+eax], 0xf0
 	or	byte [gCPU+cr+eax], 1<<2
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .lt:
 	and	byte [gCPU+cr+eax], 0xf0
 	or	byte [gCPU+cr+eax], 1<<3
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
+%ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+eax], 1<<0
+	or	byte [gCPU+cr+3], 1<<4
 	ret
+%endif
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -251,24 +260,23 @@ ppc_flush_flags_unsigned_odd_asm:
 .eq:
 	and	byte [gCPU+cr+eax], 0xf0
 	or	byte [gCPU+cr+eax], 1<<1
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .gt:
 	and	byte [gCPU+cr+eax], 0xf0
 	or	byte [gCPU+cr+eax], 1<<2
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
 .lt:
 	and	byte [gCPU+cr+eax], 0xf0
 	or	byte [gCPU+cr+eax], 1<<3
-	test	byte [gCPU+xer+3], 1<<7
-	jnz	.so
+	handle_so	
 	ret
+%ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+eax], 1<<0
+	or	byte [gCPU+cr+3], 1<<4
 	ret
+%endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	ppc_set_msr_asm
