@@ -144,6 +144,8 @@ void SDLSystemDisplay::toggleFullScreen()
 
 void SDLSystemDisplay::displayShow()
 {
+	if (!isExposed()) return;
+	
 	int firstDamagedLine, lastDamagedLine;
 	// We've got problems with races here because gcard_write1/2/4
 	// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
@@ -250,7 +252,13 @@ void SDLSystemDisplay::setMouseGrab(bool enable)
 {
 	if (enable == isMouseGrabbed()) return;
 	SystemDisplay::setMouseGrab(enable);
-	SDL_ShowCursor(enable ? SDL_DISABLE : SDL_ENABLE);
+	if (enable) {
+		SDL_ShowCursor(SDL_DISABLE);
+		SDL_WM_GrabInput(SDL_GRAB_ON);
+	} else {
+		SDL_WM_GrabInput(SDL_GRAB_OFF);
+		SDL_ShowCursor(SDL_ENABLE);
+	}
 }
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)

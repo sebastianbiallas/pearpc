@@ -241,10 +241,6 @@ static bool handleSDLEvent(const SDL_Event &event)
 		gDisplay->displayShow();
 		gSDLVideoExposePending = false;
 		return true;
-	case SDL_QUIT: // should we trap this and send power key?
-		SDL_WM_GrabInput(SDL_GRAB_OFF);
-		exit(0);
-		return true;
 	case SDL_KEYUP:
 		ev.key.keycode = scancode_to_adb_key[event.key.keysym.scancode];
 		if ((ev.key.keycode & 0xff) == 0xff) break;
@@ -317,6 +313,15 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.relx = event.motion.xrel;
 		ev.mouse.rely = event.motion.yrel;
 		return gMouse->handleEvent(ev);
+	case SDL_ACTIVEEVENT:
+		if (event.active.state & SDL_APPACTIVE) {
+			gDisplay->setExposed(event.active.gain);
+		}
+		return true;
+	case SDL_QUIT:
+		gDisplay->setMouseGrab(false);
+		exit(0);
+		return true;
 	}
 	return false;
 }
