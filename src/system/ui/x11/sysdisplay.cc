@@ -65,8 +65,6 @@ static void findMaskShiftAndSize(int &shift, int &size, uint bitmask)
 
 class X11SystemDisplay: public SystemDisplay
 {
-	sys_thread	redrawthread;
-
 	byte *		mXFrameBuffer;
 	GC		mXGC;
 	XImage *	mXImage;
