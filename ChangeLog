@@ -1,7 +1,7 @@
  PearPC ChangeLog
 ==================
 
-version 0.2 (not yet released):
+version 0.2 (not released yet):
 	- got rid of printf() and exit() in HFS and HFS+ code
 	- fixed buggy copyTo() and copyAllTo() in stream.cc
 	- fixed IDEDevice::read(). must update "tel".
