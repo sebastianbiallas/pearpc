@@ -16,7 +16,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: record.h,v 1.1 2004/05/05 22:45:27 seppel Exp $
  */
 
 void r_packcatkey(const CatKeyRec *, byte *, unsigned int *);

@@ -16,13 +16,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: version.c,v 1.1 2004/05/05 22:45:19 seppel Exp $
  */
 
 # include "version.h"
-
-const char libhfs_rcsid[] =
-  "$Id: version.c,v 1.1 2004/05/05 22:45:19 seppel Exp $";
 
 const char libhfs_version[]   = "libhfs version 3.2.6";
 const char libhfs_copyright[] = "Copyright (C) 1996-1998 Robert Leslie";

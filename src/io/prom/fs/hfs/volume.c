@@ -17,7 +17,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.c,v 1.6 2004/06/09 11:00:43 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H

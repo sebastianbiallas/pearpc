@@ -22,7 +22,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: record.h,v 1.1 2004/05/05 22:46:09 seppel Exp $
  */
 
 /* Compare two cat_keys ... */

@@ -16,7 +16,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: block.c,v 1.2 2004/05/11 16:11:00 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H

@@ -22,7 +22,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: btree.h,v 1.1 2004/05/05 22:46:14 seppel Exp $
  */
 
 /* Read the node from the given buffer and swap the bytes.

@@ -17,7 +17,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hfs.c,v 1.3 2004/05/16 22:44:05 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H

@@ -16,7 +16,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: btree.h,v 1.1 2004/05/05 22:45:29 seppel Exp $
  */
 
 int bt_getnode(node *, btree *, unsigned long);

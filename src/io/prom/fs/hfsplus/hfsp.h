@@ -24,7 +24,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hfsp.h,v 1.1 2004/05/05 22:45:52 seppel Exp $
  */
 
 /* # include <time.h> */

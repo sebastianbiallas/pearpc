@@ -19,7 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: partitions.c,v 1.6 2004/08/25 13:31:32 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
