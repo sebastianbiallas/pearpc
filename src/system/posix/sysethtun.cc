@@ -32,7 +32,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-#include <asm/types.h>
 #include <sys/wait.h>
 
 #include "system/sysethtun.h"
@@ -127,6 +126,7 @@ static int execIFConfigScript(const char *arg)
  *	This is how it's done in Linux
  */
 
+#include <asm/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
@@ -186,7 +186,11 @@ EthTunDevice *createEthernetTunnel()
 
 #elif (defined(__APPLE__) && defined(__MACH__)) || defined (__FreeBSD__)
 /*
-	Interaction with Darin/Mac OS X "tun" device driver
+ *	This is how it's done in Darwin, Mac OS X or FreeBSD
+ */
+
+/*
+	Interaction with Darwin/Mac OS X "tun" device driver
 
 	See http://chrisp.de/en/projects/tunnel.html,
 	for source code and binaries of tunnel.kext :
@@ -215,8 +219,7 @@ SimpleEthTunDevice()
 
 virtual	uint getWriteFramePrefix()
 {
-	// Please document this! Why is it 14?
-	return 14;
+	return 0;
 }
 
 }; // end of SimpleEthTunDevice
