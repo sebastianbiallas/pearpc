@@ -57,7 +57,7 @@ UnixEthTunDevice()
 {
 	// super-class constructor MUST set mFD!!!
 	// this is yet another case where C++ constructors suck
-	// (ohh lovely Borland Pascal, where are you?)
+	// (ohh lovely Borland Pascal, where art thou?)
 }
 
 virtual	uint recvPacket(void *buf, uint size)
