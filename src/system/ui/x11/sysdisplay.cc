@@ -259,6 +259,7 @@ public:
 		aHostChar = aClientChar;
 		if (ninfo) {
 			aHostChar.bytesPerPixel = bitsPerPixelToXBitmapPad(info->depth) >> 3;
+			aHostChar.scanLineLength = aHostChar.bytesPerPixel * aHostChar.width;
 			findMaskShiftAndSize(aHostChar.redShift, aHostChar.redSize, info->red_mask);
 			findMaskShiftAndSize(aHostChar.greenShift, aHostChar.greenSize, info->green_mask);
 			findMaskShiftAndSize(aHostChar.blueShift, aHostChar.blueSize, info->blue_mask);
