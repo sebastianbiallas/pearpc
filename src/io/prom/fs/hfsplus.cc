@@ -251,10 +251,13 @@ byte HFSPlusVolumeHeader_struct[]= {
 /*
  *
  */
-static bool doTryBootHFSPlus(const HFSPlusVolumeHeader &vh, File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEntry *partEnt);
+static bool doTryBootHFSPlus(File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEntry *partEnt);
 
 bool tryBootHFSPlus(File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEntry *partEnt)
 {
+	IO_PROM_FS_TRACE("trying to boot from HFS+ volume\n");
+	return doTryBootHFSPlus(aDevice, aDeviceBlocksize, start, partEnt);
+/*
 	// HFS+
 	HFSPlusVolumeHeader HP_VH;
 	aDevice->seek(start+0x400);
@@ -263,10 +266,11 @@ bool tryBootHFSPlus(File *aDevice, uint aDeviceBlocksize, FileOfs start, Partiti
 		if ((HP_VH.signature == HFSPlusSigWord) || (HP_VH.signature == HFSXSigWord)) {
 			IO_PROM_FS_TRACE("contains HFS+/HFSX volume (startup file size %08x, total blocks %d)\n", HP_VH.startupFile.logicalSize, HP_VH.startupFile.totalBlocks);
 			IO_PROM_FS_TRACE("finderinfo[0]=%08x\n", HP_VH.finderInfo[0]);
-			return doTryBootHFSPlus(HP_VH, aDevice, aDeviceBlocksize, start, partEnt);
+			return doTryBootHFSPlus(aDevice, aDeviceBlocksize, start, partEnt);
 		}
 	}
 	return false;
+*/
 }
 
 static int my_ffs(uint64 f)
@@ -296,7 +300,7 @@ static FileSystem *HFSPlusInstantiateFileSystem(File *aDevice, int partnum)
 	return new HFSPlusFileSystem(aDevice, partnum);
 }
 
-static bool doTryBootHFSPlus(const HFSPlusVolumeHeader &vh, File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEntry *partEnt)
+static bool doTryBootHFSPlus(File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEntry *partEnt)
 {
 	if (partEnt->mPartNum <= 0) return false;
 	hfsplus_devicehandle_s dh;
