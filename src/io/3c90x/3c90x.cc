@@ -643,7 +643,7 @@ void totalReset()
 	mEEPROM[EEPROM_SoftwareInfo2] =		0x00aa;
 	mEEPROM[EEPROM_Caps] =			0x72a2;
 	mEEPROM[EEPROM_InternalConfig0] =	0;
-	mEEPROM[EEPROM_InternalConfig1] =	0x0040;	// default is 0x0180
+	mEEPROM[EEPROM_InternalConfig1] =	0x0050;	// default is 0x0180
 	mEEPROM[EEPROM_SubsystemVendorID] =	0x10b7;
 	mEEPROM[EEPROM_SubsystemID] =		0x9200;
 	mEEPROM[EEPROM_MediaOptions] =		0x000a;
@@ -655,9 +655,9 @@ void totalReset()
 	// MII
 	memset(mMIIRegs, 0, sizeof mMIIRegs);
 	MIIRegisters &miiregs = *(MIIRegisters*)mMIIRegs;
-	miiregs.status = (1<<12) | (1<<13) | (1<<14) | (1<<15) | (1<<2) | (1<<5) | (1<<3);
-	miiregs.linkPartner = 1<<7;
-	miiregs.advert = (1<<5) | (1<<6) | (1<<7) | (1<<8) | (1<<9);
+	miiregs.status = (1<<14) | (1<<13) | (1<<12) | (1<<11) | (1<<5) | (1<<3) | (1<<2) | 1;
+	miiregs.linkPartner = (1<<14) | (1<<7) | 1;
+	miiregs.advert = (1<<14) | (1 << 10) | (1<<7) | 1;
 	mMIIReadWord = 0;
 	mMIIWriteWord = 0;
 	mMIIWrittenBits = 0;
@@ -738,7 +738,6 @@ void readRegWindow(uint window, uint32 port, uint32 &data, uint size)
 				IO_3C90X_WARN("alignment.4.8.read\n");
 				SINGLESTEP("");
 			}
-			data = w4.PhysMgmt;
 			bool mgmtData = mMIIReadWord & 0x80000000;
 //			IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
 			if (mgmtData) {
@@ -1045,24 +1044,24 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 				bool Z = (mLastHiClkPhysMgmt & PM_mgmtDir) && !(data & PM_mgmtDir);
 //				IO_3C90X_TRACE("hi-edge, Z=%d\n", Z ? 1 : 0);
 				if (Z) {
-					IO_3C90X_TRACE("Z-cycle, %016qx, written bits=%d\n", &mMIIWriteWord, mMIIWrittenBits);
+//					IO_3C90X_TRACE("Z-cycle, %016qx, written bits=%d\n", &mMIIWriteWord, mMIIWrittenBits);
 					// check if the 5 frames have been sent
 					if (((mMIIWriteWord >> (mMIIWrittenBits-32-2)) & 0x3ffffffffULL) == 0x3fffffffdULL) {
 						uint opcode = (mMIIWriteWord >> (mMIIWrittenBits-32-2-2)) & 3;
 						uint PHYaddr = (mMIIWriteWord >> (mMIIWrittenBits-32-2-2-5)) & 0x1f;
 						uint REGaddr = (mMIIWriteWord >> (mMIIWrittenBits-32-2-2-5-5)) & 0x1f;
-						IO_3C90X_TRACE("prefixed Z-cycle, opcode=%d, PHY=%02x, REG=%02x\n", opcode, PHYaddr, REGaddr);
+//						IO_3C90X_TRACE("prefixed Z-cycle, opcode=%d, PHY=%02x, REG=%02x\n", opcode, PHYaddr, REGaddr);
 						if ((PHYaddr == 0x18 /* hardcoded address [1] p.196 */)
 						&& (REGaddr < 0x10)) {
 							switch (opcode) {
 							case 1: {
 								// Opcode Write
-//								IO_3C90X_TRACE("Opcode Write\n");
+								IO_3C90X_TRACE("Opcode Write\n");
 								if (mMIIWrittenBits == 64) {
 									uint32 value = mMIIWriteWord & 0xffff;
-									IO_3C90X_TRACE("NOT writing 0x%04x to register. feature disabled. (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
-//									IO_3C90X_TRACE("Writing 0x%04x to register (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
-//									mMIIRegs[REGaddr] = value;
+//									IO_3C90X_TRACE("NOT writing 0x%04x to register. feature disabled. (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
+									IO_3C90X_TRACE("Writing 0x%04x to MII register %d (old = 0x%04x)\n", value, REGaddr, mMIIRegs[REGaddr]);
+									mMIIRegs[REGaddr] = value;
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
 								}
@@ -1071,13 +1070,13 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 							}
 							case 2: {
 								// Opcode Read
-//								IO_3C90X_TRACE("Opcode Read\n");
+								IO_3C90X_TRACE("Opcode Read\n");
 								if (mMIIWrittenBits == 32+2+2+5+5) {
 									// msb gets sent first and is zero to indicated success
-									// shift one more for algorithmic reasons. not beautiful I know.
+									// DISABLED: shift one more for algorithmic reasons. not beautiful I know.
 									mMIIReadWord = mMIIRegs[REGaddr];
-									mMIIReadWord <<= 14;
-									IO_3C90X_TRACE("Read 0x%04x from register\n", mMIIRegs[REGaddr]);
+									mMIIReadWord <<= 15;
+									IO_3C90X_TRACE("Read 0x%04x from register %d\n", mMIIRegs[REGaddr], REGaddr);
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
 								}
@@ -1100,7 +1099,7 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 				} else if (data & PM_mgmtDir) {
 					// write
 					bool mgmtData = data & PM_mgmtData;
-					IO_3C90X_TRACE("Write cycle mgmtData=%d\n", mgmtData ? 1 : 0);
+//					IO_3C90X_TRACE("Write cycle mgmtData=%d\n", mgmtData ? 1 : 0);
 					w4.PhysMgmt = data;
 					mMIIWriteWord <<= 1;
 					mMIIWriteWord |= mgmtData ? 1 : 0;
@@ -1108,7 +1107,7 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 				} else {
 					// read
 					bool mgmtData = mMIIReadWord & 0x80000000;
-					IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
+//					IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
 					w4.PhysMgmt = data;
 					if (mgmtData) {
 						w4.PhysMgmt = w4.PhysMgmt | PM_mgmtData;
