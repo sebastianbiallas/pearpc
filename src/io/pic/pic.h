@@ -45,7 +45,6 @@ void pic_write(uint32 addr, uint32 data, int size);
 void pic_read(uint32 addr, uint32 &data, int size);
 
 void pic_raise_interrupt(int intr);
-void pic_atomic_raise_interrupt(int intr);
 void pic_cancel_interrupt(int intr);
 extern "C" bool pic_check_interrupt();
 
