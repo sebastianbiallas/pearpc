@@ -5,7 +5,7 @@
 #include "debug.h"
 #include "system/types.h"
 
-extern "C" void ht_assert_failed(const char *file, int line, const char *assertion)
+extern "C" void  NORETURN ht_assert_failed(const char *file, int line, const char *assertion)
 {
 	fprintf(stderr, "in file %s, line %d: assertion failed: %s\n", file, line, assertion);
 #ifndef WIN32

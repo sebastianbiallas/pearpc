@@ -21,10 +21,12 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
+#include "system/types.h"
+
 #ifdef __cplusplus
 extern "C"
 #endif
-void ht_assert_failed(const char *file, int line, const char *assertion);
+void NORETURN ht_assert_failed(const char *file, int line, const char *assertion);
 
 #define ASSERT(a) if (!(a)) ht_assert_failed(__FILE__, __LINE__, (#a));
 #define HERE __FILE__, __LINE__
