@@ -817,7 +817,9 @@ static Queue		gCUDAEvents(true);
 
 static bool cudaKeyboardEventHandler(const SystemEvent &ev)
 {
+	sys_lock_semaphore(gCUDAEventSem);
 	gCUDAEvents.enQueue(new SystemEventObject(ev));
+	sys_unlock_semaphore(gCUDAEventSem);
 	sys_signal_semaphore(gCUDAEventSem);
 	return true;
 }
@@ -870,7 +872,6 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 	uint timeout_msec = 100;
 	uint64 time_end = sys_get_hiresclk_ticks() + sys_get_hiresclk_ticks_per_second()
 		* timeout_msec / 1000;
-	IO_CUDA_WARN("Keypressed: %d.\n", ev.key.pressed);
 	while (sys_get_hiresclk_ticks() < time_end) {
 		sys_lock_mutex(gCUDAMutex);
 		if (gCUDA.state == cuda_idle) {

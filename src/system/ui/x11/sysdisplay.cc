@@ -454,7 +454,9 @@ public:
 				ev.y = 0;
 				ev.width = gDisplay->mClientChar.width;
 				ev.height = gDisplay->mClientChar.height;
+				sys_lock_mutex(gX11Mutex);
 				XSendEvent(gX11Display, gX11Window, false, 0, (XEvent*)&ev);
+				sys_unlock_mutex(gX11Mutex);
 //				gDisplay->displayShow();
 			}
 
