@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: medium.c,v 1.2 2004/05/16 22:44:05 steveman Exp $
+ * $Id: medium.c,v 1.3 2004/06/09 11:00:42 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -162,8 +162,9 @@ int m_findpmentry(hfsvol *vol, const char *type,
     {
       bnum = *start;
 
-      if (bnum++ >= (unsigned long) map->pmMapBlkCnt)
+/*      if (bnum++ >= (unsigned long) map->pmMapBlkCnt) {
 	ERROR(EINVAL, "partition not found");
+      }*/
     }
   else
     bnum = 1;
@@ -192,13 +193,14 @@ int m_findpmentry(hfsvol *vol, const char *type,
 	  goto done;
 	}
 
-      if (bnum++ >= (unsigned long) map->pmMapBlkCnt)
-	ERROR(EINVAL, "partition not found");
+      if (bnum++ >= (unsigned long) map->pmMapBlkCnt) {
+      	ERROR(EINVAL, "partition not found");
+      }
     }
 
 done:
-  if (start)
-    *start = bnum;
+/*  if (start)
+    *start = bnum;*/
 
 fail:
   return found;
