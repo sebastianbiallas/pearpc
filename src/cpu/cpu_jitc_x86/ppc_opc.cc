@@ -1816,6 +1816,7 @@ JITCFlow ppc_opc_gen_tw()
 	PPC_OPC_TEMPL_X(gJITC.current_opc, TO, rA, rB);
 	if (TO == 0x1f) {
 		// TRAP always
+		jitcClobberAll();
 		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_TRAP);
 		asmJMP((NativeAddress)ppc_program_exception_asm);
@@ -1873,6 +1874,7 @@ JITCFlow ppc_opc_gen_twi()
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, TO, rA, imm);
 	if (TO == 0x1f) {
 		// TRAP always
+		jitcClobberAll();
 		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_TRAP);
 		asmJMP((NativeAddress)ppc_program_exception_asm);
