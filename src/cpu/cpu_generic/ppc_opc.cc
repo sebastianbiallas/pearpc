@@ -757,7 +757,7 @@ void ppc_opc_rfi()
 		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
 		return;
 	}
-	ppc_set_msr(gCPU.srr[1]);
+	ppc_set_msr(gCPU.srr[1] & 0xff73);
 	gCPU.npc = gCPU.srr[0] & 0xfffffffc;
 }
 

@@ -1649,7 +1649,7 @@ void ppc_opc_rfi()
 		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
 		return;
 	}
-	ppc_set_msr(gCPU.srr[1]);
+	ppc_set_msr(gCPU.srr[1] & 0xff73);
 	gCPU.npc = gCPU.srr[0] & 0xfffffffc;
 }
 JITCFlow ppc_opc_gen_rfi()
@@ -1658,6 +1658,7 @@ JITCFlow ppc_opc_gen_rfi()
 	jitcFlushRegister();
 	ppc_opc_gen_check_privilege();
 	jitcGetClientRegister(PPC_SRR1, NATIVE_REG | EAX);
+	asmALURegImm(X86_AND, EAX, 0xff73);
 	asmCALL((NativeAddress)ppc_set_msr_asm);
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)(&gCPU.srr[0])));
