@@ -24,6 +24,7 @@ global x86_convert_2be555_to_2le565
 global x86_convert_2be555_to_4le888
 global x86_convert_4be888_to_4le888
 
+align 8
 d1:	dd	0x00ff00ff
 	dd	0x00ff00ff
 d2:	dd	0xff00ff00
@@ -36,6 +37,7 @@ _2be555_mask_g	dd	0x03e003e0
 _2be555_mask_b	dd	0x001f001f
 		dd	0x001f001f
 
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;	IN: eax -- number of pixels to convert
@@ -70,10 +72,12 @@ x86_convert_2be555_to_2le555:
 	add		ecx, 16
 	dec		eax
 	jnz		.loop
-.exit
+
 	emms
+.exit
 	ret
 
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;	IN: eax -- number of pixels to convert
@@ -127,10 +131,12 @@ x86_convert_2be555_to_2le565:
 	add		ecx, 16
 	dec		eax
 	jnz		.loop
-.exit
+
 	emms
+.exit
 	ret
 
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;	IN: eax -- number of pixels to convert
@@ -140,6 +146,8 @@ x86_convert_2be555_to_2le565:
 x86_convert_2be555_to_4le888:
 	add		eax, 3
 	shr		eax, 2		; we can convert 4 pixels at a time
+	jz		.exit
+
 	pxor		mm0, mm0
 .loop:
 	movq		mm1, [edx]
@@ -182,10 +190,13 @@ x86_convert_2be555_to_4le888:
 	add		ecx, 16
 	dec		eax
 	jnz		.loop
+
+.exit:
 	emms
 	ret
 
 
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;	IN: eax -- number of pixels to convert
@@ -193,12 +204,14 @@ x86_convert_2be555_to_4le888:
 ;;          ecx -- output
 
 x86_convert_4be888_to_4le888:
+	add		eax, 3
+	shr		eax, 2		; we can convert 4 pixels at a time
+	jz		.exit
+
 	push		ebx
 	push		ebp
 	push		esi
 	push		edi
-	add		eax, 3
-	shr		eax, 2		; we can convert 4 pixels at a time
 .loop1
 	mov		ebx, [edx]
 	mov		ebp, [edx+4]
@@ -209,11 +222,11 @@ x86_convert_4be888_to_4le888:
 	bswap		ebp
 	bswap		esi
 	bswap		edi
+	add		edx, 16
 	mov		[ecx], ebx
 	mov		[ecx+4], ebp
 	mov		[ecx+8], esi
 	mov		[ecx+12], edi
-	add		edx, 16
 	add		ecx, 16
 	dec		eax
 	jnz		.loop1
@@ -222,4 +235,5 @@ x86_convert_4be888_to_4le888:
 	pop		esi
 	pop		ebp
 	pop		ebx
+.exit:
 	ret
