@@ -117,11 +117,8 @@ public:
 	Win32Display(const char *name, const DisplayCharacteristics &chr)
 		:SystemDisplay(chr)
 	{
-		mWinChar = chr;
-		HWND dw = GetDesktopWindow();
-		HDC ddc = GetDC(dw);
-		mWinChar.bytesPerPixel = (GetDeviceCaps(ddc, BITSPIXEL)+7)/8;
-		ReleaseDC(dw, ddc);
+		mClientChar = chr;
+		convertCharacteristicsToHost(mWinChar, mClientChar);
 		mTitle = strdup(name);
 		mMenuHeight = 28;
 		gMenuHeight = mMenuHeight;
@@ -165,6 +162,11 @@ public:
 
 	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 	{
+		aHostChar = aClientChar;
+		HWND dw = GetDesktopWindow();
+		HDC ddc = GetDC(dw);
+		aHostChar.bytesPerPixel = (GetDeviceCaps(ddc, BITSPIXEL)+7)/8;
+		ReleaseDC(dw, ddc);
 	}
 
 	virtual bool changeResolution(const DisplayCharacteristics &aHostChar)
@@ -176,16 +178,15 @@ public:
 		HWND dw = GetDesktopWindow();
 		RECT desktoprect;
 		GetWindowRect(dw, &desktoprect);
-		if (aCharacteristics.width > (desktoprect.right-desktoprect.left)
-		|| aCharacteristics.height > (desktoprect.bottom-desktoprect.top)) {
+		if (aHostChar.width > (desktoprect.right-desktoprect.left)
+		|| aHostChar.height > (desktoprect.bottom-desktoprect.top)) {
 			// protect user from himself
 			return false;
 		}		
 
 		EnterCriticalSection(&gDrawCS);
-		mClientChar = aCharacteristics;
-		mWinChar.height = mClientChar.height;
-		mWinChar.width = mClientChar.width;
+		mClientChar = aHostChar;
+		convertCharacteristicsToHost(mWinChar, mClientChar);
 
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
