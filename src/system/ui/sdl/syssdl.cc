@@ -356,6 +356,7 @@ static void *SDLeventLoop(void *p)
         SDL_WM_GrabInput(SDL_GRAB_OFF);
 
 	sd->changeResolution(sd->mClientChar);
+	sd->setExposed(true);
 	damageFrameBufferAll();
 
 	gSDLVideoExposePending = false;
