@@ -346,7 +346,7 @@ public:
  */
 
 	/*
-	 *	makeLogical return a maximum of 0x10000000, so it's save
+	 *	makeLogical return a maximum of 0x10000000, so it's safe
 	 *	to use uint32 here.
 	 */
 	uint32 makeLogical(int head, int cyl, int sec_no)

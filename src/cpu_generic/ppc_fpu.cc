@@ -161,24 +161,22 @@ inline void ppc_fpu_quadro_mshl(ppc_quadro &q, int exp)
 
 inline void ppc_fpu_add_quadro_m(ppc_quadro &res, const ppc_quadro &a, const ppc_quadro &b)
 {
-	if (a.m1+b.m1 < a.m1) {
-		res.m0 = 1;
-	} else {
-		res.m0 = 0;
-	}
 	res.m1 = a.m1+b.m1;
-	res.m0 += a.m0+b.m0;
+	if (res.m1 < a.m1) {
+		res.m0 = a.m0+b.m0+1;
+	} else {
+		res.m0 = a.m0+b.m0;
+	}
 }
 
 inline void ppc_fpu_sub_quadro_m(ppc_quadro &res, const ppc_quadro &a, const ppc_quadro &b)
 {
-	if (a.m1 < b.m1) {
-		res.m0 = (uint64)-1;
-	} else {
-		res.m0 = 0;
-	}
 	res.m1 = a.m1-b.m1;
-	res.m0 += a.m0-b.m0;
+	if (a.m1 < b.m1) {
+		res.m0 = a.m0-b.m0-1;
+	} else {
+		res.m0 = a.m0-b.m0;
+	}
 }
 
 // res has 107 significant bits. a, b have 106 significant bits each.
