@@ -31,7 +31,7 @@ static inline FUNCTION_CONST uint32 ppc_bswap_word(uint32 data)
 
 static inline FUNCTION_CONST uint64 ppc_bswap_dword(uint64 data)
 {
-	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
+	return (((uint64)ppc_bswap_word(data)) << 32) | (uint64)ppc_bswap_word(data >> 32);
 }
 
 static inline FUNCTION_CONST uint16 ppc_bswap_half(uint16 data)
@@ -45,13 +45,13 @@ static inline FUNCTION_CONST uint16 ppc_bswap_half(uint16 data)
  *		Little-endian machine
  */
 
-#	define ppc_dword_to_BE(data)	(ppc_bswap_dword(data))
-#	define ppc_word_to_BE(data)	(ppc_bswap_word(data))
-#	define ppc_half_to_BE(data)	(ppc_bswap_half(data))
+#	define ppc_dword_from_BE(data)	(ppc_bswap_dword(data))
+#	define ppc_word_from_BE(data)	(ppc_bswap_word(data))
+#	define ppc_half_from_BE(data)	(ppc_bswap_half(data))
 
-#	define ppc_dword_to_LE(data)	((uint64)(data))
-#	define ppc_word_to_LE(data)	((uint32)(data))
-#	define ppc_half_to_LE(data)	((uint16)(data))
+#	define ppc_dword_from_LE(data)	((uint64)(data))
+#	define ppc_word_from_LE(data)	((uint32)(data))
+#	define ppc_half_from_LE(data)	((uint16)(data))
 
 #	define ppc_dword_to_LE(data)	ppc_dword_from_LE(data)
 #	define ppc_word_to_LE(data)	ppc_word_from_LE(data)
@@ -66,13 +66,13 @@ static inline FUNCTION_CONST uint16 ppc_bswap_half(uint16 data)
 /*
  *		Big-endian machine
  */
-#	define ppc_dword_to_BE(data)	((uint64)(data))
-#	define ppc_word_to_BE(data)	((uint32)(data))
-#	define ppc_half_to_BE(data)	((uint16)(data))
+#	define ppc_dword_from_BE(data)	((uint64)(data))
+#	define ppc_word_from_BE(data)	((uint32)(data))
+#	define ppc_half_from_BE(data)	((uint16)(data))
 
-#	define ppc_dword_to_LE(data)	(ppc_bswap_dword(data))
-#	define ppc_word_to_LE(data)	(ppc_bswap_word(data))
-#	define ppc_half_to_LE(data)	(ppc_bswap_half(data))
+#	define ppc_dword_from_LE(data)	(ppc_bswap_dword(data))
+#	define ppc_word_from_LE(data)	(ppc_bswap_word(data))
+#	define ppc_half_from_LE(data)	(ppc_bswap_half(data))
 
 #	define ppc_dword_to_LE(data)	ppc_dword_from_LE(data)
 #	define ppc_word_to_LE(data)	ppc_word_from_LE(data)

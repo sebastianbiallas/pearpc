@@ -141,7 +141,8 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 		 *	violates SUSv2. This has been fixed in glibc2.1.2.
 		 *
 		 */
-		char *env = strdup(tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface));
+		tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface);
+		char *env = strdup(tmpenv);
 		putenv(env);
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);

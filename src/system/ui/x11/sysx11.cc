@@ -301,11 +301,11 @@ static void *X11eventLoop(void *p)
 	return NULL;
 }
 
-extern SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
+extern SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms, bool fullscreen);
 extern SystemMouse *allocSystemMouse();
 extern SystemKeyboard *allocSystemKeyboard();
 
-void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig)
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig, bool fullscreen)
 {
 	// connect to X server
 	char *display = getenv("DISPLAY");
@@ -320,7 +320,7 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 
 	sys_create_mutex(&gX11Mutex);
 
-	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
+	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms, fullscreen);
 	gMouse = allocSystemMouse();
 	gKeyboard = allocSystemKeyboard();
 	if(!gKeyboard->setKeyConfig(keyConfig)) {
