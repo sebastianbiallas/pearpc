@@ -476,6 +476,17 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 	}
 }
 
+const char *ppc_fpu_get_fpr_type(ppc_fpr_type t)
+{
+	switch (t) {
+	case ppc_fpr_norm: return "norm";
+	case ppc_fpr_zero: return "zero";
+	case ppc_fpr_NaN: return "NaN";
+	case ppc_fpr_Inf: return "Inf";
+	default: return "???";
+	}
+}
+
 // calculate one of these:
 // + m1 * m2 + s
 // + m1 * m2 - s
@@ -489,11 +500,14 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	ppc_double &s)
 {
 	ppc_quadro p;
-	ht_printf("m1 = %d * %016qx * 2^%d\n", m1.s, &m1.m, m1.e);
-	ht_printf("m2 = %d * %016qx * 2^%d\n", m1.s, &m1.m, m1.e);
+	ht_printf("m1 = %d * %016qx * 2^%d, %s\n", m1.s, &m1.m, m1.e,
+		ppc_fpu_get_fpr_type(m1.type));
+	ht_printf("m2 = %d * %016qx * 2^%d, %s\n", m2.s, &m2.m, m2.e,
+		ppc_fpu_get_fpr_type(m2.type));
 	// create product with 106 significant bits
 	ppc_fpu_mul_quadro(p, m1, m2, 106);
-	ht_printf("m1*m2 = %d * %016qx%016qx * 2^%d\n", p.s, &p.m0, &p.m1, p.e);
+	ht_printf("m1*m2 = %d * %016qx%016qx * 2^%d, %s\n", p.s, &p.m0, &p.m1, p.e,
+		ppc_fpu_get_fpr_type(p.type));
 	// convert s into ppc_quadro
 	ppc_quadro q;
 	q.e = s.e;
@@ -504,12 +518,14 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	// .. with 106 significant bits
 	ppc_fpu_quadro_mshl(q, 106-56);
 	q.e -= 106-56;
-	ht_printf("q = %d * %016qx%016qx * 2^%d\n", q.s, &q.m0, &q.m1, q.e);
+	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, &q.m0, &q.m1, q.e,
+		ppc_fpu_get_fpr_type(p.type));
 	// now we must add p, q.
 	ppc_quadro x;
 	ppc_fpu_add_quadro(x, p, q);
 	// x = [107]
-	ht_printf("x = %d * %016qx%016qx * 2^%d\n", x.s, &x.m0, &x.m1, x.e);
+	ht_printf("x = %d * %016qx%016qx * 2^%d %s\n", x.s, &x.m0, &x.m1, x.e,
+		ppc_fpu_get_fpr_type(x.type));
 	res.type = x.type;
 	res.s = x.s;
 	res.e = x.e;
@@ -977,7 +993,7 @@ void ppc_opc_fmaddx()
 /*	ppc_fpu_mul(E, A, C);
 	ppc_fpu_add(D, E, B);*/
 	ppc_fpu_mul_add(D, A, C, B);
-//	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
+	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.000001 && fabs(d) > 0.000001) {
 		PPC_FPU_ERR("b0rken: fmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
