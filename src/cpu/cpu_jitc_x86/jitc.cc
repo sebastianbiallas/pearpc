@@ -463,8 +463,9 @@ extern "C" void FASTCALL jitc_error(const char *error)
 
 extern "C" void FASTCALL jitc_error_program(uint32 a, uint32 b)
 {
-	ht_printf("JITC Warning, program exception: %08x %08x\n", a, b);
-//	exit(1);
+	if (a != 0x00020000) {	// Filter out trap exceptions, no need to report them
+		ht_printf("JITC Warning: program exception: %08x %08x\n", a, b);
+	}
 }
 
 extern uint8 jitcFlagsMapping[257];
