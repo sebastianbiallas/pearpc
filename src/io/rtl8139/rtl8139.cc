@@ -201,7 +201,7 @@ protected:
 
 void PCIReset()
 {
-	if (mVerbose) IO_RTL8139_TRACE ("PCIReset()\n");	// PCI config
+	IO_RTL8139_TRACE ("PCIReset()\n");	// PCI config
 	memset(mConfig, 0, sizeof mConfig);
 	// 0-3 set by totalReset()
 //	mConfig[0x04] = 0x07;	// io+memory+master
@@ -227,7 +227,7 @@ void PCIReset()
 
 void totalReset()
 {
-	if (mVerbose) IO_RTL8139_TRACE ("totalReset()\n");	// PCI config
+	IO_RTL8139_TRACE ("totalReset()\n");	// PCI config
 	/* FIXME: resetting can be done more fine-grained (see TotalReset cmd).
 	 *        this is reset ALL regs.
 	 */
@@ -311,10 +311,10 @@ void setCR(uint8 cr)
 
 void maybeRaiseIntr()
 {
-	if (mVerbose) IO_RTL8139_TRACE ("maybeRaiseIntr()\n");
+	IO_RTL8139_TRACE ("maybeRaiseIntr()\n");
 	if (mRegisters.InterruptMask & mIntStatus) {
 		//mIntStatus |= IS_interruptLatch;
-		if (mVerbose) IO_RTL8139_TRACE ("Generating interrupt. mIntStatus=%04x\n", mIntStatus);
+		IO_RTL8139_TRACE ("Generating interrupt. mIntStatus=%04x\n", mIntStatus);
 		pic_raise_interrupt(mConfig[0x3c]);
 	}
 }
@@ -328,11 +328,11 @@ void TxPacket(uint32 address, uint32 size)
 	uint32	psize;
 
 	p = pbuf;
-	if (mVerbose) IO_RTL8139_TRACE ("address: %08x, size: %04x\n", address, size);
+	IO_RTL8139_TRACE ("address: %08x, size: %04x\n", address, size);
 	if (ppc_direct_physical_memory_handle(address, ppc_addr) == PPC_MMU_OK) {
-		if (mVerbose > 1) {
+/*		if (mVerbose > 1) {
 			debugDumpMem(ppc_addr, size);
-		}
+		}*/
 		memcpy(p, ppc_addr, size);
 		crc = ether_crc(size, p);
 		psize = size;
@@ -345,12 +345,12 @@ void TxPacket(uint32 address, uint32 size)
 		uint w = mEthTun->sendPacket(pbuf, psize);
 		if (w) {
 			if (w == psize) {
-				if (mVerbose) IO_RTL8139_TRACE("EthTun: %d bytes sent.\n", psize);
+				IO_RTL8139_TRACE("EthTun: %d bytes sent.\n", psize);
 			} else {
-				if (mVerbose) IO_RTL8139_TRACE("EthTun: ARGH! send error: only %d of %d bytes sent\n", w, psize);
+				IO_RTL8139_TRACE("EthTun: ARGH! send error: only %d of %d bytes sent\n", w, psize);
 			}
 		} else {
-			if (mVerbose) IO_RTL8139_TRACE("EthTun: ARGH! send error in packet driver.\n");
+			IO_RTL8139_TRACE("EthTun: ARGH! send error in packet driver.\n");
 		}
 		maybeRaiseIntr();
 	}
@@ -407,7 +407,7 @@ void transferPacket(bool raiseIntr)
 		}
 #endif
 		memcpy(addr, mPackets[mTail].packet, mPackets[mTail].size);
-		if (mVerbose) IO_RTL8139_TRACE("wrote %04x bytes to the ring buffer\n", mPackets[mTail].size);
+		IO_RTL8139_TRACE("wrote %04x bytes to the ring buffer\n", mPackets[mTail].size);
 		mRegisters.EarlyRxByteCount = mPackets[mTail].size;
 		mRegisters.EarlyRxStatus = 8;
 		mRegisters.CBA += mPackets[mTail].size;
@@ -426,11 +426,6 @@ void transferPacket(bool raiseIntr)
 	} else {
 		IO_RTL8139_ERR("ppc_direct_physical_memory_handle called failed in transferPacket\n");
 	}
-}
-
-void verbose(int level)
-{
-	mVerbose = level;
 }
 
 virtual ~rtl8139_NIC()
@@ -475,7 +470,7 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 		if (size != 2) {
 			IO_RTL8139_WARN("unaligned read from IntStatus\n");
 		}
-		if (mVerbose) IO_RTL8139_TRACE("read IntStatus = %04x\n", mIntStatus);
+		IO_RTL8139_TRACE("read IntStatus = %04x\n", mIntStatus);
 		data = swapData(mIntStatus, 2);
 		mIntStatus = 0; // a read resets the interrupt status register
 		retval = true;
@@ -486,21 +481,21 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 		//data = swapData(data, size);
 		switch (port) {
 		case 0x48:
-			if (mVerbose) IO_RTL8139_TRACE("read Timer = %08x\n", data);
+			IO_RTL8139_TRACE("read Timer = %08x\n", data);
 			break;
 		case 0x37: {
-			if (mVerbose) IO_RTL8139_TRACE("read Command Register = %02x\n", data);
+			IO_RTL8139_TRACE("read Command Register = %02x\n", data);
 			break;
 		}
 		case 0x64: {
-			if (mVerbose) IO_RTL8139_TRACE("read Basic Mode Status = %04x\n", data);
+			IO_RTL8139_TRACE("read Basic Mode Status = %04x\n", data);
 			if ((mTail != mHead) && (mRegisters.CommandRegister & 0x01)) {
 				transferPacket(true);
 			}
 			break;
 		}
 		default:
-			if (mVerbose) IO_RTL8139_TRACE("read reg %04x (size %d) = %08x\n", port, size, data);
+			IO_RTL8139_TRACE("read reg %04x (size %d) = %08x\n", port, size, data);
 			break;
 		}
 		data = swapData(data, size);
@@ -532,60 +527,60 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 	} else if ((port >= 0) && (port+size <= sizeof(Registers))) {
 		switch (port) {
 		case 0x3c: {
-			if (mVerbose) IO_RTL8139_TRACE("write Interrupt Mask Register %04x (now = %04x)\n", data, mRegisters.InterruptMask);
+			IO_RTL8139_TRACE("write Interrupt Mask Register %04x (now = %04x)\n", data, mRegisters.InterruptMask);
 			mRegisters.InterruptMask = data;
 			break;
 		}
 		case 0x10: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TS0, got data to send %08x\n", data);
+			IO_RTL8139_TRACE("write to TS0, got data to send %08x\n", data);
 			TxPacket(mRegisters.TxStartAddrD0, data & 0x0fff);
 			mRegisters.TxStatusD0 |= ((1 << 13)|(1<<15)); //	set ownership
 			mIntStatus |= 4; // Tx Ok
 			break;
 		}
 		case 0x14: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TS1, got data to send %08x\n", data);
+			IO_RTL8139_TRACE("write to TS1, got data to send %08x\n", data);
 			TxPacket(mRegisters.TxStartAddrD1, data & 0x0fff);
 			mRegisters.TxStatusD1 |= ((1 << 13)|(1<<15)); //	set ownership
 			mIntStatus |= 4; // Tx Ok
 			break;
 		}
 		case 0x18: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TS2, got data to send %08x\n", data);
+			IO_RTL8139_TRACE("write to TS2, got data to send %08x\n", data);
 			TxPacket(mRegisters.TxStartAddrD2, data & 0x0fff);
 			mRegisters.TxStatusD2 |= ((1 << 13)|(1<<15)); //	set ownership
 			mIntStatus |= 4; // Tx Ok
 			break;
 		}
 		case 0x1c: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TS3, got data to send %08x\n", data);
+			IO_RTL8139_TRACE("write to TS3, got data to send %08x\n", data);
 			TxPacket(mRegisters.TxStartAddrD3, data & 0x0fff);
 			mRegisters.TxStatusD3 |= ((1 << 13)|(1<<15)); //	set ownership
 			mIntStatus |= 4; // Tx Ok
 			break;
 		}
 		case 0x20: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TxSA0, address %08x\n", data);
+			IO_RTL8139_TRACE("write to TxSA0, address %08x\n", data);
 			mRegisters.TxStartAddrD0 = data;
 			break;
 		}
 		case 0x24: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TxSA1, address %08x\n", data);
+			IO_RTL8139_TRACE("write to TxSA1, address %08x\n", data);
 			mRegisters.TxStartAddrD1 = data;
 			break;
 		}
 		case 0x28: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TxSA2, address %08x\n", data);
+			IO_RTL8139_TRACE("write to TxSA2, address %08x\n", data);
 			mRegisters.TxStartAddrD2 = data;
 			break;
 		}
 		case 0x2c: {
-			if (mVerbose) IO_RTL8139_TRACE("write to TxSA3, address %08x\n", data);
+			IO_RTL8139_TRACE("write to TxSA3, address %08x\n", data);
 			mRegisters.TxStartAddrD3 = data;
 			break;
 		}
 		case 0x30: {
-			if (mVerbose) IO_RTL8139_TRACE("write to RxBSA, address %08x\n", data);
+			IO_RTL8139_TRACE("write to RxBSA, address %08x\n", data);
 			mRegisters.RxBufferStartAddr = data;
 			mRegisters.CBA = 0;
 			mRegisters.CAPR = 0xfff0;
@@ -595,7 +590,7 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 			break;
 		}
 		case 0x38: {
-			if (mVerbose) IO_RTL8139_TRACE("update to CAPR: CAPR %04x, CBA %04x\n", data, mRegisters.CBA);
+			IO_RTL8139_TRACE("update to CAPR: CAPR %04x, CBA %04x\n", data, mRegisters.CBA);
 			mRegisters.CAPR = data;
 			if (mRegisters.CAPR >= mRegisters.CBA) {
 				IO_RTL8139_WARN("Bad packet read by client? Active %02x, CAPR %04x, CBA %04x, Tail %02x, Head %02x\n", mActive, mRegisters.CAPR, mRegisters.CBA, mTail, mHead);
@@ -622,7 +617,7 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 			break;
 		}
 		case 0x44: { 
-			if (mVerbose) IO_RTL8139_TRACE("write to RxConfiguration, data %08x\n", data);
+			IO_RTL8139_TRACE("write to RxConfiguration, data %08x\n", data);
 			switch ((data & 0x1800)) {
 			case 0x0000: mRingBufferSize = 8192; break;
 			case 0x0800: mRingBufferSize = 16384; break;
@@ -630,17 +625,17 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 			case 0x1800: mRingBufferSize = 65536; break;
 			default: mRingBufferSize = 8192;
 			};
-			if (mVerbose) IO_RTL8139_TRACE("RingBuffer Size: %08x\n", mRingBufferSize);
+			IO_RTL8139_TRACE("RingBuffer Size: %08x\n", mRingBufferSize);
 			break;
 		}
 		case 0x62: {
-			if (mVerbose) IO_RTL8139_TRACE("write Basic Mode Control %04x\n", data);
+			IO_RTL8139_TRACE("write Basic Mode Control %04x\n", data);
 			//mIntStatus |= 0x2000; // cable length changed, receive enabled
 			mRegisters.BMCR = data & 0xfdff;
 			break;
 		}
 		default:
-			if (mVerbose) IO_RTL8139_TRACE("write to register port=%04x, size=%d, data=0x%08x\n", port, size, data);
+			IO_RTL8139_TRACE("write to register port=%04x, size=%d, data=0x%08x\n", port, size, data);
 			// write to (standard) register
 			memcpy(((byte*)&mRegisters)+port, &data, size);
 		}
@@ -670,11 +665,11 @@ void handleRxQueue()
 			sys_suspend();
 			continue;
 		}
-		if (mVerbose) IO_RTL8139_TRACE("got packet from the world at large\n");
+		IO_RTL8139_TRACE("got packet from the world at large\n");
 		if (!mGoodBSA) continue;
-		if (mVerbose > 1) {
+/*		if (mVerbose > 1) {
 			debugDumpMem(rxPacket, rxPacketSize);
-		}
+		}*/
 		header = 0;
 		if (rxPacketSize < 64) {
 			for ( ; rxPacketSize < 60; rxPacketSize++) {
@@ -693,7 +688,7 @@ void handleRxQueue()
 		sys_lock_mutex(mLock);
 //		IO_RTL8139_TRACE("handleRxQueue has mLock\n");
 		if (memcmp(rxPacket, (byte*)&(mRegisters.id0), 6) == 0) {
-			if (mVerbose > 1) IO_RTL8139_TRACE("Physical Address Match\n");
+			/*if (mVerbose > 1) IO_RTL8139_TRACE("Physical Address Match\n");*/
 			header |= Rx_PAM;
 		}
 		// check crc?
@@ -749,13 +744,9 @@ bool rtl8139_installed = false;
 
 #define RTL8139_KEY_INSTALLED   "pci_rtl8139_installed"
 #define RTL8139_KEY_MAC         "pci_rtl8139_mac"
-#define RTL8139_KEY_VERBOSE     "pci_rtl8139_verbose"
 
 void rtl8139_init()
 {
-	int verbose = 0;
-
-	verbose = gConfig->getConfigInt(RTL8139_KEY_VERBOSE); 
 	if (gConfig->getConfigInt(RTL8139_KEY_INSTALLED)) {
 		rtl8139_installed = true;
 		byte mac[6];
@@ -790,6 +781,10 @@ void rtl8139_init()
 			IO_3C90X_ERR("Couldn't create ethernet tunnel\n");
 			exit(1);
 		}
+		if (ethTun->initDevice()) {
+			IO_3C90X_ERR("Couldn't initialize ethernet tunnel\n");
+			exit(1);
+		}
 #if 0
 		printf("Creating RealTek rtl8139 NIC emulation with eth_addr = ");
 		for (uint i=0; i<6; i++) {
@@ -802,7 +797,6 @@ void rtl8139_init()
 		printf("\n");
 #endif
 		rtl8139_NIC *MyNIC = new rtl8139_NIC(ethTun, mac);
-		MyNIC->verbose(verbose);
 		gPCI_Devices->insert(MyNIC);
 		sys_thread rxthread;
 		sys_create_thread(&rxthread, 0, rtl8139HandleRxQueue, MyNIC);
@@ -811,7 +805,6 @@ void rtl8139_init()
 
 void rtl8139_init_config()
 {
-	gConfig->acceptConfigEntryIntDef(RTL8139_KEY_VERBOSE, 0);
 	gConfig->acceptConfigEntryIntDef(RTL8139_KEY_INSTALLED, 0);
 	gConfig->acceptConfigEntryString(RTL8139_KEY_MAC, false);
 }
