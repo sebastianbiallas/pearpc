@@ -335,7 +335,7 @@ inline void ppc_fpu_add_uint64_carry(uint64 &a, uint64 b, uint64 &carry)
 }
 
 // 'res' has 56 significant bits on return, a + b have 56 significant bits each
-inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
+inline void ppc_fpu_mul(ppc_double &res, const ppc_double &a, const ppc_double &b)
 {
 	res.s = a.s ^ b.s;
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
@@ -547,7 +547,7 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 		ppc_fpu_get_fpr_type(res.type));*/
 }
 
-inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
+inline void ppc_fpu_div(ppc_double &res, const ppc_double &a, const ppc_double &b)
 {
 	res.s = a.s ^ b.s;
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
@@ -610,8 +610,61 @@ inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
 	}
 }
 
+inline void ppc_fpu_sqrt(ppc_double &D, const ppc_double &B)
+{
+	switch (B.type) {
+	case ppc_fpr_norm:
+		if (B.s) {
+			D.type = ppc_fpr_NaN;
+			gCPU.fpscr |= FPSCR_VXSQRT;
+			break;
+		}
+		// D := 1/2(D_old + B/D_old)
+		D = B;
+		D.e /= 2;
+		for (int i=0; i<6; i++) {
+			ppc_double D_old = D;
+			ppc_double B_div_D_old;
+			ppc_fpu_div(B_div_D_old, B, D_old);
+			ppc_fpu_add(D, D_old, B_div_D_old);
+			D.e--;
+			
+/*			uint64 e;
+			ppc_double E = D;
+			ppc_fpu_pack_double(E, e);
+			printf("%.20f\n", *(double *)&e);*/
+		}
+		break;
+	case ppc_fpr_zero:
+		D.type = ppc_fpr_zero;
+		D.s = B.s;
+		break;
+	case ppc_fpr_Inf:
+		if (B.s) {
+			D.type = ppc_fpr_NaN;
+			gCPU.fpscr |= FPSCR_VXSQRT;
+		} else {
+			D.type = ppc_fpr_Inf;
+			D.s = 0;
+		}
+		break;
+	case ppc_fpr_NaN:
+		D.type = ppc_fpr_NaN;
+		break;
+	}	
+}
+
 void ppc_fpu_test()
 {
+	double bb = 2.0;
+	uint64 b = *(uint64 *)&bb;
+	ppc_double B;
+	ppc_double D;
+	ppc_fpu_unpack_double(B, b);
+	ppc_fpu_sqrt(D, B);
+	uint64 d;
+	gCPU.fpscr |= ppc_fpu_pack_double(D, d);
+	printf("%f\n", *(double *)&d);
 /*	ppc_double A, B, C, D, E;
 	ppc_fpu_unpack_double(A, 0xc00fafcd6c40e500ULL);
 	ppc_fpu_unpack_double(B, 0xc00fafcd6c40e4beULL);
@@ -1416,6 +1469,7 @@ void ppc_opc_frsqrtex()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frA==0 && frC==0);
+	
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("frsqrte.\n");
@@ -1461,11 +1515,15 @@ void ppc_opc_fsqrtx()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frA==0 && frC==0);
+	ppc_double B;
+	ppc_double D;
+	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
+	ppc_fpu_sqrt(D, B);
+	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fsqrt.\n");
 	}
-	PPC_FPU_ERR("fsqrt\n");
 }
 JITCFlow ppc_opc_gen_fsqrtx()
 {

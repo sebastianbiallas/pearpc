@@ -5,6 +5,7 @@ version 0.2 (in progress):
 	- JITC: all crXX implemented
 	- JITC: tlbie only invalidate one entry
 	- JITC: optimize tlb_invalidate_all
+	- implemented fsqrtx instruction
 	- IO/IDE: regs are per device, not per controller
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- HFS partition code fixes (reportedly working)
@@ -28,6 +29,7 @@ version 0.2 (in progress):
 		- now using -Wundef and -Woverloaded-virtual compiler switches
 	- networking code abstraction (win32,darwin untested, send patches)
 	- preliminary man-page added
+	- fdisk and single partition images support by Anders F.Bjoerklund
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.
