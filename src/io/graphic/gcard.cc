@@ -251,7 +251,12 @@ void gcard_osi()
 		}
 		DisplayCharacteristics *chr = (DisplayCharacteristics *)(*gGraphicModes)[vmode];
 		IO_GRAPHIC_TRACE("set mode %d\n", vmode);
-		gCPU.gpr[3] = gDisplay->changeResolution(*chr) ? 0 : 1;
+		if (gDisplay->changeResolution(*chr)) {
+			gCPU.gpr[3] = 0;
+			gcard_set_mode(*chr);
+		} else {
+			gCPU.gpr[3] = 1;
+		}
 		return;
 	}
 	case 29: {
@@ -287,7 +292,7 @@ typedef struct osi_get_vmode_info {
 		gCPU.gpr[6] = (chr->width << 16) | chr->height;
 		gCPU.gpr[7] = 85 << 16;
 		gCPU.gpr[8] = chr->bytesPerPixel*8;
-		gCPU.gpr[9] = ((chr->width * chr->bytesPerPixel)<<16)
+		gCPU.gpr[9] = ((chr->scanLineLength)<<16)
 		              | 0;
 		return;
 	}
@@ -414,7 +419,7 @@ bool gcard_finish_characteristic(DisplayCharacteristics &aChar)
 
 bool gcard_set_mode(DisplayCharacteristics &mode)
 {
-	uint tmp = gGraphicModes->getObjIdx(&mode);
+	uint tmp = gGraphicModes->getObjIdx(gGraphicModes->find(&mode));
 	if (tmp == InvIdx) {
 		return false;
 	} else {
