@@ -27,7 +27,7 @@
 #include "tools/snprintf.h"
 
 //#define DEBUG_VERBOSE
-#define DEBUG_ASSERTS
+//#define DEBUG_ASSERTS
 
 #ifdef DEBUG_VERBOSE
 #define PPC_BTH_TRACE(msg...) ht_printf("[BEOS/THREAD] "msg)
