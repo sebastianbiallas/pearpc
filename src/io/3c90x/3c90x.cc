@@ -722,10 +722,10 @@ void readRegWindow(uint window, uint32 port, uint32 &data, uint size)
 		case 0xc: {
 			if (size != 1) {
 				IO_3C90X_WARN("alignment.4.c.read\n");
-				SINGLESTEP("");
 			}
 			// reading clears
 			w4.BadSSD = 0;
+			memcpy(&data, &mWindows[4].b[port], size);
 			break;
 		}
 		default:
