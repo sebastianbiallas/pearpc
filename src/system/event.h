@@ -45,9 +45,10 @@ struct SystemEvent {
 		    	int y;
 			int relx;
 		    	int rely;
-			bool button1; // left mouse button
-			bool button2; // right mouse button
-			bool button3; // middle mouse button
+			bool button1;	// left mouse button
+			bool button2;	// right mouse button
+			bool button3;	// middle mouse button
+			int  dbutton;	// mouse button that changed since last sysevMouse (0 if none)
 		} mouse;
 		struct {
 			uint keycode;

@@ -66,7 +66,8 @@ static void handleX11Event(const XEvent &event)
 	static bool visible = true;
 	static bool mapped = true;
 	static bool mouseButton[3] = {false, false, false};
-	
+	bool tmpMouseButton[3];
+
 	switch (event.type) {
 	case GraphicsExpose:
 	case Expose:
@@ -115,21 +116,32 @@ static void handleX11Event(const XEvent &event)
 	case ButtonPress: {
 		SystemEvent ev;
 		ev.type = sysevMouse;
+		memcpy(tmpMouseButton, mouseButton, sizeof (tmpMouseButton));
 		switch (((XButtonEvent *)&event)->button) {
 		case Button1:
-			mouseButton[0] = true;
+			tmpMouseButton[0] = true;
 			break;
 		case Button2:
-			mouseButton[1] = true;
+			tmpMouseButton[2] = true;
 			break;
 		case Button3:
-			mouseButton[2] = true;
+			tmpMouseButton[1] = true;
 			break;
 		}
 		ev.mouse.type = sme_buttonPressed;
-		ev.mouse.button1 = mouseButton[0];
-		ev.mouse.button2 = mouseButton[2];
-		ev.mouse.button3 = mouseButton[1];
+		ev.mouse.button1 = tmpMouseButton[0];
+		ev.mouse.button2 = tmpMouseButton[1];
+		ev.mouse.button3 = tmpMouseButton[2];
+		if (mouseButton[0] != tmpMouseButton[0]) {
+			ev.mouse.dbutton = 1;
+		} else if (mouseButton[1] != tmpMouseButton[1]) {
+			ev.mouse.dbutton = 2;
+		} else if (mouseButton[2] != tmpMouseButton[2]) {
+			ev.mouse.dbutton = 3;
+		} else {
+			ev.mouse.dbutton = 0;
+		}
+		memcpy(mouseButton, tmpMouseButton, sizeof (tmpMouseButton));
 		ev.mouse.x = gDisplay->mCurMouseX;
 		ev.mouse.y = gDisplay->mCurMouseY;
 		ev.mouse.relx = 0;
@@ -141,21 +153,32 @@ static void handleX11Event(const XEvent &event)
 	case ButtonRelease: {
 		SystemEvent ev;	
 		ev.type = sysevMouse;
+		memcpy(tmpMouseButton, mouseButton, sizeof (tmpMouseButton));
 		switch (((XButtonEvent *)&event)->button) {
 		case Button1:
-			mouseButton[0] = false;
+			tmpMouseButton[0] = false;
 			break;
 		case Button2:
-			mouseButton[1] = false;
+			tmpMouseButton[2] = false;
 			break;
 		case Button3:
-			mouseButton[2] = false;
+			tmpMouseButton[1] = false;
 			break;
 		}
 		ev.mouse.type = sme_buttonReleased;
 		ev.mouse.button1 = mouseButton[0];
-		ev.mouse.button2 = mouseButton[2];
-		ev.mouse.button3 = mouseButton[1];
+		ev.mouse.button2 = mouseButton[1];
+		ev.mouse.button3 = mouseButton[2];
+		if (mouseButton[0] != tmpMouseButton[0]) {
+			ev.mouse.dbutton = 1;
+		} else if (mouseButton[1] != tmpMouseButton[1]) {
+			ev.mouse.dbutton = 2;
+		} else if (mouseButton[2] != tmpMouseButton[2]) {
+			ev.mouse.dbutton = 3;
+		} else {
+			ev.mouse.dbutton = 0;
+		}
+		memcpy(mouseButton, tmpMouseButton, sizeof (tmpMouseButton));
 		ev.mouse.x = gDisplay->mCurMouseX;
 		ev.mouse.y = gDisplay->mCurMouseY;
 		ev.mouse.relx = 0;
@@ -175,6 +198,7 @@ static void handleX11Event(const XEvent &event)
 		ev.mouse.button1 = mouseButton[0];
 		ev.mouse.button2 = mouseButton[1];
 		ev.mouse.button3 = mouseButton[2];
+		ev.mouse.dbutton = 0;
 		ev.mouse.relx = gDisplay->mCurMouseX - gDisplay->mHomeMouseX;
 		ev.mouse.rely = gDisplay->mCurMouseY - gDisplay->mHomeMouseY;
 		if (gDisplay->isMouseGrabbed()) {

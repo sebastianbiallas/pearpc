@@ -368,8 +368,6 @@ sdl)
 ;;
 win32)
 ;;
-x11)
-;;
 *)
 	AC_MSG_ERROR([Invalid parameter to --enable-ui: '$enable_ui'. Run './configure --help' for a list of valid parameters.])
 ;;

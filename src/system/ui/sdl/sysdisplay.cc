@@ -30,6 +30,7 @@
 #include "system/display.h"
 #include "system/sysexcept.h"
 #include "system/systhread.h"
+#include "system/sysvaccel.h"
 #include "system/types.h"
 
 #include "tools/data.h"
@@ -48,7 +49,8 @@ static char mCurTitle[200];*/
 
 class SDLSystemDisplay: public SystemDisplay {
 protected:
-	sys_thread redrawthread;
+	DisplayCharacteristics	mSDLChar;
+	byte *			mSDLFrameBuffer;
 
 uint bitsPerPixelToXBitmapPad(uint bitsPerPixel)
 {
@@ -76,20 +78,15 @@ void dumpDisplayChar(const DisplayCharacteristics &chr)
 
 public:
 
-SDLSystemDisplay(const char *name, int xres, int yres, const DisplayCharacteristics &chr, int redraw_ms)
-		:SystemDisplay(chr, redraw_ms)
+SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
+: SystemDisplay(chr, redraw_ms)
 {
-	mClientChar.width = xres;
-	mClientChar.height = yres;
+	SDL_WM_SetCaption(title, title);
 
-	SDL_WM_SetCaption(name,name);
+	gSDLScreen = NULL;
+	mSDLFrameBuffer = NULL;
 
-	gSDLScreen = SDL_SetVideoMode(mClientChar.width, mClientChar.height,
-		8*mClientChar.bytesPerPixel, SDL_HWSURFACE);
-	gFrameBuffer = (byte*)gSDLScreen->pixels;
-	if (SDL_MUSTLOCK(gSDLScreen))
-		SDL_LockSurface(gSDLScreen);
-	SDL_ShowCursor(SDL_DISABLE);
+	changeResolution(chr);
 }
 
 void finishMenu()
@@ -109,6 +106,7 @@ int toString(char *buf, int buflen) const
 
 void ToggleFullScreen()
 {
+/*
 	SDL_Surface *backup, *backup2;
 //	SDL_Rect rect;
 
@@ -147,8 +145,7 @@ void ToggleFullScreen()
 	SDL_FreeSurface(backup);
 	SDL_FreeSurface(backup2);
 	damageFrameBufferAll();
-	displayShow();
-	return;
+	displayShow();*/
 }
 
 void displayShow()
@@ -177,9 +174,23 @@ void displayShow()
 		lastDamagedLine = mClientChar.height-1;
 	}
 
+	if (mSDLFrameBuffer) {
+		sys_convert_display(mClientChar, mSDLChar, gFrameBuffer,
+			mSDLFrameBuffer, firstDamagedLine, lastDamagedLine);
+/*		memcpy(mSDLFrameBuffer, gFrameBuffer, mClientChar.width *
+		mClientChar.height * mClientChar.bytesPerPixel);*/
+	}
+
+	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
+		SDL_UnlockSurface(gSDLScreen);
+	}
 	// If possible, we should use doublebuffering and SDL_Flip()
 	// SDL_Flip(); 
 	SDL_UpdateRect(gSDLScreen, 0, firstDamagedLine, 0, lastDamagedLine-firstDamagedLine+1);
+
+	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
+		SDL_LockSurface(gSDLScreen);
+	}
 }
 
 void *eventLoop(void *p)
@@ -195,31 +206,49 @@ void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const Displ
 bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 {
 	DPRINTF("Changing resolution to %dx%d\n", aCharacteristics.width, aCharacteristics.height);
-	if (aCharacteristics.bytesPerPixel != 4) return false;
-	if (!SDL_VideoModeOK(aCharacteristics.width, aCharacteristics.height, 8*aCharacteristics.bytesPerPixel, gSDLScreen->flags))
+
+        DisplayCharacteristics chr;
+	convertCharacteristicsToHost(chr, aCharacteristics);
+	uint bitsPerPixel = chr.redSize + chr.greenSize + chr.blueSize;
+
+	if (!SDL_VideoModeOK(chr.width, chr.height,
+	bitsPerPixel, SDL_HWSURFACE))
 		return false;
-	if (SDL_MUSTLOCK(gSDLScreen)) {
+
+	mSDLChar = chr;
+	mClientChar = aCharacteristics;
+
+	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
 		SDL_UnlockSurface(gSDLScreen);
 	}
+
 	gSDLScreen = SDL_SetVideoMode(aCharacteristics.width, aCharacteristics.height,
-	                          8*aCharacteristics.bytesPerPixel, gSDLScreen->flags|SDL_HWSURFACE);
-	if (!gSDLScreen || (gSDLScreen->pitch != aCharacteristics.width * aCharacteristics.bytesPerPixel)) {
-		printf("SDL: WARN: new mode has scanline gap. Trying to revert to old mode.\n");
-		gSDLScreen = SDL_SetVideoMode(mClientChar.width, mClientChar.height,
-			8*mClientChar.bytesPerPixel, gSDLScreen->flags|SDL_HWSURFACE);
-		if (!gSDLScreen) {
-			printf("SDL: FATAL: couldn't restore previous gSDLScreen mode\n");
-			exit(1);
-		}
+	                          bitsPerPixel, SDL_HWSURFACE);
+	if (!gSDLScreen) {
+		// FIXME: this is really bad.
+		printf("SDL: FATAL: can't switch mode?!\n");
+		exit(1);
+	}
+	if (gSDLScreen->pitch != aCharacteristics.width * aCharacteristics.bytesPerPixel) {
+		// FIXME: this is really bad.
+		printf("SDL: FATAL: new mode has scanline gap. Trying to revert to old mode.\n");
+		exit(1);
 	}
 
-	gFrameBuffer = (byte*)gSDLScreen->pixels;
+	if (gFrameBuffer) free(gFrameBuffer);
+	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
+		mClientChar.height * mClientChar.bytesPerPixel);
+	memset(gFrameBuffer, 0, mClientChar.width *
+		mClientChar.height * mClientChar.bytesPerPixel);
+	mSDLFrameBuffer = (byte*)gSDLScreen->pixels;
+	damageFrameBufferAll();
 
 	if (SDL_MUSTLOCK(gSDLScreen)) {
 		SDL_LockSurface(gSDLScreen);
 	}
-        mClientChar = aCharacteristics;
-	damageFrameBufferAll();
+
+	ht_printf("SDL rmask %08x, gmask %08x, bmask %08x\n", gSDLScreen->format->Rmask,
+		gSDLScreen->format->Gmask, gSDLScreen->format->Bmask);
 
 	return true;
 }
@@ -229,11 +258,10 @@ void getHostCharacteristics(Container &modes)
 	// FIXME: implement me
 }
 
-
 };
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
 {
 	DPRINTF("Making new window %d x %d\n", chr.width, chr.height);
-	return new SDLSystemDisplay(title, chr.width, chr.height, chr, redraw_ms);
+	return new SDLSystemDisplay(title, chr, redraw_ms);
 }

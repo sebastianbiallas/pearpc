@@ -110,7 +110,7 @@ public:
 
 		mClientChar = aClientChar;
 		convertCharacteristicsToHost(mXChar, mClientChar);
-		
+
 		int screen_num = DefaultScreen(gX11Display);
 		gX11Window = XCreateSimpleWindow(gX11Display, 
 			RootWindow(gX11Display, screen_num), 0, 0,

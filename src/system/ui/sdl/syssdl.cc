@@ -31,6 +31,7 @@
 #include "system/display.h"
 #include "system/keyboard.h"
 #include "system/mouse.h"
+#include "system/systimer.h"
 
 #include "tools/snprintf.h"
 
@@ -60,15 +61,16 @@ static uint8 sdl_key_to_adb_key[256] = {
 
 static bool handleSDLEvent(const SDL_Event &event)
 {
+//	static bool visible = true;
+//	static bool mapped = true;
+	static bool mouseButton[3] = {false, false, false};
+	bool tmpMouseButton[3];
+
 	SystemEvent ev;
 	switch (event.type) {
 	case SDL_VIDEOEXPOSE:
-		if(SDL_MUSTLOCK(gSDLScreen))
-			SDL_LockSurface(gSDLScreen);
 		damageFrameBufferAll();
 		gDisplay->displayShow();
-		if(SDL_MUSTLOCK(gSDLScreen))
-			SDL_UnlockSurface(gSDLScreen);
 		return true;
 	case SDL_QUIT: // should we trap this and send power key?
 		SDL_WM_GrabInput(SDL_GRAB_OFF);
@@ -104,110 +106,65 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.scancode];
 		ev.key.chr = event.key.keysym.unicode;
 		return gKeyboard->handleEvent(ev);
-	}
-/*	static bool mouseButton[3] = {false, false, false};
-
-	switch (event.type) {
-	case GraphicsExpose:
-	case Expose:
-		damageFrameBufferAll();
-		gDisplay->displayShow();
-		break;
-	case KeyRelease: {
-		char buffer[4];
-		SystemEvent ev;
-		XComposeStatus compose;
-		KeySym keysym;
-
-		ev.key.keycode = x11_key_to_adb_key[event.xkey.keycode];
-		if ((ev.key.keycode & 0xff) == 0xff) break;
-		ev.type = sysevKey;
-		ev.key.pressed = false;
-
-		sys_lock_mutex(gSDLMutex);
-		XLookupString((XKeyEvent*)&event, buffer, sizeof buffer, &keysym, &compose);
-		sys_unlock_mutex(gSDLMutex);
-		ev.key.chr = buffer[0];
-
-		gKeyboard->handleEvent(ev);
-		break;
-	}
-	case KeyPress: {
-		char buffer[4];
-		XComposeStatus compose;
-		KeySym keysym;
-
-		SystemEvent ev;
-		ev.key.keycode = x11_key_to_adb_key[event.xkey.keycode];
-		if ((ev.key.keycode & 0xff) == 0xff) break;
-		ev.type = sysevKey;
-		ev.key.pressed = true;
-		ev.key.keycode = x11_key_to_adb_key[event.xkey.keycode];
-
-		sys_lock_mutex(gSDLMutex);
-		XLookupString((XKeyEvent*)&event, buffer, sizeof buffer, &keysym, &compose);
-		sys_unlock_mutex(gSDLMutex);
-		ev.key.chr = buffer[0];
-
-		gKeyboard->handleEvent(ev);
-		break;
-	}
-	case ButtonPress: {
-		SystemEvent ev;
+	case SDL_MOUSEBUTTONDOWN:
 		ev.type = sysevMouse;
-		switch (((XButtonEvent *)&event)->button) {
-		case Button1:
-			mouseButton[0] = true;
-			break;
-		case Button2:
-			mouseButton[1] = true;
-			break;
-		case Button3:
-			mouseButton[2] = true;
-			break;
-		}
 		ev.mouse.type = sme_buttonPressed;
-		ev.mouse.button1 = mouseButton[0];
-		ev.mouse.button2 = mouseButton[2];
-		ev.mouse.button3 = mouseButton[1];
-		ev.mouse.x = gDisplay->mCurMouseX;
-		ev.mouse.y = gDisplay->mCurMouseY;
-		ev.mouse.relx = 0;
-		ev.mouse.rely = 0;
-
-		gMouse->handleEvent(ev);
-		break;
-	}
-	case ButtonRelease: {
-		SystemEvent ev;	
-		ev.type = sysevMouse;
-		switch (((XButtonEvent *)&event)->button) {
-		case Button1:
-			mouseButton[0] = false;
-			break;
-		case Button2:
-			mouseButton[1] = false;
-			break;
-		case Button3:
-			mouseButton[2] = false;
-			break;
+		memcpy(tmpMouseButton, mouseButton, sizeof (tmpMouseButton));
+		if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(3))
+			tmpMouseButton[2] = true;
+		if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(2))
+			tmpMouseButton[1] = true;
+		if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(1))
+			tmpMouseButton[0] = true;
+		ev.mouse.button1 = tmpMouseButton[0];
+		ev.mouse.button2 = tmpMouseButton[1];
+		ev.mouse.button3 = tmpMouseButton[2];
+		if (mouseButton[0] != tmpMouseButton[0]) {
+			ev.mouse.dbutton = 1;
+		} else if (mouseButton[1] != tmpMouseButton[1]) {
+			ev.mouse.dbutton = 2;
+		} else if (mouseButton[2] != tmpMouseButton[2]) {
+			ev.mouse.dbutton = 3;
+		} else {
+			ev.mouse.dbutton = 0;
 		}
-		ev.mouse.type = sme_buttonReleased;
-		ev.mouse.button1 = mouseButton[0];
-		ev.mouse.button2 = mouseButton[2];
-		ev.mouse.button3 = mouseButton[1];
+		memcpy(mouseButton, tmpMouseButton, sizeof (tmpMouseButton));
 		ev.mouse.x = gDisplay->mCurMouseX;
 		ev.mouse.y = gDisplay->mCurMouseY;
 		ev.mouse.relx = 0;
 		ev.mouse.rely = 0;
-
-		gMouse->handleEvent(ev);
-		break;
-	}
-	case MotionNotify: {
-		SystemEvent ev;	
-		gDisplay->mCurMouseX = ev.mouse.x = ((XPointerMovedEvent *)&event)->x;
-		gDisplay->mCurMouseY = ev.mouse.y = ((XPointerMovedEvent *)&event)->y;
+		return gMouse->handleEvent(ev);
+	case SDL_MOUSEBUTTONUP:
+		ev.type = sysevMouse;
+		ev.mouse.type = sme_buttonReleased;
+		memcpy(tmpMouseButton, mouseButton, sizeof (tmpMouseButton));
+		if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(3))
+			tmpMouseButton[2] = false;
+		if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(2))
+			tmpMouseButton[1] = false;
+		if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(1))
+			tmpMouseButton[0] = false;
+		ev.mouse.button1 = tmpMouseButton[0];
+		ev.mouse.button2 = tmpMouseButton[1];
+		ev.mouse.button3 = tmpMouseButton[2];
+		if (mouseButton[0] != tmpMouseButton[0]) {
+			ev.mouse.dbutton = 1;
+		} else if (mouseButton[1] != tmpMouseButton[1]) {
+			ev.mouse.dbutton = 2;
+		} else if (mouseButton[2] != tmpMouseButton[2]) {
+			ev.mouse.dbutton = 3;
+		} else {
+			ev.mouse.dbutton = 0;
+		}
+		memcpy(mouseButton, tmpMouseButton, sizeof (tmpMouseButton));
+		ev.mouse.x = gDisplay->mCurMouseX;
+		ev.mouse.y = gDisplay->mCurMouseY;
+		ev.mouse.relx = 0;
+		ev.mouse.rely = 0;
+		return gMouse->handleEvent(ev);
+	case SDL_MOUSEMOTION:
+		gDisplay->mCurMouseX = ev.mouse.x = gDisplay->mHomeMouseX + event.motion.xrel;
+		gDisplay->mCurMouseY = ev.mouse.y = gDisplay->mHomeMouseY + event.motion.yrel;
 		if (gDisplay->mCurMouseX == gDisplay->mHomeMouseX && gDisplay->mCurMouseY == gDisplay->mHomeMouseY) break;
 		if (gDisplay->mCurMouseX == -1) break;
 		ev.type = sysevMouse;
@@ -215,17 +172,15 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.button1 = mouseButton[0];
 		ev.mouse.button2 = mouseButton[1];
 		ev.mouse.button3 = mouseButton[2];
+		ev.mouse.dbutton = 0;
 		ev.mouse.relx = gDisplay->mCurMouseX - gDisplay->mHomeMouseX;
 		ev.mouse.rely = gDisplay->mCurMouseY - gDisplay->mHomeMouseY;
-		if (gDisplay->isMouseGrabbed()) {
-			sys_lock_mutex(gSDLMutex);
-			XWarpPointer(gSDLScreen, gSDLWindow, gSDLWindow, 0, 0, 0, 0, gDisplay->mHomeMouseX, gDisplay->mHomeMouseY);
-			sys_unlock_mutex(gSDLMutex);
-		}
-
-		gMouse->handleEvent(ev);
-		break;
+		return gMouse->handleEvent(ev);
 	}
+/*	static bool mouseButton[3] = {false, false, false};
+
+	switch (event.type) {
+
 	case EnterNotify:
 		gDisplay->mCurMouseX = ((XEnterWindowEvent *)&event)->x;
 		gDisplay->mCurMouseY = ((XEnterWindowEvent *)&event)->y;
@@ -251,20 +206,20 @@ static bool handleSDLEvent(const SDL_Event &event)
 	return false;
 }
 
-static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
+static void SDL_redrawCallback(sys_timer t)
 {
 	SDL_Event event;
 
 	event.type = SDL_VIDEOEXPOSE;
 	SDL_PushEvent(&event);
-	return 0;
 }
+
+sys_timer gSDLRedrawTimer;
 
 static void *SDLeventLoop(void *p)
 {
-	int redraw_interval_msec = gDisplay->mRedraw_ms;
-
-//	SDL_AddTimer(redraw_interval_msec, SDL_redrawCallback, NULL);
+	sys_create_timer(&gSDLRedrawTimer, SDL_redrawCallback);
+	sys_set_timer(gSDLRedrawTimer, 0, gDisplay->mRedraw_ms*1000000, true);
 
 	while (1) {
 		SDL_Event event;
