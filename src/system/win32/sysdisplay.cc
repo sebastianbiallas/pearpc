@@ -572,9 +572,13 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					ev->keyEvent.keycode = scancode_to_mackey[0x138];
 					gEventQueue->enQueue(new Pointer(ev));
 				} else {
-					ev->keyEvent.chr = chr;
 					ev->keyEvent.keycode = scancode_to_mackey[scancode];
-					gEventQueue->enQueue(new Pointer(ev));
+					if ((ev.keyEvent.keycode & 0xff) != 0xff) {
+						ev->keyEvent.chr = chr;
+						gEventQueue->enQueue(new Pointer(ev));
+					} else {
+						free(ev);
+					}
 				}
 				LeaveCriticalSection(&gEventCS);
 			}
@@ -592,9 +596,13 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 			ev->keyEvent.keycode = scancode_to_mackey[scancode] | 0x80000000;
 
-			EnterCriticalSection(&gEventCS);
-			gEventQueue->enQueue(new Pointer(ev));
-			LeaveCriticalSection(&gEventCS);
+			if ((ev.keyEvent.keycode & 0xff) != 0xff) {
+				EnterCriticalSection(&gEventCS);
+				gEventQueue->enQueue(new Pointer(ev));
+				LeaveCriticalSection(&gEventCS);
+			} else {
+				free(ev);
+			}
 		}
 		break;
 	}
