@@ -2114,11 +2114,6 @@ JITCFlow ppc_opc_gen_srawix()
 	}
 	return flowContinue;
 }
-JITCFlow ppc_opc_gen_srawixx()
-{
-	ppc_opc_gen_interpret(ppc_opc_srawix);
-	return flowEndBlock;
-}
 /*
  *	srwx		Shift Right Word
  *	.631
