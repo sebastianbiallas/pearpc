@@ -884,7 +884,7 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 //				IO_CUDA_WARN("Tried to process event: %d.\n", k);
 				return k;
 			} else {
-				IO_CUDA_TRACE2("left: %d\n", gCUDA.left);
+				IO_CUDA_WARN("left: %d\n", gCUDA.left);
 //					pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 			}
 		} else {
