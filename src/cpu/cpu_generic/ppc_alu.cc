@@ -27,8 +27,6 @@
 #include "ppc_opc.h"
 #include "ppc_tools.h"
 
-#include <valgrind/memcheck.h>
-
 static inline uint32 ppc_mask(int MB, int ME)
 {
 	uint32 mask;
@@ -399,10 +397,6 @@ void ppc_opc_cmp()
 	cr >>= 2;
 	sint32 a = gCPU.gpr[rA];
 	sint32 b = gCPU.gpr[rB];
-	if (!VALGRIND_CHECK_READABLE(a, sizeof a) || !VALGRIND_CHECK_READABLE(b, sizeof b)) {
-		ht_printf("%08x <--\n", gCPU.pc);
-//		SINGLESTEP("");
-	}
 	uint32 c;
 	if (a < b) {
 		c = 8;
