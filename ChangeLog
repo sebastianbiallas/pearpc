@@ -10,8 +10,10 @@ version 0.2 (in progress):
 	- configure support for mingw
 	- applied Francois Revol's BeOS patches (no.2+4).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
-	- HFS partition code fixes
+	- HFS partition code fixes (untested!)
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c
+	- applied Anders F.Bjoerklund's patches (no.1+X11) to run PearPC on Mac OS X
+	- implemented conditional redraw code proposed by Jan von der Heydt
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

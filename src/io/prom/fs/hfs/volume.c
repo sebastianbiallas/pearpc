@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.c,v 1.4 2004/05/20 17:52:08 steveman Exp $
+ * $Id: volume.c,v 1.5 2004/05/21 21:58:23 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -246,13 +246,17 @@ int v_geometry(hfsvol *vol, int pnum)
     }
   else
     {
-      while (pnum--)
+/*      while (pnum--)
 	{
 	  found = m_findpmentry(vol, "Apple_HFS", &map, &bnum);
 	  if ((found == -1) || !found) found = m_findpmentry(vol, "Apple_Bootstrap", &map, &bnum);
 	  if ((found == -1 || !found) && !pnum)
 	    goto fail;
-	}
+	}*/
+      bnum = pnum;
+      found = m_findpmentry(vol, "Apple_HFS", &map, &bnum);
+      if ((found == -1) || !found) found = m_findpmentry(vol, "Apple_Bootstrap", &map, &bnum);
+      if (found == -1 || !found) goto fail;
 
       vol->vstart = map.pmPyPartStart;
       vol->vlen   = map.pmPartBlkCnt;

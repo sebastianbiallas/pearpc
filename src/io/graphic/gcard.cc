@@ -28,8 +28,6 @@
 #include "io/pic/pic.h"
 #include "gcard.h"
 
-extern byte *framebuffer;
-
 DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES] = {
 	{width: 640, height: 480, bytesPerPixel: 1, indexed: true,
 	 redShift: 0, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 16, blueSize: 8},
@@ -110,7 +108,8 @@ void FASTCALL gcard_write_1(uint32 addr, uint32 data)
 /*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
 	}*/
-	*(uint8*)(framebuffer+addr) = data;
+	*(uint8*)(gFramebuffer+addr) = data;
+	damageFrameBuffer(addr);
 }
  
 void FASTCALL gcard_write_2(uint32 addr, uint32 data)
@@ -119,7 +118,8 @@ void FASTCALL gcard_write_2(uint32 addr, uint32 data)
 /*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
 	}*/
-	*(uint16*)(framebuffer+addr) = MAYBE_PPC_HALF_TO_BE(data);
+	*(uint16*)(gFramebuffer+addr) = MAYBE_PPC_HALF_TO_BE(data);
+	damageFrameBuffer(addr);
 }
  
 void FASTCALL gcard_write_4(uint32 addr, uint32 data)
@@ -128,7 +128,8 @@ void FASTCALL gcard_write_4(uint32 addr, uint32 data)
 /*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
 	}*/
-	*(uint32*)(framebuffer+addr) = MAYBE_PPC_WORD_TO_BE(data);
+	*(uint32*)(gFramebuffer+addr) = MAYBE_PPC_WORD_TO_BE(data);
+	damageFrameBuffer(addr);
 }
  
 void FASTCALL gcard_write_8(uint32 addr, uint64 data)
@@ -137,31 +138,32 @@ void FASTCALL gcard_write_8(uint32 addr, uint64 data)
 /*	if (addr >= 1024*768*4) {
 		IO_GRAPHIC_ERR("out of bounds\n");
 	}*/
-	*(uint64*)(framebuffer+addr) = MAYBE_PPC_DWORD_TO_BE(data);
+	*(uint64*)(gFramebuffer+addr) = MAYBE_PPC_DWORD_TO_BE(data);
+	damageFrameBuffer(addr);
 }
  
 void FASTCALL gcard_read_1(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = (*(uint8*)(framebuffer+addr));
+	data = (*(uint8*)(gFramebuffer+addr));
 }
 
 void FASTCALL gcard_read_2(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = MAYBE_PPC_HALF_TO_BE(*(uint16*)(framebuffer+addr));
+	data = MAYBE_PPC_HALF_TO_BE(*(uint16*)(gFramebuffer+addr));
 }
 
 void FASTCALL gcard_read_4(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = MAYBE_PPC_WORD_TO_BE(*(uint32*)(framebuffer+addr));
+	data = MAYBE_PPC_WORD_TO_BE(*(uint32*)(gFramebuffer+addr));
 }
 
 void FASTCALL gcard_read_8(uint32 addr, uint64 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
-	data = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(framebuffer+addr));
+	data = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(gFramebuffer+addr));
 }
 
 static bool gVBLon = false;

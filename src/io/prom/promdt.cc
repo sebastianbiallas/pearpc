@@ -376,7 +376,6 @@ PromInstanceATY::PromInstanceATY(PromNode *type, const String &param)
 {
 }
 
-extern byte *framebuffer;
 void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 {
 //	va->args[] = ;
@@ -389,7 +388,7 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 		uint32 width = pa->args[3];
 		uint32 height = pa->args[2];
 		uint32 bpx = gDisplay->mClientChar.bytesPerPixel;
-		byte *f = framebuffer + y*gDisplay->mClientChar.width*bpx + x*bpx;
+		byte *f = gFramebuffer + y*gDisplay->mClientChar.width*bpx + x*bpx;
 		for (uint iy = 0; iy < height; iy++) {
 			for (uint ix = 0; ix < width; ix++) {
 				switch (bpx) {
@@ -420,6 +419,7 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 			}
 			f += (gDisplay->mClientChar.width - width)*bpx;
 		}
+		damageFrameBufferAll();
 		pa->args[7] = 0;
 	} else if (strcmp(method, "fill-rectangle") == 0) {
 		uint32 color = pa->args[6];
@@ -432,11 +432,11 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 		for (uint iy=0; iy < height; iy++) {
 			for (uint ix=0; ix < width; ix++) {
 				if (bpx > 2) {
-					framebuffer[f++] = color >> 24;
-					framebuffer[f++] = color >> 16;
+					gFramebuffer[f++] = color >> 24;
+					gFramebuffer[f++] = color >> 16;
 				}
-				if (bpx > 1) framebuffer[f++] = color >> 8;
-				framebuffer[f++] = color;
+				if (bpx > 1) gFramebuffer[f++] = color >> 8;
+				gFramebuffer[f++] = color;
 			}
 			f += (gDisplay->mClientChar.width - width)*bpx;
 		}

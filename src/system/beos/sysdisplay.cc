@@ -131,7 +131,7 @@ static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
 }
 
 
-byte *framebuffer = NULL;
+byte *gFramebuffer = NULL;
 static byte *beosframebuffer = NULL;
 /* old value of framebuffer, after replacing with BBitmap::Bits() */
 /*
@@ -446,20 +446,20 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 	// Maybe client and (X-)server display characeristics match
 	if (0 && memcmp(&mClientChar, &mBeChar, sizeof (mClientChar)) == 0) {
 		fprintf(stderr, "client and server display characteristics match!!\n");
-		framebuffer = (byte *)fbBitmap->Bits();
+		gFramebuffer = (byte *)fbBitmap->Bits();
 	
 #if 0
 		gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-			XDepth, ZPixmap, 0, (char*)framebuffer,
+			XDepth, ZPixmap, 0, (char*)gFramebuffer,
 			mBeChar.width, mBeChar.height,
 			mBeChar.bytesPerPixel*8, 0);
 #endif
 	} else {
 		// Otherwise we need a second framebuffer
 		beosframebuffer = (byte *)fbBitmap->Bits();
-		framebuffer = (byte*)malloc(mClientChar.width *
+		gFramebuffer = (byte*)malloc(mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
-		memset(framebuffer, 0, mClientChar.width *
+		memset(gFramebuffer, 0, mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
 			
 		fprintf(stderr, "client and server display characteristics DONT match :-(\n");
@@ -509,8 +509,8 @@ BeOSSystemDisplay::~BeOSSystemDisplay()
 	free(mTitle);
 	free(mouseData);
 	if (beosframebuffer)
-		free(framebuffer);
-	framebuffer = NULL;
+		free(gFramebuffer);
+	gFramebuffer = NULL;
 	beosframebuffer = NULL;
 #ifdef BMP_MENU
 	//if (menuData) free(menuData);
@@ -537,7 +537,7 @@ void BeOSSystemDisplay::finishMenu()
 		memmove(menuData, beosframebuffer, mBeChar.width * mMenuHeight
 			* mBeChar.bytesPerPixel);
 	} else {
-		memmove(menuData, framebuffer, mBeChar.width * mMenuHeight
+		memmove(menuData, gFramebuffer, mBeChar.width * mMenuHeight
 			* mBeChar.bytesPerPixel);
 	}
 	if (fMenuBitmap) {
@@ -870,7 +870,7 @@ void BeOSSystemDisplay::displayShow()
 void BeOSSystemDisplay::convertDisplayClientToServer()
 {
 	if (!beosframebuffer) return;	// great! nothing to do.
-	byte *buf = framebuffer;
+	byte *buf = gFramebuffer;
 	byte *xbuf = beosframebuffer;
 /*	if ((mClientChar.bytesPerPixel == 2) && (mBeChar.bytesPerPixel == 2)) {
 		posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);

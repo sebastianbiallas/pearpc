@@ -34,6 +34,32 @@
 
 #define	GC_TRANSPARENT		'0'		// transparent
 
+extern byte *gFramebuffer;
+extern uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+
+inline void damageFrameBuffer(uint addr)
+{
+	if (addr < gDamageAreaFirstAddr) {
+		gDamageAreaFirstAddr = addr;
+	}
+
+	if (addr > gDamageAreaLastAddr) {
+		gDamageAreaLastAddr = addr;
+	}
+}
+
+inline void damageFrameBufferAll()
+{
+	gDamageAreaFirstAddr = 0;
+	gDamageAreaLastAddr = 0xfffffff0;
+}
+
+inline void healFrameBuffer()
+{
+	gDamageAreaFirstAddr = 0xfffffff0;
+	gDamageAreaLastAddr = 0;
+}
+
 /* virtual colors */
 
 typedef int vc;

@@ -185,7 +185,6 @@ void SystemDisplay::fillAllVT(vcp color, byte chr)
 	fillVT(0, 0, mVTWidth, mVTHeight, color, chr);
 }
 
-extern byte *framebuffer;
 void SystemDisplay::drawChar(int x, int y, vcp color, byte chr)
 {
 	buf[y*mVTWidth+x].rawchar = chr;	
@@ -417,7 +416,7 @@ void SystemDisplay::clickMenu(int x, int y)
 void SystemDisplay::composeKeyDialog()
 {
 	byte *oldframebuffer = (byte*)malloc(mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
-	memmove(oldframebuffer, framebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
+	memmove(oldframebuffer, gFramebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
 
 	const int w = 400;
 	const int h = 200;
@@ -431,7 +430,7 @@ void SystemDisplay::composeKeyDialog()
 	const RGBA tr = MK_RGBA(0,0,0,0);
 	while (1) {
 redo:
-		memmove(framebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
+		memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
 		drawBox(x, y, w, h, fg, bg);
 		outText(x+10, y+10, fg, tr, "Press keys to compose key sequence...");
 
@@ -481,7 +480,7 @@ redo:
 		queueEvent(ev);
 	}
 
-	memmove(framebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
+	memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
 	free(oldframebuffer);
 }
 
@@ -573,11 +572,12 @@ void SystemDisplay::mixRGBA(byte *pixel, RGBA rgba)
 
 void SystemDisplay::putPixelRGB(int x, int y, RGB rgb)
 {
-	mixRGB(&framebuffer[(x+y*mClientChar.width)*mClientChar.bytesPerPixel], rgb);
+	mixRGB(&gFramebuffer[(x+y*mClientChar.width)*mClientChar.bytesPerPixel], rgb);
+	damageFrameBufferAll();
 }
 
 void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 {
-	mixRGBA(&framebuffer[(x+y*mClientChar.width)*mClientChar.bytesPerPixel], rgba);
+	mixRGBA(&gFramebuffer[(x+y*mClientChar.width)*mClientChar.bytesPerPixel], rgba);
+	damageFrameBufferAll();
 }
-

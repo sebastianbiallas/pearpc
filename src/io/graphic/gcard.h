@@ -114,5 +114,6 @@ void gcard_osi();
 
 void gcard_init();
 void gcard_init_config();
+
 #endif
 

@@ -210,8 +210,6 @@ bool Gif::load(Stream &stream)
 	return true;
 }
 
-extern byte *framebuffer;
-
 void Gif::draw(SystemDisplay *display, int x, int y)
 {
 	int p=0;
@@ -219,7 +217,7 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 	case 1:
 		return;
 	case 2: {
-		byte *f = framebuffer+y*display->mClientChar.width*2+x*2;
+		byte *f = gFramebuffer+y*display->mClientChar.width*2+x*2;
 		for (int i=0; i<mHeight; i++) {
 			for (int j=0; j<mWidth; j++) {
 				int c = pic[p]*3;
@@ -233,7 +231,7 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 		break;
 	}
 	case 4: {
-		byte *f = framebuffer+y*display->mClientChar.width*4+x*4;
+		byte *f = gFramebuffer+y*display->mClientChar.width*4+x*4;
 		for (int i=0; i<mHeight; i++) {
 			for (int j=0; j<mWidth; j++) {
 				int c = pic[p]*3;

@@ -38,9 +38,11 @@
 #undef FASTCALL
 #include "system/types.h"
 
+byte *gFramebuffer = NULL;
+uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+
 static HINSTANCE gHInst;
 static HWND gHWNDMain;
-byte *framebuffer = NULL;
 static byte *winframebuffer = NULL;
 static int gWidth;
 static int gHeight; 
@@ -109,15 +111,16 @@ public:
 
 		gHInst = GetModuleHandle(NULL);
 
-		framebuffer = (byte*)malloc(mClientChar.width 
+		gFramebuffer = (byte*)malloc(mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
 		winframebuffer = (byte*)malloc(mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
-		memset(framebuffer, 0, mClientChar.width 
+		memset(gFramebuffer, 0, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
 		gEventQueue = new Queue(true);
 		gWidth = mWinChar.width;
 		gHeight = mWinChar.height;
+		damageFrameBufferAll();
 
 		switch (mWinChar.bytesPerPixel) {
 		case 1:
@@ -184,7 +187,7 @@ public:
 		DeleteCriticalSection(&gEventCS);
 
 		delete gEventQueue;
-		free(framebuffer);
+		free(gFramebuffer);
 		free(winframebuffer);
 	}
 
@@ -214,7 +217,7 @@ public:
 		// Is this ugly? Yes!
 		fillRGB(0, 0, mClientChar.width, mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
 		drawMenu();
-		displayConvert();
+		displayConvert(0, mClientChar.height-1);
 		memmove(menuData, winframebuffer, mWinChar.width * mMenuHeight
 			* mWinChar.bytesPerPixel);
 		InvalidateRect(gHWNDMain, NULL, FALSE);
@@ -278,14 +281,15 @@ public:
 		gEventQueue->enQueue(new Pointer(e));
 	}
 
-	void displayConvert()
+	void displayConvert(uint firstLine, uint lastLine)
 	{
-		byte *buf = framebuffer;
+		byte *buf = gFramebuffer;
 		byte *xbuf = winframebuffer;
 		if (win32_vaccel_func) {
+			// FIXME: take advantage of first/lastLine
 			win32_vaccel_func(mClientChar.height*mClientChar.width, buf, xbuf);
 		} else {
-			for (int y=0; y < mClientChar.height; y++) {
+			for (int y=firstLine; y <= lastLine; y++) {
 				for (int x=0; x < mClientChar.width; x++) {
 					uint r, g, b;
 					uint p;
@@ -332,28 +336,58 @@ public:
 
 	virtual void displayShow()
 	{
-		displayConvert();
+		uint firstDamagedLine, lastDamagedLine;
+		if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
+		        return;
+		}
+		gDamageAreaLastAddr += 3;	// this is a hack. For speed reasons we
+						// inaccurately set gDamageAreaLastAddr
+						// to the first (not last) byte accessed
+						// accesses are up to 4 bytes "long".
+
+		firstDamagedLine = gDamageAreaFirstAddr / (gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel);
+		lastDamagedLine = gDamageAreaLastAddr / (gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel);
+		// Overflow may happen, because of the hack used above
+		// and others, that set lastAddr = 0xfffffff0
+		if (lastDamagedLine >= mClientChar.height) {
+			lastDamagedLine = mClientChar.height-1;
+		}
+
+		displayConvert(firstDamagedLine, lastDamagedLine);
+
 		EnterCriticalSection(&gDrawCS);
-#if 0
+
 		HDC hdc = GetDC(gHWNDMain);
 
-		HGDIOBJ oldObj = SelectObject(gMemoryDC, gMemoryBitmap);
+		//HGDIOBJ oldObj = SelectObject(gMemoryDC, gMemoryBitmap);
 
-		StretchDIBits(gMemoryDC, 0, 0, gWidth, gHeight, 0, 0,
-			gWidth, gHeight, framebuffer, &gBitmapInfo, DIB_RGB_COLORS, SRCCOPY);
+		//SelectObject(gMemoryDC, oldObj);
 
-		SelectObject(gMemoryDC, oldObj);
+		SetDIBitsToDevice(
+			hdc,
+			0,
+			gMenuHeight+firstDamagedLine,
+			gWidth,
+			lastDamagedLine-firstDamagedLine+1,  // number of lines to draw
+			0,
+			gHeight-lastDamagedLine-1, // line src-position (0,0 = lower left)
+			0,
+        		gHeight,
+			winframebuffer, &gBitmapInfo, DIB_RGB_COLORS);
 
 		ReleaseDC(gHWNDMain, hdc);
-#endif
-		RECT updated_area;
-	        updated_area.left = 0;
-	        updated_area.right = gWidth;
-	        updated_area.top = gMenuHeight;
-	        updated_area.bottom = gMenuHeight+gHeight;
-		InvalidateRect(gHWNDMain, &updated_area, FALSE);
-	
+		/*RECT updated_area;
+		updated_area.left = 0;
+		updated_area.right = gWidth;
+		updated_area.top = gMenuHeight;
+		updated_area.bottom = gMenuHeight+gHeight;*/
+		// Dont Invalidate or WM_PAINT would be called....
+		//InvalidateRect(gHWNDMain, &updated_area, FALSE);
+
 		LeaveCriticalSection(&gDrawCS);
+
+		// clean up for next redraw
+		healFrameBuffer();
 	}
 
 	virtual	void startRedrawThread(int msec)
@@ -510,35 +544,26 @@ byte scancode_to_mackey[] = {
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch (msg) {
-	case WM_PAINT: {
+	case WM_PAINT: 
+	{
 		EnterCriticalSection(&gDrawCS);
 		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hwnd, &ps);
-#if 1
-		SetDIBitsToDevice(hdc, 0, 0, gWidth, gMenuHeight, 0, 0,
-			0, gMenuHeight, menuData, &gMenuBitmapInfo, DIB_RGB_COLORS);
-		SetDIBitsToDevice(hdc, 0, gMenuHeight, gWidth, gHeight, 0, 0,
-			0, gHeight, winframebuffer, &gBitmapInfo, DIB_RGB_COLORS);
-/*		StretchDIBits(hdc, 0, 0, gWidth, gMenuHeight, 0, 0,
-			gWidth, gMenuHeight, menuData, &gMenuBitmapInfo, DIB_RGB_COLORS, SRCCOPY);
-		StretchDIBits(hdc, 0, gMenuHeight, gWidth, gHeight, 0, 0,
-			gWidth, gHeight, winframebuffer, &gBitmapInfo, DIB_RGB_COLORS, SRCCOPY);*/
-#else
-		HDC hdcMem = CreateCompatibleDC(hdc);
-		SelectObject(hdcMem, gMemoryBitmap);
-		const int stretch_factor = 1;
-		StretchBlt(hdc, ps.rcPaint.left, ps.rcPaint.top,
-			ps.rcPaint.right - ps.rcPaint.left + 1,
-			ps.rcPaint.bottom - ps.rcPaint.top + 1, hdcMem,
-			ps.rcPaint.left / stretch_factor, ps.rcPaint.top / stretch_factor,
-			(ps.rcPaint.right - ps.rcPaint.left+1) / stretch_factor,
-			(ps.rcPaint.bottom - ps.rcPaint.top+1) / stretch_factor,
-			SRCCOPY);
-		DeleteDC(hdcMem);
-#endif
-
-		EndPaint(hwnd, &ps);
-		LeaveCriticalSection(&gDrawCS);
+		
+		if (GetUpdateRect(hwnd,NULL,false))
+		{
+			//ht_printf("updating full window\n");
+			// someone destroyed our win.. repaint it.
+			HDC hdc = BeginPaint(hwnd, &ps);
+			
+			
+			SetDIBitsToDevice(hdc, 0, 0, gWidth, gMenuHeight, 0, 0,
+				0, gMenuHeight, menuData, &gMenuBitmapInfo, DIB_RGB_COLORS);
+			SetDIBitsToDevice(hdc, 0, gMenuHeight, gWidth, gHeight, 0, 0,
+				0, gHeight, winframebuffer, &gBitmapInfo, DIB_RGB_COLORS);
+			EndPaint(hwnd, &ps); 		
+			
+		}
+ 		LeaveCriticalSection(&gDrawCS);
 		break;
 	}
 	case WM_KEYDOWN:

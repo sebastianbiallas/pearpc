@@ -506,7 +506,7 @@ void drive_ident()
 		id[54] = gIDEState.config[gIDEState.drive].hd.cyl;
 		id[55] = gIDEState.config[gIDEState.drive].hd.heads;
 		id[56] = gIDEState.config[gIDEState.drive].hd.spt;
-	
+
 		uint32 sectors = gIDEState.config[gIDEState.drive].hd.cyl 
 			* gIDEState.config[gIDEState.drive].hd.heads 
 			* gIDEState.config[gIDEState.drive].hd.spt;
@@ -524,7 +524,7 @@ void drive_ident()
 		id[68] = 0;
 		id[69] = 0; // res
 		id[70] = 0; // res
-		
+
 		id[80] = (1<<2) | (1<<1);
 		id[82] = (1<<14) | (1<<9) | (1<<5) | (1<<3); // command set 1
 		id[83] = (1<<14); // command set 2
@@ -533,6 +533,13 @@ void drive_ident()
 		id[86] = (1<<14); // set feature enabled 2
 		id[87] = (1<<14); // set feature default
 		id[88] = 7; // dma ultra
+			    // bit 15 set indicates UDMA(mode 7) capable
+			    // bit 14 set indicates UDMA(133) capable
+			    // bit 13 set indicates UDMA(100) capable
+			    // bit 12 set indicates UDMA(66) capable
+			    // bit 11 set indicates UDMA(44) capable
+			    // bits 0-2 ???
+
 		id[93] = (1<<14) | 1; // hw config
 /*		// DMA hack
 		id[53] = 4;

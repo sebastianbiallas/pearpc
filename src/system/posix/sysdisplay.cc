@@ -38,7 +38,9 @@
 #define DPRINTF(a...)
 //#define DPRINTF(a...) ht_printf(a)
 
-byte *framebuffer = NULL;
+byte *gFramebuffer = NULL;
+
+uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 struct {
 	uint64 r_mask;
@@ -88,8 +90,7 @@ static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
 	}
 }
 
-
-static byte *Xframebuffer;
+static byte *gXframebuffer;
 static Display *gXDisplay;
 static Window gXWindow;
 static GC gWhiteGC, gBlackGC;
@@ -145,9 +146,13 @@ public:
 		sys_create_mutex(&mutex);
 		mEventQueue = new Queue(true);
 		mMouseEnabled = false;
-		gXDisplay = XOpenDisplay(NULL);		
+		char *display = getenv("DISPLAY");
+		if (display == NULL) {
+			display = ":0.0";
+		}
+		gXDisplay = XOpenDisplay(display);		
 		if (!gXDisplay) {
-			printf("can't open X display!\n");
+			printf("can't open X11 display (%s)!\n", display);
 			exit(1);
 		}
 
@@ -155,20 +160,21 @@ public:
 			printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
 			exit(1);
 		}
-		
+
 		mMenuHeight = 28;
 
-		framebuffer = (byte*)malloc(mClientChar.width *
+		gFramebuffer = (byte*)malloc(mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
-		memset(framebuffer, 0, mClientChar.width *
+		memset(gFramebuffer, 0, mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
-		
+		damageFrameBufferAll();
+
 		mHomeMouseX = mClientChar.width / 2;
 		mHomeMouseY = mClientChar.height / 2;
-		
+
 		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
 		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
-		
+
 		int screen_num = DefaultScreen(gXDisplay);
 		gXWindow = XCreateSimpleWindow(gXDisplay, 
 			RootWindow(gXDisplay, screen_num), 0, 0,
@@ -243,20 +249,20 @@ public:
 		// Maybe client and (X-)server display characeristics match
 		if (0 && memcmp(&mClientChar, &mXChar, sizeof (mClientChar)) == 0) {
 //			fprintf(stderr, "client and server display characteristics match!!\n");
-			Xframebuffer = NULL;
+			gXframebuffer = NULL;
 
 			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-				XDepth, ZPixmap, 0, (char*)framebuffer,
+				XDepth, ZPixmap, 0, (char*)gFramebuffer,
 				mXChar.width, mXChar.height,
 				mXChar.bytesPerPixel*8, 0);
 		} else {
 			// Otherwise we need a second framebuffer
 //			fprintf(stderr, "client and server display characteristics DONT match :-(\n");
-			Xframebuffer = (byte*)malloc(mXChar.width
+			gXframebuffer = (byte*)malloc(mXChar.width
 				* mXChar.height * mXChar.bytesPerPixel);
 
 			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-				XDepth, ZPixmap, 0, (char*)Xframebuffer,
+				XDepth, ZPixmap, 0, (char*)gXframebuffer,
 				mXChar.width, mXChar.height,
 				mXChar.bytesPerPixel*8, 0);
 		}
@@ -295,7 +301,7 @@ public:
 		gXDisplay = NULL;
 		free(mTitle);
 		free(mouseData);
-		free(framebuffer);
+		free(gFramebuffer);
 		if (menuData) free(menuData);
 	}
 
@@ -311,12 +317,12 @@ public:
 		// Is this ugly? Yes!
 		fillRGB(0, 0, mClientChar.width, mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
 		drawMenu();
-		convertDisplayClientToServer();
-		if (Xframebuffer) {
-			memmove(menuData, Xframebuffer, mXChar.width * mMenuHeight
+		convertDisplayClientToServer(0, mClientChar.height-1);
+		if (gXframebuffer) {
+			memmove(menuData, gXframebuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		} else {
-			memmove(menuData, framebuffer, mXChar.width * mMenuHeight
+			memmove(menuData, gFramebuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		}
 	}
@@ -390,7 +396,8 @@ public:
 			sys_unlock_mutex(mutex);
 			switch (event.type) {
 			case GraphicsExpose:
-			case Expose: 
+			case Expose:
+				damageFrameBufferAll();
 				displayShow();
 				break;
 			case KeyRelease: 
@@ -422,7 +429,7 @@ public:
 			}
 		}
 	}
-	
+
 	virtual bool getEvent(DisplayEvent &ev)
 	{
 		if (!gXDisplay) return false;
@@ -446,6 +453,7 @@ public:
 			switch (event.type) {
 			case Expose: 
 				sys_unlock_mutex(mutex);
+				damageFrameBufferAll();
 				displayShow();
 				sys_lock_mutex(mutex);
 				break;
@@ -559,31 +567,57 @@ public:
 
 	virtual void displayShow()
 	{
-		convertDisplayClientToServer();
+		uint firstDamagedLine, lastDamagedLine;
+		if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
+		        return;
+		}
+		gDamageAreaLastAddr += 3;	// this is a hack. For speed reasons we
+						// inaccurately set gDamageAreaLastAddr
+						// to the first (not last) byte accessed
+						// accesses are up to 4 bytes "long".
+
+		firstDamagedLine = gDamageAreaFirstAddr / (gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel);
+		lastDamagedLine = gDamageAreaLastAddr / (gDisplay->mClientChar.width * gDisplay->mClientChar.bytesPerPixel);
+		// Overflow may happen, because of the hack used above
+		// and others, that set lastAddr = 0xfffffff0 (damageFrameBufferAll())
+		if (lastDamagedLine >= mClientChar.height) {
+			lastDamagedLine = mClientChar.height-1;
+		}
+		convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
+
 		sys_lock_mutex(mutex);
+		// draw menu
 		XPutImage(gXDisplay, gXWindow, gGC, gMenuXImage, 0, 0, 0, 0,
 			gDisplay->mClientChar.width,
 			mMenuHeight);
-		XPutImage(gXDisplay, gXWindow, gGC, gXImage, 0, 0, 0, mMenuHeight,
+
+		XPutImage(gXDisplay, gXWindow, gGC, gXImage,
+			0,
+			firstDamagedLine,
+			0,
+			mMenuHeight+firstDamagedLine,
 			gDisplay->mClientChar.width,
-			gDisplay->mClientChar.height);
-		if (mHWCursorVisible) {
+			lastDamagedLine-firstDamagedLine+1);
+
+/*		if (mHWCursorVisible) {
 			XPutImage(gXDisplay, gXWindow, gGC, gMouseXImage, 0, 0, 
 				mHWCursorX, mHWCursorY, 2, 2);
-		}
+		}*/
 		sys_unlock_mutex(mutex);
+
+		healFrameBuffer();
 	}
 
-	void convertDisplayClientToServer()
+	inline void convertDisplayClientToServer(uint firstLine, uint lastLine)
 	{
-		if (!Xframebuffer) return;	// great! nothing to do.
-		byte *buf = framebuffer;
-		byte *xbuf = Xframebuffer;
+		if (!gXframebuffer) return;	// great! nothing to do.
+		byte *buf = gFramebuffer + mClientChar.bytesPerPixel * gDisplay->mClientChar.width * firstLine;
+		byte *xbuf = gXframebuffer + mClientChar.bytesPerPixel * gDisplay->mClientChar.width * firstLine;
 /*		if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 2)) {
 			posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);
 		} else if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 4)) {
 			posix_vaccel_15_to_32(mClientChar.height*mClientChar.width, buf, xbuf);
-		} else */for (int y=0; y < mClientChar.height; y++) {
+		} else */for (int y=firstLine; y <= lastLine; y++) {
 			for (int x=0; x < mClientChar.width; x++) {
 				uint r, g, b;
 				uint p;
@@ -663,4 +697,3 @@ SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristic
 	if (gDisplay) return gDisplay;
 	return new X11SystemDisplay(title, chr);
 }
-
