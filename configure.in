@@ -96,6 +96,12 @@ cygwin*)
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
 	NASM_OPTS="--prefix _ -f gnuwin32"
 ;;
+mingw32*)
+        SYSTEM_DIR=win32
+	AC_MSG_RESULT([*** MinGW, building native Win32 version])
+        PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
+        NASM_OPTS="--prefix _ -f win32"
+;;
 beos*)
 	SYSTEM_DIR=beos
 	echo "*** BEOS, building native BeOS version (no pthread)" 1>&2
