@@ -201,7 +201,6 @@ inline void ppc_fpu_add_quadro(ppc_quadro &res, ppc_quadro &a, ppc_quadro &b)
 	if (b.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(b, 1);
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
 	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_norm): {
-		// a.m = b.m = [107]
 		int diff = a.e - b.e;
 		if (diff < 0) {
 			diff = -diff;

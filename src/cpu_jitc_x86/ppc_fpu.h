@@ -98,8 +98,7 @@ inline int ppc_count_leading_zeros(uint64 i)
 
 inline int ppc_fpu_normalize_quadro(ppc_quadro &d)
 {
-	int ret = ppc_count_leading_zeros(d.m0);
-	if (ret == 32) ret += ppc_count_leading_zeros(d.m1);
+	int ret = d.m0 ? ppc_count_leading_zeros(d.m0) : 64 + ppc_count_leading_zeros(d.m1);
 	return ret;
 }
 
