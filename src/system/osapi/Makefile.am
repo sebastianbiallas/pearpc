@@ -1,0 +1,18 @@
+AUTOMAKE_OPTIONS = foreign
+
+if USE_OSAPI_BEOS
+THE_OSAPI_DIR=beos
+endif
+
+if USE_OSAPI_POSIX
+THE_OSAPI_DIR=posix
+endif
+
+if USE_OSAPI_WIN32
+THE_OSAPI_DIR=win32
+endif
+
+SUBDIRS = $(THE_OSAPI_DIR)
+EXTRA_SUBDIRS = beos posix win32
+
+INCLUDES = -I ../..
