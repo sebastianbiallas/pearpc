@@ -442,7 +442,6 @@ align 16
 ;;	does not return, so call this per JMP
 ppc_dsi_exception_asm:
 	mov	[gCPU+dar], eax
-	call	ppc_heartbeat_asm
 	mov	edx, [gCPU+pc_ofs]
 	mov	eax, [gCPU+msr]
 	add	edx, [gCPU+current_code_base]
@@ -468,8 +467,6 @@ align 16
 ;;	does not return, so call this per JMP
 ppc_isi_exception_asm:
 	mov	[gCPU+srr0], eax
-	; this can only be called from new_pc
-	; so no heartbeat here
 	mov	eax, [gCPU+msr]
 	and	eax, 0x87c0ffff
 	or	eax, ecx
@@ -490,7 +487,6 @@ align 16
 ;;
 ;;	this is only called indirectly
 ppc_ext_exception_asm:
-	; no heartbeat here 
 	mov	[gCPU+srr0], eax
 	mov	edx, [gCPU+msr]
 	ppc_atomic_cancel_ext_exception_macro
@@ -517,7 +513,6 @@ ppc_program_exception_asm:
 	call	jitc_error_program
 	popa
 	mov	[gCPU+pc_ofs], esi
-	call	ppc_heartbeat_asm
 	mov	eax, [gCPU+msr]
 	mov	edx, esi
 	and	eax, 0x87c0ffff
@@ -543,7 +538,6 @@ align 16
 ppc_no_fpu_exception_asm:
 	mov	edx, esi
 	mov	[gCPU+pc_ofs], esi
-	call	ppc_heartbeat_asm
 	mov	eax, [gCPU+msr]
 	add	edx, [gCPU+current_code_base]
 	and	eax, 0x87c0ffff
@@ -565,7 +559,6 @@ align 16
 ;;
 ;;	this is only called indirectly
 ppc_dec_exception_asm:
-	; no heartbeat here
 	mov	[gCPU+srr0], eax
 	mov	edx, [gCPU+msr]
 	ppc_atomic_cancel_dec_exception_macro
@@ -589,7 +582,6 @@ align 16
 ppc_sc_exception_asm:
 	mov	edx, esi
 	mov	[gCPU+pc_ofs], esi
-	call	ppc_heartbeat_asm
 	mov	eax, [gCPU+msr]
 	add	edx, [gCPU+current_code_base]
 	and	eax, 0x87c0ffff
@@ -602,26 +594,6 @@ ppc_sc_exception_asm:
 	mov	eax, 0xc00	; entry of SC exception
 	mov	[gCPU+start_pc_ofs], eax
 	jmp	ppc_new_pc_intern
-
-align 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;	ppc_heartbeat_asm
-;;
-;;
-ppc_heartbeat_asm:
-	ret
-;	mov	eax, [gCPU+pc_ofs]
-;	sub	eax, [gCPU+start_pc_ofs]
-;	shr	eax, 2
-;	inc	eax
-;	add	[gCPU+tb], eax
-;	adc	dword [gCPU+tb+4], 0
-;	sub	[gCPU+decr], eax
-;	jb	.set_dec_exc
-;	ret
-;.set_dec_exc:
-;	ppc_atomic_raise_dec_exception_macro
-;	ret
 	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -629,35 +601,12 @@ align 16
 ;;
 ;;
 ppc_heartbeat_ext_rel_asm:
-	mov	ecx, esi
-	sub	ecx, [gCPU+start_pc_ofs]
-	shr	ecx, 2
-	inc	ecx
-	sub	[gCPU+check_intr], ecx
 	mov	[gCPU+start_pc_ofs], eax
-	jb	.check_intr
-.back2:
-;	add	[gCPU+tb], ecx
 	mov	[gCPU+pc_ofs], eax
-;	adc	dword [gCPU+tb+4], 0
-;	sub	[gCPU+decr], ecx
-;	jb	.set_dec_exception
 	test	byte [gCPU+exception_pending], 1
 	jnz	.handle_exception
 .back:
 	ret
-.check_intr:
-	pusha
-;	call	ppc_display_jitc_stats
-	call	pic_check_interrupt
-	mov	dword [gCPU+check_intr], 0x3ffff
-	test	eax, eax
-	popa
-	jz	.back2
-;	ppc_atomic_raise_ext_exception_macro
-	jmp	.back2
-;.set_dec_exception:
-;	ppc_atomic_raise_dec_exception_macro
 .handle_exception:
 	test	byte [gCPU+stop_exception], 1
 	jnz	.stop
@@ -678,43 +627,19 @@ ppc_heartbeat_ext_rel_asm:
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	ppc_heartbeat_ext_asm
-;;
+;;	eax -- 
 ;;
 ppc_heartbeat_ext_asm:
-	mov	ecx, esi
 	mov	ebx, eax
-	sub	ecx, [gCPU+start_pc_ofs]
 	mov	edx, eax
-	shr	ecx, 2
 	and	ebx, 0x00000fff
-	inc	ecx
 	and	edx, 0xfffff000
-	sub	[gCPU+check_intr], ecx
-	mov	[gCPU+start_pc_ofs], ebx
-	jb	.check_intr
-.back2:
-;	add	[gCPU+tb], ecx
 	mov	[gCPU+pc_ofs], ebx
-;	adc	dword [gCPU+tb+4], 0
-;	sub	[gCPU+decr], ecx
 	mov	[gCPU+current_code_base], edx
-;	jb	.set_dec_exception
 	test	byte [gCPU+exception_pending], 1
 	jnz	.handle_exception
 .back:
 	ret
-.check_intr:
-	pusha
-;	call	ppc_display_jitc_stats
-	call	pic_check_interrupt
-	mov	dword [gCPU+check_intr], 0x3ffff
-	test	eax, eax
-	popa
-	jz	.back2
-;	ppc_atomic_raise_ext_exception_macro
-	jmp	.back2
-;.set_dec_exception:
-;	ppc_atomic_raise_dec_exception_macro
 .handle_exception:
 	test	byte [gCPU+stop_exception], 1
 	jnz	.stop
@@ -749,7 +674,7 @@ ppc_new_pc_rel_asm:
 	call	ppc_effective_to_physical_code
 	call	jitcNewPC
 	jmp	eax
-	
+
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	ppc_new_pc_asm
