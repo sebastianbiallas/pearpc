@@ -23,6 +23,7 @@
 
 #include "debug/tracers.h"
 #include "system/sys.h"
+#include "system/sysclk.h"
 #include "system/systhread.h"
 #include "system/systimer.h"
 #include "ppc_cpu.h"
@@ -49,16 +50,16 @@ uint64 gJITCRunTicksStart;
 
 uint64 gClientClockFrequency;
 uint64 gClientTimeBaseFrequency;
-uint64 gStartHostCPUTicks;
+uint64 gStartHostCLKTicks;
 
 uint64 ppc_get_cpu_ideal_timebase()
 {
 	uint64 ticks = sys_get_hiresclk_ticks();
-//	if (ticks < gElapsedHostCPUTicks) {
+//	if (ticks < gElapsedHostCLKTicks) {
 //		FIXME: overflow		
 //	}
 	uint64 ticks_per_sec = sys_get_hiresclk_ticks_per_second();
-	return (ticks - gStartHostCPUTicks) * gClientTimeBaseFrequency / ticks_per_sec;
+	return (ticks - gStartHostCLKTicks) * gClientTimeBaseFrequency / ticks_per_sec;
 }
 
 uint64 ppc_get_cpu_timebase()
@@ -84,7 +85,7 @@ void ppc_run()
 	gJITCRunTicksStart = jitcDebugGetTicks();
 	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
 	jitcDebugInit();
-	gStartHostCPUTicks = sys_get_cpu_ticks();
+	gStartHostCLKTicks = sys_get_hiresclk_ticks();
 	gClientClockFrequency = PPC_CLOCK_FREQUENCY;
 	gClientTimeBaseFrequency = PPC_TIMEBASE_FREQUENCY;
 
