@@ -614,7 +614,7 @@ inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
 
 void ppc_fpu_test()
 {
-	ppc_double A, B, C, D, E;
+/*	ppc_double A, B, C, D, E;
 	ppc_fpu_unpack_double(A, 0xc00fafcd6c40e500ULL);
 	ppc_fpu_unpack_double(B, 0xc00fafcd6c40e4beULL);
 	B.s ^= 1;
@@ -622,7 +622,7 @@ void ppc_fpu_test()
 	uint64 e;
 	ppc_fpu_pack_double(E, e);
 	ht_printf("%qx\n", &e);
-	ppc_fpu_add(D, E, B);
+	ppc_fpu_add(D, E, B);*/
 
 /*	ppc_double A, B, C;
 	double a, b, c;
@@ -993,12 +993,8 @@ JITCFlow ppc_opc_gen_fdivsx()
  */
 void ppc_opc_fmaddx()
 {
-//	ht_printf("in fmaddx\n");
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	uint64 a = gCPU.fpr[frA];
-	uint64 b = gCPU.fpr[frB];
-	uint64 c = gCPU.fpr[frC];
 	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
@@ -1006,16 +1002,11 @@ void ppc_opc_fmaddx()
 /*	ppc_fpu_mul(E, A, C);
 	ppc_fpu_add(D, E, B);*/
 	ppc_fpu_mul_add(D, A, C, B);
-	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.000001 && fabs(d) > 0.000001) {
-		PPC_FPU_WARN("b0rken: fmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
-	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmadd.\n");
 	}
-//	ht_printf("end fmaddx\n");
 }
 JITCFlow ppc_opc_gen_fmaddx()
 {
@@ -1088,12 +1079,8 @@ JITCFlow ppc_opc_gen_fmrx()
  */
 void ppc_opc_fmsubx()
 {
-//	ht_printf("in fmsubx\n");
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	uint64 a = gCPU.fpr[frA];
-	uint64 b = gCPU.fpr[frB];
-	uint64 c = gCPU.fpr[frC];
 	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
@@ -1103,16 +1090,11 @@ void ppc_opc_fmsubx()
 	ppc_fpu_add(D, E, B);*/
 	B.s ^= 1;
 	ppc_fpu_mul_add(D, A, C, B);
-	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))-(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.001 && fabs(d) > 0.000001) {
-		PPC_FPU_WARN("b0rken: fmsubx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
-	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmsub.\n");
 	}
-//	ht_printf("end fmsubx\n");
 }
 JITCFlow ppc_opc_gen_fmsubx()
 {
@@ -1163,21 +1145,13 @@ void ppc_opc_fmulx()
 	 || (A.type == ppc_fpr_zero && C.type == ppc_fpr_Inf)) {
 		gCPU.fpscr |= FPSCR_VXIMZ;
 	}
-	double _a = *((double*)(&gCPU.fpr[frA]));
-	double _c = *((double*)(&gCPU.fpr[frC]));
-//	ht_printf("fmulx(%20f, %20f)\n", _a, _c);
 	ppc_fpu_mul(D, A, C);
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-//	double r1 = *((double*)&gCPU.fpr[frD]);
-//	double r2 = _a * _c;
-//	*((double*)&gCPU.fpr[frD]) = r1;
-//	ht_printf("fmulx() result: host: %20f, selfmade: %20f\n", r2, r1);
-	*((double*)&gCPU.fpr[frD]) = *((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])));
+//	*((double*)&gCPU.fpr[frD]) = *((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])));
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmul.\n");
 	}
-//	ht_printf("\nend of fmulx():\n\n");
 }
 JITCFlow ppc_opc_gen_fmulx()
 {
@@ -1296,12 +1270,8 @@ JITCFlow ppc_opc_gen_fnegx()
  */
 void ppc_opc_fnmaddx()
 {
-//	ht_printf("in fnmaddx\n");
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	uint64 a = gCPU.fpr[frA];
-	uint64 b = gCPU.fpr[frB];
-	uint64 c = gCPU.fpr[frC];
 	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
@@ -1310,16 +1280,11 @@ void ppc_opc_fnmaddx()
 	ppc_fpu_add(D, E, B);*/
 	ppc_fpu_mul_add(D, A, C, B);
 	D.s ^= 1;
-	double d = -(*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.001 && fabs(d) > 0.000001) {
-		PPC_FPU_WARN("b0rken: fnmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
-	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmadd.\n");
 	}
-//	ht_printf("end fnmaddx\n");
 }
 JITCFlow ppc_opc_gen_fnmaddx()
 {
@@ -1360,13 +1325,9 @@ JITCFlow ppc_opc_gen_fnmaddsx()
  */
 void ppc_opc_fnmsubx()
 {
-//	ht_printf("in fnmsubx\n");
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	uint64 a = gCPU.fpr[frA];
-	uint64 b = gCPU.fpr[frB];
-	uint64 c = gCPU.fpr[frC];
-	ppc_double A, B, C, D, E;
+	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, gCPU.fpr[frC]);
@@ -1377,16 +1338,11 @@ void ppc_opc_fnmsubx()
 	B.s ^= 1;
 	ppc_fpu_mul_add(D, A, C, B);
 	D.s ^= 1;
-	double d = -(*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))-(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.001 && fabs(d) > 0.000001) {
-		PPC_FPU_WARN("b0rken: fnmsubx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
-	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmsub.\n");
 	}
-//	ht_printf("end fnmsubx\n");
 }
 JITCFlow ppc_opc_gen_fnmsubx()
 {
