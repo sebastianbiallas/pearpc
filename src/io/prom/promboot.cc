@@ -618,7 +618,9 @@ bool mapped_load_chrp(File &f)
 		while (1) {
 			chrpReadWaitForChar(f, buf, sizeof buf, '\n');
 			buflen = strlen(buf);
-			IO_PROM_TRACE("read: %s\n", buf);
+			IO_PROM_TRACE("read %d bytes: %s\n", buflen, buf);
+			if (buflen < 1)
+				continue;
 			if ((buf[0] != '<') || (buflen<3) || (buf[buflen-1] != '>')) return false;
 			if (buf[1] == '/') {
 				if (memcmp(buf, "</CHRP-BOOT>\n", buflen) != 0) return false;

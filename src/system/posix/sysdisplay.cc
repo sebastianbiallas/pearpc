@@ -413,7 +413,7 @@ public:
 				return;
 			case KeyPress:
 				ev.keyEvent.keycode = x11_key_to_adb_key[event.xkey.keycode];
-				if (ev.keyEvent.keycode == KEY_F12) {
+				if ((ev.keyEvent.keycode == KEY_F12) && getCatchMouseToggle()) {
 					clientMouseEnable(!mMouseEnabled);
 					break;
 				}

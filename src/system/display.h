@@ -168,6 +168,9 @@ protected:
 	int		mMenuX, mMenuHeight;
 	Array *		mMenu;
 
+	/* compose dialog */
+	bool		mCatchMouseToggle;
+
 	static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
 	{
 		if (toBits > fromBits) {
@@ -210,6 +213,7 @@ public:
 		void clickMenu(int x, int y);
 		
 		void composeKeyDialog();
+		bool getCatchMouseToggle();
 		void drawCircleFilled(int x, int y, int w, int h, int cx, int cy, int radius, RGBA fg, RGBA bg);
 		void drawBox(int x, int y, int w, int h, RGBA fg, RGBA bg);
 		void setHWCursor(int x, int y, bool visible, byte *data);

@@ -3,6 +3,7 @@
  *	beos_gui.cc
  *
  *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Francois Revol (revol@free.fr)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as

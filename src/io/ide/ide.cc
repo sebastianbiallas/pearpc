@@ -1300,6 +1300,7 @@ void receive_atapi_packet()
 	bool bm_ide_dotransfer(bool &prd_exhausted, uint32 bmide_prd_addr, byte bmide_command, byte bmide_status, uint32 lba, uint32 count)
 	{
 		IO_IDE_TRACE("BM IDE transfer: prd_addr = %08x, lba = %08x, size = %08x\n", bmide_prd_addr, lba, count ? count : gIDEState.sector_count);
+//		printf("holla die waldfee v2\n");
 
 		struct prd_entry {
 			uint32 addr PACKED;

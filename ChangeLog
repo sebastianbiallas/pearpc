@@ -10,12 +10,12 @@ version 0.2 (in progress):
 	  improvements
 	- tools/regex.h dos2unixed and then removed (in no particular order)
 	- configure support for mingw
-	- applied Francois Revol's BeOS patches (no.2+4).
+	- applied Francois Revol's BeOS patches (2,4,6-fixes,6-beos,6-compose).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
-	- HFS partition code fixes (untested!)
+	- HFS partition code fixes (reportedly working)
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c
 	- applied Anders F.Bjoerklund's patches (no.1+X11) to run PearPC on Mac OS X
-	- implemented conditional redraw code proposed by Jan von der Heydt
+	- implemented conditional redraw code proposed by Jens von der Heydt
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

@@ -120,6 +120,7 @@ SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics)
 	mMenu = new Array(true);
 	mMenuX = 0;
 	mMenuHeight = 20;
+	mCatchMouseToggle = true;
 }
 
 SystemDisplay::~SystemDisplay()
@@ -428,6 +429,8 @@ void SystemDisplay::composeKeyDialog()
 	const RGBA fg = MK_RGBA(0,0,0,0xff);
 	const RGBA bg = MK_RGBA(0xaa,0xee,0xee,0xb0);
 	const RGBA tr = MK_RGBA(0,0,0,0);
+	
+	mCatchMouseToggle = false;
 	while (1) {
 redo:
 		memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
@@ -479,10 +482,16 @@ redo:
 		ev.keyEvent.keycode = keys[i];
 		queueEvent(ev);
 	}
+	mCatchMouseToggle = true;
 
 	memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
 	free(oldframebuffer);
 	damageFrameBufferAll();
+}
+
+bool SystemDisplay::getCatchMouseToggle()
+{
+	return mCatchMouseToggle;
 }
 
 void SystemDisplay::outText(int x, int y, RGBA fg, RGBA bg, const char *text)
