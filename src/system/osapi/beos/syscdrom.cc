@@ -27,7 +27,6 @@
 
 #include "debug/tracers.h"
 #include "io/ide/cd.h"
-#include "debug/tracers.h"
 
 /// BeOS ATAPI-based CD-ROM implementation
 class CDROMDeviceBeOS:public CDROMDeviceFile
