@@ -6,7 +6,17 @@
 Main developer: Sebastian Biallas                  <sb @ biallas . net>
 Some major parts by: Stefan Weyergraf
 
-(FIXME: list of contributors, that's not out of date)
+Contributions by (in alphabetical order):
+	* Anders F. Bjoerklund
+	* Roman Bogorodskiy
+	* Eric Estabrooks
+	* Daniel Foesch
+	* Jens von der Heydt
+	* John Kelley
+	* Matt Jobson
+	* Keith Rothman
+	* Alexander Stockinger
+	* Kimball Thurston
 
 Contains code stolen (i.e. copied with respect to the GPL) from:
 
