@@ -1,0 +1,20 @@
+release plan:
+
+    - test 
+	darwin 6.02:            ok
+	darwin 7.01:		ok
+	mac os x 10.3:		finder crash
+	mandrake linux 9.1:	installer crash
+    - gtk/qt configure
+    - no msvc6
+    - source reorganize?
+    - sf account
+==============================
+- intercept focus change and send key-release events
+- jitc config
+- 2.6 kernel console?
+- jmpFixup / Resolve(here) crash?
+- mol?
+- openbsd pci bla
+- dma and who uses it
+- PVR testing

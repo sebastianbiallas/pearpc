@@ -1,0 +1,15 @@
+
+                              AUTHORS
+                            ===========
+
+
+Main developer: Sebastian Biallas                      <sb@biallas.net>
+Some major parts by: Stefan Weyergraf             <stefan@weyergraf.de>
+
+Contains code stolen (i.e. copied with respect to the GPL) from:
+
+	* HT Editor                                 <http://hte.sf.net>
+	* Linux                                     <http://kernel.org>
+	* Bochs	                                  <http://bochs.sf.net>
+	* MOL                               <http://www.maconlinux.org> 
+	* Yaboot                <http://penguinppc.org/projects/yaboot>

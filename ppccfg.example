@@ -1,0 +1,113 @@
+# PearPC Configuration File
+
+#
+# Resolution
+#	
+#	0: 640x480x8 (indexed)
+#	1: 640x480x15
+#	2: 640x480x32
+#	3: 800x600x8 (indexed)
+#	4: 800x600x15
+#	5: 800x600x32
+#	6: 1024x800x8 (indexed)
+#	7: 1024x800x15
+#	8: 1024x800x32
+#
+#	The indexed modes are unsupported.
+#	
+#	default: 4
+ppc_start_resolution = 4
+
+
+#
+# Redraw interval (in ms)
+# must be between 1 and 999
+#
+# If you set this higher, PearPC will spend less time doing redraws (and so run faster)
+# but feel less responsive. You should adjust this to your computer speed and personal
+# preference.
+#
+redraw_interval_msec = 200
+
+#
+# Loader 
+#
+
+#
+#	Boot method
+#	  this can be
+#	  1. "auto", prom will boot the first bootable partition found (default)
+#	  2. "select", prom will show you a list of bootable partitions
+#	  3. "force", prom will load and boot the local file prom_loadfile
+#
+prom_bootmethod = "auto"
+
+# Example of how to use "force":
+#prom_bootmethod = "force"
+#prom_loadfile = "test/yaboot"
+#prom_env_bootpath = "disk"
+
+#
+#	bootargs: don't change unless you know what you are doing
+#	machargs: set to "-v" to get a verbose startup
+#
+
+#prom_env_bootargs = ""
+prom_env_machargs = "-v"
+
+#
+#	This is needed if you want to boot Mac OS X
+#
+
+prom_driver_graphic = "video.x"
+
+
+# This will adjust the position of the initial page table (don't change)
+#page_table_pa = 104857600
+
+#
+# CPU Config
+#
+#	Processor Version Register
+#	Defaults to 0x00088302
+#	Only change if you know want you are doing
+#
+#cpu_pvr = 0x00088302
+
+#
+# IO Devices
+#
+
+#
+#	PCI IDE Config
+#
+#	Drive type will be set according to file extension:
+#		.img: Harddisk (filesize must be multiple of 516096)
+#		.iso: CD-Rom
+#	Or you can override this by specifying the type via
+#	pci_ide0_master_type / pci_ide0_slave_type
+
+pci_ide0_master_installed = 1
+pci_ide0_master_image = "test/imgs/linux.img"
+#pci_ide0_master_type = "hd"
+
+pci_ide0_slave_installed = 1
+pci_ide0_slave_image = "/dev/cdrom"
+pci_ide0_slave_type = "cdrom"
+
+#
+#	Network (unavailable on windows)
+#
+pci_3c90x_installed = 0
+pci_3c90x_mac = "de:ad:ca:fe:12:34"
+
+#
+#	USB
+#
+pci_usb_installed = 1
+
+#
+#	NVRAM
+#
+nvram_file = "nvram"
+
