@@ -35,8 +35,6 @@
 #include <mmsystem.h>
 #include "system/systimer.h"
 
-static void (*decTimerCB)(sys_timer);  
-
 struct sys_timer_struct
 {
 	MMRESULT timerID;
@@ -57,8 +55,11 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 	}
 
 	wTimerRes = min(max(tc.wPeriodMin, TARGET_RESOLUTION), tc.wPeriodMax);
-	sys_timer_struct * timer = new(sys_timer_struct);
-	timeBeginPeriod(wTimerRes);
+	if (timeBeginPeriod(wTimerRes) != TIMERR_NOERROR) {
+		// Error; application can't continue.
+		return false;
+	}
+	sys_timer_struct * timer = new sys_timer_struct;
 	timer->timerID = 0;
 	timer->timerRes = wTimerRes;
 	timer->cb_func = cb_func;
@@ -70,16 +71,15 @@ void sys_delete_timer(sys_timer t)
 {
 	sys_timer_struct * timer = reinterpret_cast<sys_timer_struct *>(t);
 	
-	if(timer->timerID)
+	if (timer->timerID)
 		timeKillEvent(timer->timerID);
 	timeEndPeriod(timer->timerRes);
-	delete(timer);
-	return;
+	delete timer;
 }
 
 static inline long long int toMSecs(time_t secs, long int nanosecs)
 {
-	return secs * 1000 + (nanosecs + (nanosecs % (1000 * 1000))) / (1000*1000);
+	return secs * 1000 + (nanosecs + 500*1000) / (1000*1000);
 }
 
 void CALLBACK TimeProc(UINT uID, UINT UMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
@@ -93,20 +93,14 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 {
 	sys_timer_struct * timer = reinterpret_cast<sys_timer_struct *>(t);
 	long long int msecs = toMSecs(secs, nanosecs);
-	if (msecs == 0)
-		timer->cb_func(t);
-	if(periodic)
-		timer->timerID = timeSetEvent(msecs, 0, TimeProc, reinterpret_cast<DWORD>(timer), TIME_PERIODIC);
-	else
-		timer->timerID = timeSetEvent(msecs, 0, TimeProc, reinterpret_cast<DWORD>(timer), TIME_ONESHOT);
-	
-	return;
+	if (msecs == 0) timer->cb_func(t);
+	timer->timerID = timeSetEvent(msecs, timer->timerRes, TimeProc, reinterpret_cast<DWORD>(timer), (periodic) ? TIME_PERIODIC : TIME_ONESHOT);
 }
 
 uint64 sys_get_timer_resolution(sys_timer t)
 {
 	sys_timer_struct * timer = reinterpret_cast<sys_timer_struct *>(t);
-	return(timer->timerRes); 
+	return timer->timerRes;
 }
 
 uint64 sys_get_hiresclk_ticks()
