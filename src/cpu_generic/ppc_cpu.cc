@@ -121,11 +121,13 @@ void ppc_run()
 		}
 		ppc_exec_opc();
 		ops++;
-		gCPU.tb++;
-		gCPU.dec--;
-		if (gCPU.dec == 0xffffffff) {
+		gCPU.ptb++;
+		if (gCPU.pdec == 0) {
 			gCPU.exception_pending = true;
 			gCPU.dec_exception = true;
+			gCPU.pdec=0xffffffff*TB_TO_PTB_FACTOR;
+		} else {
+			gCPU.pdec--;
 		}
 		if ((ops & 0x3ffff)==0) {
 			if (pic_check_interrupt()) {
@@ -136,7 +138,7 @@ void ppc_run()
 //				uint32 j=0;
 //				ppc_read_effective_word(0xc046b2f8, j);
 
-				ht_printf("@%08x (%d ops) dec: %08x lr: %08x\r", gCPU.pc, ops, gCPU.dec, gCPU.lr);
+				ht_printf("@%08x (%d ops) pdec: %08x lr: %08x\r", gCPU.pc, ops, gCPU.pdec, gCPU.lr);
 #if 0
 				extern uint32 PIC_enable_low;
 				extern uint32 PIC_enable_high;

@@ -26,11 +26,13 @@
 
 #define PPC_MHz(v) ((v)*1000*1000)
 
+#define TB_TO_PTB_FACTOR	10
+
 #define PPC_MODEL "ppc_model"
 #define PPC_CPU_MODEL "ppc_cpu"
 #define PPC_CLOCK_FREQUENCY PPC_MHz(10)
 #define PPC_BUS_FREQUENCY PPC_MHz(10)
-#define PPC_TIMEBASE_FREQUENCY PPC_MHz(10)
+#define PPC_TIMEBASE_FREQUENCY (PPC_CLOCK_FREQUENCY / TB_TO_PTB_FACTOR)
 
 struct PPC_CPU_State {
 	// offsetof first entry of this structure must no be 0
@@ -69,10 +71,10 @@ struct PPC_CPU_State {
 	uint32 srr[2];	// spr 26-27
 	
 	//    * misc
-	uint32 dec; // spr 22
-	uint32 ear; // spr 282 .101
-	uint32 pir; // spr 1032
-	uint64 tb; // .75 spr 284(l)/285(u)
+	uint32 dec;	// spr 22
+	uint32 ear;	// spr 282 .101
+	uint32 pir;	// spr 1032
+	uint64 tb;	// .75 spr 284(l)/285(u)
 	
 	uint32 hid[16];
 	// * internal
@@ -101,7 +103,9 @@ struct PPC_CPU_State {
 	// for generic cpu core
 	uint32 effective_code_page;
 	byte  *physical_code_page;
-	
+	uint64 pdec;	// more precise version of dec
+	uint64 ptb;	// more precise version of tb
+
 	// for jitc
 	uint32 temp;
 	uint32 temp2;

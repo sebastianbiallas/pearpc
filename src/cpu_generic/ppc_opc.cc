@@ -339,7 +339,11 @@ void ppc_opc_mfspr()
 		switch (spr1) {
 		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
 		case 19: gCPU.gpr[rD] = gCPU.dar; return;
-		case 22: gCPU.gpr[rD] = gCPU.dec; return;
+		case 22: {
+			gCPU.dec = gCPU.pdec / TB_TO_PTB_FACTOR;
+			gCPU.gpr[rD] = gCPU.dec;
+			return;
+		}
 		case 25: gCPU.gpr[rD] = gCPU.sdr1; return;
 		case 26: gCPU.gpr[rD] = gCPU.srr[0]; return;
 		case 27: gCPU.gpr[rD] = gCPU.srr[1]; return;
@@ -450,8 +454,16 @@ void ppc_opc_mftb()
 	switch (spr2) {
 	case 8:
 		switch (spr1) {
-		case 12: gCPU.gpr[rD] = gCPU.tb; return;
-		case 13: gCPU.gpr[rD] = gCPU.tb >> 32; return;
+		case 12: {
+			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+			gCPU.gpr[rD] = gCPU.tb;
+			return;
+		}
+		case 13: {
+			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+			gCPU.gpr[rD] = gCPU.tb >> 32;
+			return;
+		}
 		}
 		break;
 	}
@@ -580,7 +592,12 @@ void ppc_opc_mtspr()
 		switch (spr1) {
 /*		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
 		case 19: gCPU.gpr[rD] = gCPU.dar; return;*/
-		case 22: gCPU.dec = gCPU.gpr[rS]; return;
+		case 22: {
+			gCPU.dec = gCPU.gpr[rS];
+			gCPU.pdec = gCPU.dec;
+			gCPU.pdec *= TB_TO_PTB_FACTOR;
+			return;
+		}
 		case 25: 
 			if (!ppc_mmu_set_sdr1(gCPU.gpr[rS], true)) {
 				PPC_OPC_ERR("cannot set sdr1\n");
