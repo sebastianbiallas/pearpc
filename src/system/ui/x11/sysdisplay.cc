@@ -32,6 +32,7 @@
 #include "system/types.h"
 #include "system/systhread.h"
 #include "system/sysexcept.h"
+#include "system/sysvaccel.h"
 #include "tools/data.h"
 #include "tools/snprintf.h"
 #include "configparser.h"
@@ -222,8 +223,9 @@ public:
 		// Is this ugly? Yes!
 		fillRGB(0, 0, mClientChar.width, mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
 		drawMenu();
-		convertDisplayClientToServer(0, mClientChar.height-1);
+//		convertDisplayClientToServer(0, mClientChar.height-1);
 		if (mXFrameBuffer) {
+			sys_convert_display(mClientChar, mXChar, gFrameBuffer, mXFrameBuffer, 0, mClientChar.height-1);
 			memmove(menuData, mXFrameBuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		} else {
@@ -435,7 +437,11 @@ public:
 		if (lastDamagedLine >= mClientChar.height) {
 			lastDamagedLine = mClientChar.height-1;
 		}
-		convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
+
+//		convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
+		if (mXFrameBuffer) {
+			sys_convert_display(mClientChar, mXChar, gFrameBuffer, mXFrameBuffer, firstDamagedLine, lastDamagedLine);
+		}
 
 		sys_lock_mutex(gX11Mutex);
 		// draw menu
@@ -456,59 +462,6 @@ public:
 				mHWCursorX, mHWCursorY, 2, 2);
 		}*/
 		sys_unlock_mutex(gX11Mutex);
-	}
-
-	inline void convertDisplayClientToServer(int firstLine, int lastLine)
-	{
-		if (!mXFrameBuffer) return;	// great! nothing to do.
-		byte *buf = gFrameBuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
-		byte *xbuf = mXFrameBuffer + mXChar.bytesPerPixel * mXChar.width * firstLine;
-/*		if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 2)) {
-			posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);
-		} else if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 4)) {
-			posix_vaccel_15_to_32(mClientChar.height*mClientChar.width, buf, xbuf);
-		} else */for (int y=firstLine; y <= lastLine; y++) {
-			for (int x=0; x < mClientChar.width; x++) {
-				uint r, g, b;
-				uint p;
-				switch (mClientChar.bytesPerPixel) {
-					case 1:
-						p = palette[buf[0]];
-						break;
-					case 2:
-						p = (buf[0] << 8) | buf[1];
-						break;
-					case 4:
-						p = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-						break;
-					default:
-						ht_printf("internal error in %s:%d\n", __FILE__, __LINE__);
-						exit(1);
-						break;
-				}
-				r = (p >> mClientChar.redShift) & ((1<<mClientChar.redSize)-1);
-				g = (p >> mClientChar.greenShift) & ((1<<mClientChar.greenSize)-1);
-				b = (p >> mClientChar.blueShift) & ((1<<mClientChar.blueSize)-1);
-				convertBaseColor(r, mClientChar.redSize, mXChar.redSize);
-				convertBaseColor(g, mClientChar.greenSize, mXChar.greenSize);
-				convertBaseColor(b, mClientChar.blueSize, mXChar.blueSize);
-				p = (r << mXChar.redShift) | (g << mXChar.greenShift)
-					| (b << mXChar.blueShift);
-				switch (mXChar.bytesPerPixel) {
-					case 1:
-						xbuf[0] = p;
-						break;
-					case 2:
-						xbuf[1] = p>>8; xbuf[0] = p;
-						break;
-					case 4:
-						*(uint32*)xbuf = p;
-						break;
-				}
-				xbuf += mXChar.bytesPerPixel;
-				buf += mClientChar.bytesPerPixel;
-			}
-		}
 	}
 
 	static void *redrawThread(void *p)

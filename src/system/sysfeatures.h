@@ -35,8 +35,4 @@
 #include "arch/sysfeatures.h"
 //#include "osapi/sysfeatures.h"
 
-#ifndef PPC_VIDEO_CONVERT_ACCEL_FEATURE
-#	error "PPC_VIDEO_CONVERT_ACCEL_FEATURE undefined"
-#endif
-
 #endif

@@ -16,7 +16,7 @@ EXTRA_SUBDIRS   = cpu_generic cpu_jitc_x86
 INCLUDES	=
 
 ppc_LDADD	= @CPU_DIR@/libcpu.a io/graphic/libgraphic.a \
-io/ide/libide.a system/ui/@UI_DIR@/libui.a \
+io/ide/libide.a system/ui/@UI_DIR@/libui.a system/arch/@ARCH_DIR@/libsarch.a \
 debug/libdebug.a io/libio.a io/prom/libprom.a \
 io/prom/fs/libfs.a io/prom/fs/hfs/libhfs.a io/prom/fs/hfsplus/libhfsplus.a \
 io/pic/libpic.a io/pci/libpci.a io/macio/libmacio.a io/nvram/libnvram.a \

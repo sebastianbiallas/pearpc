@@ -23,4 +23,14 @@
 #ifndef __SYSVACCEL_H__
 #define __SYSVACCEL_H__
 
+#include "system/display.h"
+
+void sys_convert_display(
+	DisplayCharacteristics &aSrcChar,
+	DisplayCharacteristics &aDestChar,
+	void *aSrcBuf,
+	void *aDestBuf,
+	int firstLine,
+	int lastLine);
+
 #endif
