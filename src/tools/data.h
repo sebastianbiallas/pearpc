@@ -208,7 +208,7 @@ public:
  *	@param obj signature of object to find
  *	@returns true if an object like <i>obj</i> is contained, false otherwise
  */
-	inline	bool		contains(Object *obj) const
+	inline	bool		contains(const Object *obj) const
 	{
 		return find(obj) != InvObjHandle;
 	}

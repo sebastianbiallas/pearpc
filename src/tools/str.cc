@@ -584,6 +584,18 @@ int String::toArray(byte *buf, int buflen) const
 /**
  *
  */
+bool String::toInt(int &i, int defaultbase) const
+{
+	const char *b = (const char*)mContent;
+	uint64 u64;
+	if (!parseIntStr(b, u64, defaultbase)) return false;
+	i = (sint64)u64;
+	return true;
+}
+
+/**
+ *
+ */
 bool String::toInt32(uint32 &u32, int defaultbase) const
 {
 	const char *b = (const char*)mContent;

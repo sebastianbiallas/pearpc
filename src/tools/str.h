@@ -93,6 +93,7 @@ public:
 		void		transformCase(StringCase c);
 		void		translate(const String &inAlpha, const String &outAlpha);
 	virtual	int		toArray(byte *buf, int buflen) const;
+		bool		toInt(int &i, int defaultbase=10) const;
 		bool		toInt32(uint32 &u32, int defaultbase=10) const;
 		bool		toInt64(uint64 &u64, int defaultbase=10) const;
 	virtual	int		toString(char *buf, int buflen) const;
