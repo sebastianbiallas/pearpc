@@ -132,7 +132,6 @@ void drawLogo()
 //	gDisplay->print(textlogo);
 	gDisplay->setAnsiColor(VCP(VC_LIGHT(VC_BLUE), VC_TRANSPARENT));
 	gDisplay->print("\e[H"APPNAME" "APPVERSION" "COPYRIGHT"\n\n");
-	gDisplay->displayShow();
 }
 
 void tests()
@@ -146,7 +145,6 @@ void tests()
 			} else {
 				gDisplay->printf("%x %d\n", ev.keyEvent.keycode, ev.keyEvent.keycode);
 			}
-			gDisplay->displayShow();
 		}
 	}*/
 }

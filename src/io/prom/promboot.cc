@@ -750,7 +750,6 @@ bool mapped_load_chrp(File &f)
 						gDisplay->putPixelRGBA(60+x, 20+y, rgba);
 					}
 				}
-				gDisplay->displayShow();
 //				while (1) ;
 			}
 #endif
@@ -1050,7 +1049,6 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 			return false;
 /*			while (1) {
 				gDisplay->printf("\r\e[0K\rYour choice (ESC abort): %d", choice);
-	    			gDisplay->displayShow();
 				SystemEvent ev;
 				do {
 					gKeyboard->getEvent(ev, true);

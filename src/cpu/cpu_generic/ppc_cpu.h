@@ -448,5 +448,8 @@ void ppc_cpu_atomic_cancel_ext_exception();
 extern uint32 gBreakpoint;
 extern uint32 gBreakpoint2;
 
+void ppc_set_singlestep_v(bool v, const char *file, int line, const char *format, ...);
+void ppc_set_singlestep_nonverbose(bool v);
+
 #endif
  

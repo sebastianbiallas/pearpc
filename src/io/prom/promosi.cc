@@ -450,8 +450,7 @@ void prom_service_exit(prom_args *pa)
 {
 	//; of_exit(void)
 	IO_PROM_ERR("exit()\n");
-/*	gDisplay->displayShow();
-	while (1);
+/*	while (1);
 	exit(1);*/
 }
 void prom_service_chain(prom_args *pa)

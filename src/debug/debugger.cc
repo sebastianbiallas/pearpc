@@ -464,7 +464,6 @@ void Debugger::dump()
 {
 #if 0
     NEWIF
-	gDisplay->displayShow();
 	int r = 0;
 	const char *hiColor, *loColor;
 	if (mUseColors) {

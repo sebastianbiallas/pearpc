@@ -42,7 +42,7 @@
 PPC_CPU_State gCPU;
 Debugger *gDebugger;
 
-static bool gSinglestep = false;
+static bool gSinglestep = true;
 
 //uint32 gBreakpoint2 = 0x11b3acf4;
 uint32 gBreakpoint3 = 0xc016ee74&0;
@@ -166,8 +166,6 @@ void ppc_cpu_run()
 				}
 				ht_printf("\n");
 #endif
-//				gDisplay->displayShow();
-//				gcard_raise_interrupt();
 			}
 		}
 		

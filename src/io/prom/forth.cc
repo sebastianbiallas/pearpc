@@ -187,7 +187,6 @@ int ForthVM::outf(const char *m, ...)
 	int a = ht_vsnprintf(b, sizeof b, m, va);
 	va_end(va);
 	gDisplay->print(b);
-	gDisplay->displayShow();
 	return a;
 }
 
