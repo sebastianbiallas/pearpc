@@ -59,7 +59,7 @@
  *	integers
  */
 
-#include SYSTEM_TYPES_HDR
+#include SYSTEM_SPECIFIC_TYPES_HDR
 
 /*
  *	NULL
