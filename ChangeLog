@@ -8,7 +8,10 @@ version 0.3.1 (not yet released):
 	- (SDL) fixed: right-alt was mapped to left-alt
 	- fixed: German '<>|' key wasn't mapped
 	- JITC_X86: corrected tw/twi instructions (should fix java native IO calls fail)
+	- fixed: rfi instruction (should also fix java native IO calls fail)
+	- fixed: some mysterious partition mappings in src/io/prom/fs/hfsplus/partition.c
 	- (BEOS) updated
+	- disabled unused keyboard shortcuts
 	
 version 0.3 (released 13. August 2004):
 	- clean up everything on exit
