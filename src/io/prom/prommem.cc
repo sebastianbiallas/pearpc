@@ -23,12 +23,12 @@
 
 #include "tools/snprintf.h"
 #include "debug/tracers.h"
-#include "cpu_generic/ppc_mmu.h"
+#include "cpu/mem.h"
 #include "prom.h"
 #include "promosi.h"
 #include "prommem.h"
 
-char *prom_ea_string(uint32 ea)
+/*char *prom_ea_string(uint32 ea)
 {
 	byte *r;
 	if (ppc_direct_effective_memory_handle(ea, r)) {
@@ -36,6 +36,33 @@ char *prom_ea_string(uint32 ea)
 		return NULL;
 	}
 	return (char*)r;
+}*/
+
+bool prom_get_string(String &result, uint32 ea)
+{
+	uint32 pa;
+	result = "";
+	if (!ppc_prom_effective_to_physical(pa, ea)) {
+		IO_PROM_ERR("can't translate address in %s\n", __FUNCTION__);
+		return false;
+	}
+	while (1) {
+		byte mem[128];
+		if (!ppc_dma_read(mem, pa, sizeof mem)) {
+			IO_PROM_ERR("read memory in %s\n", __FUNCTION__);
+			return false;
+		}
+		byte *end;
+		if ((end = (byte *)memchr(mem, 0, sizeof mem))) {
+			String s(mem, end-mem+1);
+			result += s;			
+			return true;
+		} else {
+			String s(mem, sizeof mem);
+			result += s;
+		}
+		pa += sizeof mem;
+	}
 }
 
 byte *gPhysMemoryUsed;
@@ -45,15 +72,14 @@ int gPromMemStart, gPromMemEnd;
 #define PROM_MEM_SIZE (2*1024*1024)
 
 struct malloc_entry {
-	uint32 prev;
-	uint32 size;
+	uint32 prev PACKED;
+	uint32 size PACKED;
 };
 #define MALLOC_BLOCK_FREE (1<<31)
 #define MALLOC_BLOCK_GUARD (1)
 
-malloc_entry *gPromMemFreeBlock;
-malloc_entry *gPromMemLastBlock;
-uint32 gPromMemFreeBlockp;
+uint32 gPromMemFreeBlock;
+uint32 gPromMemLastBlock;
 
 bool prom_claim_page(uint32 phys)
 {
@@ -76,6 +102,8 @@ bool prom_claim_pages(uint32 phys, uint32 size)
 	}
 	return true;
 }
+
+extern uint32 gMemorySize; // GRRR
 
 uint32 prom_get_free_page()
 {
@@ -119,10 +147,10 @@ uint32 prom_allocate_mem(uint32 size, uint32 align, uint32 virt)
 			    (gPhysMemoryUsed[virt/4096/8] & (1 << ((virt/4096) & 7)))) {
 				uint32 pa = prom_get_free_page();
 				if (!pa) return (uint32) -1;
-				ppc_mmu_page_create(virt, pa);
+				ppc_prom_page_create(virt, pa);
 			} else {
 				prom_claim_page(virt);
-				ppc_mmu_page_create(virt, virt);
+				ppc_prom_page_create(virt, virt);
 			}
 			virt+=4096;
 		}
@@ -135,33 +163,57 @@ bool prom_free_mem(uint32 virt)
 	return false;
 }
 
-void *prom_mem_eaptr(uint32 ea)
+void *prom_mem_eaptr2(uint32 ea)
 {
-	byte *p;
+/*	byte *p;
 	int r;
 	uint32 pa;
 	if (!((r = ppc_effective_to_physical(ea, PPC_MMU_READ | PPC_MMU_NO_EXC, pa)))) {
 		r = ppc_direct_physical_memory_handle(pa, p);
 	}
-	if (r) return NULL; else return p;
+	if (r) return NULL; else return p;*/
 }
 
-void *prom_mem_ptr(uint32 pa)
+void *prom_mem_ptr2(uint32 pa)
 {
-	byte *p;
+/*	byte *p;
 	if (ppc_direct_physical_memory_handle(pa, p)) {
 		return NULL;
 	} else {
 		return p;
-	}
+	}*/
 }
 
 void prom_mem_set(uint32 pa, int c, int size)
 {
-	if (pa >= gMemorySize || (pa+size) >= gMemorySize) {
+	if (!ppc_dma_set(pa, c, size)) {
 		IO_PROM_ERR("in mem_set\n");
-	}	
-	memset(gMemory+pa, c, size);
+	}
+}
+
+
+static uint32 prom_mem_entry_get_size(uint32 pa)
+{
+	uint32 r;
+	ppc_dma_read(&r, pa, 4);
+	return r;
+}
+
+static uint32 prom_mem_entry_get_prev(uint32 pa)
+{
+	uint32 r;
+	ppc_dma_read(&r, pa+4, 4);
+	return r;
+}
+
+static void prom_mem_entry_set_size(uint32 pa, uint32 v)
+{
+	ppc_dma_write(pa, &v, 4);
+}
+
+static uint32 prom_mem_entry_set_prev(uint32 pa, uint32 v)
+{
+	ppc_dma_write(pa+4, &v, 4);
 }
 
 uint32 prom_mem_malloc(uint32 size)
@@ -179,68 +231,68 @@ uint32 prom_mem_malloc(uint32 size)
 	bool ok=false;
 	uint32 r = 0;
 	while (!ok) {
-		uint32 s = gPromMemFreeBlock->size & ~MALLOC_BLOCK_FREE;
+		uint32 s = prom_mem_entry_get_size(gPromMemFreeBlock) & ~MALLOC_BLOCK_FREE;
 //		ht_printf("s: %08x\n", s);
 		if (s > size) {
 			// found block
-			uint32 blockp = gPromMemFreeBlockp + s - size;
+			uint32 blockp = gPromMemFreeBlock + s - size;
 //			ht_printf("blockp: %08x\n", blockp);
-			malloc_entry *block = (malloc_entry*)prom_mem_ptr(blockp);
-			malloc_entry *next = (malloc_entry*)prom_mem_ptr(gPromMemFreeBlockp + s);
-			gPromMemFreeBlock->size = (s - size) | MALLOC_BLOCK_FREE;
-			next->prev = blockp;
-			block->prev = gPromMemFreeBlockp;
-			block->size = size;
+			
+			uint32 block = blockp;
+			uint32 next = gPromMemFreeBlock+s;
+			
+			prom_mem_entry_set_size(gPromMemFreeBlock, (s - size) | MALLOC_BLOCK_FREE);
+			prom_mem_entry_set_prev(next, blockp);
+			prom_mem_entry_set_prev(blockp, gPromMemFreeBlock);
+			prom_mem_entry_set_size(blockp, size);						
+			
 //			ht_printf("malloced at %x\n", blockp+sizeof(malloc_entry));
 			return blockp+sizeof(malloc_entry);
 		}
 		if (s == size) {
 			// exact match
-			gPromMemFreeBlock->size &= ~MALLOC_BLOCK_FREE;
-			r = gPromMemFreeBlockp+sizeof(malloc_entry);
+			prom_mem_entry_set_size(gPromMemFreeBlock, s);
+			r = gPromMemFreeBlock + sizeof(malloc_entry);
 			ok = true;
 		}
-		do { 
-			gPromMemFreeBlockp = gPromMemFreeBlock->prev;
-			gPromMemFreeBlock = (malloc_entry*)prom_mem_ptr(gPromMemFreeBlockp);
-			if (gPromMemFreeBlock->size & MALLOC_BLOCK_GUARD) {
+		do {
+			gPromMemFreeBlock = prom_mem_entry_get_prev(gPromMemFreeBlock);
+			if (prom_mem_entry_get_size(gPromMemFreeBlock) & MALLOC_BLOCK_GUARD) {
 				if (i) {
 					IO_PROM_ERR("out of memory!\n");
 				}
 				i++;
-				gPromMemFreeBlockp = gPromMemLastBlock->prev;
-				gPromMemFreeBlock = (malloc_entry*)prom_mem_ptr(gPromMemFreeBlockp);
+				gPromMemFreeBlock = prom_mem_entry_get_prev(gPromMemLastBlock);
 			}
-		} while (!(gPromMemFreeBlock->size & MALLOC_BLOCK_FREE));
+		} while (!(prom_mem_entry_get_size(gPromMemFreeBlock) & MALLOC_BLOCK_FREE));
 	}
 	return r;
 }
 
 void prom_mem_free(uint32 p)
 {
-	p -= sizeof(malloc_entry);
-	malloc_entry *block = (malloc_entry*)prom_mem_ptr(p);
-	if (block->size & MALLOC_BLOCK_FREE) {	
+	uint32 block = p - sizeof(malloc_entry);
+	if (prom_mem_entry_get_size(block) & MALLOC_BLOCK_FREE) {	
 		IO_PROM_ERR("attempt to free unused block!\n");
 	}
-	if (block->size & MALLOC_BLOCK_GUARD) {
+	if (prom_mem_entry_get_size(block) & MALLOC_BLOCK_GUARD) {
 		IO_PROM_ERR("attempt to free guard block!\n");
 	}
-	malloc_entry *prev = (malloc_entry*)prom_mem_ptr(block->prev);
-	malloc_entry *next = (malloc_entry*)prom_mem_ptr(p+block->size);
-	if ((next->size & MALLOC_BLOCK_FREE) && !(next->size & MALLOC_BLOCK_GUARD)) {
+	uint32 prev = prom_mem_entry_get_prev(block);
+	uint32 next = block + prom_mem_entry_get_size(block);
+	if ((prom_mem_entry_get_size(next) & MALLOC_BLOCK_FREE) && !(prom_mem_entry_get_size(next) & MALLOC_BLOCK_GUARD)) {
 		// merge with upper block
-		malloc_entry *nnext = (malloc_entry*)(p+block->size+(next->size & ~MALLOC_BLOCK_FREE));
-		nnext->prev = p;
-		block->size += next->size & ~MALLOC_BLOCK_FREE;
+		uint32 nnext = block + prom_mem_entry_get_size(block) + (prom_mem_entry_get_size(next) & ~MALLOC_BLOCK_FREE);
+		prom_mem_entry_set_prev(nnext, block);
+		prom_mem_entry_set_size(block, prom_mem_entry_get_size(next) & ~MALLOC_BLOCK_FREE);
 	}
-	if ((prev->size & MALLOC_BLOCK_FREE) && !(prev->size & MALLOC_BLOCK_GUARD)) {
+	if ((prom_mem_entry_get_size(prev) & MALLOC_BLOCK_FREE) && !(prom_mem_entry_get_size(prev) & MALLOC_BLOCK_GUARD)) {
 		// merge with lower block
-		prev->size += block->size;
-		next->prev = block->prev;
+		prom_mem_entry_set_size(prev, prom_mem_entry_get_size(prev) + prom_mem_entry_get_size(block));
+		prom_mem_entry_set_prev(next, prom_mem_entry_get_prev(block));
 		gPromMemFreeBlock = prev;
 	} else {
-		block->size |= MALLOC_BLOCK_FREE;
+		prom_mem_entry_set_size(block, prom_mem_entry_get_size(block) | MALLOC_BLOCK_FREE);
 		gPromMemFreeBlock = block;
 	}
 }
@@ -272,35 +324,38 @@ bool prom_mem_init()
 	// Allocate the physical pages
 	for (int i=gPromMemStart; i<gPromMemEnd; i+=4096) {
 		prom_claim_page(i);
-		ppc_mmu_page_create(v, i);
+		ppc_prom_page_create(v, i);
 		v+=4096;
 	}
 
 //	ht_printf("gPromMemStart: %x\ngPromMemEnd: %x\n", gPromMemStart, gPromMemEnd);
 	
-	malloc_entry *start = (malloc_entry*)prom_mem_ptr(gPromMemStart);
-	malloc_entry *end = (malloc_entry*)prom_mem_ptr(gPromMemEnd-sizeof(malloc_entry));
-	malloc_entry *mem = (malloc_entry*)prom_mem_ptr(gPromMemStart+sizeof(malloc_entry));
+	uint32 start = gPromMemStart;
+	uint32 end = gPromMemEnd - sizeof(malloc_entry);
+	uint32 mem = gPromMemStart + sizeof(malloc_entry);
 
-	start->size = sizeof(malloc_entry) | MALLOC_BLOCK_GUARD;
-	mem->size = (PROM_MEM_SIZE-2*sizeof(malloc_entry)) | MALLOC_BLOCK_FREE;
-//	ht_printf("%x\n", PROM_MEM_SIZE-2*sizeof(malloc_entry));
-	end->size = sizeof(malloc_entry) | MALLOC_BLOCK_GUARD;
+	prom_mem_entry_set_size(start, sizeof(malloc_entry) | MALLOC_BLOCK_GUARD);
+	prom_mem_entry_set_size(mem, (PROM_MEM_SIZE-2*sizeof(malloc_entry)) | MALLOC_BLOCK_FREE);
+	prom_mem_entry_set_size(end, sizeof(malloc_entry) | MALLOC_BLOCK_GUARD);
 
-	start->prev = gPromMemEnd-sizeof(malloc_entry);
-	end->prev = gPromMemStart+sizeof(malloc_entry);
-	mem->prev = gPromMemStart;
+	prom_mem_entry_set_prev(start, gPromMemEnd-sizeof(malloc_entry));
+	prom_mem_entry_set_prev(end, gPromMemStart+sizeof(malloc_entry));
+	prom_mem_entry_set_prev(mem, gPromMemStart);
 
 	gPromMemLastBlock = end;
 	gPromMemFreeBlock = mem;
-	gPromMemFreeBlockp = gPromMemStart+sizeof(malloc_entry);
 
 	/*
 	 *	malloc works now
 	 */
 
-	gPromOSIEntry = prom_mem_malloc(4);
-	ppc_write_physical_word(gPromOSIEntry, PROM_MAGIC_OPCODE);
+#define DW(w) (w)>>24, (w)>>16, (w)>>8, (w)>>0, 
+	uint8 magic_opcode[] = {
+		DW(PROM_MAGIC_OPCODE)
+		DW(0x4e800020)	// blr
+	};
+	gPromOSIEntry = prom_mem_malloc(sizeof magic_opcode);
+	ppc_dma_write(gPromOSIEntry, &magic_opcode, sizeof magic_opcode);
 	gPromOSIEntry = prom_mem_phys_to_virt(gPromOSIEntry);
 	return true;
 }

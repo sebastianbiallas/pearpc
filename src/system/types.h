@@ -40,7 +40,6 @@
  */
 
 #ifdef __GNUC__
-#	define FUNCTION_CONST __attribute__((const))
 
 	// FIXME: configure
 #	ifndef __ppc__
@@ -49,8 +48,10 @@
 #		define FASTCALL
 #	endif
 
-#	define PACKED __attribute__((packed))
-#	define UNUSED __attribute__((unused))
+#	define FUNCTION_CONST __attribute__((const))
+#	define PACKED		__attribute__((packed))
+#	define UNUSED		__attribute__((unused))
+#	define DEPRECATED	__attribute__((deprecated))
 #else
 #	error "you're not using the GNU C compiler :-( please add the macros and conditionals for your compiler"
 #endif /* !__GNUC__ */

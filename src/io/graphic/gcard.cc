@@ -23,8 +23,9 @@
 
 #include "debug/tracers.h"
 #include "system/display.h"
+#include "system/arch/sysendian.h"
 #include "tools/snprintf.h"
-#include "cpu_generic/ppc_tools.h"
+#include "cpu/cpu.h"
 #include "io/pic/pic.h"
 #include "gcard.h"
 
@@ -236,30 +237,28 @@ void gcard_raise_interrupt()
 	if (gVBLon) pic_raise_interrupt(IO_PIC_IRQ_GCARD);
 }
 
-#include "cpu_generic/ppc_cpu.h"
-
-void gcard_osi()
+void gcard_osi(int cpu)
 {
-	IO_GRAPHIC_TRACE("osi: %d\n", gCPU.gpr[5]);
-	switch (gCPU.gpr[5]) {
+	IO_GRAPHIC_TRACE("osi: %d\n", ppc_cpu_get_gpr(cpu, 5));
+	switch (ppc_cpu_get_gpr(cpu, 5)) {
 	case 4:
 		// cmount
 //		SINGLESTEP("");
 		return;
 	case 28: {
 		// set_vmode
-		uint vmode = gCPU.gpr[6]-1;
-		if (vmode > gGraphicModes->count() || gCPU.gpr[7]) {
-			gCPU.gpr[3] = 1;
+		uint vmode = ppc_cpu_get_gpr(cpu, 6)-1;
+		if (vmode > gGraphicModes->count() || ppc_cpu_get_gpr(cpu, 7)) {
+			ppc_cpu_set_gpr(cpu, 3, 1);
 			return;
 		}
 		DisplayCharacteristics *chr = (DisplayCharacteristics *)(*gGraphicModes)[vmode];
 		IO_GRAPHIC_TRACE("set mode %d\n", vmode);
 		if (gDisplay->changeResolution(*chr)) {
-			gCPU.gpr[3] = 0;
+			ppc_cpu_set_gpr(cpu, 3, 0);
 			gcard_set_mode(*chr);
 		} else {
-			gCPU.gpr[3] = 1;
+			ppc_cpu_set_gpr(cpu, 3, 1);
 		}
 		return;
 	}
@@ -279,35 +278,34 @@ typedef struct osi_get_vmode_info {
 } osi_get_vmode_info_t;
 */
 		// get_vmode_info
-		int vmode = gCPU.gpr[6]-1;
-		int depth_mode = gCPU.gpr[7];
+		int vmode = ppc_cpu_get_gpr(cpu, 6) - 1;
+		int depth_mode = ppc_cpu_get_gpr(cpu, 7);
 		if (vmode == -1) {
 			vmode = gCurrentGraphicMode;
 			depth_mode = ((DisplayCharacteristics *)(*gGraphicModes)[vmode])->bytesPerPixel*8;
 		}
 		if (vmode > (int)gGraphicModes->count() || vmode < 0) {
-			gCPU.gpr[3] = 1;
+			ppc_cpu_set_gpr(cpu, 3, 1);
 			return;
 		}
 		DisplayCharacteristics *chr = ((DisplayCharacteristics *)(*gGraphicModes)[vmode]);
-		gCPU.gpr[3] = 0;
-		gCPU.gpr[4] = (gGraphicModes->count()<<16) | (vmode+1);
-		gCPU.gpr[5] = (1<<16) | 0;
-		gCPU.gpr[6] = (chr->width << 16) | chr->height;
-		gCPU.gpr[7] = 85 << 16;
-		gCPU.gpr[8] = chr->bytesPerPixel*8;
-		gCPU.gpr[9] = ((chr->scanLineLength)<<16)
-		              | 0;
+		ppc_cpu_set_gpr(cpu, 3, 0);
+		ppc_cpu_set_gpr(cpu, 4, (gGraphicModes->count()<<16) | (vmode+1));
+		ppc_cpu_set_gpr(cpu, 5, (1<<16) | 0);
+		ppc_cpu_set_gpr(cpu, 6, (chr->width << 16) | chr->height);
+		ppc_cpu_set_gpr(cpu, 7, 85 << 16);
+		ppc_cpu_set_gpr(cpu, 8, chr->bytesPerPixel*8);
+		ppc_cpu_set_gpr(cpu, 9, ((chr->scanLineLength)<<16) | 0);
 		return;
 	}
 	case 31:
 		// set_video_power
-		gCPU.gpr[3] = 0;
+		ppc_cpu_set_gpr(cpu, 3, 0);
 		return;
 	case 39:
-		IO_GRAPHIC_TRACE("video_ctrl: %d\n", gCPU.gpr[6]);
+		IO_GRAPHIC_TRACE("video_ctrl: %d\n", ppc_cpu_get_gpr(cpu, 6));
 		// video_ctrl
-		switch (gCPU.gpr[6]) {
+		switch (ppc_cpu_get_gpr(cpu, 6)) {
 		case 0:
 			gVBLon = false;
 			break;
@@ -317,27 +315,29 @@ typedef struct osi_get_vmode_info {
 		default:
 			IO_GRAPHIC_ERR("39\n");
 		}
-		gCPU.gpr[3] = 0;
+		ppc_cpu_set_gpr(cpu, 3, 0);
 		return;
 	case 47:
 //		printf("%c\n", gCPU.gpr[6]);
 		return;
-	case 59:
+	case 59: {
 		// set_color
-		gDisplay->setColor(gCPU.gpr[6], MK_RGB((gCPU.gpr[7]>>16)&0xff, (gCPU.gpr[7]>>8)&0xff, gCPU.gpr[7]&0xff));
-		gCPU.gpr[3] = 0;
+		uint32 r7 = ppc_cpu_get_gpr(cpu, 7);
+		gDisplay->setColor(ppc_cpu_get_gpr(cpu, 6), MK_RGB((r7>>16)&0xff, (r7>>8)&0xff, r7&0xff));
+		ppc_cpu_set_gpr(cpu, 3, 0);
 		return;
+	}
 	case 64: {
 		// get_color
-		RGB c = gDisplay->getColor(gCPU.gpr[6]);
-		gCPU.gpr[3] = (RGB_R(c) << 16) | (RGB_G(c) << 8) | (RGB_B(c));
+		RGB c = gDisplay->getColor(ppc_cpu_get_gpr(cpu, 6));
+		ppc_cpu_set_gpr(cpu, 3, (RGB_R(c) << 16) | (RGB_G(c) << 8) | (RGB_B(c)));
 		return;
 	}
 	case 116:
 		// hardware_cursor_bla
 //		SINGLESTEP("hw cursor!! %d, %d, %d\n", gCPU.gpr[6], gCPU.gpr[7], gCPU.gpr[8]);
-		IO_GRAPHIC_TRACE("hw cursor!! %d, %d, %d\n", gCPU.gpr[6], gCPU.gpr[7], gCPU.gpr[8]);
-		gDisplay->setHWCursor(gCPU.gpr[6], gCPU.gpr[7], gCPU.gpr[8], NULL);
+		IO_GRAPHIC_TRACE("hw cursor!! %d, %d, %d\n", ppc_cpu_get_gpr(cpu, 6), ppc_cpu_get_gpr(cpu, 7), ppc_cpu_get_gpr(cpu, 8));
+		gDisplay->setHWCursor(ppc_cpu_get_gpr(cpu, 6), ppc_cpu_get_gpr(cpu, 7), ppc_cpu_get_gpr(cpu, 8), NULL);
 		return;
 	}
 	IO_GRAPHIC_ERR("unknown osi function\n");

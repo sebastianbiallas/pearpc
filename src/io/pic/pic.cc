@@ -22,9 +22,8 @@
 #include <cstring>
 
 #include "tools/snprintf.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_exc.h"
-#include "cpu_generic/ppc_tools.h"
+#include "system/arch/sysendian.h"
+#include "cpu/cpu.h"
 #include "io/cuda/cuda.h"
 #include "pic.h"
 #include "debug/tracers.h"
@@ -41,9 +40,9 @@ sys_mutex PIC_mutex;
 void pic_renew_interrupts()
 {
 	if (((PIC_pending_low | PIC_pending_level) & PIC_enable_low) || (PIC_pending_high & PIC_enable_high)) {
-		ppc_raise_ext_exception();	
+		ppc_cpu_raise_ext_exception();	
 	} else {
-		ppc_cancel_ext_exception();
+		ppc_cpu_cancel_ext_exception();
 	}
 }
 
@@ -93,7 +92,7 @@ void pic_write(uint32 addr, uint32 data, int size)
 		data = 0;
 		break;
 	default:
-		IO_PIC_ERR("unknown service %08x (write(%d) %08x from %08x)\n", addr, size, data, gCPU.pc);
+		IO_PIC_ERR("unknown service %08x (write(%d) %08x from %08x)\n", addr, size, data, ppc_cpu_get_pc(0));
 	}
 	pic_renew_interrupts();
 }
@@ -138,7 +137,7 @@ void pic_read(uint32 addr, uint32 &data, int size)
 		data = 0;
 		break;
 	default:
-		IO_PIC_ERR("unknown service %08x (read(%d) from %08x)\n", addr, size, gCPU.pc);
+		IO_PIC_ERR("unknown service %08x (read(%d) from %08x)\n", addr, size, ppc_cpu_get_pc(0));
 	}
 }
 
@@ -177,12 +176,12 @@ void pic_raise_interrupt(int intr)
 	if ((mask & ibit) && 
 	    (level || !(pending & ibit))) {
 		IO_PIC_TRACE("*signal int: %d\n", intr);
-		ppc_raise_ext_exception();
+		ppc_cpu_raise_ext_exception();
 	} else {
 		IO_PIC_TRACE("/signal int: %d\n", intr);
 	}
 	sys_unlock_mutex(PIC_mutex);
-	cpu_wakeup();
+	ppc_cpu_wakeup();
 }
 
 void pic_cancel_interrupt(int intr)
@@ -195,9 +194,9 @@ void pic_cancel_interrupt(int intr)
 		PIC_pending_level &= ~(1<<intr);
 	}
 	if (((PIC_pending_low | PIC_pending_level) & PIC_enable_low) || (PIC_pending_high & PIC_enable_high)) {
-		ppc_raise_ext_exception();	
+		ppc_cpu_raise_ext_exception();	
 	} else {
-		ppc_cancel_ext_exception();
+		ppc_cpu_cancel_ext_exception();
 	}
 	sys_unlock_mutex(PIC_mutex);
 }

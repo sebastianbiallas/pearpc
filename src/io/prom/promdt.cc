@@ -22,15 +22,14 @@
 #include <cstdlib>
 #include "debug/tracers.h"
 #include "tools/debug.h"
-//#include "cpu_generic/ppc_cpu.h"
-//#include "cpu_generic/ppc_mmu.h"
-#include "cpu_jitc_x86/ppc_cpu.h"
-#include "cpu_jitc_x86/ppc_mmu.h"
+#include "cpu/cpu.h"
+#include "cpu/mem.h"
 #include "io/graphic/gcard.h"
 #include "io/pic/pic.h"
 #include "io/ide/ide.h"
 #include "io/3c90x/3c90x.h"
 #include "io/rtl8139/rtl8139.h"
+#include "system/arch/sysendian.h"
 #include "system/keyboard.h"
 #include "system/display.h"
 #include "prommem.h"
@@ -396,7 +395,12 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 		byte *f = gFrameBuffer + (y*gDisplay->mClientChar.width + x)*bpp;
 		for (uint iy = 0; iy < height; iy++) {
 			for (uint ix = 0; ix < width; ix++) {
-				switch (bpp) {
+				uint32 phys;
+				ppc_prom_effective_to_physical(phys, data);
+				byte v[4];
+				ppc_dma_read(v, phys, bpp);
+				for (uint i=0; i<bpp; i++) *(f++) = v[i];
+/*				switch (bpp) {
 				case 1: {
 					uint8 v;
 					ppc_read_effective_byte(data, v);
@@ -419,7 +423,7 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 					*(f++) = v;
 					break;
 				}
-				}
+				}*/
 				data += bpp;
 			}
 			f += gDisplay->mClientChar.scanLineLength - width*bpp;
@@ -454,9 +458,13 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 
 uint32 PromInstanceATY::write(uint32 buf, int length)
 {
-	String s((byte*)prom_ea_string(buf), length);
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, buf);
+	byte *mbuf = (byte *)malloc(length);
+	ppc_dma_read(mbuf, phys, length);
+	String s(mbuf, length);
+	free(mbuf);
 	gDisplay->printf("%y", &s);
-//	gDisplay->displayShow();
 	return length;
 }
 
@@ -482,14 +490,15 @@ PromInstanceKBD::PromInstanceKBD(PromNode *type, const String &param)
 
 uint32 PromInstanceKBD::read(uint32 buf, int length)
 {
-	char *tobuf = (char*)prom_ea_string(buf);
-	if (tobuf) {
+	uint32 phys;
+	if (ppc_prom_effective_to_physical(phys, buf)) {
 		SystemEvent ev;
 		ht_printf("in promdt.cc line 488. keyboard access b0rken. looping...\n");
 		while (1);
 /*		while (gKeyboard->getEvent(ev, false)) {
 			if (ev.type == sysevKey && ev.key.pressed) {
 				*tobuf = ev.key.chr;
+				ppc_dma_write(phys, ev.key.chr, 1);
 				return 1;
 			}
 		}*/
@@ -520,8 +529,8 @@ PromInstanceRTAS::PromInstanceRTAS(PromNode *type, const String &param)
 
 uint32 PromInstanceRTAS::write(uint32 buf, int length)
 {
-	String s((byte*)prom_ea_string(buf), length);
-	IO_PROM_TRACE("RTAS: '%y'\n", &s);
+//	String s((byte*)prom_ea_string(buf), length);
+//	IO_PROM_TRACE("RTAS: '%y'\n", &s);
 	return length;
 }
 
@@ -563,7 +572,7 @@ void PromInstanceMMU::callMethod(const char *method, prom_args *pa)
 		uint32 virt = pa->args[2];
 		IO_PROM_TRACE("mmu->translate(%08x)\n", virt);
 		uint32 phys;
-		if (ppc_effective_to_physical(virt, PPC_MMU_READ | PPC_MMU_NO_EXC, phys)) {
+		if (ppc_prom_effective_to_physical(phys, virt)) {
 			IO_PROM_ERR("translate failed\n");
 		} else {
 			pa->args[4] = 0;
@@ -592,7 +601,7 @@ void PromInstanceMMU::callMethod(const char *method, prom_args *pa)
 		uint32 mode UNUSED = pa->args[2];
 		IO_PROM_TRACE("mmu->map(%08x, %08x, %08x, %08x)\n", phys, virt, size, mode);
 		for (uint32 p=phys; p<(phys+size); p+=4096) {
-			ppc_mmu_page_create(virt, p);
+			ppc_prom_page_create(virt, p);
 			virt += 4096;
 		}
 		pa->args[6] = 0;
@@ -778,8 +787,13 @@ void PromInstanceDiskFile::callMethod(const char *method, prom_args *pa)
 
 uint32 PromInstanceDiskFile::read(uint32 buf, int length)
 {
-	byte *buffer = (byte*)prom_ea_string(buf);
-    	return mFile->read(buffer, length);
+	byte *buffer = (byte *)malloc(length);
+	uint32 result = mFile->read(buffer, length);
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, buf);
+	ppc_dma_write(phys, buffer, length);
+	free(buffer);
+    	return result;
 }
 
 uint32 PromInstanceDiskFile::write(uint32 buf, int length)
@@ -839,8 +853,13 @@ void PromInstanceDiskPart::callMethod(const char *method, prom_args *pa)
 uint32 PromInstanceDiskPart::read(uint32 buf, int length)
 {
 	IDEConfig *ic = ide_get_config(mNumber);
-	byte *buffer = (byte*)prom_ea_string(buf);
-	return ic->device->promRead(buffer, length);
+	byte *buffer = (byte *)malloc(length);
+	uint32 result = ic->device->promRead(buffer, length);
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, buf);
+	ppc_dma_write(phys, buffer, length);
+	free(buffer);
+    	return result;
 }
 
 uint32 PromInstanceDiskPart::write(uint32 buf, int length)
@@ -876,7 +895,10 @@ uint32 PromPropLink::getValueLen()
 
 uint32 PromPropLink::getValue(uint32 buf, uint32 buflen)
 {
-	ppc_write_effective_word(buf, value);
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, buf);
+	uint32 v = ppc_word_to_BE(value);
+	ppc_dma_write(phys, &v, 4);
 	return 4;
 }
 
@@ -900,7 +922,10 @@ uint32 PromPropInt::getValueLen()
 
 uint32 PromPropInt::getValue(uint32 buf, uint32 buflen)
 {
-	ppc_write_effective_word(buf, value);
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, buf);
+	uint32 v = ppc_word_to_BE(value);
+	ppc_dma_write(phys, &v, 4);
 	return 4;
 }
 
@@ -929,16 +954,20 @@ uint32 PromPropMemory::getValueLen()
 uint32 PromPropMemory::getValue(uint32 aBuf, uint32 buflen)
 {
 	uint32 s = MIN(buflen, (uint32)size);
-	memcpy(prom_ea_string(aBuf), buf, s);
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, aBuf);
+	ppc_dma_write(phys, buf, s);
 	return s;
 }
 
 uint32 PromPropMemory::setValue(uint32 aBuf, uint32 buflen)
 {
+	uint32 phys;
+	ppc_prom_effective_to_physical(phys, aBuf);
 	size = buflen;
 	free(buf);
 	buf = malloc(size);
-	memcpy(buf, prom_ea_string(aBuf), size);
+	ppc_dma_read(buf, phys, size);
 	return size;
 }
 
@@ -963,16 +992,28 @@ uint32 PromPropString::getValueLen()
 
 uint32 PromPropString::getValue(uint32 buf, uint32 buflen)
 {
-	ht_snprintf((char*)prom_ea_string(buf), buflen, "%s", value);
-	return strlen(value)+1;
+	if (buflen) {
+		buflen--;
+		uint slen = strlen(value);
+		uint s = MIN(buflen, slen);
+        	uint32 phys;
+		ppc_prom_effective_to_physical(phys, buf);
+		ppc_dma_write(phys, value, s);
+		byte null=0;
+		ppc_dma_write(phys+s, &null, 1);
+		return s+1;
+	} else {
+		return 0;
+	}
 }
 
 uint32 PromPropString::setValue(uint32 buf, uint32 buflen)
 {
 	free(value);
-	char *bufchar = prom_ea_string(buf);
+	String bufchar;
+	prom_get_string(bufchar, buf);
 	value = (char*)malloc(buflen+1);
-	memcpy(value, bufchar, buflen);
+	memcpy(value, bufchar.contentChar(), buflen);
 	value[buflen] = 0;
 	return buflen;
 }
@@ -1061,11 +1102,11 @@ void prom_init_device_tree()
 	cpus->addProp(new PromPropInt("#size-cells", 0));
 	cpu->addProp(new PromPropString("device_type", "cpu"));
 	cpu->addProp(new PromPropInt("reg", 0));
-	cpu->addProp(new PromPropInt("cpu-version", gCPU.pvr));
+	cpu->addProp(new PromPropInt("cpu-version", ppc_cpu_get_pvr(0)));
 	cpu->addProp(new PromPropString("state", "running"));
-	cpu->addProp(new PromPropInt("clock-frequency", PPC_CLOCK_FREQUENCY));
-	cpu->addProp(new PromPropInt("timebase-frequency", PPC_TIMEBASE_FREQUENCY));
-	cpu->addProp(new PromPropInt("bus-frequency", PPC_BUS_FREQUENCY));
+	cpu->addProp(new PromPropInt("clock-frequency", ppc_get_clock_frequency(0)));
+	cpu->addProp(new PromPropInt("timebase-frequency", ppc_get_timebase_frequency(0)));
+	cpu->addProp(new PromPropInt("bus-frequency", ppc_get_bus_frequency(0)));
 	cpu->addProp(new PromPropInt("reservation-granule-size", 0x20));
 	cpu->addProp(new PromPropInt("tlb-sets", 0x40));
 	cpu->addProp(new PromPropInt("tlb-size", 0x80));
@@ -1125,7 +1166,8 @@ void prom_init_device_tree()
 	gPromRoot->addNode(rtas);
 	gPromRoot->addNode(mmu);
 	memory->addProp(new PromPropString("device_type", "memory"));
-	byte reg[] = {0, 0, 0, 0, gMemorySize>>24, gMemorySize>>16, gMemorySize>>8, gMemorySize, 0, 0, 0, 0, 0, 0, 0, 0};
+	uint32 memorySize = ppc_get_memory_size();
+	byte reg[] = {0, 0, 0, 0, memorySize>>24, memorySize>>16, memorySize>>8, memorySize, 0, 0, 0, 0, 0, 0, 0, 0};
 	memory->addProp(new PromPropMemory("reg", &reg, sizeof reg));
 	byte av[] = {0, 0xa0, 0, 0, 1, 0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	memory->addProp(new PromPropMemory("available", &av, sizeof av));
@@ -1143,7 +1185,7 @@ void prom_init_device_tree()
 	pci->addProp(new PromPropInt("#address-cells", 3));
 	pci->addProp(new PromPropInt("#interrupt-cells", 1));
 	pci->addProp(new PromPropInt("#size-cells", 2));
-	pci->addProp(new PromPropInt("clock-frequency", PPC_BUS_FREQUENCY));
+	pci->addProp(new PromPropInt("clock-frequency", ppc_get_bus_frequency(0)));
 	pci->addProp(new PromPropInt("bus-master-capable", 0x12000));
 	byte ranges23[] = {
 	0x01,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0xfe,0x00,0x00,0x00,
@@ -1182,7 +1224,7 @@ void prom_init_device_tree()
 	bridge->addProp(new PromPropInt("#address-cells", 3));
 	bridge->addProp(new PromPropInt("#size-cells", 2));
 	bridge->addProp(new PromPropInt("#interrupt-cells", 1));
-	bridge->addProp(new PromPropInt("clock-frequency", PPC_BUS_FREQUENCY));
+	bridge->addProp(new PromPropInt("clock-frequency", ppc_get_bus_frequency(0)));
 	bridge->addProp(new PromPropString("model", "DEC,21154"));
 	bridge->addProp(new PromPropString("compatible", "DEC,21154.pci-bridge"));
 	bridge->addProp(new PromPropInt("bus-master-capable", 0x7f));

@@ -23,6 +23,6 @@
 
 #include "config.h"
 
-#include SYSTEM_ARCH_SPECIFIC_SYSFEATURES_HDR
+#include SYSTEM_ARCH_SPECIFIC_FEATURES_DIR
 
 #endif

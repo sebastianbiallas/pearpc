@@ -24,10 +24,8 @@
 #include <unistd.h>
 
 #include "info.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_dec.h"
-#include "cpu_generic/ppc_mmu.h"
-#include "cpu_generic/ppc_tools.h"
+#include "cpu/cpu.h"
+//#include "cpu_generic/ppc_tools.h"
 #include "debug/debugger.h"
 #include "io/io.h"
 #include "io/graphic/gcard.h"
@@ -239,7 +237,7 @@ int main(int argc, char *argv[])
 
 		prom_init_config();
 		io_init_config();
-		cpu_init_config();
+		ppc_cpu_init_config();
 		debugger_init_config();
 
 		try {
@@ -341,7 +339,7 @@ int main(int argc, char *argv[])
 			ht_printf("cannot initialize memory.\n");
 			exit(1);
 		}
-		if (!cpu_init()) {
+		if (!ppc_cpu_init()) {
 			ht_printf("cpu_init failed! Out of memory?\n");
 			exit(1);
 		}
@@ -349,7 +347,6 @@ int main(int argc, char *argv[])
 		initUI(APPNAME" "APPVERSION, gm, msec);
 
 		io_init();
-		ppc_dec_init();
 
 		gcard_init_host_modes();
 		gcard_set_mode(gm);
@@ -374,8 +371,8 @@ int main(int argc, char *argv[])
 		drawLogo();
 
 		// now gDisplay->printf works
-		gDisplay->printf("CPU: PVR=%08x\n", gCPU.pvr);
-		gDisplay->printf("%d MiB RAM\n", gMemorySize / (1024*1024));
+		gDisplay->printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
+		gDisplay->printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
 
 		tests();
 
@@ -384,21 +381,16 @@ int main(int argc, char *argv[])
 		gDisplay->printf("initializing initial page table at %08x\n", PAGE_TABLE_ADDR);
 
  		// 256 Kbytes Pagetable, 2^15 Pages, 2^12 PTEGs
-		if (!ppc_mmu_set_sdr1(PAGE_TABLE_ADDR+0x03, false)) {
+		if (!ppc_prom_set_sdr1(PAGE_TABLE_ADDR+0x03, false)) {
 			ht_printf("internal error setting sdr1.\n");
 			return 1;
-		}
-		// initialize pagetable
-		byte *pt;
-		if (ppc_direct_physical_memory_handle(PAGE_TABLE_ADDR+256*1024, pt)
-		||  ppc_direct_physical_memory_handle(PAGE_TABLE_ADDR, pt)) {
+		}		
+		
+		// clear pagetable
+		if (!ppc_dma_set(PAGE_TABLE_ADDR, 0, 256*1024)) {
 			ht_printf("cannot access page table.\n");
 			return 1;
 		}
-		
-		
-		// clear pagetable
-		memset(pt, 0, 256*1024);
 
 		// init prom
 		prom_init();
@@ -421,15 +413,12 @@ int main(int argc, char *argv[])
 		// this was your last chance to visit the config..
 		delete gConfig;
 
-		// use BAT for framebuffer
-		gCPU.dbatu[0] = IO_GCARD_FRAMEBUFFER_EA|(7<<2)|0x3;
-		gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0])<<17);
-		gCPU.dbatl[0] = IO_GCARD_FRAMEBUFFER_PA_START;
+		ppc_cpu_map_framebuffer(IO_GCARD_FRAMEBUFFER_PA_START, IO_GCARD_FRAMEBUFFER_EA);
 
 		gDisplay->print("now starting client...");
 		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
 
-		ppc_run();
+		ppc_cpu_run();
 		delete gDisplay;		
 	} catch (std::exception *e) {
 		ht_printf("main() caught exception: %s\n", e->what());

@@ -316,7 +316,7 @@ uint32 ForthVM::dataDepth()
 
 void *ForthVM::dataStr(uint32 u, bool exc)
 {
-	void *p = prom_mem_eaptr(u);
+	void *p = NULL;//prom_mem_eaptr(u);
 	if (!p) throw new ForthRunException(mErrorPos, "invalid address");
 	return p;
 }
@@ -367,9 +367,9 @@ uint32 ForthVM::codeDepth()
  */
 void ForthVM::promMalloc(uint32 size, uint32 &ea, void **p)
 {
-	ea = prom_mem_malloc(size);
-	*p = prom_mem_ptr(ea);
-	ea = prom_mem_phys_to_virt(ea);
+//	ea = prom_mem_malloc(size);
+//	*p = prom_mem_ptr(ea);
+//	ea = prom_mem_phys_to_virt(ea);
 }
 
 /*

@@ -22,7 +22,6 @@
 #include <cstring>
 
 #include "debug/tracers.h"
-#include "cpu_generic/ppc_cpu.h"
 #include "nvram.h"
 
 #define NVRAM_IMAGE_SIZE 0x2000

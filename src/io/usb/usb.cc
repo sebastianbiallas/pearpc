@@ -26,7 +26,7 @@
  */
 
 #include "debug/tracers.h"
-#include "cpu_generic/ppc_tools.h"
+#include "system/arch/sysendian.h"
 #include "io/pci/pci.h"
 #include "usb.h"
 

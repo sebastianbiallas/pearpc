@@ -25,9 +25,10 @@
 
 #include "tools/data.h"
 #include "tools/snprintf.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_mmu.h"
-#include "cpu_generic/ppc_tools.h"
+#include "system/arch/sysendian.h"
+#include "cpu/cpu.h"
+#include "cpu/debug.h"
+#include "cpu/mem.h"
 #include "io/pic/pic.h"
 #include "io/pci/pci.h"
 #include "debug/tracers.h"
@@ -1312,22 +1313,25 @@ void receive_atapi_packet()
 			uint32 size PACKED;
 		};
 
-		uint32 prd_addr = ppc_word_to_BE(bmide_prd_addr);
-		byte *xx;
+		uint32 prd_addr = ppc_word_from_BE(bmide_prd_addr);
+/*		byte *xx;
 		if (ppc_direct_physical_memory_handle(prd_addr, xx)) {
 			IO_IDE_ERR("false 47\n");
 			return false;
-		}
-		prd_entry *prd = (prd_entry*)xx;
+		}*/
+//		prd_entry *prd = (prd_entry*)xx;
+		prd_entry prd;
+		ppc_dma_read(&prd, prd_addr, 8);
 
 		prd_exhausted = false;
-		int pr_left = prd->size & 0xffff;
+		int pr_left = ppc_word_from_LE(prd.size) & 0xffff;
 		if (!pr_left) pr_left = 64*1024;
-		byte *pr;
+/*		byte *pr;
 		if (ppc_direct_physical_memory_handle(prd->addr, pr)) {
 			IO_IDE_ERR("false 46\n");
 			return false;
-		}
+		}*/
+		uint32 pr = ppc_word_from_LE(prd.addr);
 		bool write_to_mem = bmide_command & BM_IDE_CR_WRITE;
 		bool write_to_device = !write_to_mem;
 		while (true) {
@@ -1335,16 +1339,19 @@ void receive_atapi_packet()
 			int transfer_at_once = to_transfer;
 			if (transfer_at_once > pr_left) transfer_at_once = pr_left;
 			do {
+				uint8 buffer[transfer_at_once];
 				if (write_to_device) {
-					if (gIDEState.config[gIDEState.drive].device->write(pr, transfer_at_once) != transfer_at_once) {
+					ppc_dma_read(buffer, pr, transfer_at_once);
+					if (gIDEState.config[gIDEState.drive].device->write(buffer, transfer_at_once) != transfer_at_once) {
 						IO_IDE_ERR("false3\n");
 						return false;
 					}
 				} else {
-					if (gIDEState.config[gIDEState.drive].device->read(pr, transfer_at_once) != transfer_at_once) {
+					if (gIDEState.config[gIDEState.drive].device->read(buffer, transfer_at_once) != transfer_at_once) {
 						IO_IDE_ERR("false3\n");
 						return false;
 					}
+					ppc_dma_write(pr, buffer, transfer_at_once);
 				}
 				pr_left -= transfer_at_once;
 				pr += transfer_at_once;
@@ -1353,7 +1360,7 @@ void receive_atapi_packet()
 					IO_IDE_ERR("pr_left became negative!\n");
 				}
 				if (!pr_left) {
-        				if (prd->size & 0x80000000) {
+        				if (prd.size & 0x80000000) {
 						// no more prd's, but still something to transfer -> error
 						bool ready;
 						if (count) {
@@ -1368,13 +1375,11 @@ void receive_atapi_packet()
 						prd_exhausted = true;
 					} else {
 						// get next prd
-						prd++;
-						pr_left = prd->size & 0xffff;
+						prd_addr += 8;
+						ppc_dma_read(&prd, prd_addr, 8);
+						pr_left = prd.size & 0xffff;
 						if (!pr_left) pr_left = 64*1024;
-						if (ppc_direct_physical_memory_handle(prd->addr, pr)) {
-							IO_IDE_ERR("false2\n");
-							return false;
-						}
+						pr = ppc_word_from_LE(prd.addr);
 						transfer_at_once = to_transfer;
 						if (transfer_at_once > pr_left) transfer_at_once = pr_left;
 					}

@@ -28,9 +28,7 @@
 #include "parsehelper.h"
 #include "stdfuncs.h"
 
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_fpu.h"
-#include "cpu_generic/ppc_mmu.h"
+#include "cpu/cpu.h"
 
 #include "debug/ppcdis.h"
 /*
@@ -165,7 +163,8 @@ EvalType GPRFunction::getReturnType() const
 
 SInt64 *GPRFunction::evalInteger() const
 {
-	return new SInt64(gCPU.gpr[mNumber]);
+//	return new SInt64(gCPU.gpr[mNumber]); NEWIF
+	return NULL;
 }
 
 FPRFunction::FPRFunction(int number)
@@ -180,7 +179,7 @@ EvalType FPRFunction::getReturnType() const
 
 Float *FPRFunction::evalFloat() const
 {
-	return new Float(*(double *)&gCPU.fpr[mNumber]);
+//	return new Float(*(double *)&gCPU.fpr[mNumber]); NEWIF
 }
 
 UInt32PFunction::UInt32PFunction(uint32 *aValue)
@@ -361,7 +360,7 @@ int Watch::toString(char *buf, int buflen) const
 Debugger::Debugger()
 {
 	mWatches = new LinkedList(true);
-//	savedCPUState = gCPU;
+//NEWIF	savedCPUState = gCPU;
 	mUseColors = true;
 }
 
@@ -383,7 +382,7 @@ Function *Debugger::eval_scalarToFunction(eval_scalar &s)
 			return new GPRFunction(s.scalar.reg.num);
 		case REG_FPR:
 			return new FPRFunction(s.scalar.reg.num);
-		case REG_PC:
+/*		case REG_PC: NEWIF
 			return new UInt32PFunction(&gCPU.pc);
 		case REG_LR:
 			return new UInt32PFunction(&gCPU.lr);
@@ -398,7 +397,7 @@ Function *Debugger::eval_scalarToFunction(eval_scalar &s)
 		case REG_SRR0:
 			return new UInt32PFunction(&gCPU.srr[0]);
 		case REG_SRR1:
-			return new UInt32PFunction(&gCPU.srr[1]);
+			return new UInt32PFunction(&gCPU.srr[1]);*/
 		}
 		break;
 	case SCALAR_STR:
@@ -463,6 +462,8 @@ inline static void disasm(uint32 code, uint32 ea, char *result)
 
 void Debugger::dump()
 {
+#if 0
+    NEWIF
 	gDisplay->displayShow();
 	int r = 0;
 	const char *hiColor, *loColor;
@@ -506,10 +507,13 @@ void Debugger::dump()
 			mForceSinglestep = true;
 		}
 	}
+#endif
 }
 
 static void displayFPRs()
 {
+#if 0
+    NEWIF
 	for (int i=0; i<32; i++) {
 		ppc_double dd;
 		ppc_fpu_unpack_double(dd, gCPU.fpr[i]);
@@ -532,16 +536,19 @@ static void displayFPRs()
 		ht_printf("\n");
 		ht_printf("   = %qx\n", &gCPU.fpr[i]);
 	}
+#endif
 }
 
 static bool translateAddress(uint32 ea, uint32 &pa, bool error)
 {
+/* FIXME: NEWIF
 	if (ppc_effective_to_physical(ea, PPC_MMU_READ|PPC_MMU_NO_EXC|PPC_MMU_SV, pa)) {
 		if (error) ht_printf("cant translate effective address %08x\n", ea);
 		return false;
 	} else {
 		return true;
 	}
+*/
 }
 
 bool Debugger::parse(const String &str)
@@ -581,7 +588,7 @@ bool Debugger::parse(const String &str)
 		case COMMAND_SETREG: {
 			SInt64 *sint = params[1]->evalInteger();
 			switch (s.param[0].scalar.reg.type) {
-			case REG_GPR:
+/*			case REG_GPR: NEWIF
 				gCPU.gpr[s.param[0].scalar.reg.num] = sint->value;
 				break;
 			case REG_FPR: {
@@ -592,8 +599,8 @@ bool Debugger::parse(const String &str)
 			}
 			case REG_PC:
 				gCPU.pc = gCPU.npc = sint->value;
-				break;
-			case REG_CR:
+				break;*/
+/*			case REG_CR: NEWIF
 				gCPU.cr = sint->value;
 				break;
 			case REG_LR:
@@ -613,12 +620,12 @@ bool Debugger::parse(const String &str)
 				break;
 			case REG_SRR1:
 				gCPU.srr[1] = sint->value;
-				break;
+				break;*/
 			}
 			delete sint;
 			break;
 		}
-		case COMMAND_LIST_BREAK: 
+/*		case COMMAND_LIST_BREAK: NEWIF
 			ht_printf("Breakpoint %d at %08x\n", 1, gBreakpoint);
 			ht_printf("Breakpoint %d at %08x\n", 2, gBreakpoint2);
 			break;
@@ -650,7 +657,7 @@ bool Debugger::parse(const String &str)
 			ppc_stop();
 			ppc_set_singlestep_nonverbose(false);
 			ret = true;
-			break;
+			break;*/
 		case COMMAND_E2P: {
 			SInt64 *sint = params[0]->evalInteger();
 			uint32 pa, ea = sint->value;
@@ -665,11 +672,11 @@ bool Debugger::parse(const String &str)
 			uint32 pa, ea = sint->value;
 			uint8 v;
 			if (translateAddress(ea, pa, true)) {
-				if (ppc_read_physical_byte(pa, v)) {
+/*				if (ppc_read_physical_byte(pa, v)) { NEWIF
 					ht_printf("cant read at physical address %08x\n", pa);
 				} else {
 					ht_printf("@%08x: %02x   (physical: %08x)\n", ea, v, pa);
-				}
+				}*/
 			}
 			delete sint;
 			break;
@@ -679,11 +686,11 @@ bool Debugger::parse(const String &str)
 			uint32 pa, ea = sint->value;
 			uint16 v;
 			if (translateAddress(ea, pa, true)) {
-				if (ppc_read_physical_half(pa, v)) {
+/*				if (ppc_read_physical_half(pa, v)) { NEWIF
 					ht_printf("cant read at physical address %08x\n", pa);
 				} else {
 					ht_printf("@%08x: %04x   (physical: %08x)\n", ea, v, pa);
-				}
+				}*/
 			}
 			delete sint;
 			break;
@@ -694,11 +701,11 @@ bool Debugger::parse(const String &str)
 			delete sint;
 			uint32 v;
 			if (translateAddress(ea, pa, true)) {
-				if (ppc_read_physical_word(pa, v)) {
+/*				if (ppc_read_physical_word(pa, v)) { NEWIF
 					ht_printf("cant read at physical address %08x\n", pa);
 				} else {
 					ht_printf("@%08x: %08x   (physical: %08x)\n", ea, v, pa);
-				}
+				}*/
 			}
 			break;
 		}
@@ -708,11 +715,11 @@ bool Debugger::parse(const String &str)
 			delete sint;
 			uint64 v;
 			if (translateAddress(ea, pa, true)) {
-				if (ppc_read_physical_dword(pa, v)) {
+/*				if (ppc_read_physical_dword(pa, v)) { NEWIF
 					ht_printf("cant read at physical address %08x\n", pa);
 				} else {
 					ht_printf("@%08x: %016x   (physical: %08x)\n", ea, v, pa);
-				}
+				}*/
 			}
 			break;
 		}
@@ -722,11 +729,11 @@ bool Debugger::parse(const String &str)
 			delete sint;
 			byte *v;
 			if (translateAddress(ea, pa, true)) {
-				if (ppc_direct_physical_memory_handle(pa, v)) {
+/*				if (ppc_direct_physical_memory_handle(pa, v)) { NEWIF
 					ht_printf("cant read at physical address %08x\n", pa);
 				} else {
 					ht_printf("@%08x: '%s'   (physical: %08x)\n", ea, v, pa);
-				}
+				}*/
 			}
 			break;
 		}
@@ -743,7 +750,7 @@ bool Debugger::parse(const String &str)
 			buf[sprintf(buf, "@%08x", ea)] = ' ';
 			while (count) {
 				if (translateAddress(ea, pa, true)) {
-					if (ppc_read_physical_byte(pa, v)) {
+/*					if (ppc_read_physical_byte(pa, v)) { NEWIF
 						ht_printf("cant read at physical address %08x\n", pa);
 						break;
 					} else {
@@ -752,7 +759,7 @@ bool Debugger::parse(const String &str)
 						buf[10+(x%16)*3+2] = ' ';
 						sprintf(buf+10+16*3+x%16, "%c", (v>=32 && v<=127)?v:' ');
 						buf[10+16*3+x%16+1] = ' ';
-					}
+					}*/
 				} else {
 					break;
 				}
@@ -786,7 +793,7 @@ bool Debugger::parse(const String &str)
 		case COMMAND_DELETE_WATCH:
 		case COMMAND_DUMP:
 		case COMMAND_DISASM: {
-			uint32 ea, pa;
+/*			uint32 ea, pa; NEWIF
 			if (params[0]) {
 				SInt64 *sint;
 				sint = params[0]->evalInteger();
@@ -820,7 +827,7 @@ bool Debugger::parse(const String &str)
 				count--;
 				ea+=4;
 			}
-			break;
+			break;*/
 		}
 		case COMMAND_HELP:
 			ht_printf("bist du jeck?\n");
@@ -845,7 +852,7 @@ void Debugger::enter()
 	 */
 	mForceSinglestep = false;
 	char disstr[256];
-	disasm(gCPU.current_opc, gCPU.pc, disstr);
+//	disasm(gCPU.current_opc, gCPU.pc, disstr); NEWIF
 	if (disstr[0] == 'b') {
 		int i = 1;
 		while (disstr[i] && disstr[i] != ' ') i++;
@@ -854,7 +861,7 @@ void Debugger::enter()
 		}
 	}
 	
-	gBreakpoint = 0;
+//	gBreakpoint = 0; NEWIF
 	
 	while (!quit) {
 		printf("> ");
@@ -871,7 +878,7 @@ void Debugger::enter()
 			continue;
 		}
 	}
-	savedCPUState = gCPU;
+//	savedCPUState = gCPU; NEWIF
 }
 
 #include "configparser.h"

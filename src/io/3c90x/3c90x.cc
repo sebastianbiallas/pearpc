@@ -31,10 +31,10 @@
 
 #include "system/sys.h"
 #include "system/systhread.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_mmu.h"
-#include "cpu_generic/ppc_tools.h"
+#include "cpu/debug.h"
+#include "cpu/mem.h"
 #include "system/sysethtun.h"
+#include "system/arch/sysendian.h"
 #include "tools/crc32.h"
 #include "tools/data.h"
 #include "tools/endianess.h"
@@ -1319,13 +1319,11 @@ void txDPD0(DPD0 *dpd)
 			SINGLESTEP("");
 			return;
 		}
-		byte *frag;
-		if (len && (ppc_direct_physical_memory_handle(addr, frag) != PPC_MMU_OK)) {
+		if (!ppc_dma_read(p, addr, len)) {
 			IO_3C90X_WARN("frag addr invalid! cancelling\n");
 			SINGLESTEP("");
 			return;
 		}
-		memcpy(p, frag, len);
 		p += len;
 		// last fragment ?
 		if (frags->DnFragLen & 0x80000000) break;
@@ -1497,8 +1495,7 @@ void rxUPD(UPD *upd)
 			break;
 		}
 
-		byte *frag;
-		if (ppc_direct_physical_memory_handle(addr, frag) != PPC_MMU_OK) {
+		if (ppc_dma_write(addr, p, len)) {
 			upPktStatus |= UPS_upError;
 			upd->UpPktStatus = upPktStatus;
 			IO_3C90X_WARN("invalid UPD fragment address! (%08x)\n", addr);
@@ -1506,7 +1503,6 @@ void rxUPD(UPD *upd)
 			error = true;
 			break;
 		}
-		memcpy(frag, p, len);
 		p += len;
 		// last fragment ?
 		if (frags->UpFragLen & 0x80000000) break;
@@ -1583,8 +1579,9 @@ void maybeRaiseIntr()
 void checkDnWork()
 {
 	while (!mDnStalled && (mRegisters.DnListPtr != 0)) {
-		byte *dpd;
-		if (ppc_direct_physical_memory_handle(mRegisters.DnListPtr, dpd) == PPC_MMU_OK) {
+		byte dpd[16];
+		
+		if (ppc_dma_read(dpd, mRegisters.DnListPtr, sizeof dpd)) {
 			// get packet type
 			byte type = dpd[7]>>6;
 			switch (type) {
@@ -1619,8 +1616,8 @@ void checkDnWork()
 void checkUpWork()
 {
 	if (!mUpStalled && (mRegisters.UpListPtr != 0) && mRxPacketSize) {
-		byte *upd;
-		if (ppc_direct_physical_memory_handle(mRegisters.UpListPtr, upd) == PPC_MMU_OK) {
+		byte upd[8];
+		if (ppc_dma_read(upd, mRegisters.UpListPtr, sizeof upd)) {
 			UPD *p = (UPD*)upd;
 			rxUPD(p);
 		} else {

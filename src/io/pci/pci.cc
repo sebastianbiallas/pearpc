@@ -22,8 +22,10 @@
 #include <cstring>
 
 #include "tools/data.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_tools.h"
+#include "system/arch/sysendian.h"
+#include "cpu/cpu.h"
+#include "cpu/debug.h"
+#include "cpu/mem.h"
 #include "debug/tracers.h"
 #include "pci.h"
 

@@ -35,9 +35,9 @@
 
 #include "system/sys.h"
 #include "system/systhread.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_mmu.h"
-#include "cpu_generic/ppc_tools.h"
+#include "system/arch/sysendian.h"
+#include "cpu/mem.h"
+#include "cpu/debug.h"
 #include "system/sysethtun.h"
 #include "tools/crc32.h"
 #include "tools/data.h"
@@ -321,7 +321,6 @@ void maybeRaiseIntr()
 
 void TxPacket(uint32 address, uint32 size)
 {
-	byte *	ppc_addr;
 	byte	pbuf[MAX_PACKET_SIZE];
 	byte *	p;
 	uint32	crc;
@@ -329,11 +328,10 @@ void TxPacket(uint32 address, uint32 size)
 
 	p = pbuf;
 	IO_RTL8139_TRACE ("address: %08x, size: %04x\n", address, size);
-	if (ppc_direct_physical_memory_handle(address, ppc_addr) == PPC_MMU_OK) {
+	if (ppc_dma_read(pbuf, address, size)) {
 /*		if (mVerbose > 1) {
 			debugDumpMem(ppc_addr, size);
 		}*/
-		memcpy(p, ppc_addr, size);
 		crc = ether_crc(size, p);
 		psize = size;
 		pbuf[psize+0] = crc;
@@ -382,49 +380,45 @@ rtl8139_NIC(EthTunDevice *aEthTun, const byte *mac)
 
 void transferPacket(bool raiseIntr)
 {
-	byte*		addr;
-	byte*           base;
-	bool		good;
+	uint32 addr;
+	uint32 base = mRegisters.RxBufferStartAddr;
+	bool good;
 
 	if (mTail == mHead) {
 		return;
 	}
-	if (ppc_direct_physical_memory_handle(mRegisters.RxBufferStartAddr, base) == PPC_MMU_OK) {
-		addr = base + mRegisters.CBA;
-		if (mRegisters.CBA > mRingBufferSize) {// sending outside, could cause problems?
-			good = false;
-		} else {
-			good = true;
-		}
-#if 0
-		if ((mRegisters.CBA) > mRingBufferSize) {
-			IO_RTL8139_TRACE("client ring buffer wrap around [%d]\n", raiseIntr);
-			addr = base;
-			mRegisters.CBA = 0;
-			mRegisters.CAPR = 0xfff0;
-//			mRegisters.CommandRegister |= 1;
-			return;
-		}
-#endif
-		memcpy(addr, mPackets[mTail].packet, mPackets[mTail].size);
-		IO_RTL8139_TRACE("wrote %04x bytes to the ring buffer\n", mPackets[mTail].size);
-		mRegisters.EarlyRxByteCount = mPackets[mTail].size;
-		mRegisters.EarlyRxStatus = 8;
-		mRegisters.CBA += mPackets[mTail].size;
-		mRegisters.CommandRegister &= 0xfe; // RxBuffer has data
-		mLastPackets[1] = mLastPackets[0];
-		mLastPackets[0] = mTail;
-		mActive--;
-		IO_RTL8139_TRACE("Outgoing - Addr: %08x, Pid: %08x, Size: %04x\n", addr, mPackets[mTail].pid, mPackets[mTail].size-4);
-		if (good) {
-			mTail = (mTail+1) % MAX_PACKETS;
-		}
-		if (raiseIntr) {
-			mIntStatus |= 1;
-			maybeRaiseIntr();
-		}
+	addr = base + mRegisters.CBA;
+	if (mRegisters.CBA > mRingBufferSize) {// sending outside, could cause problems?
+		good = false;
 	} else {
-		IO_RTL8139_ERR("ppc_direct_physical_memory_handle called failed in transferPacket\n");
+		good = true;
+	}
+#if 0
+	if ((mRegisters.CBA) > mRingBufferSize) {
+		IO_RTL8139_TRACE("client ring buffer wrap around [%d]\n", raiseIntr);
+		addr = base;
+		mRegisters.CBA = 0;
+		mRegisters.CAPR = 0xfff0;
+//			mRegisters.CommandRegister |= 1;
+	return;
+	}
+#endif
+	ppc_dma_write(addr, mPackets[mTail].packet, mPackets[mTail].size);
+	IO_RTL8139_TRACE("wrote %04x bytes to the ring buffer\n", mPackets[mTail].size);
+	mRegisters.EarlyRxByteCount = mPackets[mTail].size;
+	mRegisters.EarlyRxStatus = 8;
+	mRegisters.CBA += mPackets[mTail].size;
+	mRegisters.CommandRegister &= 0xfe; // RxBuffer has data
+	mLastPackets[1] = mLastPackets[0];
+	mLastPackets[0] = mTail;
+	mActive--;
+	IO_RTL8139_TRACE("Outgoing - Addr: %08x, Pid: %08x, Size: %04x\n", addr, mPackets[mTail].pid, mPackets[mTail].size-4);
+	if (good) {
+		mTail = (mTail+1) % MAX_PACKETS;
+	}
+	if (raiseIntr) {
+		mIntStatus |= 1;
+		maybeRaiseIntr();
 	}
 }
 

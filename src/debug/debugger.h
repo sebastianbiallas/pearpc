@@ -24,7 +24,7 @@
 #include "tools/data.h"
 #include "tools/str.h"
 #include "parsehelper.h"
-#include "cpu_generic/ppc_cpu.h"
+#include "cpu/cpu.h"
 
 enum EvalType {
 	ET_INTEGER,
@@ -152,7 +152,7 @@ public:
 class Debugger {
 protected:
 	Container *mWatches;
-	PPC_CPU_State savedCPUState;
+//	PPC_CPU_State savedCPUState; NEWIF
 	bool mForceSinglestep;
 
 		Function *eval_scalarToFunction(eval_scalar &s);

@@ -26,8 +26,8 @@
 #include "debug/tracers.h"
 #include "tools/debug.h"
 #include "tools/endianess.h"
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_mmu.h"
+#include "cpu/cpu.h"
+#include "cpu/mem.h"
 #include "io/prom/fs/part.h"
 #include "io/ide/ide.h"
 #include "system/keyboard.h"
@@ -40,6 +40,30 @@
 #include "promboot.h"
 #include "promdt.h"
 #include "prommem.h"
+
+#define MSR_SF		(1<<31)
+#define MSR_UNKNOWN	(1<<30)
+#define MSR_UNKNOWN2	(1<<27)
+#define MSR_VEC		(1<<25)
+#define MSR_KEY		(1<<19)		// 603e
+#define MSR_POW		(1<<18)
+#define MSR_TGPR	(1<<15)		// 603(e)
+#define MSR_ILE		(1<<16)
+#define MSR_EE		(1<<15)
+#define MSR_PR		(1<<14)
+#define MSR_FP		(1<<13)
+#define MSR_ME		(1<<12)
+#define MSR_FE0		(1<<11)
+#define MSR_SE		(1<<10)
+#define MSR_BE		(1<<9)
+#define MSR_FE1		(1<<8)
+#define MSR_IP		(1<<6)
+#define MSR_IR		(1<<5)
+#define MSR_DR		(1<<4)
+#define MSR_PM		(1<<2)
+#define MSR_RI		(1<<1)
+#define MSR_LE		(1)
+
 
 byte ELF_PROGRAM_HEADER32_struct[]= {
 	STRUCT_ENDIAN_32 | STRUCT_ENDIAN_HOST,
@@ -256,7 +280,7 @@ byte COFF_SECTION_HEADER_struct[] = {
  */
 static bool init_page_create(uint32 ea, uint32 pa)
 {
-	return prom_claim_page(pa) && ppc_mmu_page_create(ea, pa);
+	return prom_claim_page(pa) && ppc_prom_page_create(ea, pa);
 }
 
 
@@ -299,15 +323,13 @@ bool mapped_load_elf(File &f)
 			f.seek(program_hdr.p_offset);
 			uint32 fo = program_hdr.p_offset;
 			byte page[4096];
-			byte *ptr;
 			while (pages_from_file) {
 //				IO_PROM_TRACE("loading from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
 				f.readx(page, sizeof page);
 		    		if (!init_page_create(ea, la)) return false;
-				if (ppc_direct_physical_memory_handle(la, ptr)) {
+				if (!ppc_dma_write(la, page, 4096)) {
 					return false;
 				}
-				memcpy(ptr, page, 4096);
 				pages_from_file--;
 				la += 4096;
 	        		ea += 4096;
@@ -318,10 +340,9 @@ bool mapped_load_elf(File &f)
 //		  		ht_printf("loading remaining from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
 				f.read(page, program_hdr.p_filesz % 4096);
 				if (!init_page_create(ea, la)) return false;
-				if (ppc_direct_effective_memory_handle(la+(ea&0xfff), ptr)) {
+				if (!ppc_dma_write(la+(ea&0xfff), page, program_hdr.p_filesz % 4096)) {
 					return false;
 				}
-				memcpy(ptr, page, program_hdr.p_filesz % 4096);
 				la += 4096;
 				ea += 4096;
 				fo += 4096;
@@ -351,17 +372,17 @@ bool mapped_load_elf(File &f)
 		entry = createHostInt(&entry, 4, big_endian);	
 
 		// turn on address translation
-		gCPU.msr = MSR_IR | MSR_DR | MSR_FP;
+		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+		ppc_cpu_set_pc(0, entry);
 		
-		gCPU.pc = entry;
-		gCPU.gpr[1] = stack-(4096+32);
-		gCPU.gpr[2] = 0;
-		gCPU.gpr[3] = 0;
-		gCPU.gpr[4] = 0;
-		gCPU.gpr[5] = gPromOSIEntry;
+		ppc_cpu_set_gpr(0, 1, stack-(4096+32));
+		ppc_cpu_set_gpr(0, 2, 0);
+		ppc_cpu_set_gpr(0, 3, 0);
+		ppc_cpu_set_gpr(0, 4, 0);
+		ppc_cpu_set_gpr(0, 5, gPromOSIEntry);
 	
 		// wtf?!
-		ppc_mmu_page_create(0, 0);
+		ppc_prom_page_create(0, 0);
 		return true;
 	} catch (...) {
 		return false;
@@ -416,15 +437,13 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 			f.seek(disp_ofs+shdr.data_offset);
 			uint32 fo = shdr.data_offset;
 			byte page[4096];
-			byte *ptr;
 			while (pages_from_file) {
 //				ht_printf("loading from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
 				f.readx(page, sizeof page);
 		    		if (!init_page_create(ea, pa)) return false;
-				if (ppc_direct_physical_memory_handle(pa, ptr)) {
+				if (!ppc_dma_write(pa, page, 4096)) {
 					return false;
 				}
-				memcpy(ptr, page, 4096);
 				pages_from_file--;
 				pa += 4096;
 	        		ea += 4096;
@@ -435,10 +454,9 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 //  				ht_printf("loading remaining from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
 				f.readx(page, in_file_size % 4096);
 				if (!init_page_create(ea, pa)) return false;
-				if (ppc_direct_effective_memory_handle(pa+(ea&0xfff), ptr)) {
+				if (!ppc_dma_write(pa+(ea&0xfff), page, in_file_size % 4096)) {
 					return false;
 				}
-				memcpy(ptr, page, in_file_size % 4096);
 				pa += 4096;
 				ea += 4096;
 				fo += 4096;
@@ -471,14 +489,14 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 		real_entrypoint = createHostInt(&real_entrypoint, 4, big_endian);
 		IO_PROM_TRACE("real_entrypoint = %08x\n", real_entrypoint);
 		// turn on address translation
-		gCPU.msr = MSR_IR | MSR_DR | MSR_FP;
-
-		gCPU.pc = real_entrypoint;
-		gCPU.gpr[1] = stack-(4096+32);
-		gCPU.gpr[2] = 0;
-		gCPU.gpr[3] = 0;
-		gCPU.gpr[4] = 0;   // "apus" "BooX"
-		gCPU.gpr[5] = gPromOSIEntry;   // prom entry
+		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+		ppc_cpu_set_pc(0, real_entrypoint);
+		
+		ppc_cpu_set_gpr(0, 1, stack-(4096+32));
+		ppc_cpu_set_gpr(0, 2, 0);
+		ppc_cpu_set_gpr(0, 3, 0);
+		ppc_cpu_set_gpr(0, 4, 0);
+		ppc_cpu_set_gpr(0, 5, gPromOSIEntry);
 
 		return true;
 	} catch (...) {
@@ -753,16 +771,15 @@ bool mapped_load_chrp(File &f)
 bool mapped_load_flat(const char *filename, uint fileofs, uint filesize, uint vaddr, uint pc)
 {
 	gDisplay->printf("FLAT loading: %s\n", filename);
-	byte *pt;
 
-	int pa;
-	int ea;
+	uint32 pa;
+	uint32 ea;
 	// allocate image
 	pa = vaddr;
 	ea = vaddr;
-	if (ppc_direct_physical_memory_handle(pa, pt)) {
-		return false;
-	}
+	
+	uint32 loadaddr = pa;
+	
 	for (uint p = 0; p<(filesize+4095) / 4096; p++) {
 		if (!init_page_create(ea, pa)) return false;
 		ea += 4096;
@@ -798,17 +815,26 @@ bool mapped_load_flat(const char *filename, uint fileofs, uint filesize, uint va
 
 	fseek(f, fileofs, SEEK_SET);
 
-	if (fread(pt, filesize, 1, f) != 1) return false;
+	byte *p = (byte *)malloc(filesize);
+	if (!p) return false;
+	
+	if (fread(p, filesize, 1, f) != 1) {
+		free(p);
+		return false;
+	}
 
-	gCPU.msr = MSR_IR | MSR_DR | MSR_FP;
-	gCPU.pc = pc;
-//	gCPU.srr[0] = ts.srr0;
-//	gCPU.srr[1] = ts.srr1;
+	ppc_dma_write(loadaddr, p, filesize);
+	
+	free(p);
 
-	gCPU.gpr[1] = stackea+stacksize/2;
-	gCPU.gpr[3] = 0x47110815;
-	gCPU.gpr[5] = gPromOSIEntry;   // prom entry
-//	gSinglestep = true;
+	ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+	ppc_cpu_set_pc(0, pc);
+		
+	ppc_cpu_set_gpr(0, 1, stackea+stacksize/2);
+	ppc_cpu_set_gpr(0, 2, 0);
+	ppc_cpu_set_gpr(0, 3, 0x47110815);
+	ppc_cpu_set_gpr(0, 4, 0);
+	ppc_cpu_set_gpr(0, 5, gPromOSIEntry);
 	return true;
 }
 
@@ -818,16 +844,14 @@ bool mapped_load_direct(File &f, uint vaddr, uint pc)
 	gDisplay->printf("direct: trying to load '%y'\n", &f.getDesc(fn));
 	IO_PROM_TRACE("direct: trying to load '%y'\n", &fn);
 
-	byte *pt;
-
-	int pa;
-	int ea;
+	uint32 pa;
+	uint32 ea;
 	// allocate image
 	pa = vaddr;
 	ea = vaddr;
-	if (ppc_direct_physical_memory_handle(pa, pt)) {
-		return false;
-	}
+
+	uint32 loadaddr = pa;
+	
 	uint size = f.getSize();
 	for (uint p = 0; p<(size+4095) / 4096; p++) {
 		if (!init_page_create(ea, pa)) return false;
@@ -859,22 +883,34 @@ bool mapped_load_direct(File &f, uint vaddr, uint pc)
 
 //	memcpy(pt, mem, size);
 	f.seek(0);
-	if (f.read(pt, f.getSize()) != f.getSize()) return false;
 
-	gCPU.msr = MSR_IR | MSR_DR | MSR_FP;
-	gCPU.pc = pc;
-//	gCPU.srr[0] = ts.srr0;
-//	gCPU.srr[1] = ts.srr1;
+	byte *p = (byte *)malloc(f.getSize());
+	if (!p) return false;
+	
+	if (f.read(p, f.getSize()) != f.getSize()) {
+		free(p);
+		return false;
+	}
 
-	gCPU.gpr[1] = stackea+stacksize/2;
-	gCPU.gpr[3] = 0x47110815;
-	gCPU.gpr[5] = gPromOSIEntry;   // prom entry
+	ppc_dma_write(loadaddr, p, f.getSize());
+	
+	free(p);
+
+	ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+	ppc_cpu_set_pc(0, pc);
+		
+	ppc_cpu_set_gpr(0, 1, stackea+stacksize/2);
+	ppc_cpu_set_gpr(0, 2, 0);
+	ppc_cpu_set_gpr(0, 3, 0x47110815);
+	ppc_cpu_set_gpr(0, 4, 0);
+	ppc_cpu_set_gpr(0, 5, gPromOSIEntry);
 	return true;
 }
 
 /*
  *	Mach-O
  */
+#if 0
 bool mapped_load_mach_o(const char *filename)
 {
 	gDisplay->printf("MACH-O loading: %s\n", filename);
@@ -923,6 +959,7 @@ bool mapped_load_mach_o(const char *filename)
 	fclose(f);
 	return true;
 }
+#endif
 
 /*
  *

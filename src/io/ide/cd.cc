@@ -26,9 +26,6 @@
 #include "tools/data.h"
 #include "cd.h"
 
-// REMOVE ME
-#include "cpu_generic/ppc_cpu.h"
-
 #define MM_DEVICE_PROFILE_CDROM 0x0008 // .242
 
 #define MM_DEVICE_FEATURE_PROFILE 0x0000

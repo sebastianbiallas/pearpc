@@ -96,7 +96,7 @@ static inline void gcard_read64(uint32 addr, uint64 &data)
 
 void gcard_raise_interrupt();
 
-void gcard_osi();
+void gcard_osi(int cpu);
 bool gcard_set_mode(DisplayCharacteristics &mode);
 
 

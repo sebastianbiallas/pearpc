@@ -23,7 +23,7 @@
 
 #include "system/types.h"
 
-char *prom_ea_string(uint32 ea);
+bool prom_get_string(String &result, uint32 ea);
 bool prom_claim_page(uint32 phys);
 bool prom_claim_pages(uint32 phys, uint32 size);
 uint32 prom_allocate_mem(uint32 size, uint32 align=0, uint32 virt=0);
@@ -34,8 +34,8 @@ void prom_mem_free(uint32 p);
 uint32 prom_mem_phys_to_virt(uint32 pa);
 uint32 prom_mem_virt_to_phys(uint32 va);
 void prom_mem_set(uint32 pa, int c, int size);
-void *prom_mem_eaptr(uint32 pa);
-void *prom_mem_ptr(uint32 pa);
+void *prom_mem_eaptr2(uint32 pa);
+void *prom_mem_ptr2(uint32 pa);
 
 bool prom_mem_init();
 bool prom_mem_done();

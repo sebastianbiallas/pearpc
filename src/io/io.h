@@ -24,8 +24,9 @@
 #include "system/types.h"
 #include <stdlib.h>
 #include <string.h>
-#include "cpu_generic/ppc_cpu.h"
-#include "cpu_generic/ppc_exc.h"
+#include "cpu/cpu.h"
+#include "cpu/debug.h"
+#include "cpu/mem.h"
 #include "io.h"
 #include "io/graphic/gcard.h"
 #include "io/pic/pic.h"
@@ -79,9 +80,9 @@ static inline int io_mem_write(uint32 addr, uint32 data, int size)
 			return IO_MEM_ACCESS_EXC;
 		}*/
 	}
-	IO_CORE_WARN("no one is responsible for address %08x (write: %08x from %08x)\n", addr, data, gCPU.pc);
+	IO_CORE_WARN("no one is responsible for address %08x (write: %08x from %08x)\n", addr, data, ppc_cpu_get_pc(0));
 	SINGLESTEP("");
-	ppc_exception(PPC_EXC_MACHINE_CHECK);
+	ppc_machine_check_exception();	
 	return IO_MEM_ACCESS_EXC;
 }
 
@@ -131,9 +132,9 @@ static inline int io_mem_read(uint32 addr, uint32 &data, int size)
 			return IO_MEM_ACCESS_EXC;
 		}*/
 	}
-	IO_CORE_WARN("no one is responsible for address %08x (read from %08x)\n", addr, gCPU.pc);
+	IO_CORE_WARN("no one is responsible for address %08x (read from %08x)\n", addr, ppc_cpu_get_pc(0));
 	SINGLESTEP("");
-	ppc_exception(PPC_EXC_MACHINE_CHECK);
+	ppc_machine_check_exception();
 	return IO_MEM_ACCESS_EXC;
 }
 
@@ -143,7 +144,7 @@ static inline int io_mem_write64(uint32 addr, uint64 data)
 		gcard_write64(addr, data);
 		return IO_MEM_ACCESS_OK;
 	}
-	IO_CORE_ERR("no one is responsible for address %08x (write64: %016q from %08x)\n", addr, &data, gCPU.pc);
+	IO_CORE_ERR("no one is responsible for address %08x (write64: %016q from %08x)\n", addr, &data, ppc_cpu_get_pc(0));
 	return IO_MEM_ACCESS_FATAL;
 }
 
@@ -153,7 +154,7 @@ static inline int io_mem_read64(uint32 addr, uint64 &data)
 		gcard_read64(addr, data);
 		return IO_MEM_ACCESS_OK;
 	}
-	IO_CORE_ERR("no one is responsible for address %08x (read64 from %08x)\n", addr, gCPU.pc);
+	IO_CORE_ERR("no one is responsible for address %08x (read64 from %08x)\n", addr, ppc_cpu_get_pc(0));
 	return IO_MEM_ACCESS_FATAL;
 }
 
