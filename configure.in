@@ -145,7 +145,7 @@ i?86*)
 *)
 	ARCH_DIR=generic
 	if test "x$CPU_DIR" = "x"; then
-		CPU_DIR="generic"
+		CPU_DIR="cpu_generic"
 	fi
 ;;
 esac
@@ -441,7 +441,9 @@ beos*)
         dnl but it really makes more sense in net/ (WTF does Linux put that in linux/ ?)
         dnl AC_CHECK_HEADERS(net/if_tun.h, AC_DEFINE(HAVE_BEOS_TUN, 1, [Have TUN/TAP headers?]))
 ;;
-dnl BSD, Darwin, OSX don't need any header
+darwin*)
+        AC_CHECK_HEADERS(mach/clock.h, AC_DEFINE(HAVE_MACH_CLOCK_H, 1, [Have mach/clock.h]))
+;;
 esac
 
 dnl AC_CONFIG_HEADER(config.h)
