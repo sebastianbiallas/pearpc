@@ -4,7 +4,7 @@
  *
  *	3Com 3C905C Emulation
  *	References:
- *	[1] 3c90xc.pdf
+ *	[1] 3c90xc.pdf ("3C90xC NICs Technical Reference" 3Com(r) part number 89-0931-000)
  *	[2] Linux Kernel 2.4.22 (drivers/net/3c59x.c)
  *
  *	Copyright (C) 2004 John Kelley (pearpc@kelley.ca)
@@ -1073,9 +1073,8 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 								IO_3C90X_TRACE("Opcode Read\n");
 								if (mMIIWrittenBits == 32+2+2+5+5) {
 									// msb gets sent first and is zero to indicated success
-									// DISABLED: shift one more for algorithmic reasons. not beautiful I know.
-									mMIIReadWord = mMIIRegs[REGaddr];
-									mMIIReadWord <<= 15;
+									// the register to be sent follows msb to lsb
+									mMIIReadWord = mMIIRegs[REGaddr] << 15;
 									IO_3C90X_TRACE("Read 0x%04x from register %d\n", mMIIRegs[REGaddr], REGaddr);
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
