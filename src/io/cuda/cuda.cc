@@ -827,7 +827,7 @@ redo:
 				case sysevMouse: {
 					int dx = ev.mouseEvent.relx; //* 256 / gDisplay->mClientChar.width;
 					int dy = ev.mouseEvent.rely; //* 256 / gDisplay->mClientChar.height;
-					if (dx<0) {
+					if (dx < 0) {
 						if (dx < -63) {
 							dx = 127;
 						} else {
@@ -835,13 +835,8 @@ redo:
 						}
 					} else if (dx > 63) {
 						dx = 63;
-						if (dx < -63) {
-							dx = 127;
-						} else {
-							dx += 128;
-						}
 					}
-					if (dy<0) {
+					if (dy < 0) {
 						if (dy < -63) {
 							dy = 127;
 						} else {
