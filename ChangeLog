@@ -8,7 +8,7 @@ version 0.2 (in progress):
 	- implemented fsqrtx instruction
 	- implemented frsqrtex instruction
 	- IO/IDE: regs are per device, not per controller
-	- implemented runtime video mode switching via video.x
+	- implemented runtime video mode switching via video.x (Win32 + X11)
 	- got rid of indexed modes
 	- better XER carry mapping
 	- (POSIX) fixed: Alt and AltGr are swapped
