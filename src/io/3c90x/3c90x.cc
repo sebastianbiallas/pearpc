@@ -1200,10 +1200,10 @@ void setCR(uint16 cr)
 		break;
 	case CmdStall: {
 		/* FIXME: threading */
-		IO_3C90X_TRACE("Stall(%d)\n", cr & 3);
 		switch (cr & 3) {
 		case 0: /* UpStall */
 		case 1: /* UpUnstall */ {
+			IO_3C90X_TRACE("Stall(%s)\n", ((cr & 3) == 0) ? "UpStall" : "UpUnstall");
 			bool stall = !(cr & 1);
 			mUpStalled = stall;
 /*			bool stall = cr & 1;
@@ -1214,6 +1214,7 @@ void setCR(uint16 cr)
 		}
 		case 2: /* DnStall */
 		case 3: /* DnUnstall */ {
+			IO_3C90X_TRACE("Stall(%s)\n", ((cr & 3) == 2) ? "DnStall" : "DnUnstall");
 			bool stall = !(cr & 1);
 			mDnStalled = stall;
 			mRegisters.DmaCtrl &= ~DC_dnStalled;
@@ -1318,9 +1319,10 @@ void setCR(uint16 cr)
 
 void txDPD0(DPD0 *dpd)
 {
+	// FIXME: createHostStruct()
 	DPDFragDesc *frags = (DPDFragDesc*)(dpd+1);
 	uint32 fsh = dpd->FrameStartHeader;
-//	printf("fsh = %08x\n", fsh);
+	IO_3C90X_TRACE("fsh = %08x\n", fsh);
 	if (fsh & FSH_dpdEmpty) {
 		IO_3C90X_TRACE("dpd empty\n");
 		return;
@@ -1336,19 +1338,24 @@ void txDPD0(DPD0 *dpd)
 	while (i<63) {
 		uint addr = frags->DnFragAddr;
 		uint len = frags->DnFragLen & 0x1fff;
-		IO_3C90X_TRACE("frag %d: %08x, len %04x\n", i, addr, len);
+		IO_3C90X_TRACE("frag %d: %08x, len %04x (full: %08x)\n", i, addr, len, frags->DnFragLen);
 //		dumpMem(addr, len);
 		if (p-pbuf+len >= sizeof pbuf) {
-			IO_3C90X_WARN("packet too big ! (%d >= %d)", p-pbuf+len, sizeof pbuf);
+			IO_3C90X_WARN("packet too big ! (%d >= %d)\n", p-pbuf+len, sizeof pbuf);
 			SINGLESTEP("");
 			return;
 		}
 		byte *frag;
-		if (ppc_direct_physical_memory_handle(addr, frag) != PPC_MMU_OK) return;
+		if (len && (ppc_direct_physical_memory_handle(addr, frag) != PPC_MMU_OK)) {
+			IO_3C90X_WARN("frag addr invalid! cancelling\n");
+			SINGLESTEP("");
+			return;
+		}
 		memcpy(p, frag, len);
 		p += len;
 		// last fragment ?
 		if (frags->DnFragLen & 0x80000000) break;
+		break;
 		frags++;
 		i++;
 	}
@@ -1378,7 +1385,7 @@ void txDPD0(DPD0 *dpd)
 	//FSH_addTcpChecksum =	1<<26,
 	//FSH_addUdpChecksum =	1<<27,
 	if (fsh & (0x1f << 23)) {
-		IO_3C90X_WARN("unsupported flags is fsh\n");
+		IO_3C90X_WARN("unsupported flags in fsh, fsh = %08x\n", fsh);
 		SINGLESTEP("");
 	}
 
@@ -1605,7 +1612,7 @@ void checkDnWork()
 		byte *dpd;
 		if (ppc_direct_physical_memory_handle(mRegisters.DnListPtr, dpd) == PPC_MMU_OK) {
 			// get packet type
-			uint32 type = (*(uint32*)dpd+4)>>30;
+			byte type = (*((byte*)dpd+7))>>6;
 			switch (type) {
 			case 0:
 			case 2: {
@@ -1626,7 +1633,7 @@ void checkDnWork()
 				IO_3C90X_TRACE("unsupported packet type 3\n");
 				SINGLESTEP("");
 			}
-		}
+		} else IO_3C90X_WARN("DnListPtr invalid!\n");
 	}
 }
 
@@ -1799,8 +1806,12 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 			break;
 		}
 		case 0x24: {
-			mRegisters.DnListPtr = data;
-			IO_3C90X_TRACE("write DnListPtr (now = %08x)\n", mRegisters.DnListPtr);
+			if (!mRegisters.DnListPtr) {
+				mRegisters.DnListPtr = data;
+				IO_3C90X_TRACE("write DnListPtr (now = %08x)\n", mRegisters.DnListPtr);
+			} else {
+				IO_3C90X_TRACE("didn't write DnListPtr cause it's not 0 (now = %08x)\n", mRegisters.DnListPtr);
+			}
 			checkDnWork();
 			break;
 		}
