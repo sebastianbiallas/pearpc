@@ -29,6 +29,12 @@
  *			IOREG4:  0x00001c00 +0x00000010
  *	macio:	bus 1, function 5
  *			MEMREG0: 0x80800000 +0x00080000
+ *		pic:
+ *			MEMREG:  0x80800000 +0x00000040
+ *		cuda:
+ *			MEMREG:  0x80816000 +0x00018000
+ *		nvram:
+ *			MEMREG:  0x80860000 +0x00020000
  *	usb:	bus 1, function 6
  *			MEMREG0: 0x80881000 +0x00001000
  *	eth0:	bus 1, function c
