@@ -136,7 +136,7 @@ inline void ppc_fpu_add(ppc_double &res, ppc_double &a, ppc_double &b)
 
 inline void ppc_fpu_quadro_mshr(ppc_quadro &q, int exp)
 {
-	uint64 t = q.m0 & ((1<<exp)-1);
+	uint64 t = q.m0 & ((1ULL<<exp)-1);
 	q.m0 >>= exp;
 	q.m1 >>= exp;
 	q.m1 |= t<<(64-exp);
@@ -144,7 +144,7 @@ inline void ppc_fpu_quadro_mshr(ppc_quadro &q, int exp)
 
 inline void ppc_fpu_quadro_mshl(ppc_quadro &q, int exp)
 {
-	uint64 t = (q.m1 >> (64-exp)) & ((1<<exp)-1);
+	uint64 t = (q.m1 >> (64-exp)) & ((1ULL<<exp)-1);
 	q.m0 <<= exp;
 	q.m1 <<= exp;
 	q.m0 |= t;
@@ -175,10 +175,11 @@ inline void ppc_fpu_sub_quadro_m(ppc_quadro &res, const ppc_quadro &a, const ppc
 // res has 107 significant bits. a, b have 106 significant bits each.
 inline void ppc_fpu_add_quadro(ppc_quadro &res, ppc_quadro &a, ppc_quadro &b)
 {
+	if (a.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(a, 1);
+	if (b.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(b, 1);
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
 	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_norm): {
-		ppc_fpu_quadro_mshl(a, 1); a.e--;
-		ppc_fpu_quadro_mshl(b, 1); b.e--;
+		// treat as 107 bit mantissa
 		// a.m = b.m = [107]
 		int diff = a.e - b.e;
 		if (diff < 0) {
@@ -509,6 +510,8 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	ht_printf("m1*m2 = %d * %016qx%016qx * 2^%d, %s\n", p.s, &p.m0, &p.m1, p.e,
 		ppc_fpu_get_fpr_type(p.type));
 	// convert s into ppc_quadro
+	ht_printf("s = %d * %016qx * 2^%d %s\n", s.s, &s.m, s.e,
+		ppc_fpu_get_fpr_type(s.type));
 	ppc_quadro q;
 	q.e = s.e;
 	q.s = s.s;
@@ -517,9 +520,8 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	q.m1 = s.m;
 	// .. with 106 significant bits
 	ppc_fpu_quadro_mshl(q, 106-56);
-	q.e -= 106-56;
 	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, &q.m0, &q.m1, q.e,
-		ppc_fpu_get_fpr_type(p.type));
+		ppc_fpu_get_fpr_type(q.type));
 	// now we must add p, q.
 	ppc_quadro x;
 	ppc_fpu_add_quadro(x, p, q);
@@ -530,10 +532,12 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	res.s = x.s;
 	res.e = x.e;
 	if (x.type == ppc_fpr_norm) {
-		res.m = (x.m0 & ((1ULL<<43)-1))<<13;	// 43 bits from m0
+		res.m = x.m0 << 13;			// 43 bits from m0
 		res.m |= (x.m1 >> (64-12)) << 1;	// 12 bits from m1
 		res.m |= x.m1 & 1;			// X' bit from m1
 	}
+	ht_printf("res = %d * %016qx * 2^%d %s\n", res.s, &res.m, res.e,
+		ppc_fpu_get_fpr_type(res.type));
 }
 
 inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
