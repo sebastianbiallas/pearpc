@@ -343,8 +343,8 @@ PartitionMapApple::PartitionMapApple(File *aDevice, uint aDeviceBlocksize)
 
 	IO_PROM_FS_TRACE("New Apple partition map, (physical) blocksize %d/0x%08x\n", blocksize, blocksize);
 	int map_size = 1;
-	IO_PROM_FS_TRACE("name             status   start    +data    datasize +boot    bootsize bootload bootentry\n"); 
-//	IO_PROM_FS_TRACE("0123456789123456 12345678 12345678 12345678 12345678 12345678 12345678 12345678 12345678\n");
+	IO_PROM_FS_TRACE("name             type             status   start    +data    datasize +boot    bootsize bootload bootentry\n"); 
+//	IO_PROM_FS_TRACE("0123456789123456 0123456789123456 12345678 12345678 12345678 12345678 12345678 12345678 12345678 12345678\n");
 	for (int block = 1; block < map_size + 1; block++) {
 		aDevice->seek(block*blocksize);
 		if (aDevice->read(buffer, blocksize) != blocksize) continue;
@@ -358,8 +358,11 @@ PartitionMapApple::PartitionMapApple(File *aDevice, uint aDeviceBlocksize)
 		PartitionEntry *partEnt = addPartition(block, apple_part->name, apple_part->type, 
 			(apple_part->start_block+apple_part->data_start) * blocksize, 
 			apple_part->data_count * blocksize);
-		IO_PROM_FS_TRACE("%-16s %08x %08x %08x %08x %08x %08x %08x %08x\n",
-			apple_part->name, apple_part->status,
+
+		IO_PROM_FS_TRACE("%-16s %-16s %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			apple_part->name, 
+			apple_part->type,
+			apple_part->status,
 			apple_part->start_block*blocksize,
 			apple_part->data_start*blocksize,
 			apple_part->data_count*blocksize,

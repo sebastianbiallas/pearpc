@@ -247,7 +247,7 @@ static bool handleSDLEvent(const SDL_Event &event)
 		return true;
 	case SDL_KEYDOWN:
 		ev.key.keycode = scancode_to_adb_key[event.key.keysym.scancode];
-		ht_printf("%x %x dn  \n", event.key.keysym.scancode, ev.key.keycode);
+//		ht_printf("%x %x %x dn  \n", event.key.keysym.sym, event.key.keysym.scancode, ev.key.keycode);
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = true;

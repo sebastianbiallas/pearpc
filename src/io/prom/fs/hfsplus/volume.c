@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.c,v 1.2 2004/05/11 16:11:12 steveman Exp $
+ * $Id: volume.c,v 1.3 2004/08/25 15:08:09 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -499,7 +499,7 @@ int volume_open(volume* vol, const void *devicehandle, int partition, int rw)
     hfsp_set_offset(&vol->fd, 0);
 
     /* set the offset to the first block of the given partition */
-    if( partition!= 0) {
+    if (partition != 0) {
       partition_map map;
       int           block;
       if( partition_getPartitionMap( &map, vol->fd)== -1)
