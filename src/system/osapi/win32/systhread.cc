@@ -43,7 +43,7 @@ int sys_create_semaphore(sys_semaphore *s)
 {
 	*s = malloc(sizeof (sys_win32_semaphore));
 	InitializeCriticalSection(&((sys_win32_semaphore *)*s)->cs);
-	((sys_win32_semaphore *)*s)->sem = CreateSemaphore(NULL, 1, 1, NULL);
+	((sys_win32_semaphore *)*s)->sem = CreateSemaphore(NULL, 0, 1000000, NULL);
 	return 0;
 }
 
@@ -100,7 +100,9 @@ void sys_signal_all_semaphore(sys_semaphore s)
 
 void sys_wait_semaphore(sys_semaphore s)
 {
+	LeaveCriticalSection(&((sys_win32_semaphore *)s)->cs);
 	WaitForSingleObject(((sys_win32_semaphore *)s)->sem, INFINITE);
+	EnterCriticalSection(&((sys_win32_semaphore *)s)->cs);
 }
 
 void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
