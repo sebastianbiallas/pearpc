@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: libhfs.h,v 1.1 2004/05/05 22:45:15 seppel Exp $
+ * $Id: libhfs.h,v 1.2 2004/07/02 01:07:59 seppel Exp $
  */
 
 # include "hfs.h"
@@ -57,7 +57,6 @@ extern int errno;
 # define STRINGIZE(x)		#x
 # define STR(x)			STRINGIZE(x)
 
-typedef unsigned char byte;
 typedef byte block[HFS_BLOCKSZ];
 
 typedef struct _bucket_ {
