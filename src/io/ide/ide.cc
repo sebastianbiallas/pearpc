@@ -488,8 +488,9 @@ void drive_ident()
 		id[49] = (1<<9)|(1<<8);  // LBA & DMA
 		id[51] = 0x200; // pio time
 		id[52] = 0x200; // dma time
-		id[53] = 0; // DMA Hack <----- (DMA on) ------------------------
-//		id[53] = 2; // DMA Hack <----- (DMA off) -----------------------
+/*		id[53] = 0; // DMA Hack <----- (DMA on) ------------------------
+		id[53] = 2; // DMA Hack <----- (DMA off) -----------------------*/
+		id[53] = 2; // fieldValidity: Multi DMA fields valid
 		id[54] = gIDEState.config[gIDEState.drive].hd.cyl;
 		id[55] = gIDEState.config[gIDEState.drive].hd.heads;
 		id[56] = gIDEState.config[gIDEState.drive].hd.spt;
@@ -503,10 +504,10 @@ void drive_ident()
 		id[60] = sectors;       // lba capacity
 		id[61] = sectors >> 16; // lba capacity cont.
 		id[62] = 0; // obsolete single word dma
-		id[63] = 0; // multiple word dma info
+		id[63] = 7; // multiple word dma info
 		id[64] = 1; // eide pio modes
-		id[65] = 0; // eide min dma cycle time
-		id[66] = 0; // eide recommended dma cycle time
+		id[65] = 480; // eide min dma cycle time
+		id[66] = 480; // eide recommended dma cycle time
 		id[67] = 0;
 		id[68] = 0;
 		id[69] = 0; // res
