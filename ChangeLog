@@ -3,8 +3,10 @@
 
 version 0.3 (not yet released):
 	- correct clock/timing (Win32 + Posix) by Keith Rothman, Kimball Thurston and Stefan Weyergraf
+	- source tree reorganisation
+	- experimental SDL support
 
-version 0.2 (soon to be released):
+version 0.2 (released 15.June 2004):
 	- JITC: all crXX implemented
 	- JITC: tlbie only invalidate one entry
 	- JITC: optimize tlb_invalidate_all
