@@ -169,7 +169,6 @@ JITCFlow ppc_opc_gen_bx()
 		asmALURegImm(X86_ADD, EAX, gJITC.pc+4);
 		asmMOVDMemReg((uint32)&gCPU.lr, EAX);
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	if (gJITC.current_opc & PPC_OPC_AA) {
 		asmALURegImm(X86_MOV, EAX, li);
 		asmJMP((NativeAddress)ppc_new_pc_asm);
@@ -255,7 +254,6 @@ JITCFlow ppc_opc_gen_bcx()
 					asmALURegImm(X86_ADD, EAX, gJITC.pc+4);
 					asmMOVDMemReg((uint32)&gCPU.lr, EAX);
 				}
-				asmALURegImm(X86_MOV, ESI, gJITC.pc);
 				if (gJITC.current_opc & PPC_OPC_AA) {
 					asmALURegImm(X86_MOV, EAX, BD);
 					asmJMP((NativeAddress)ppc_new_pc_asm);
@@ -287,7 +285,6 @@ JITCFlow ppc_opc_gen_bcx()
 				asmALURegImm(X86_ADD, EAX, gJITC.pc+4);
 				asmMOVDMemReg((uint32)&gCPU.lr, EAX);
 			}
-			asmALURegImm(X86_MOV, ESI, gJITC.pc);
 			if (gJITC.current_opc & PPC_OPC_AA) {
 				asmALURegImm(X86_MOV, EAX, BD);
 				asmJMP((NativeAddress)ppc_new_pc_asm);
@@ -309,7 +306,6 @@ JITCFlow ppc_opc_gen_bcx()
 				asmALURegImm(X86_ADD, EAX, gJITC.pc+4);
 				asmMOVDMemReg((uint32)&gCPU.lr, EAX);
 			}
-			asmALURegImm(X86_MOV, ESI, gJITC.pc);
 			if (gJITC.current_opc & PPC_OPC_AA) {
 				asmALURegImm(X86_MOV, EAX, BD);
 				asmJMP((NativeAddress)ppc_new_pc_asm);
@@ -331,7 +327,6 @@ JITCFlow ppc_opc_gen_bcx()
 		asmALURegImm(X86_ADD, EAX, gJITC.pc+4);
 		asmMOVDMemReg((uint32)&gCPU.lr, EAX);
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	if (gJITC.current_opc & PPC_OPC_AA) {
 		asmALURegImm(X86_MOV, EAX, BD);
 		asmJMP((NativeAddress)ppc_new_pc_asm);
@@ -376,7 +371,6 @@ JITCFlow ppc_opc_gen_bcctrx()
 			asmALURegImm(X86_ADD, ECX, gJITC.pc+4);
 			asmMOVDMemReg((uint32)&gCPU.lr, ECX);
 		}
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_AND, EAX, 0xfffffffc);
 		asmJMP((NativeAddress)ppc_new_pc_asm);
 		return flowEndBlockUnreachable;
@@ -392,7 +386,6 @@ JITCFlow ppc_opc_gen_bcctrx()
 			asmALURegImm(X86_ADD, ECX, gJITC.pc+4);
 			asmMOVDMemReg((uint32)&gCPU.lr, ECX);
 		}
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_AND, EAX, 0xfffffffc);
 		asmJMP((NativeAddress)ppc_new_pc_asm);
 		asmResolveFixup(fixup, asmHERE());	
@@ -441,7 +434,6 @@ JITCFlow ppc_opc_gen_bclrx()
 			asmALURegImm(X86_ADD, ECX, gJITC.pc+4);
 			asmMOVDMemReg((uint32)&gCPU.lr, ECX);
 		}
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_AND, EAX, 0xfffffffc);
 		asmJMP((NativeAddress)ppc_new_pc_asm);
 		return flowEndBlockUnreachable;
@@ -457,7 +449,6 @@ JITCFlow ppc_opc_gen_bclrx()
 			asmALURegImm(X86_ADD, ECX, gJITC.pc+4);
 			asmMOVDMemReg((uint32)&gCPU.lr, ECX);
 		}
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmALURegImm(X86_AND, EAX, 0xfffffffc);
 		asmJMP((NativeAddress)ppc_new_pc_asm);
 		asmResolveFixup(fixup, asmHERE());
@@ -598,7 +589,6 @@ JITCFlow ppc_opc_gen_icbi()
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_opc_icbi_asm);
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 	return flowEndBlockUnreachable;
 }
@@ -1277,7 +1267,6 @@ JITCFlow ppc_opc_gen_mtmsr()
 	jitcGetClientRegister(PPC_GPR(rS), NATIVE_REG | EAX);
 	asmCALL((NativeAddress)ppc_set_msr_asm);
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 //	return flowContinue;
 	return flowEndBlockUnreachable;
@@ -1479,7 +1468,6 @@ JITCFlow ppc_opc_gen_mtspr()
 			jitcClobberAll();
 			asmCALL((NativeAddress)ppc_mmu_set_sdr1_check_error);
 			asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-			asmALURegImm(X86_MOV, ESI, gJITC.pc);
 			asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 			return flowEndBlockUnreachable;
 		}
@@ -1558,7 +1546,6 @@ JITCFlow ppc_opc_gen_mtspr()
 		jitcClobberAll();
 		asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
 		asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
 		asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 		return flowEndBlockUnreachable;
 	}
@@ -1607,7 +1594,6 @@ JITCFlow ppc_opc_gen_mtsr()
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
 	// sync
 //	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-//	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 //	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 //	return flowEndBlockUnreachable;	
 	return flowContinue;
@@ -1648,7 +1634,6 @@ JITCFlow ppc_opc_gen_mtsrin()
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
 	// sync
 //	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-//	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 //	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 //	return flowEndBlockUnreachable;	
 	return flowContinue;
@@ -1676,7 +1661,6 @@ JITCFlow ppc_opc_gen_rfi()
 	asmCALL((NativeAddress)ppc_set_msr_asm);
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)(&gCPU.srr[0])));
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmALURegImm(X86_AND, EAX, 0xfffffffc);
 	asmJMP((NativeAddress)ppc_new_pc_asm);
 	return flowEndBlockUnreachable;
@@ -1755,7 +1739,6 @@ JITCFlow ppc_opc_gen_tlbia()
 	ppc_opc_gen_check_privilege();
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 	return flowEndBlockUnreachable;
 }
@@ -1785,7 +1768,6 @@ JITCFlow ppc_opc_gen_tlbie()
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 	return flowEndBlockUnreachable;
 }
