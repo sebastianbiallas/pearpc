@@ -991,7 +991,7 @@ PromNode *findDevice(const char *aPathName, int type, PromInstanceHandle *ret)
 			PromPropString *a = (PromPropString *)aliases->findProp(nodename);
 			if (a) {
 				pathname.assign(a->value);
-				pathname += ((unitaddr!=(String)"")?("@"+unitaddr):"")+":"+arguments;
+				pathname += ((unitaddr!=(String)"")?("@"+unitaddr):(String)"")+":"+arguments;
 			} else return NULL;
 		} else return NULL;
 	}

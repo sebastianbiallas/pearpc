@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hfs.c,v 1.1 2004/05/05 22:44:58 seppel Exp $
+ * $Id: hfs.c,v 1.2 2004/05/11 15:00:19 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -1522,53 +1522,6 @@ fail:
 }
 
 /* High-Level Media Routines =============================================== */
-
-/*
- * NAME:	hfs->zero()
- * DESCRIPTION:	initialize medium with new/empty DDR and partition map
- */
-int hfs_zero(const void *devicehandle, unsigned int maxparts, unsigned long *blocks)
-{
-	return -1;
-  hfsvol vol;
-
-  v_init(&vol, HFS_OPT_NOCACHE);
-
-  if (maxparts < 1)
-    ERROR(EINVAL, "must allow at least 1 partition");
-
-  if (v_open(&vol, devicehandle, HFS_MODE_RDWR) == -1 ||
-      v_geometry(&vol, 0) == -1)
-    goto fail;
-
-  if (m_zeroddr(&vol) == -1 ||
-      m_zeropm(&vol, 1 + maxparts) == -1)
-    goto fail;
-
-  if (blocks)
-    {
-      Partition map;
-      int found;
-
-      found = m_findpmentry(&vol, "Apple_Free", &map, 0);
-      if (found == -1)
-	goto fail;
-
-      if (! found)
-	ERROR(EIO, "unable to determine free partition space");
-
-      *blocks = map.pmPartBlkCnt;
-    }
-
-  if (v_close(&vol) == -1)
-    goto fail;
-
-  return 0;
-
-fail:
-  v_close(&vol);
-  return -1;
-}
 
 /*
  * NAME:	hfs->mkpart()

@@ -54,12 +54,11 @@ typedef signed int	sint32;
 typedef signed long long sint64;
 // <<
 
-typedef unsigned int	uint;
+#include <sys/types.h>
+
 typedef signed int	sint;
 
 typedef uint8		byte;
-
-//#include "int64.h"
 
 /*
  *	NULL

@@ -55,9 +55,9 @@ static int parse_integer(struct eval_scalar *i, char *num, int base, int lenmod)
 
 static int parse_gpr(struct eval_scalar *i, char *s)
 {
+	int r = 0;
 	if (tolower(*s) != 'r') return 0;
 	s++;
-	int r = 0;
 	do {
 		int c = char2int(*s, 10);
 		if (c == -1) return 0;

@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hfs.h,v 1.1 2004/05/05 22:45:00 seppel Exp $
+ * $Id: hfs.h,v 1.2 2004/05/11 15:00:19 seppel Exp $
  */
 
 # include <time.h>
@@ -174,7 +174,6 @@ int hfs_rmdir(hfsvol *, const char *);
 int hfs_delete(hfsvol *, const char *);
 int hfs_rename(hfsvol *, const char *, const char *);
 
-int hfs_zero(const void *, unsigned int, unsigned long *);
 int hfs_mkpart(const void *, unsigned long);
 int hfs_nparts(const void *);
 

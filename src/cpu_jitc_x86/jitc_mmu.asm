@@ -696,6 +696,7 @@ ppc_write_effective_byte_asm:
 	ret
 .mmio:
 	mov	ecx, 1
+	movzx	edx, dl
 	call	io_mem_write_glue
 	ret
 align 16
@@ -727,6 +728,7 @@ ppc_write_effective_half_asm:
 	ret
 .mmio:
 	mov	ecx, 2
+	movzx	edx, dx
 	call	io_mem_write_glue
 	ret
 .overlap:

@@ -101,7 +101,7 @@ static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32
 		"setc %0\n\t"
 		"addl %3, %1\n\t"
 		"adcb $0, %0"
-		: "=&Q" (t), "+&r" (a)
+		: "=&q" (t), "+&r" (a)
 		:  "g" (b), "g" (c)
 	);
 	return t;
