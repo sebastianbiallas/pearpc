@@ -1576,14 +1576,17 @@ void ppc_opc_tlbie()
 	}
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	// FIXME: check rS.. for 0     
+	// FIXME: check rS.. for 0
 	ppc_mmu_tlb_invalidate();
 }
 JITCFlow ppc_opc_gen_tlbie()
 {
 	ppc_opc_gen_check_privilege();
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+	jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	jitcClobberAll();
-	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
+	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);

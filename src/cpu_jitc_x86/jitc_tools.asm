@@ -284,7 +284,7 @@ ppc_set_msr_asm:
 	jnz	.power
 .power_back:
 	mov	[gCPU+msr], eax
-	call	ppc_mmu_tlb_invalidate_all_asm
+;	call	ppc_mmu_tlb_invalidate_all_asm
 	ret
 .power:
 	;;call	doze

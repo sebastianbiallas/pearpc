@@ -217,6 +217,51 @@ void FASTCALL asmCALL(NativeAddress to);
  
 void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to);
 
+
+enum X86FloatOp {
+/*	d8c0+i  result st0
+	dcc0+i	result sti
+	dec0+i	result sti
+	X86_FADD = 0xf0;  // 238
+	
+	dbf0+i
+	X86_FCOMI = 0xf0;  // 255
+	
+	dff0+i
+	X86_FCOMIP = 0xf0;  // 255
+
+	dbe8+i
+	X86_FUCOMI = 0xe8; // 255 
+	dfe8+i
+	X86_FUCOMIP = 0xe8; // 255 
+	
+	d8f0+i  st0=st(0)/st(i)
+	dcf8+i	sti=st(i)/st(0)
+	def8+i	sti=st(i)/st(0)
+	X86_FDIV = 0xdef0;  //  261
+
+	d8f8+i  st0=st(i)/st(0)
+	dcf0+i	sti=st(0)/st(i)
+	def0+i	sti=st(0)/st(i)
+	X86_FRDIV = 0xdef0;  //  265*/
+};
+void FASTCALL asmFCOMISTiST0(); 
+void FASTCALL asmFCOMIST0STi();
+void FASTCALL asmFUCOMISTiST0();
+void FASTCALL asmFUCOMIST0STi();
+
+void FASTCALL asmFloatMem();
+void FASTCALL asmFloatSTiST0();
+void FASTCALL asmFloatST0STi();
+void FASTCALL asmFloatPST0STi();
+void FASTCALL asmFCHS();
+void FASTCALL asmFLDSingleMem();
+void FASTCALL asmFLDDoubleMem();
+void FASTCALL asmFSTSingleMem();
+void FASTCALL asmFSTDoubleMem();
+
+
+
 /*
  *	reg1 must not be ESP
  */

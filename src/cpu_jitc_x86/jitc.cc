@@ -495,9 +495,9 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 	memset(gJITC.nativeReg, PPC_REG_NO, sizeof gJITC.nativeReg);
 	memset(gJITC.nativeRegState, rsUnused, sizeof gJITC.nativeRegState);
 	
-	memset(gJITC.tlb_code, 0xff, sizeof gJITC.tlb_code);
-	memset(gJITC.tlb_data_read, 0xff, sizeof gJITC.tlb_data_read);
-	memset(gJITC.tlb_data_write, 0xff, sizeof gJITC.tlb_data_write);
+	memset(gJITC.tlb_code_eff, 0xff, sizeof gJITC.tlb_code_eff);
+	memset(gJITC.tlb_data_read_eff, 0xff, sizeof gJITC.tlb_data_read_eff);
+	memset(gJITC.tlb_data_write_eff, 0xff, sizeof gJITC.tlb_data_write_eff);
 	return true;
 }
 

@@ -91,9 +91,12 @@ endstruc
 struc JITC
 	clientPages resd 1
 	
-	tlb_code_0 resq 32
-	tlb_data_0 resq 32
-	tlb_data_8 resq 32
+	tlb_code_0_eff resd 32
+	tlb_data_0_eff resd 32
+	tlb_data_8_eff resd 32
+	tlb_code_0_phys resd 32
+	tlb_data_0_phys resd 32
+	tlb_data_8_phys resd 32
 
 	nativeReg resd 8        ; FIXME: resb?
 	
@@ -139,23 +142,33 @@ global ppc_read_effective_half_s_asm
 global ppc_read_effective_word_asm
 global ppc_read_effective_dword_asm
 global ppc_mmu_tlb_invalidate_all_asm
+global ppc_mmu_tlb_invalidate_entry_asm
 global ppc_opc_lswi_asm
 global ppc_opc_stswi_asm
 global ppc_opc_icbi_asm
-
-;
-; string table
-;
-err_cannot_read_page_table: db 'cannot read page-table.',0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ppc_mmu_tlb_invalidate_all_asm:
 	cld
 	or	eax, -1
-	mov	ecx, 32*8*3 / 4
-	mov	edi, gJITC+tlb_code_0
+	mov	ecx, 32*4*3 / 4
+	mov	edi, gJITC+tlb_code_0_eff
 	rep	stosd
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;	IN: 	eax: effective address to invalidate
+;;
+ppc_mmu_tlb_invalidate_entry_asm:
+	mov	ecx, eax
+	or	eax, -1
+	shr	ecx, 12
+	and	ecx, 32-1
+	mov	[gJITC+tlb_code_0_eff+ecx*4], eax
+	mov	[gJITC+tlb_data_0_eff+ecx*4], eax
+	mov	[gJITC+tlb_data_8_eff+ecx*4], eax
 	ret
 	
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -236,8 +249,8 @@ ppc_pte_protection:
 	mov	edx, eax
 	and	edi, 32-1
 	and	edx, 0xfffff000
-	mov	[gJITC+tlb_%4_%3+edi*8], esi
-	mov	[gJITC+tlb_%4_%3+4+edi*8], edx
+	mov	[gJITC+tlb_%4_%3_eff+edi*4], esi
+	mov	[gJITC+tlb_%4_%3_phys+edi*4], edx
 ;;;	
 	ret	4
 %%bat_lookup_failed:
@@ -314,9 +327,9 @@ ppc_pte_protection:
 	shr	edx, 12
 	and	ecx, 0xfffff000
 	and	edx, 32-1
-	mov	[gJITC+tlb_%3_%2+edx*8], ecx
-	mov	[gJITC+tlb_%3_%2+4+edx*8], esi
-;;;	
+	mov	[gJITC+tlb_%3_%2_eff+edx*4], ecx
+	mov	[gJITC+tlb_%3_%2_phys+edx*4], esi
+;;;
 	and	eax, 0x00000fff
 	or	eax, esi
 	ret	4		; yipee
@@ -350,15 +363,6 @@ protection_fault_8_data:
 	jmp	ppc_dsi_exception_asm
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;	broken_page_table
-;;
-broken_page_table:
-	pop	eax
-	pop	eax
-	mov	eax, err_cannot_read_page_table
-	jmp	jitc_error
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	param1: 0 for read, 8 for write
 ;;	param2: data / code
 %macro tlb_lookup 2
@@ -367,14 +371,14 @@ broken_page_table:
 	shr	edx, 12
 	and	ecx, 0xfffff000
 	and	edx, 32-1
-	cmp	ecx, [gJITC+tlb_%2_%1+edx*8]
+	cmp	ecx, [gJITC+tlb_%2_%1_eff+edx*4]
 	jne	%%tlb_lookup_failed
 	;
 	;	if an tlb entry is invalid, its 
 	;	lower 12 bits are 1, so the cmp is guaranteed to fail.
 	;
 	and	eax, 0x00000fff
-	or	eax, [gJITC+tlb_%2_%1+edx*8+4]
+	or	eax, [gJITC+tlb_%2_%1_phys+edx*4]
 	ret	4
 %%tlb_lookup_failed:
 %endmacro

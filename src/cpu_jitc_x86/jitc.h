@@ -101,12 +101,15 @@ struct JITC {
 
 	/*
 	 *	These are the TLB-Entries
-	 *	Lower dword is effective address, higher physical address
 	 */
-	uint64 tlb_code[32];
-	uint64 tlb_data_read[32];
-	uint64 tlb_data_write[32];
-
+	uint32 tlb_code_eff[32];
+	uint32 tlb_data_read_eff[32];
+	uint32 tlb_data_write_eff[32];
+	uint32 tlb_code_phys[32];
+	uint32 tlb_data_read_phys[32];
+	uint32 tlb_data_write_phys[32];
+	
+	
 	/*
 	 *	If nativeReg[i] is set, it indicates to which client
 	 *	register this native register corrensponds.
