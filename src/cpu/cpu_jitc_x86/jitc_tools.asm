@@ -821,7 +821,7 @@ ppc_cpuid_asm:
 	pushfd
 	pop	ebx
 	cmp	ebx, ecx
-	je	.cpuid
+	jne	.cpuid
 
 	pop	ebx
 	xor	eax, eax
@@ -829,9 +829,8 @@ ppc_cpuid_asm:
 
 .cpuid:
 	push	edi
-	push	edx
+	mov	edi, edx
 	cpuid
-	pop	edi
 	mov	[edi], eax
 	mov	[edi+4], ecx
 	mov	[edi+8], edx
