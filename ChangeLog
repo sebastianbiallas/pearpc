@@ -19,7 +19,8 @@ version 0.3 (not yet released):
 		- host mouse support separated from SystemDisplay
 	- architecture-specific video acceleration functions (x86)
 	- configure-system: choose "jitc_x86" on x86s when no --enable-cpu given
-	- JITC: srawix, subfcx, divwx, divuwx, mulhwx, mulwx implemented
+	- JITC: srawix, subfcx, divwx, divuwx, 
+		mulhwx, mulwx, subfex, extshx implemented
 	- JITC: align entrypoints
 
 version 0.2 (released 15.June 2004):
