@@ -7,16 +7,18 @@ version 0.2 (in progress):
 	- JITC: optimize tlb_invalidate_all
 	- IO/IDE: regs are per device, not per controller
 	- (POSIX) fixed: Alt and AltGr are swapped
-	- incorporated Roman Bogorodskiy's FreeBSD patch
-	- applied Francois Revol's BeOS patches (2,4,6-fixes,6-beos,6-compose).
-	- AMD64 portability fixes (mainly void* <-> int conversions)
 	- HFS partition code fixes (reportedly working)
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c
-	- applied Anders F.Bjoerklund's patches (1,ppc,X11) to run PearPC on Mac OS X
 	- implemented conditional redraw code proposed by Jens von der Heydt
 	- code to minimize redraw races
-	- added RealTek-8139 network card driver by Eric Estabrooks
 	- bnstr() is evil and has been banned. fixes: can't parse pci_3c90x_mac
+	- new hardware
+		- RealTek-8139 network card driver by Eric Estabrooks
+	- porting efforts
+		- Francois Revol's BeOS patches (2,4,6-fixes,6-beos,6-compose)
+		- Anders F.Bjoerklund's Mac OS X patches (1,ppc,X11,darwintun)
+		- Roman Bogorodskiy's FreeBSD patch
+		- AMD64 portability fixes (mainly void* <-> int conversions)
 	- many, many configure-system fixes
 		- support for FreeBSD, BeOS, MinGW and Darwin
 		- endianess auto-detect v2 (but big-endian hosts still not working correctly)

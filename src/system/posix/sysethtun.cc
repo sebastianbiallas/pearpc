@@ -2,12 +2,16 @@
  *	PearPC
  *	sysethtun.cc
  *
- *	POSIX-specific ethernet-tunnel access
+ *	POSIX/UN*X-specific ethernet-tunnel access
  *
  *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	code taken from Mac-on-Linux 0.9.68:
  *	Copyright (C) 1999-2002 Samuel Rydh (samuel@ibrium.se)
+ *
+ *	darwin code taken from tinc 1.0.2:
+ *	Copyright (C) 2001-2003 Ivo Timmermans <ivo@o2w.nl>,
+ *	              2001-2003 Guus Sliepen <guus@sliepen.eu.org>
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -212,7 +216,92 @@ packet_driver_t g_sys_ethtun_pd = {
 	wait_receive:		tun_wait_receive
 };
 
+#elif defined(__APPLE__) && defined(__MACH__)
+
+/*
+	Interaction with Mac OS X "tun" device driver
+
+	See http://chrisp.de/en/projects/tunnel.html,
+	for source code and binaries of tunnel.kext :
+
+	kextload /System/Library/Extensions/tunnel.kext
+*/
+
+#include <errno.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+
+#include "system/sysethtun.h"
+#include "tools/snprintf.h"
+
+#define DEFAULT_DEVICE "/dev/tun0"
+
+#define perrorm(s)	{ printf("tun: %s: %d (%s)\n", s, errno, strerror(errno)); }
+
+static int tun_open(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac)
+{
+	int fd;
+
+	/* allocate tun device */ 
+	if ((fd = open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
+		perrorm("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded ?");
+		return 1;
+	}
+
+	/* set driver name */
+	char *drv_str = "tun";
+	ht_snprintf(is->drv_name, sizeof(is->drv_name), "%s-<%s>", drv_str, intf_name);
+	
+	/* set interface name */
+	strncpy(is->iface_name, intf_name, sizeof(is->iface_name)-1);
+	is->iface_name[sizeof(is->iface_name)-1] = '\0';
+
+	/* set the MAC address */
+	memcpy(is->eth_addr, mac, 6);
+
+	/* finish... */
+	is->packet_pad = 14;
+	*sigio_capable = 1;
+
+	is->fd = fd;
+
+	return 0;
+}
+
+static void tun_close(enet_iface_t *is)
+{
+	close(is->fd);
+	is->fd = -1;
+}
+
+static int tun_wait_receive(enet_iface_t *is)
+{
+	fd_set rfds;
+	fd_set zerofds;
+	FD_ZERO(&rfds);
+	FD_ZERO(&zerofds);
+	FD_SET(is->fd, &rfds);
+
+	int e = select(is->fd+1, &rfds, &zerofds, &zerofds, NULL);
+	if (e < 0)
+		return errno;
+	else
+		return 0;
+}
+
+packet_driver_t g_sys_ethtun_pd = {
+	name:			"tun",
+	open: 			tun_open,
+	close:			tun_close,
+	wait_receive:		tun_wait_receive
+};
+
 #else
+/*
+ *	System provides no ethernet tunnel
+ */
 
 #include <errno.h>
 
