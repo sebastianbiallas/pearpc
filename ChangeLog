@@ -12,5 +12,20 @@ version 0.2 (in progress):
 	- FPU: multiply-add-type instructions now working correctly
 	- tools/regex.h dos2unixed
 
+version 0.1.1:
+	- (Win32) fixed: '=' key wasn't mapped
+	- fixed: JITC Error: cannot read page-table
+	- fixes for older BootX (for Mac OS X 10.0 and 10.1)
+	- FPU: multiply-add-type instructions now working correctly
+	- HFS+ embedded in HFS should work now (untested though)
+	- gcard: 1024x768x32 mode wasn't useable
+	- io registers weren't zero extended on byte or half accesses
+	- now also compiles with gcc 2.95
+	- boots debian for PowerPC
+	- got rid of printf() and exit() in HFS and HFS+ code
+	- fixed buggy copyTo() and copyAllTo() in stream.cc
+	- fixed IDEDevice::read(). must update "tel".
+	- no more "client and server display characteristics DONT match :-("
+
 version 0.1:
 	- initial release
