@@ -881,7 +881,7 @@ Object *LinkedList::remove(ObjHandle h)
 
 void LinkedList::insertAt(ObjHandle h, Object *obj)
 {
-/*	if (h == InvObjHandle) {
+	if (h == InvObjHandle) {
 		insert(obj);
 		return;
 	}
@@ -907,8 +907,7 @@ void LinkedList::insertAt(ObjHandle h, Object *obj)
 		if (!last) last = m;
 	}
 	ecount++;
-	notifyInsertOrSet(obj);*/
-	ASSERT(0);	// code needs review
+	notifyInsertOrSet(obj);
 }
 
 bool LinkedList::moveTo(ObjHandle from, ObjHandle to)
