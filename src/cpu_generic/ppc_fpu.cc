@@ -133,21 +133,44 @@ inline void ppc_fpu_add(ppc_double &res, ppc_double &a, ppc_double &b)
 	}
 }
 
+inline void ppc_fpu_add_uint64_carry(uint64 &a, uint64 b, uint64 &carry)
+{
+	carry = (a+b < a) ? 1 : 0;
+	a += b;
+}
+
 inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 {
 	res.s = a.s ^ b.s;
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
 	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_norm): {
 		res.type = ppc_fpr_norm;
-		res.e = a.e + b.e + 1;
+		res.e = a.e + b.e;
 //		printf("new exp: %d\n", res.e);
 //		ht_printf("a.m: %qb\nb.m: %qb\n", &a.m, &b.m);
 		uint64 fH, fM1, fM2, fL;
-		fH = (a.m >> 32) * (b.m >> 32);
-		fM1 = (a.m >> 32) * (b.m & 0xffffffff);
-		fM2 = (a.m & 0xffffffff) * (b.m >> 32);
-		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);
+		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [64]
+		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [56]
+		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [56]
+		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [48]
 //		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+
+		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
+		uint64 rL, rH;
+		rL = fL;					// rL = rH = [64]
+		rH = fH;					// rH = fH = [48]
+		uint64 split;
+		split = fM1 + fM2;
+		uint64 carry;
+		ppc_fpu_add_uint64_carry(rL, (split & 0xffffffff) << 32, carry); // rL = [64]
+		rH += carry;					// rH = [0 .. 2^48]
+		rH += split >> 32;				// rH = [49]
+		// res.m = [0   0  .. 0  |  rH_48 rH_47 .. rH_0 | rL_63 rL_63 .. rL_56
+		// bit      63  62 .. 57 |  56    55    .. 8    | 7     6        0
+		res.m = rH << 8;
+		res.m |= rL >> 56;
+		// res.m = [57]
+/*
 		// FIXME: incorrect
 		fM1 >>= 2;
 		fM2 >>= 2;
@@ -158,12 +181,11 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 //		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
 		fH <<= 9;
 		fM1 |= fH;
-		res.m = fM1;
+		res.m = fM1;*/
 //		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
 		if (res.m & (1ULL << 56)) {
 			res.m >>= 1;
-		} else {
-			res.e--;
+			res.e++;
 		}
 		break;
 	}
