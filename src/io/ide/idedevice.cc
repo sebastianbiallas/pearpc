@@ -58,7 +58,9 @@ virtual FileOfs	tell() const
 
 virtual uint read(void *buf, uint size)
 {
-	return id.promRead((byte*)buf, size);
+	uint r = id.promRead((byte*)buf, size);
+	tel += r;
+	return r;
 }
 
 virtual String &getDesc(String &result) const
