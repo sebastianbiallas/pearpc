@@ -114,6 +114,8 @@ public:
 				0, BlackPixel(gX11Display, screen_num),
 				BlackPixel(gX11Display, screen_num));
 
+		XStoreName(gX11Display, gX11Window, name);
+
 		XSetWindowAttributes attr;
 		attr.save_under = 1;
 		attr.backing_store = Always;
