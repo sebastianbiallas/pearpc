@@ -650,6 +650,7 @@ bool mapped_load_chrp(File &f)
 					char mybootpath[1024];
 					char *mybootargs = NULL;
 					strncpy(mybootpath, bootpath, sizeof mybootpath-1);
+					mybootpath[bootpathend-bootpath] = 0;
 					mybootpath[sizeof mybootpath-1] = 0;
 					mybootargs = mybootpath+ sizeof mybootpath-1;
 					int l = strlen(mybootpath);
