@@ -880,7 +880,7 @@ void ppc_opc_gen_helper_l(PPC_Register cr1, uint32 imm)
 	jitcClobberCarryAndFlags();
 	jitcFlushRegister();
 	getEAX_0_Isum(cr1, imm);
-	jitcClobberRegister();
+	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 }
 
@@ -889,7 +889,7 @@ void ppc_opc_gen_helper_lu(PPC_Register cr1, uint32 imm)
 	jitcClobberCarryAndFlags();
 	jitcFlushRegister();
 	getEAXIsum(cr1, imm);
-	jitcClobberRegister();
+	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 }
 
@@ -898,7 +898,7 @@ void ppc_opc_gen_helper_lux(PPC_Register cr1, PPC_Register cr2)
 	jitcClobberCarryAndFlags();
 	jitcFlushRegister();
 	getEAXRsum(cr1, cr2);
-	jitcClobberRegister();
+	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 }
 
@@ -907,7 +907,7 @@ void ppc_opc_gen_helper_lx(PPC_Register cr1, PPC_Register cr2)
 	jitcClobberCarryAndFlags();
 	jitcFlushRegister();
 	getEAX_0_Rsum(cr1, cr2);
-	jitcClobberRegister();
+	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 }
 
@@ -1255,6 +1255,7 @@ JITCFlow ppc_opc_gen_lfd()
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frD, rA, imm);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_l(PPC_GPR(rA), imm);
 	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | ECX);
@@ -1288,6 +1289,7 @@ JITCFlow ppc_opc_gen_lfdu()
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frD, rA, imm);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lu(PPC_GPR(rA), imm);
 	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | ECX);
@@ -1324,6 +1326,7 @@ JITCFlow ppc_opc_gen_lfdux()
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frD, rA, rB);
 	ppc_opc_gen_helper_lux(PPC_GPR(rA), PPC_GPR(rB));
+	jitcFloatRegisterClobberAll();
 	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | ECX);
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EDX);
@@ -1355,6 +1358,7 @@ JITCFlow ppc_opc_gen_lfdx()
 	ppc_opc_gen_check_fpu();
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frD, rA, rB);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | ECX);
@@ -1390,6 +1394,7 @@ JITCFlow ppc_opc_gen_lfs()
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frD, rA, imm);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_l(PPC_GPR(rA), imm);
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	asmALURegReg(X86_MOV, EAX, EDX);
@@ -1429,6 +1434,7 @@ JITCFlow ppc_opc_gen_lfsu()
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frD, rA, imm);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lu(PPC_GPR(rA), imm);
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	asmALURegReg(X86_MOV, EAX, EDX);
@@ -1470,6 +1476,7 @@ JITCFlow ppc_opc_gen_lfsux()
 	ppc_opc_gen_check_fpu();
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frD, rA, rB);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lux(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	asmALURegReg(X86_MOV, EAX, EDX);
@@ -1508,6 +1515,7 @@ JITCFlow ppc_opc_gen_lfsx()
 	ppc_opc_gen_check_fpu();
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frD, rA, rB);
+	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	asmALURegReg(X86_MOV, EAX, EDX);
@@ -2191,6 +2199,7 @@ JITCFlow ppc_opc_gen_stfd()
 	int rA, frS;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frS, rA, imm);
+	jitcFloatRegisterClobberAll();
 	jitcFlushRegister();
 	jitcClobberCarryAndFlags();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | ECX);
@@ -2233,6 +2242,7 @@ JITCFlow ppc_opc_gen_stfdu()
 	int rA, frS;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frS, rA, imm);
+	jitcFloatRegisterClobberAll();
 	jitcFlushRegister();
 	jitcClobberCarryAndFlags();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | ECX);
@@ -2274,6 +2284,7 @@ JITCFlow ppc_opc_gen_stfdux()
 	ppc_opc_gen_check_fpu();
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frS, rA, rB);
+	jitcFloatRegisterClobberAll();
 	jitcFlushRegister();
 	jitcClobberCarryAndFlags();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | ECX);
@@ -2309,6 +2320,7 @@ JITCFlow ppc_opc_gen_stfdx()
 	ppc_opc_gen_check_fpu();
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frS, rA, rB);
+	jitcFloatRegisterClobberAll();
 	jitcFlushRegister();
 	jitcClobberCarryAndFlags();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | ECX);
@@ -2371,6 +2383,7 @@ JITCFlow ppc_opc_gen_stfs()
 	int rA, frS;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frS, rA, imm);
+	jitcFloatRegisterClobberAll();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | EDX);
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
@@ -2418,6 +2431,7 @@ JITCFlow ppc_opc_gen_stfsu()
 	int rA, frS;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, frS, rA, imm);
+	jitcFloatRegisterClobberAll();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | EDX);
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
@@ -2464,6 +2478,7 @@ JITCFlow ppc_opc_gen_stfsux()
 	ppc_opc_gen_check_fpu();
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frS, rA, rB);
+	jitcFloatRegisterClobberAll();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | EDX);
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
@@ -2504,6 +2519,7 @@ JITCFlow ppc_opc_gen_stfsx()
 	ppc_opc_gen_check_fpu();
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, frS, rA, rB);
+	jitcFloatRegisterClobberAll();
 	jitcGetClientRegister(PPC_FPR_U(frS), NATIVE_REG | EDX);
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();

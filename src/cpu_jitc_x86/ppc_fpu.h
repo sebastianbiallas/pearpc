@@ -643,14 +643,18 @@ double ppc_fpu_get_double(ppc_double &d);
 
 static UNUSED void ppc_opc_gen_check_fpu()
 {
-	jitcClobberCarryAndFlags();
-	NativeReg r1 = jitcGetClientRegister(PPC_MSR);
-	asmALURegImm(X86_TEST, r1, MSR_FP);
-	NativeAddress fixup = asmJxxFixup(X86_NZ);
-	jitcFlushRegisterDirty();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmJMP((NativeAddress)ppc_no_fpu_exception_asm);
-	asmResolveFixup(fixup, asmHERE());
+	if (!gJITC.checkedFloat) {
+		jitcFloatRegisterClobberAll();
+		jitcClobberCarryAndFlags();
+		NativeReg r1 = jitcGetClientRegister(PPC_MSR);
+		asmALURegImm(X86_TEST, r1, MSR_FP);
+		NativeAddress fixup = asmJxxFixup(X86_NZ);
+		jitcFlushRegisterDirty();
+		asmALURegImm(X86_MOV, ESI, gJITC.pc);
+		asmJMP((NativeAddress)ppc_no_fpu_exception_asm);
+		asmResolveFixup(fixup, asmHERE());
+		gJITC.checkedFloat = true;
+	}
 }
 
 void ppc_opc_fabsx();

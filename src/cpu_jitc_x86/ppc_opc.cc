@@ -61,16 +61,20 @@ void ppc_set_msr(uint32 newmsr)
 
 void ppc_opc_gen_check_privilege()
 {
-	jitcClobberCarryAndFlags();
-	NativeReg r1 = jitcGetClientRegister(PPC_MSR);
-	asmALURegImm(X86_TEST, r1, MSR_PR);
-	NativeAddress fixup = asmJxxFixup(X86_Z);
-	jitcFlushRegisterDirty();
-	asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_PRIV);
-	asmALURegImm(X86_MOV, EDX, gJITC.current_opc);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmJMP((NativeAddress)ppc_program_exception_asm);
-	asmResolveFixup(fixup, asmHERE());
+	if (!gJITC.checkedPriviledge) {
+		jitcFloatRegisterClobberAll();
+		jitcClobberCarryAndFlags();
+		NativeReg r1 = jitcGetClientRegister(PPC_MSR);
+		asmALURegImm(X86_TEST, r1, MSR_PR);
+		NativeAddress fixup = asmJxxFixup(X86_Z);
+		jitcFlushRegisterDirty();
+		asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_PRIV);
+		asmALURegImm(X86_MOV, EDX, gJITC.current_opc);
+		asmALURegImm(X86_MOV, ESI, gJITC.pc);
+		asmJMP((NativeAddress)ppc_program_exception_asm);
+		asmResolveFixup(fixup, asmHERE());
+		gJITC.checkedPriviledge = true;
+	}
 }
 
 static inline void ppc_opc_gen_set_pc_rel(uint32 li)
@@ -162,6 +166,7 @@ JITCFlow ppc_opc_gen_bcx()
 	uint32 BO, BI, BD;
 	PPC_OPC_TEMPL_B(gJITC.current_opc, BO, BI, BD);
 	NativeAddress fixup = NULL;
+	jitcFloatRegisterClobberAll();
 	if (!(BO & 16)) {
 		// only branch if condition
 		if (BO & 4) {
@@ -317,6 +322,7 @@ JITCFlow ppc_opc_gen_bcctrx()
 {
 	uint32 BO, BI, BD;
 	PPC_OPC_TEMPL_XL(gJITC.current_opc, BO, BI, BD);
+	jitcFloatRegisterClobberAll();
 	if (BO & 16) {
 		// branch always
 		jitcClobberCarryAndFlags();
@@ -381,6 +387,7 @@ JITCFlow ppc_opc_gen_bclrx()
 	if (!(BO & 4)) {
 		PPC_OPC_ERR("not impl.: bclrx + BO&4\n");
 	}
+	jitcFloatRegisterClobberAll();
 	if (BO & 16) {
 		// branch always
 		jitcClobberCarryAndFlags();
