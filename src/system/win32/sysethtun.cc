@@ -39,5 +39,3 @@ packet_driver_t g_sys_ethtun_pd = {
 	name:			"null",
 	open: 			pdnull_open,
 };
-
-#endif
