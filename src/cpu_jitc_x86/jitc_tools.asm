@@ -111,8 +111,10 @@ global ppc_program_exception_asm
 global ppc_flush_carry_and_flags_asm, ppc_flush_flags_asm
 global ppc_flush_flags_signed_even_asm
 global ppc_flush_flags_signed_odd_asm
+global ppc_flush_flags_signed_0_asm
 global ppc_flush_flags_unsigned_even_asm
 global ppc_flush_flags_unsigned_odd_asm
+global ppc_flush_flags_unsigned_0_asm
 global ppc_new_pc_asm
 global ppc_new_pc_rel_asm
 global ppc_set_msr_asm
@@ -176,6 +178,60 @@ ppc_flush_flags_asm:
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;	called after "cmp cr0, ..", with X even
+ppc_flush_flags_signed_0_asm:
+	jl	.lt
+	jg	.gt
+.eq:
+	and	byte [gCPU+cr+3], 0x0f
+	or	byte [gCPU+cr+3], 1<<5
+	handle_so	
+	ret
+.gt:
+	and	byte [gCPU+cr+3], 0x0f
+	or	byte [gCPU+cr+3], 1<<6
+	handle_so	
+	ret
+.lt:
+	and	byte [gCPU+cr+3], 0x0f
+	or	byte [gCPU+cr+3], 1<<7
+	handle_so	
+	ret
+%ifdef EXACT_SO
+.so:
+	or	byte [gCPU+cr+3], 1<<4
+	ret
+%endif
+
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;	called after "cmpl cr0, ..", with X even
+ppc_flush_flags_unsigned_0_asm:
+	jb	.lt
+	ja	.gt
+.eq:
+	and	byte [gCPU+cr+3], 0x0f
+	or	byte [gCPU+cr+3], 1<<5
+	handle_so	
+	ret
+.gt:
+	and	byte [gCPU+cr+3], 0x0f
+	or	byte [gCPU+cr+3], 1<<6
+	handle_so	
+	ret
+.lt:
+	and	byte [gCPU+cr+3], 0x0f
+	or	byte [gCPU+cr+3], 1<<7
+	handle_so	
+	ret
+%ifdef EXACT_SO
+.so:
+	or	byte [gCPU+cr+3], 1<<4
+	ret
+%endif
+
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	called after "cmp crX, ..", with X even
 ppc_flush_flags_signed_even_asm:
 	jl	.lt
@@ -197,7 +253,7 @@ ppc_flush_flags_signed_even_asm:
 	ret
 %ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+3], 1<<4
+	or	byte [gCPU+cr+eax], 1<<4
 	ret
 %endif
 
@@ -224,7 +280,7 @@ ppc_flush_flags_unsigned_even_asm:
 	ret
 %ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+3], 1<<4
+	or	byte [gCPU+cr+eax], 1<<4
 	ret
 %endif
 
@@ -251,7 +307,7 @@ ppc_flush_flags_signed_odd_asm:
 	ret
 %ifdef EXACT_SO
 .so:
-	or	byte [gCPU+cr+3], 1<<4
+	or	byte [gCPU+cr+eax], 1<<4
 	ret
 %endif
 

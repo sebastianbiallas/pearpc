@@ -708,9 +708,13 @@ JITCFlow ppc_opc_gen_cmp()
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 	asmALURegReg(X86_CMP, a, b);
-	jitcClobberRegister(EAX | NATIVE_REG);
-	asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
-	asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
+	if (cr == 0) {
+		asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
+	} else {
+		jitcClobberRegister(EAX | NATIVE_REG);
+		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
+		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
+	}
 	return flowContinue;
 }
 /*
@@ -749,9 +753,13 @@ JITCFlow ppc_opc_gen_cmpi()
 	jitcClobberCarryAndFlags();
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	asmALURegImm(X86_CMP, a, imm);
-	jitcClobberRegister(EAX | NATIVE_REG);
-	asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
-	asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
+	if (cr == 0) {
+		asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
+	} else {
+		jitcClobberRegister(EAX | NATIVE_REG);
+		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
+		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
+	}
 	return flowContinue;
 }
 /*
@@ -789,9 +797,13 @@ JITCFlow ppc_opc_gen_cmpl()
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 	asmALURegReg(X86_CMP, a, b);
-	jitcClobberRegister(EAX | NATIVE_REG);
-	asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
-	asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
+	if (cr == 0) {
+		asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
+	} else {
+		jitcClobberRegister(EAX | NATIVE_REG);
+		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
+		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
+	}
 	return flowContinue;
 }
 /*
@@ -830,9 +842,13 @@ JITCFlow ppc_opc_gen_cmpli()
 	jitcClobberCarryAndFlags();
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	asmALURegImm(X86_CMP, a, imm);
-	jitcClobberRegister(EAX | NATIVE_REG);
-	asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
-	asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
+	if (cr == 0) {
+		asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
+	} else {
+		jitcClobberRegister(EAX | NATIVE_REG);
+		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
+		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
+	}
 	return flowContinue;
 }
 
