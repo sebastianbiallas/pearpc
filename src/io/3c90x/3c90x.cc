@@ -1034,8 +1034,9 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 					Z ? 1 : 0, (data & PM_mgmtData) ? 1 : 0,
 					(data & PM_mgmtDir) ? 1 : 0);
 				if (Z) {
+					IO_3C90X_TRACE("Z-cycle, %016qx, written bits=%d\n", &mMIIWriteWord, mMIIWrittenBits);
 					// check if the 5 frames have been sent
-					if ((mMIIWriteWord >> (mMIIWrittenBits-34)) & 0x3ffffffffULL == 0x3fffffffdULL) {
+					if (((mMIIWriteWord >> (mMIIWrittenBits-34)) & 0x3ffffffffULL) == 0x3fffffffdULL) {
 						uint PHYaddr = (mMIIWriteWord >> 5) & 0x1f;
 						uint REGaddr = mMIIWriteWord & 0x1f;
 						IO_3C90X_TRACE("prefixed Z-cycle, PHY=%d, REG=%d\n", PHYaddr, REGaddr);
