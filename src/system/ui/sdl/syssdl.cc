@@ -168,7 +168,6 @@ static bool handleSDLEvent(const SDL_Event &event)
 	SystemEvent ev;
 	switch (event.type) {
 	case SDL_VIDEOEXPOSE:
-		damageFrameBufferAll();
 		gDisplay->displayShow();
 		gSDLVideoExposePending = false;
 		return true;
@@ -336,6 +335,7 @@ static void *SDLeventLoop(void *p)
         SDL_WM_GrabInput(SDL_GRAB_OFF);
 
 	sd->changeResolution(sd->mClientChar);
+	damageFrameBufferAll();
 
 	gSDLVideoExposePending = false;
 	SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);

@@ -77,6 +77,7 @@ SDLSystemDisplay::SDLSystemDisplay(const char *title, const DisplayCharacteristi
 		mClientChar.height * mClientChar.bytesPerPixel);
 	memset(gFrameBuffer, 0, mClientChar.width *
 		mClientChar.height * mClientChar.bytesPerPixel);
+	damageFrameBufferAll();
 
 	gSDLScreen = NULL;
 	mSDLFrameBuffer = NULL;
@@ -228,10 +229,7 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 
 	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
 		mClientChar.height * mClientChar.bytesPerPixel);
-	memset(gFrameBuffer, 0, mClientChar.width *
-		mClientChar.height * mClientChar.bytesPerPixel);
 	mSDLFrameBuffer = (byte*)gSDLScreen->pixels;
-	damageFrameBufferAll();
 
 	if (SDL_MUSTLOCK(gSDLScreen)) {
 		SDL_LockSurface(gSDLScreen);
