@@ -47,7 +47,7 @@ void x86GetCaps(X86CPUCaps &caps)
 	*((uint32 *)(caps.vendor+4)) = id.d;
 	*((uint32 *)(caps.vendor+8)) = id.c;
 	caps.vendor[12] = 0;
-	ht_printf("%d %s\n", id.level, caps.vendor);
+	ht_printf("%s\n", caps.vendor);
 	if (id.level == 0) return;
 
 	struct {

@@ -582,10 +582,13 @@ align 16
 ;;
 ;;	does not return, so call this per JMP
 ppc_program_exception_asm:
+
+	;; debug
 	pusha
 	mov	eax, ecx
 	call	jitc_error_program
 	popa
+
 	mov	[gCPU+pc_ofs], esi
 	mov	eax, [gCPU+msr]
 	mov	edx, esi
@@ -743,7 +746,6 @@ align 16
 ;;	ppc_new_pc_asm
 ;;
 ;;	IN: eax new client pc (effective address)
-;;	    esi current client pc_ofs
 ;;
 ;;	does not return, so call this per JMP
 ppc_new_pc_asm:
@@ -787,8 +789,6 @@ ppc_start_jitc_asm:
 	push	ebp
 	push	esi
 	push	edi
-	mov	esi, eax
-	and	esi, 0xfff
 	fldcw	[ppc_start_fpu_cw]
 	jmp	ppc_new_pc_asm
 

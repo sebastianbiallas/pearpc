@@ -1966,10 +1966,10 @@ JITCFlow ppc_opc_gen_lswx()
 		jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	}
 	asmALURegImm(X86_AND, ECX, 0x7f);
+	jitcClobberAll();
 	NativeAddress fixup = asmJxxFixup(X86_Z);
 	asmALURegImm(X86_MOV, EBX, rD);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_lswi_asm);
 	asmResolveFixup(fixup, asmHERE());
 	return flowEndBlock;
@@ -2827,10 +2827,10 @@ JITCFlow ppc_opc_gen_stswx()
 		jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	}
 	asmALURegImm(X86_AND, ECX, 0x7f);
+	jitcClobberAll();
 	NativeAddress fixup = asmJxxFixup(X86_Z);
 	asmALURegImm(X86_MOV, EBX, rS);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_stswi_asm);
 	asmResolveFixup(fixup, asmHERE());
 	return flowEndBlock;
