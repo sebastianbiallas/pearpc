@@ -434,6 +434,8 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 {
 	memset(&gJITC, 0, sizeof gJITC);
 
+	x86GetCaps(gJITC.hostCPUCaps);
+
 	gJITC.translationCache = (byte*)sys_alloc_read_write_execute(tcSize);
 	if (!gJITC.translationCache) return false;
 	int maxPages = gMemorySize / 4096;

@@ -118,13 +118,28 @@ struct JITC {
 	uint64 tlb_data_write_misses;
 
 	/*
+	 *	Capabilities of the host cpu
+	 */
+	X86CPUCaps hostCPUCaps;
+
+	/*
 	 *	If nativeReg[i] is set, it indicates to which client
 	 *	register this native register corrensponds.
 	 */
 	PPC_Register nativeReg[8];
 	
 	RegisterState nativeRegState[8];
-	
+
+	/*
+	 *	number of stack entries (0 <= TOP <= 8)
+	 */
+	int nativeFloatTOP;
+	/*
+	 *	Indexed by type JitcFloatReg
+	 */
+	int nativeFloatRegStack[9];
+	RegisterState nativeFloatRegState[9];
+
 	/*
 	 *
 	 */
@@ -139,6 +154,18 @@ struct JITC {
 	 */
 	NativeReg clientReg[800];
 	
+	/*
+	 *	If clientFloatReg[i] is set fpr[i] is mapped to the native
+	 *	float register clientFloatReg[i]
+	 */
+	JitcFloatReg clientFloatReg[32];
+
+	/*
+	 *	An element of S_8 (indexed by JitcFloatReg)
+	 *	to keep track of FXCH
+	 */
+	JitcFloatReg floatRegPerm[9];
+
 	/*
 	 *	Only used for the LRU list
 	 */

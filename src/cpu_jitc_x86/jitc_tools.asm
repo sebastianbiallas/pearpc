@@ -115,6 +115,7 @@ global ppc_cpu_atomic_cancel_ext_exception
 global ppc_new_pc_this_page_asm
 global ppc_heartbeat_ext_asm
 global ppc_heartbeat_ext_rel_asm
+global ppc_cpuid_asm
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -732,5 +733,22 @@ ppc_start_jitc_asm:
 	and	esi, 0xfff
 	mov	[gCPU+start_pc_ofs], esi
 	jmp	ppc_new_pc_asm
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;	IN: eax cpuid level
+;;	    edx dest
+;;
+ppc_cpuid_asm:
+	push	ebx
+	push	edx
+	cpuid
+	pop	edi
+	mov	[edi], eax
+	mov	[edi+4], ecx
+	mov	[edi+8], edx
+	mov	[edi+12], ebx
+	pop	ebx
+	ret
 
 end

@@ -62,6 +62,8 @@ extern "C" void ppc_heartbeat_ext_rel_asm();
 extern "C" void ppc_set_msr_asm();
 extern "C" void ppc_mmu_tlb_invalidate_all_asm();
 extern "C" void ppc_mmu_tlb_invalidate_entry_asm();
+
 extern "C" void FASTCALL ppc_start_jitc_asm(uint32 newpc);
+extern "C" void FASTCALL ppc_cpuid_asm(uint32 level, void *struc);
 
 #endif
