@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 		gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
 		gConfig->acceptConfigEntryIntDef("memory_size", 128*1024*1024);
 		gConfig->acceptConfigEntryIntDef("page_table_pa", 0x00300000);
-		gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 200);
+		gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 20);
 		gConfig->acceptConfigEntryStringDef("key_compose_dialog", "F11");
 		gConfig->acceptConfigEntryStringDef("key_change_cd_0", "none");
 		gConfig->acceptConfigEntryStringDef("key_change_cd_1", "none");
