@@ -280,11 +280,12 @@ void prom_service_instance_to_path(prom_args *pa)
 	uint32 buflen = pa->args[2];
 	PromInstance *pi = handleToInstance(ihandle);
 	IO_PROM_TRACE("instance-to-path(%08x, %08x, %08x)\n", ihandle, buf, buflen);
-	if (pi && buflen) {
+	uint32 phys;
+	if (pi && buflen && ppc_prom_effective_to_physical(phys, buf)) {
 		PromNode *pn = pi->getType();
 		char *s = (char *)malloc(buflen);
 		pa->args[3] = pn->toPath(s, buflen);
-		ppc_dma_write(buf, s, pa->args[3]+1);
+		ppc_dma_write(phys, s, pa->args[3]+1);
 		free(s);
 	} else {
 		pa->args[3] = 0;
@@ -299,10 +300,11 @@ void prom_service_package_to_path(prom_args *pa)
 	uint32 buflen = pa->args[2];
 	PromNode *p = handleToPackage(phandle);
 	IO_PROM_TRACE("package-to-path(%08x, %08x, %08x)\n", phandle, buf, buflen);
-	if (p) {
+	uint32 phys;
+	if (p && ppc_prom_effective_to_physical(phys, buf)) {
 		char *s = (char *)malloc(buflen);
 		pa->args[3] = p->toPath(s, buflen);
-		ppc_dma_write(buf, s, pa->args[3]+1);
+		ppc_dma_write(phys, s, pa->args[3]+1);
 		free(s);
 	} else {
 		pa->args[3] = 0;
@@ -338,10 +340,11 @@ void prom_service_call_method(prom_args *pa)
 			uint32 buflen = pa->args[2];			
 			PromNode *obj = handleToPackage(phandle);
 			pa->args[5] = 0;
-			if (obj) {
+			uint32 phys;
+			if (obj && ppc_prom_effective_to_physical(phys, buf)) {
 				char *s = (char *)malloc(buflen);
 				pa->args[6] = obj->toPath(s, buflen);
-				ppc_dma_write(buf, s, pa->args[6]+1);
+				ppc_dma_write(phys, s, pa->args[6]+1);
 				free(s);
 			} else {
 				pa->args[6] = 0;

@@ -192,7 +192,7 @@ static void prom_mem_entry_set_size(uint32 pa, uint32 v)
 	ppc_dma_write(pa, &v, 4);
 }
 
-static uint32 prom_mem_entry_set_prev(uint32 pa, uint32 v)
+static void prom_mem_entry_set_prev(uint32 pa, uint32 v)
 {
 	ppc_dma_write(pa+4, &v, 4);
 }
