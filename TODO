@@ -16,3 +16,4 @@
 - usability: don't complain if CD is not available at startup. (CDs are _removable_ media)
 - usability: try to eject CD if "Change CD" is clicked
 - usability: make Win32 CDROM drives work
+- hardware: full USB support

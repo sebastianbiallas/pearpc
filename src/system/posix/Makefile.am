@@ -7,7 +7,7 @@ libssystem_a_SOURCES = sysclipboard.cc sysdisplay.cc sysfile.cc \
 sysinit.cc systhread.cc 
 #vaccel.asm
 
-INCLUDES = -I ../..
+INCLUDES = -I ../.. @X_CFLAGS@
 
 .asm.o:
 	nasm -O2 @NASM_OPTS@ -o $@ -- $<
