@@ -51,7 +51,7 @@
 
 
 enum RxHeaderBits {
-	Rx_ROK =  1<<0, // recieve okay
+	Rx_ROK =  1<<0, // receive okay
 	Rx_FAE =  1<<1, // frame alignment error
 	Rx_CRC =  1<<2, // crc error
 	Rx_LONG = 1<<3, // packet > 4k
@@ -321,7 +321,7 @@ void setCR(uint8 cr)
 	}
 	if (cr & 0x08) {
 		mRegisters.CommandRegister |= 0x08;
-		// enable reciever
+		// enable receiver
 	}
 	if (cr & 0x04) {
 		mRegisters.CommandRegister |= 0x04;
