@@ -33,6 +33,7 @@
 #include "cpu_generic/ppc_mmu.h"
 #include "cpu_generic/ppc_tools.h"
 #include "tools/data.h"
+#include "tools/endianess.h"
 #include "tools/except.h"
 #include "tools/snprintf.h"
 #include "io/pic/pic.h"
@@ -1324,6 +1325,10 @@ void txDPD0(DPD0 *dpd)
 	uint32 fsh = dpd->FrameStartHeader;
 	IO_3C90X_TRACE("fsh = %08x\n", fsh);
 	if (fsh & FSH_dpdEmpty) {
+		// modify FrameStartHeader in DPD (!)
+		dpd->FrameStartHeader |= FSH_dnComplete;
+		// set next DnListPtr
+		mRegisters.DnListPtr = dpd->DnNextPtr;
 		IO_3C90X_TRACE("dpd empty\n");
 		return;
 	}
@@ -1467,12 +1472,12 @@ void rxUPD(UPD *upd)
 	// FIXME: threading to care about (mRegisters.DmaCtrl & DC_upAltSeqDisable)
 	IO_3C90X_TRACE("rxUPD()\n");
 
-	if (upd->UpPktStatus & UPS_upComplete) {
+/*	if (upd->UpPktStatus & UPS_upComplete) {
 		IO_3C90X_TRACE("UPD already upComplete! stalling.\n");
 		// it's already been used, stall...
 		mUpStalled = true;
 		return;
-	}
+	}*/
 
 	bool error = false;
 	if (mRegisters.UpPoll) {
@@ -1524,10 +1529,12 @@ void rxUPD(UPD *upd)
 		}
 
 		byte *frag;
+		// HACK: remove it!!!
+//		addr = createHostInt(&addr, 4, big_endian);
 		if (ppc_direct_physical_memory_handle(addr, frag) != PPC_MMU_OK) {
 			upPktStatus |= UPS_upError;
 			upd->UpPktStatus = upPktStatus;
-			IO_3C90X_WARN("invalid UPD fragment address!\n");
+			IO_3C90X_WARN("invalid UPD fragment address! (%08x)\n", addr);
 			SINGLESTEP("");
 			error = true;
 			break;
@@ -1558,6 +1565,8 @@ void rxUPD(UPD *upd)
 	upPktStatus |= UPS_upComplete;
 	upd->UpPktStatus = upPktStatus;
 	mRegisters.UpListPtr = upd->UpNextPtr;
+	// HACK: remove it!!!
+//	mRegisters.UpListPtr = createHostInt(&mRegisters.UpListPtr, 4, big_endian);
 
 	// indications
 	mRegisters.DmaCtrl |= DC_upComplete;
@@ -1608,11 +1617,13 @@ void maybeRaiseIntr()
 
 void checkDnWork()
 {
-	if (!mDnStalled && (mRegisters.DnListPtr != 0)) {
+	while (!mDnStalled && (mRegisters.DnListPtr != 0)) {
 		byte *dpd;
 		if (ppc_direct_physical_memory_handle(mRegisters.DnListPtr, dpd) == PPC_MMU_OK) {
 			// get packet type
-			byte type = (*((byte*)dpd+7))>>6;
+			byte type = dpd[7]>>6;
+			DPD0 *test = (DPD0*)dpd;
+			IO_3C90X_TRACE("test72: type = %02x, assuming DPD type 0, fsh = %08x\n", type, test->FrameStartHeader);
 			switch (type) {
 			case 0:
 			case 2: {
@@ -1627,13 +1638,19 @@ void checkDnWork()
 				IO_3C90X_TRACE("Got a type 1 DPD ! not implemented !\n");
 				IO_3C90X_TRACE("DnNextPtr is %08x\n", p->DnNextPtr);
 				SINGLESTEP("");
+				mRegisters.DnListPtr = 0;
 				break;
 			}
 			default:
 				IO_3C90X_TRACE("unsupported packet type 3\n");
+				mRegisters.DnListPtr = 0;
 				SINGLESTEP("");
+				break;
 			}
-		} else IO_3C90X_WARN("DnListPtr invalid!\n");
+		} else {
+			IO_3C90X_WARN("DnListPtr invalid!\n");
+			break;
+		}
 	}
 }
 
@@ -1751,6 +1768,9 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 		switch (port) {
 		case 0x1a:
 			IO_3C90X_TRACE("read Timer = %08x\n", data);
+			break;
+		case 0x20:
+			IO_3C90X_TRACE("read DmaCtrl = %08x\n", data);
 			break;
 		case 0x24:
 			IO_3C90X_TRACE("read DownListPtr = %08x\n", data);
