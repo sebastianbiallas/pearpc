@@ -51,6 +51,14 @@ enum ppc_fpr_type {
 	ppc_fpr_Inf,
 };
 
+struct ppc_quadro {
+	ppc_fpr_type type;
+	int s;
+	int e;
+	uint64 m0;	// most  significant
+	uint64 m1;	// least significant
+};
+
 struct ppc_double {
 	ppc_fpr_type type;
 	int s;
@@ -65,10 +73,10 @@ struct ppc_single {
 	uint m;
 };
 
-inline int ppc_fpu_normalize(ppc_double &d)
+inline int ppc_count_leading_zeros(uint64 i)
 {
 	int ret;
-	uint32 dd = d.m >> 32;
+	uint32 dd = i >> 32;
 	if (dd) {
 		ret = 31;
 		if (dd > 0xffff) { ret -= 16; dd >>= 16; }
@@ -77,7 +85,7 @@ inline int ppc_fpu_normalize(ppc_double &d)
 		if (dd & 0xc) { ret -= 2; dd >>= 2; }
 		if (dd & 0x2) ret--;
 	} else {
-		dd = (uint32)d.m;
+		dd = (uint32)i;
 		ret = 63;
 		if (dd > 0xffff) { ret -= 16; dd >>= 16; }
 		if (dd > 0xff) { ret -= 8; dd >>= 8; }
@@ -86,6 +94,18 @@ inline int ppc_fpu_normalize(ppc_double &d)
 		if (dd & 0x2) ret--;
 	}
 	return ret;
+}
+
+inline int ppc_fpu_normalize_quadro(ppc_quadro &d)
+{
+	int ret = ppc_count_leading_zeros(d.m0);
+	if (ret == 32) ret += ppc_count_leading_zeros(d.m1);
+	return ret;
+}
+
+inline int ppc_fpu_normalize(ppc_double &d)
+{
+	return ppc_count_leading_zeros(d.m);
 }
 
 inline int ppc_fpu_normalize_single(ppc_single &s)
@@ -165,6 +185,53 @@ inline void ppc_fpu_unpack_single(ppc_single &res, uint32 d)
 
 inline uint32 ppc_fpu_round(ppc_double &d) 
 {
+#if 1
+	// .132
+	switch (FPSCR_RN(gCPU.fpscr)) {
+	case FPSCR_RN_NEAR:
+		if (d.m & 4) {
+			// guard == 1
+			if (d.m & 3) {
+				// round || sticky
+				d.m += 8;
+			} else if (d.m & 8) {
+				// lsb set
+				d.m += 8;
+			}
+			return FPSCR_XX;
+		} else {
+			// guard == 0
+			return ((d.m & 7) == 0) ? 0 : FPSCR_XX;
+		}
+/*		if (d.m & 0x7) {
+			if ((d.m & 0x7) != 4) {
+				d.m += 4;
+			} else if (d.m & 8) {
+				d.m += 4;
+			}
+			return FPSCR_XX;
+		}*/
+		return 0;
+	case FPSCR_RN_ZERO:
+		if (d.m & 0x7) {
+			return FPSCR_XX;
+		}
+		return 0;
+	case FPSCR_RN_PINF:
+		if (!d.s && (d.m & 0x7)) {
+			d.m += 8;
+			return FPSCR_XX;
+		}
+		return 0;
+	case FPSCR_RN_MINF:
+		if (d.s && (d.m & 0x7)) {
+			d.m += 8;
+			return FPSCR_XX;
+		}
+		return 0;
+	}
+	return 0;
+#else
 	// .132
 	switch (FPSCR_RN(gCPU.fpscr)) {
 	case FPSCR_RN_NEAR:
@@ -196,6 +263,7 @@ inline uint32 ppc_fpu_round(ppc_double &d)
 		return 0;
 	}
 	return 0;
+#endif
 }
 
 inline uint32 ppc_fpu_round_single(ppc_single &s) 
@@ -277,6 +345,7 @@ inline uint32 ppc_fpu_pack_double(ppc_double &d, uint64 &res)
 		d.e += 1023; // bias exponent
 //		ht_printf("pd: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
 		if (d.e > 0) {
+			bool guardbit = d.m & 4;
 			ret |= ppc_fpu_round(d);
 			if (d.m & (1ULL<<56)) {
 				d.e++;
@@ -285,9 +354,14 @@ inline uint32 ppc_fpu_pack_double(ppc_double &d, uint64 &res)
 				d.m >>= 3;
 			}
 			if (d.e >= 2047) {
-				d.e = 2047;
-				d.m = 0;
-				ret |= FPSCR_OX;
+				if (guardbit) {
+					d.e = 2047;
+					d.m = 0;
+					ret |= FPSCR_OX;
+				} else {
+					d.e = 2046;
+					d.m = (1ULL<<53)-1;
+				}
 			}
 		} else {
 			// number is denormalized
