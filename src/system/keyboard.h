@@ -1,5 +1,5 @@
 /*
- *	HT Editor
+ *	PearPC
  *	keyboard.h
  *
  *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
@@ -155,6 +155,7 @@ class SystemKeyboard: public SystemDevice {
 public:
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
+	virtual bool	handleEvent(const SystemEvent &ev);
 };
 
 SystemKeyboard *allocSystemKeyboard();

@@ -1,6 +1,6 @@
 /* 
  *	PearPC
- *	keyboard.cc - keyboard access functions for X11
+ *	mouse.cc - mouse access functions for X11
  *
  *	Copyright (C) 1999-2004 Stefan Weyergraf (stefan@weyergraf.de)
  *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
@@ -24,25 +24,18 @@
 #include "system/systhread.h"
 #include "sysx11.h"
 
+extern sys_mutex	gX11Mutex;
 extern Display *	gX11Display;
 extern Window		gX11Window;
 
 #include "system/display.h"
-#include "system/keyboard.h"
+#include "system/mouse.h"
 
 #define DPRINTF(a...)
 //#define DPRINTF(a...) ht_printf(a)
 
-class X11SystemKeyboard: public SystemKeyboard {
+class X11SystemMouse: public SystemMouse {
 public:
-	virtual int getKeybLEDs()
-	{
-		return 0;
-	}
-
-	virtual void setKeybLEDs(int leds)
-	{
-	}
 
 	virtual bool handleEvent(const SystemEvent &ev)
 	{
@@ -50,8 +43,8 @@ public:
 	}
 };
 
-SystemKeyboard *allocSystemKeyboard()
+SystemMouse *allocSystemMouse()
 {
-	if (gKeyboard) return NULL;
-	return new X11SystemKeyboard();
+	if (gMouse) return NULL;
+	return new X11SystemMouse();
 }

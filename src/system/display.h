@@ -177,7 +177,8 @@ protected:
 	int		mVTHeight;
 	int		mVTDX;
 	int		mVTDY;
-
+	bool		mExposed;
+	int		mRedraw_ms;
 	RGB		palette[256]; // only used in indexed modes
 
 	/* hw cursor */
@@ -189,8 +190,11 @@ protected:
 	int		mMenuX, mMenuHeight;
 	Array *		mMenu;
 
-	/* compose dialog */
-	bool		mCatchMouseToggle;
+	bool		mMouseGrabbed;
+public: // until we know better
+	int mCurMouseX, mCurMouseY;
+	int mResetMouseX, mResetMouseY;
+	int mHomeMouseX, mHomeMouseY;
 
 	static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
 	{
@@ -206,7 +210,7 @@ public:
 	DisplayCharacteristics	mClientChar;
 	BufferedChar	*buf;
 
-			SystemDisplay(const DisplayCharacteristics &aCharacteristics);
+			SystemDisplay(const DisplayCharacteristics &aCharacteristics, int redraw_ms);
 	virtual 	~SystemDisplay();
 
 	virtual void	displayShow() = 0;
@@ -229,15 +233,12 @@ public:
      	virtual void fillAllVT(vcp color, byte chr);
 	void	setAnsiColor(vcp color);
 
-	virtual	void startRedrawThread(int msec)=0;
-
 	/* ui */
 		void insertMenuButton(Stream &str, void (*callback)(void *), void *p);
 	virtual	void finishMenu() = 0;
 		void drawMenu();
 		void clickMenu(int x, int y);
 //		void composeKeyDialog();
-		bool getCatchMouseToggle();
 		void drawCircleFilled(int x, int y, int w, int h, int cx, int cy, int radius, RGBA fg, RGBA bg);
 		void drawBox(int x, int y, int w, int h, RGBA fg, RGBA bg);
 		void setHWCursor(int x, int y, bool visible, byte *data);
@@ -250,10 +251,27 @@ public:
 		void outText(int x, int y, RGBA fg, RGBA bg, const char *text);
 		void putPixelRGB(int x, int y, RGB rgb);
 		void putPixelRGBA(int x, int y, RGBA rgba);
+
+		inline void setExposed(bool exposed)
+		{
+			mExposed = exposed;
+		}
+
+		inline bool isExposed()
+		{
+			return mExposed;
+		}
+
+		inline bool isMouseGrabbed()
+		{
+			return mMouseGrabbed;
+		}
+		
+		virtual void setClientMouseGrab(bool mouseGrab);
 };
 
 /* system-dependent (implementation in $MYSYSTEM/ *.cc) */
 extern SystemDisplay *gDisplay;
-SystemDisplay *allocSystemDisplay(const char *name, const DisplayCharacteristics &chr);
+SystemDisplay *allocSystemDisplay(const char *name, const DisplayCharacteristics &chr, int redraw_ms);
 
 #endif /* __SYSTEM_DISPLAY_H__ */

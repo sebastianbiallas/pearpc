@@ -62,6 +62,10 @@ static uint8 x11_key_to_adb_key[256] = {
 
 static void handleX11Event(const XEvent &event)
 {
+	static bool visible = true;
+	static bool mapped = true;
+	static bool mMouseButton[3] = {false, false, false};
+	
 	switch (event.type) {
 	case GraphicsExpose:
 	case Expose:
@@ -107,6 +111,104 @@ static void handleX11Event(const XEvent &event)
 		gKeyboard->handleEvent(ev);
 		break;
 	}
+	case ButtonPress: {
+		if (!gDisplay->isMouseGrabbed()) break;
+		SystemEvent ev;
+		ev.type = sysevMouse;
+		switch (((XButtonEvent *)&event)->button) {
+		case Button1:
+			mMouseButton[0] = true;
+			break;
+		case Button2:
+			mMouseButton[1] = true;
+			break;
+		case Button3:
+			mMouseButton[2] = true;
+			break;
+		}
+		ev.mouse.button1 = mMouseButton[0];
+		ev.mouse.button2 = mMouseButton[2];
+		ev.mouse.button3 = mMouseButton[1];
+		ev.mouse.x = gDisplay->mCurMouseX;
+		ev.mouse.y = gDisplay->mCurMouseY;
+		ev.mouse.relx = 0;
+		ev.mouse.rely = 0;
+		break;
+	}
+	case ButtonRelease: {
+		SystemEvent ev;	
+		if (!gDisplay->isMouseGrabbed()) {
+/*			if (mCurMouseY < mMenuHeight) {
+				sys_unlock_mutex(mutex);
+				clickMenu(mCurMouseX, mCurMouseY);
+				sys_lock_mutex(mutex);
+			} else {*/
+				gDisplay->setClientMouseGrab(true);
+/*				break;
+			}*/
+		} else {
+			ev.type = sysevMouse;
+			switch (((XButtonEvent *)&event)->button) {
+			case Button1:
+				mMouseButton[0] = false;
+				break;
+			case Button2:
+				mMouseButton[1] = false;
+				break;
+			case Button3:
+				mMouseButton[2] = false;
+				break;
+			}
+			ev.mouse.button1 = mMouseButton[0];
+			ev.mouse.button2 = mMouseButton[2];
+			ev.mouse.button3 = mMouseButton[1];
+			ev.mouse.x = gDisplay->mCurMouseX;
+			ev.mouse.y = gDisplay->mCurMouseY;
+			ev.mouse.relx = 0;
+			ev.mouse.rely = 0;
+		}
+		break;
+	}
+	case MotionNotify: {
+		SystemEvent ev;	
+		gDisplay->mCurMouseX = ev.mouse.x = ((XPointerMovedEvent *)&event)->x;
+		gDisplay->mCurMouseY = ev.mouse.y = ((XPointerMovedEvent *)&event)->y;
+		if (gDisplay->mCurMouseX == gDisplay->mHomeMouseX && gDisplay->mCurMouseY == gDisplay->mHomeMouseY) break;
+		if (!gDisplay->isMouseGrabbed()) break;
+		if (gDisplay->mCurMouseX == -1) break;
+		ev.type = sysevMouse;
+		ev.mouse.button1 = mMouseButton[0];
+		ev.mouse.button2 = mMouseButton[1];
+		ev.mouse.button3 = mMouseButton[2];
+		ev.mouse.relx = gDisplay->mCurMouseX - gDisplay->mHomeMouseX;
+		ev.mouse.rely = gDisplay->mCurMouseY - gDisplay->mHomeMouseY;
+		sys_lock_mutex(gX11Mutex);
+		XWarpPointer(gX11Display, gX11Window, gX11Window, 0, 0, 0, 0, gDisplay->mHomeMouseX, gDisplay->mHomeMouseY);
+		sys_unlock_mutex(gX11Mutex);
+		break;
+	}
+	case EnterNotify:
+		gDisplay->mCurMouseX = ((XEnterWindowEvent *)&event)->x;
+		gDisplay->mCurMouseY = ((XEnterWindowEvent *)&event)->y;
+		break;
+	case LeaveNotify:
+		gDisplay->mCurMouseX = gDisplay->mCurMouseY = -1;
+		break;
+	case FocusOut:
+		if (gDisplay->isMouseGrabbed()) gDisplay->setClientMouseGrab(false);
+		break;
+	case MapNotify:
+		mapped = true;
+		gDisplay->setExposed(visible);
+		break;
+	case UnmapNotify:
+		mapped = false;
+		gDisplay->setExposed(false);
+		break;
+	case VisibilityNotify:
+		visible = (event.xvisibility.state != VisibilityFullyObscured);
+		gDisplay->setExposed(mapped && visible);
+		break;
 	}
 }
 
@@ -161,8 +263,8 @@ static void *X11eventLoop(void *p)
 				sys_unlock_mutex(gX11Mutex);
 				break;
 			}
-			sys_unlock_mutex(gX11Mutex);
 
+			sys_unlock_mutex(gX11Mutex);
 			handleX11Event(event);
 		}
 	}

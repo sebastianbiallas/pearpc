@@ -1,6 +1,6 @@
 /*
  *	PearPC
- *	device.h
+ *	mouse.h
  *
  *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
@@ -18,24 +18,24 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __SYSTEM_DEVICE_H__
-#define __SYSTEM_DEVICE_H__
+#ifndef __SYSTEM_MOUSE_H__
+#define __SYSTEM_MOUSE_H__
 
-#include "tools/data.h"
+#include "system/types.h"
+
+#include "system/device.h"
 #include "system/event.h"
 
-class SystemDevice: public Object {
-protected:
-	SystemEventHandler	mAttachedEventHandler;
+#include "tools/data.h"
+
+/* system-dependent (implementation in ui / $MYUI / *.cc) */
+class SystemMouse: public SystemDevice {
 public:
-	SystemDevice();
-
-	/**
-	 *	@returns	true if the event has been handled, false otherwise
-	 */
-	virtual bool	handleEvent(const SystemEvent &ev);
-
-	virtual void	attachEventHandler(SystemEventHandler cevh);
 };
 
-#endif /* __SYSTEM_DEVICE_H__ */
+SystemMouse *allocSystemMouse();
+
+/* system-independent (implementation in keyboard.cc) */
+extern SystemMouse *gMouse;
+
+#endif /* __SYSTEM_KEYBOARD_H__ */

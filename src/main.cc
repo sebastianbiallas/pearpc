@@ -41,6 +41,7 @@
 #include "tools/except.h"
 #include "tools/snprintf.h"
 #include "system/display.h"
+#include "system/mouse.h"
 #include "system/keyboard.h"
 #include "system/sys.h"
 #include "configparser.h"
@@ -316,7 +317,8 @@ int main(int argc, char *argv[])
 			ht_printf("cpu_init failed! Out of memory?\n");
 			exit(1);
 		}
-		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm);
+		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm, msec);
+		gMouse = allocSystemMouse();
 		gKeyboard = allocSystemKeyboard();
 		io_init();
 		ppc_dec_init();
@@ -407,7 +409,6 @@ int main(int argc, char *argv[])
 		gDisplay->print("now starting client...");
 		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
 		startUI();
-		gDisplay->startRedrawThread(msec);
 		ppc_run();
 		delete gDisplay;		
 	} catch (std::exception *e) {

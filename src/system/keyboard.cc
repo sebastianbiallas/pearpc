@@ -38,3 +38,13 @@ NULL,"Keypad 8","Keypad 9",NULL,NULL,NULL,"F5","F6","F7","F3",
 NULL,"F12",NULL,"Pause","Insert","Home","Pageup","Delete","F4","End",
 "F2","Pagedown","F1",
 };
+
+bool SystemKeyboard::handleEvent(const SystemEvent &ev)
+{
+	if ((ev.type == sysevKey) && (ev.key.keycode == KEY_F12)) {
+		// do sth.
+		return true;
+	} else {
+		return SystemDevice::handleEvent(ev);
+	}
+}

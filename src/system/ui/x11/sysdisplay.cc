@@ -75,12 +75,6 @@ class X11SystemDisplay: public SystemDisplay
 	Colormap	mDefaultColormap;
 
 	DisplayCharacteristics mXChar;
-	int mLastMouseX, mLastMouseY;
-	int mCurMouseX, mCurMouseY;
-	int mResetMouseX, mResetMouseY;
-	int mHomeMouseX, mHomeMouseY;
-	bool mMouseButton[3];
-	bool mMouseGrabbed;
 	char *mTitle;
 	char mCurTitle[200];
 	byte *mouseData;
@@ -97,8 +91,8 @@ class X11SystemDisplay: public SystemDisplay
 		}
 	}
 public:
-	X11SystemDisplay(const char *name, const DisplayCharacteristics &aClientChar)
-		:SystemDisplay(aClientChar)
+	X11SystemDisplay(const char *name, const DisplayCharacteristics &aClientChar, int redraw_ms)
+		:SystemDisplay(aClientChar, redraw_ms)
 	{
 		if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
 			printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
@@ -108,7 +102,6 @@ public:
 		sys_create_mutex(&gX11Mutex);
 
 		// mouse
-		mMouseGrabbed = false;
 		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
 		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
 
@@ -342,9 +335,9 @@ public:
 		return snprintf(buf, buflen, "POSIX X11");
 	}
 
-	void setClientMouseGrab(bool enable)
+	virtual void setClientMouseGrab(bool enable)
 	{
-		mMouseGrabbed = enable;
+		SystemDisplay::setClientMouseGrab(enable);
 		updateTitle();
 		if (enable) {
 			mResetMouseX = mCurMouseX;
@@ -378,11 +371,12 @@ public:
 			XWarpPointer(gX11Display, gX11Window, gX11Window, 0, 0, 0, 0, mResetMouseX, mResetMouseY);
 			XUndefineCursor(gX11Display, gX11Window);
 		}
-//		mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
 	}
 
 	virtual void displayShow()
 	{
+		if (!isExposed()) return;
+		
 		int firstDamagedLine, lastDamagedLine;
 		// We've got problems with races here because gcard_write1/2/4
 		// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
@@ -432,46 +426,10 @@ public:
 		}*/
 		sys_unlock_mutex(gX11Mutex);
 	}
-
-	static void *redrawThread(void *p)
-	{
-		int msec = *((int *)p);
-		
-		while (1) {
-			timespec ts;
-			ts.tv_sec = 0;
-			ts.tv_nsec = msec*1000*1000;
-
-			// Safe not to lock for this test, if we catch the 
-			// values mid-update, we'll just reevaluate them the
-			// next time through the loop
-			if (gMapped && gVisible) {
-				XExposeEvent ev;
-				ev.type = Expose;
-				ev.window = gX11Window;
-				ev.x = 0;
-				ev.y = 0;
-				ev.width = gDisplay->mClientChar.width;
-				ev.height = gDisplay->mClientChar.height;
-				sys_lock_mutex(gX11Mutex);
-				XSendEvent(gX11Display, gX11Window, false, 0, (XEvent*)&ev);
-				sys_unlock_mutex(gX11Mutex);
-//				gDisplay->displayShow();
-			}
-
-			nanosleep(&ts, NULL);
-		}
-		return NULL;
-	}
-
-	virtual void startRedrawThread(int msec)
-	{
-//		sys_create_thread(&redrawthread, 0, redrawThread, &msec);
-	}
 };
 
-SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr)
+SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
 {
 	if (gDisplay) return NULL;
-	return new X11SystemDisplay(title, chr);
+	return new X11SystemDisplay(title, chr, redraw_ms);
 }

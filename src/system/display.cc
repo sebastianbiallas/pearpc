@@ -117,17 +117,19 @@ void dumpDisplayChar(const DisplayCharacteristics &chr)
 	fprintf(stderr, "\tdepth:               %d\n", chr.redSize + chr.greenSize + chr.blueSize);
 }
 
-SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics)
+SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics, int redraw_ms)
 {
 	mClientChar = aCharacteristics;
+	mRedraw_ms = redraw_ms;
 	mHWCursorX = 0;
 	mHWCursorY = 0;
 	mHWCursorVisible = false;
 	mHWCursorData = NULL;
+	
 	mMenu = new Array(true);
 	mMenuX = 0;
 	mMenuHeight = 20;
-	mCatchMouseToggle = true;
+	mMouseGrabbed = false;
 }
 
 SystemDisplay::~SystemDisplay()
@@ -482,11 +484,6 @@ redo:
 }
 */
 
-bool SystemDisplay::getCatchMouseToggle()
-{
-	return mCatchMouseToggle;
-}
-
 void SystemDisplay::outText(int x, int y, RGBA fg, RGBA bg, const char *text)
 {
 	while (*text) {
@@ -585,4 +582,9 @@ void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 	uint addr = x*mClientChar.bytesPerPixel + y*mClientChar.scanLineLength;
 	mixRGBA(&gFrameBuffer[addr], rgba);
 	damageFrameBuffer(addr);
+}
+
+void SystemDisplay::setClientMouseGrab(bool mouseGrab)
+{
+	mMouseGrabbed = mouseGrab;
 }
