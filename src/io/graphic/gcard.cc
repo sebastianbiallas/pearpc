@@ -62,73 +62,11 @@ static VMode stdVModes[] = {
 
 static Container *gGraphicModes;
 
-/*
- [MAX_GRAPHIC_MODES] = {
-	{width: 640, height: 480, bytesPerPixel: 2, scanLineLength: 1280, vsyncFrequency: 60,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-};
-
-
-DisplayCharacteristics gGraphicModes[MAX_GRAPHIC_MODES] = {
-	{width: 640, height: 480, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 640, height: 480, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 800, height: 600, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 800, height: 600, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1024, height: 768, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1024, height: 768, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1152, height: 864, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1152, height: 864, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1280, height: 720, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1280, height: 720, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1280, height: 768, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1280, height: 768, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1280, height: 960, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1280, height: 960, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1280, height: 1024, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1280, height: 1024, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1360, height: 768, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1360, height: 768, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1600, height: 900, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1600, height: 900, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1600, height: 1024, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1600, height: 1024, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-	{width: 1600, height: 1200, bytesPerPixel: 2,
-	 redShift: 10, redSize: 5, greenShift: 5, greenSize: 5, blueShift: 0, blueSize: 5},
-	{width: 1600, height: 1200, bytesPerPixel: 4,
-	 redShift: 16, redSize: 8, greenShift: 8, greenSize: 8, blueShift: 0, blueSize: 8},
-};*/
-
 PCI_GCard::PCI_GCard()
 	:PCI_Device("pci-graphic", 0x00, 0x07)
 {
-	mIORegSize[0] = 0x400000;
+	mIORegSize[0] = 0x800000;
 	mIORegType[0] = PCI_ADDRESS_SPACE_MEM_PREFETCH;
-/*	mIORegSize[1] = 0x20000;
-	mIORegType[1] = PCI_ADDRESS_SPACE_MEM;
-	mIORegSize[2] = 0x4000;
-	mIORegType[2] = PCI_ADDRESS_SPACE_MEM;*/
 
 //	mConfig[0x00] = 0x02;	// vendor ID
 //	mConfig[0x01] = 0x10;
@@ -147,8 +85,6 @@ PCI_GCard::PCI_GCard()
 	mConfig[0x0e] = 0x00;	// header-type
 	
 	assignMemAddress(0, IO_GCARD_FRAMEBUFFER_PA_START);
-//	assignMemAddress(1, 0x80a20000);
-//	assignMemAddress(2, 0x80a00000);
 	
 	mConfig[0x3c] = IO_PIC_IRQ_GCARD;
 	mConfig[0x3d] = 1;
@@ -243,7 +179,6 @@ void gcard_osi(int cpu)
 	switch (ppc_cpu_get_gpr(cpu, 5)) {
 	case 4:
 		// cmount
-//		SINGLESTEP("");
 		return;
 	case 28: {
 		// set_vmode
