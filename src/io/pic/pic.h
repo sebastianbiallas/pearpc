@@ -33,12 +33,13 @@
  */
 #define IO_PIC_LEVEL_TYPE 0x1ff00000
 
-#define IO_PIC_IRQ_ETHERNET 5
-#define IO_PIC_IRQ_GCARD 0x17
-#define IO_PIC_IRQ_CUDA 18
-#define IO_PIC_IRQ_NMI_XMON 20
-#define IO_PIC_IRQ_IDE0 26
-#define IO_PIC_IRQ_USB 28
+#define IO_PIC_IRQ_ETHERNET0	5
+#define IO_PIC_IRQ_ETHERNET1	7
+#define IO_PIC_IRQ_GCARD	0x17
+#define IO_PIC_IRQ_CUDA		18
+#define IO_PIC_IRQ_NMI_XMON	20
+#define IO_PIC_IRQ_IDE0		26
+#define IO_PIC_IRQ_USB		28
 
 void pic_write(uint32 addr, uint32 data, int size);
 void pic_read(uint32 addr, uint32 &data, int size);

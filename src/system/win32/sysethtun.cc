@@ -1,11 +1,10 @@
 /*
  *	PearPC
- *	if_posix.h
+ *	sysethtun.cc
+ *
+ *	win32-specific ethernet-tunnel access
  *
  *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
- *
- *	code taken from Mac-on-Linux 0.9.68:
- *	Copyright (C) 1999-2002 Samuel Rydh (samuel@ibrium.se)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -21,12 +20,21 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __IF_POSIX_H__
-#define __IF_POSIX_H__
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
-#include "if.h"
+// networking on Win32 not yet implemented
 
-//extern packet_driver_t tap_pd;
-extern packet_driver_t tun_pd;
+#include <errno.h>
+static int pdnull_open(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac)
+{
+	return ENOSYS;
+}
 
-#endif /* __IF_POSIX_H__ */
+packet_driver_t g_sys_ethtun_pd = {
+	name:			"null",
+	open: 			pdnull_open,
+};
+
+#endif

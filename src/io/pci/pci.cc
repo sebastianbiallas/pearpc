@@ -527,6 +527,7 @@ bool pci_read_device(uint32 addr, uint32 &data, int size)
 #include "io/ide/ide.h"
 #include "io/macio/macio.h"
 #include "io/3c90x/3c90x.h"
+#include "io/rtl8139/rtl8139.h"
 #include "io/usb/usb.h"
 
 void pci_init()
@@ -539,6 +540,7 @@ void pci_init()
 	ide_init();
 	macio_init();
 	_3c90x_init();
+	_rtl8139_init();
 	usb_init();
 }
 
@@ -548,6 +550,6 @@ void pci_init_config()
 	ide_init_config();
 	macio_init_config();
 	_3c90x_init_config();
+	_rtl8139_init_config();
 	usb_init_config();
 }
-

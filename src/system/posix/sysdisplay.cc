@@ -226,12 +226,11 @@ public:
 		updateTitle();
 		
 		gDefaultColormap = DefaultColormap(gXDisplay, screen_num);
-		
+
 		XSelectInput(gXDisplay, gXWindow, 
 			ExposureMask | KeyPressMask | KeyReleaseMask 
 			| ButtonPressMask | ButtonReleaseMask | PointerMotionMask
 			| EnterWindowMask | LeaveWindowMask);
-
 
 		XGCValues values;
 		gWhiteGC = XCreateGC(gXDisplay, gXWindow, 0, &values);
@@ -379,7 +378,7 @@ public:
 		}
 //		mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
 	}
-	
+
 	virtual void getSyncEvent(DisplayEvent &ev)
 	{
 		if (!gXDisplay) return;
@@ -568,16 +567,24 @@ public:
 	virtual void displayShow()
 	{
 		uint firstDamagedLine, lastDamagedLine;
+		// We've got problems with races here because gcard_write1/2/4
+		// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
+		// We can't use mutexes in gcard for speed reasons. So we'll
+		// try to minimize the probability of loosing the race.
 		if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
 		        return;
 		}
-		gDamageAreaLastAddr += 3;	// this is a hack. For speed reasons we
+		uint damageAreaFirstAddr = gDamageAreaFirstAddr;
+		uint damageAreaLastAddr = gDamageAreaLastAddr;
+		healFrameBuffer();
+		// end of race
+		damageAreaLastAddr += 3;	// this is a hack. For speed reasons we
 						// inaccurately set gDamageAreaLastAddr
 						// to the first (not last) byte accessed
 						// accesses are up to 4 bytes "long".
 
-		firstDamagedLine = gDamageAreaFirstAddr / (mClientChar.width * mClientChar.bytesPerPixel);
-		lastDamagedLine = gDamageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+		firstDamagedLine = damageAreaFirstAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+		lastDamagedLine = damageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
 		// Overflow may happen, because of the hack used above
 		// and others, that set lastAddr = 0xfffffff0 (damageFrameBufferAll())
 		if (lastDamagedLine >= mClientChar.height) {
@@ -604,8 +611,6 @@ public:
 				mHWCursorX, mHWCursorY, 2, 2);
 		}*/
 		sys_unlock_mutex(mutex);
-
-		healFrameBuffer();
 	}
 
 	inline void convertDisplayClientToServer(uint firstLine, uint lastLine)

@@ -228,7 +228,7 @@ public:
 		void putPixelRGBA(int x, int y, RGBA rgba);
 };
 
-/* system-dependant (implementation in $MYSYSTEM/ *.cc) */
+/* system-dependent (implementation in $MYSYSTEM/ *.cc) */
 extern SystemDisplay *gDisplay;
 SystemDisplay *allocSystemDisplay(const char *name, const DisplayCharacteristics &chr);
 

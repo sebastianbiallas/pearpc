@@ -247,6 +247,7 @@ void SDView::MessageReceived(BMessage *msg)
 
 void SDView::Draw(BRect updateRect)
 {
+	// FIXME: use conditional redraw code (see posix/sysdisplay.cc)
 	fSystemDisplay->convertDisplayClientToServer();
 #ifdef BMP_MENU
 	if (fSystemDisplay->fMenuBitmap)

@@ -1,6 +1,6 @@
 /*
  *	PearPC
- *	if.h
+ *	sysethtun.h
  *
  *	code taken from Mac-on-Linux 0.9.68:
  *	Copyright (C) 1999-2002 Samuel Rydh (samuel@ibrium.se)
@@ -19,8 +19,8 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __IF_H__
-#define __IF_H__
+#ifndef __SYSETHTUN_H__
+#define __SYSETHTUN_H__
 
 #include "system/types.h"
 
@@ -33,19 +33,20 @@ typedef struct {
 	byte		eth_addr[6];
 	char		drv_name[26];
 	char		iface_name[16];
-
-//	ulong		ipfilter;		/* sheep private, for save/load state only */
 } enet_iface_t;
 
 typedef struct packet_driver {
 	char		*name;
-	int		packet_driver_id;	/* f_xxx */
 
-	int		(*open)			(enet_iface_t *is, char *intf_name, int *sigio_capable, byte mac[6]);
-	void		(*close)		(enet_iface_t *is );
-	int		(*add_multicast)	(enet_iface_t *is, char *addr );
-	int		(*del_multicast)	(enet_iface_t *is, char *addr );
-	int		(*load_save_state)	(enet_iface_t *is, enet_iface_t *load_is, int index, int loading );
+	int		(*open)			(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac);
+	void		(*close)		(enet_iface_t *is);
+	int		(*wait_receive)		(enet_iface_t *is);
+/*	int		(*add_multicast)	(enet_iface_t *is, char *addr);
+	int		(*del_multicast)	(enet_iface_t *is, char *addr);
+	int		(*load_save_state)	(enet_iface_t *is, enet_iface_t *load_is, int index, int loading);*/
 } packet_driver_t;
 
-#endif /* __IF_H__ */
+/* system-dependent (implementation in $MYSYSTEM/ *.cc) */
+extern packet_driver_t g_sys_ethtun_pd;
+
+#endif /* __SYSETHTUN_H__ */

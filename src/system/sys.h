@@ -23,7 +23,7 @@
 
 extern char gAppFilename[260];
 
-/* system-dependant (implementation in $MYSYSTEM/ *.cc) */
+/* system-dependent (implementation in $MYSYSTEM/ *.cc) */
 /* Note: all functions only take absolute dir/filenames! */
 #define	SYSCAP_IPC			1
 #define	SYSCAP_NBIPC			2

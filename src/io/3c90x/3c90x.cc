@@ -32,6 +32,8 @@
 #include "cpu_generic/ppc_cpu.h"
 #include "cpu_generic/ppc_mmu.h"
 #include "cpu_generic/ppc_tools.h"
+#include "system/sysethtun.h"
+#include "tools/crc32.h"
 #include "tools/data.h"
 #include "tools/endianess.h"
 #include "tools/except.h"
@@ -40,16 +42,10 @@
 #include "io/pci/pci.h"
 #include "debug/tracers.h"
 #include "3c90x.h"
-#include "crc32.h"
-#include "if.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-
-#if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
-#elif defined(__APPLE__) && defined(__MACH__)
-#else
 
 #define MAX_PACKET_SIZE		16384
 
@@ -589,7 +585,7 @@ void PCIReset()
 
 	mConfig[0x0e] = 0x00;	// header-type (single-function PCI device)
 
-	mConfig[0x3c] = IO_PIC_IRQ_ETHERNET;	// interrupt line
+	mConfig[0x3c] = IO_PIC_IRQ_ETHERNET0;	// interrupt line
 	mConfig[0x3d] = 1;	// interrupt pin (default is 1)
 	mConfig[0x3e] = 5;	// MinGnt (default is 5 = 0x05 = 0101b)
 	mConfig[0x3f] = 48;	// MaxLat (default is 48 = 0x30 = 110000b)
@@ -1878,14 +1874,8 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 /* new */
 void handleRxQueue()
 {
-	fd_set rfds;
-	fd_set zerofds;
-	FD_ZERO(&rfds);
-	FD_ZERO(&zerofds);
-	FD_SET(mENetIf.fd, &rfds);
-
 	while (1) {
-		if (select(mENetIf.fd+1, &rfds, &zerofds, &zerofds, NULL) > 0) {
+		if (g_sys_ethtun_pd.wait_receive(&mENetIf) > 0) {
 			sys_lock_mutex(mLock);
 			if (mRxPacketSize) {
 				IO_3C90X_TRACE("Argh. old packet not yet uploaded. waiting some more...\n");
@@ -1916,37 +1906,11 @@ static void *_3c90xHandleRxQueue(void *nic)
 	return NULL;
 }
 
-#endif
-
 #include "configparser.h"
 #include "tools/strtools.h"
 
 #define _3C90X_KEY_INSTALLED	"pci_3c90x_installed"
 #define _3C90X_KEY_MAC		"pci_3c90x_mac"
-
-#if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
-
-void _3c90x_init()
-{
-	if (gConfig->getConfigInt(_3C90X_KEY_INSTALLED)) {
-		IO_3C90X_ERR("network can't be used on your system "
-			"(Only supported on Linux right now)\n");
-	}
-}
-
-#elif defined(__APPLE__) && defined(__MACH__)
-
-void _3c90x_init()
-{
-	if (gConfig->getConfigInt(_3C90X_KEY_INSTALLED)) {
-		IO_3C90X_ERR("network can't be used on your system "
-			"(Only supported on Linux right now)\n");
-	}
-}
-
-#else
-
-#include "if_posix.h"
 
 void _3c90x_init()
 {
@@ -1978,9 +1942,11 @@ void _3c90x_init()
 		}
 		int sigio_capable;
 		enet_iface_t enetif;
-		int e = tun_pd.open(&enetif, "ppc", &sigio_capable, mac);
-		if (e) {
-			IO_3C90X_ERR("open enetif failed\n");
+		int e = g_sys_ethtun_pd.open(&enetif, "ppc", &sigio_capable, mac);
+		if (e == ENOSYS) {
+			IO_3C90X_ERR("Networking can't (yet) be used on your system.\n");
+		} else if (e) {
+			IO_3C90X_ERR("Open enetif failed: %s\n", strerror(e));
 			exit(1);
 		}
 		printf("creating 3com 3c90x NIC emulation with eth_addr = ");
@@ -1998,8 +1964,6 @@ void _3c90x_init()
 		sys_create_thread(&rxthread, 0, _3c90xHandleRxQueue, MyNIC);
 	}
 }
-
-#endif
 
 void _3c90x_init_config()
 {

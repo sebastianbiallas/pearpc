@@ -16,6 +16,8 @@ version 0.2 (in progress):
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c
 	- applied Anders F.Bjoerklund's patches (no.1+X11) to run PearPC on Mac OS X
 	- implemented conditional redraw code proposed by Jens von der Heydt
+	- code to minimize redraw races
+	- added RealTek-8139 network card driver by Eric Estabrooks
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

@@ -27,7 +27,7 @@ typedef void * sys_thread;
 
 typedef void * (*sys_thread_function)(void *);
 
-/* system-dependant (implementation in $MYSYSTEM/systhread.cc) */
+/* system-dependent (implementation in $MYSYSTEM/systhread.cc) */
 /* all return 0 on success */
 int sys_create_mutex(sys_mutex *m);
 int sys_create_semaphore(sys_semaphore *s);

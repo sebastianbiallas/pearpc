@@ -35,6 +35,7 @@
 //#define IO_PROM_TRACE(msg...) ht_printf("[IO/PROM] "msg)
 //#define IO_PROM_FS_TRACE(msg...) ht_printf("[IO/PROM/FS] "msg)
 #define IO_3C90X_TRACE(msg...) ht_printf("[IO/3c90x] "msg)
+#define IO_RTL8139_TRACE(msg...) ht_printf("[IO/rtl8139] "msg)
 #define IO_GRAPHIC_TRACE(msg...) ht_printf("[IO/GCARD] "msg)
 //#define IO_CUDA_TRACE(msg...) ht_printf("[IO/CUDA] "msg)
 //#define IO_PIC_TRACE(msg...) ht_printf("[IO/PIC] "msg)
@@ -55,6 +56,7 @@
 #define IO_PROM_WARN(msg...) ht_printf("[IO/PROM] <Warning> "msg)
 #define IO_PROM_FS_WARN(msg...) ht_printf("[IO/PROM/FS] <Warning> "msg)
 #define IO_3C90X_WARN(msg...) ht_printf("[IO/3c90x] <Warning> "msg)
+#define IO_RTL8139_WARN(msg...) ht_printf("[IO/rtl8139] <Warning> "msg)
 #define IO_GRAPHIC_WARN(msg...) ht_printf("[IO/GCARD] <Warning> "msg)
 #define IO_CUDA_WARN(msg...) ht_printf("[IO/CUDA] <Warning> "msg)
 #define IO_PIC_WARN(msg...) ht_printf("[IO/PIC] <Warning> "msg)
@@ -75,6 +77,7 @@
 #define IO_PROM_ERR(msg...) {ht_printf("[IO/PROM] <Error> "msg);exit(1); }
 #define IO_PROM_FS_ERR(msg...) {ht_printf("[IO/PROM/FS] <Error> "msg);exit(1); }
 #define IO_3C90X_ERR(msg...) {ht_printf("[IO/3c90x] <Error> "msg);exit(1); }
+#define IO_RTL8139_ERR(msg...) {ht_printf("[IO/rtl8139] <Error> "msg);exit(1); }
 #define IO_GRAPHIC_ERR(msg...) {ht_printf("[IO/GCARD] <Error> "msg);exit(1); }
 #define IO_CUDA_ERR(msg...) {ht_printf("[IO/CUDA] <Error> "msg);exit(1); }
 #define IO_PIC_ERR(msg...) {ht_printf("[IO/PIC] <Error> "msg);exit(1); }
@@ -170,6 +173,10 @@
 
 #ifndef IO_3C90X_TRACE
 #define IO_3C90X_TRACE(msg...)
+#endif
+
+#ifndef IO_RTL8139_TRACE
+#define IO_RTL8139_TRACE(msg...)
 #endif
 
 #endif

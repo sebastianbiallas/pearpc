@@ -137,6 +137,9 @@ esac
 AM_CONDITIONAL(USE_CPU_GENERIC, test x$CPU_DIR = xcpu_generic)
 AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
 
+PPC_CFLAGS="$PPC_CFLAGS";
+PPC_CXXFLAGS="$PPC_CFLAGS";
+
 PPC_CFLAGS="$PPC_CFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
 PPC_CXXFLAGS="$PPC_CXXFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
 
@@ -317,6 +320,7 @@ src/cpu_jitc_x86/Makefile
 src/debug/Makefile
 src/io/Makefile
 src/io/3c90x/Makefile
+src/io/rtl8139/Makefile
 src/io/graphic/Makefile
 src/io/ide/Makefile
 src/io/prom/Makefile

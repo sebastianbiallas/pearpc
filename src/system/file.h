@@ -133,7 +133,7 @@ typedef bool (*is_path_delim)(char c);
 #define	SYS_FILE void
 
 
-/* system-independant (implementation in sys.cc) */
+/* system-independent (implementation in sys.cc) */
 int		sys_basename(char *result, const char *filename);
 int		sys_dirname(char *result, const char *filename);
 int		sys_relname(char *result, const char *filename, const char *cwd);
@@ -141,7 +141,7 @@ int		sys_common_canonicalize(char *result, const char *in_name, const char *cwd,
 char *		sys_filename_suffix(const char *fn);
 int		sys_tmpfile_fd();
 
-/* system-dependant (implementation in $MYSYSTEM/ *.cc) */
+/* system-dependent (implementation in $MYSYSTEM/ *.cc) */
 int		sys_canonicalize(char *result, const char *filename);
 int		sys_file_mode(int mode);
 int		sys_findclose(pfind_t &pfind);

@@ -4,7 +4,7 @@ SUFFIXES = .asm .o
 
 noinst_LIBRARIES = libssystem.a
 libssystem_a_SOURCES = sysclipboard.cc sysdisplay.cc sysfile.cc systhread.cc \
-sysinit.cc vaccel.asm types.h
+sysethtun.cc sysinit.cc vaccel.asm types.h
 
 INCLUDES = -I ../..
 
