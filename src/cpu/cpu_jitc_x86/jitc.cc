@@ -90,7 +90,7 @@ void FASTCALL jitcEmit(byte *instr, int size)
 	if ((gJITC.currentPage->bytesLeft - size) < 5) {
 		jitcEmitNextFragment();
 	}
-	memmove(gJITC.currentPage->tcp, instr, size);
+	memcpy(gJITC.currentPage->tcp, instr, size);
 	gJITC.currentPage->tcp += size;
 	gJITC.currentPage->bytesLeft -= size;
 }
@@ -179,9 +179,11 @@ extern "C" FASTCALL ClientPage *jitcTouchClientPage(ClientPage *cp)
 /*
  *	Puts fragments into the freeFragmentsList
  */
+#include <valgrind/valgrind.h>
 void FASTCALL jitcDestroyFragments(TranslationCacheFragment *tcf)
 {
 	while (tcf) {
+		VALGRIND_DISCARD_TRANSLATIONS(tcf->base, FRAGMENT_SIZE);
 		// FIXME: this could be done in O(1) with an additional
 		// variable in ClientPage
 		TranslationCacheFragment *next = tcf->prev;
