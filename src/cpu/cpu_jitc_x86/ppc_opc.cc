@@ -1826,7 +1826,7 @@ JITCFlow ppc_opc_gen_tw()
 		NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 		jitcClobberAll();
-		asmALURegImm(X86_CMP, a, b);
+		asmALURegReg(X86_CMP, a, b);
 		NativeAddress fixup1=NULL, fixup2=NULL, fixup3=NULL, fixup4=NULL, fixup5=NULL;
 		if (TO & 16) fixup1 = asmJxxFixup(X86_L);
 		if (TO & 8) fixup2 = asmJxxFixup(X86_G);
