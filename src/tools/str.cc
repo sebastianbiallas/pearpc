@@ -589,6 +589,7 @@ bool String::toInt(int &i, int defaultbase) const
 	const char *b = (const char*)mContent;
 	uint64 u64;
 	if (!parseIntStr(b, u64, defaultbase)) return false;
+	if (b-(const char*)mContent != mLength) return false;
 	i = (sint64)u64;
 	return true;
 }
@@ -601,6 +602,7 @@ bool String::toInt32(uint32 &u32, int defaultbase) const
 	const char *b = (const char*)mContent;
 	uint64 u64;
 	if (!parseIntStr(b, u64, defaultbase)) return false;
+	if (b-(const char*)mContent != mLength) return false;
 	u32 = u64;
 	return true;
 }
@@ -611,7 +613,8 @@ bool String::toInt32(uint32 &u32, int defaultbase) const
 bool String::toInt64(uint64 &u64, int defaultbase) const
 {
 	const char *b = (const char*)mContent;
-	return parseIntStr(b, u64, defaultbase);
+	if (!parseIntStr(b, u64, defaultbase)) return false;
+	return (b-(const char*)mContent == mLength);
 }
 
 int String::toString(char *buf, int buflen) const
