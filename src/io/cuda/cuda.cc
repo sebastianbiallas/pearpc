@@ -501,7 +501,7 @@ static void cuda_update_T1()
 		gCUDA.rIFR &= ~T1_INT;
 		//
 //		uint64 tmp = gCUDA.T1_end - clk;
-//		IO_CUDA_WARN("T1 running, T1 now %04x, T1_end-clk=%08qx\n", (uint32)T1, &tmp);
+//		IO_CUDA_WARN("T1 running, T1 now %04x, T1_end-clk=%08qx\n", (uint32)T1, tmp);
 	} else {
 		uint64 ticks_per_sec = 1000ULL * sys_get_hiresclk_ticks_per_second();
 		uint64 T1_latch = (gCUDA.rT1LH << 8) | gCUDA.rT1LL;
@@ -514,7 +514,7 @@ static void cuda_update_T1()
 		gCUDA.rIFR |= T1_INT;
 		//
 //		uint64 tmp = gCUDA.T1_end - clk;
-//		IO_CUDA_WARN("T1 overflowed, setting interrupt flag, T1 set to %04x, T1_end-clk=%08qx, T1_latch = %04x\n", (uint32)T1, &tmp, T1_latch);
+//		IO_CUDA_WARN("T1 overflowed, setting interrupt flag, T1 set to %04x, T1_end-clk=%08qx, T1_latch = %04x\n", (uint32)T1, tmp, T1_latch);
 	}
 }
 
@@ -743,7 +743,7 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 //		IO_CUDA_WARN("read %08x: T1 = %04x clk = %08qx, T1_end = %08qx\n",
 //			gCPU.current_code_base + gCPU.pc_ofs,
 //			(gCUDA.rT1CH<<8) | gCUDA.rT1CL,
-//			&clk, &gCUDA.T1_end);
+//			clk, gCUDA.T1_end);
 		data = gCUDA.rT1CH;
 		break;
 	}

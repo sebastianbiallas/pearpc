@@ -392,11 +392,11 @@ void ObjectStreamText::putInt(uint64 i, uint size, const char *desc, uint int_fm
 	char number[40];
 	switch (int_fmt_hint) {
 		case OS_FMT_DEC:
-			ht_snprintf(number, sizeof number, "%qd\n", &i);
+			ht_snprintf(number, sizeof number, "%qd\n", i);
 			break;
 		case OS_FMT_HEX:
 		default:
-			ht_snprintf(number, sizeof number, "0x%qx\n", &i);
+			ht_snprintf(number, sizeof number, "0x%qx\n", i);
 			break;
 	}
 	putS(number);

@@ -2082,7 +2082,7 @@ int SInt64::compareTo(const Object *obj) const
 
 int SInt64::toString(char *buf, int buflen) const
 {
-	return ht_snprintf(buf, buflen, "%qd", &value);
+	return ht_snprintf(buf, buflen, "%qd", value);
 }
 
 #ifdef HAVE_HT_OBJECTS
@@ -2199,7 +2199,7 @@ int UInt64::compareTo(const Object *obj) const
 
 int UInt64::toString(char *buf, int buflen) const
 {
-	return ht_snprintf(buf, buflen, "%qu", &value);
+	return ht_snprintf(buf, buflen, "%qu", value);
 }
 
 #ifdef HAVE_HT_OBJECTS

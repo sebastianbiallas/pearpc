@@ -96,7 +96,7 @@ String *Function::evalString() const
 		case ET_INTEGER: {
 			SInt64 *u = evalInteger();
 			String *s = new String();
-			s->assignFormat("%qd", &u->value);
+			s->assignFormat("%qd", u->value);
 			delete u;
 			return s;
 		}

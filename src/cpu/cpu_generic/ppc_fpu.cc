@@ -331,13 +331,13 @@ inline void ppc_fpu_mul(ppc_double &res, const ppc_double &a, const ppc_double &
 		res.type = ppc_fpr_norm;
 		res.e = a.e + b.e;
 //		printf("new exp: %d\n", res.e);
-//		ht_printf("MUL:\na.m: %qb\nb.m: %qb\n", &a.m, &b.m);
+//		ht_printf("MUL:\na.m: %qb\nb.m: %qb\n", a.m, b.m);
 		uint64 fH, fM1, fM2, fL;
 		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [63,64]
 		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [55,56]
 		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [55,56]
 		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [47,48]
-//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", fH, fM1, fM2, fL);
 
 		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
 		uint64 rL, rH;
@@ -359,7 +359,7 @@ inline void ppc_fpu_mul(ppc_double &res, const ppc_double &a, const ppc_double &
 		res.m |= rL >> (64-9);
 		// res.m = [58]
 
-//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", fH, fM1, fM2, fL);
 		if (res.m & (1ULL << 57)) {
 			res.m >>= 2;
 			res.e += 2;
@@ -411,13 +411,13 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 		res.type = ppc_fpr_norm;
 		res.e = a.e + b.e;
 //		printf("new exp: %d\n", res.e);
-//		ht_printf("MUL:\na.m: %016qx\nb.m: %016qx\n", &a.m, &b.m);
+//		ht_printf("MUL:\na.m: %016qx\nb.m: %016qx\n", a.m, b.m);
 		uint64 fH, fM1, fM2, fL;
 		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [63,64]
 		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [55,56]
 		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [55,56]
 		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [47,48]
-//		ht_printf("fH: %016qx fM1: %016qx fM2: %016qx fL: %016qx\n", &fH, &fM1, &fM2, &fL);
+//		ht_printf("fH: %016qx fM1: %016qx fM2: %016qx fL: %016qx\n", fH, fM1, fM2, fL);
 
 		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
 		uint64 rL, rH;
@@ -439,7 +439,7 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 		res.m1 = rL;
 		// res.m0|res.m1 = [111,112,113]
 
-//		ht_printf("res = %016qx%016qx\n", &res.m0, &res.m1);
+//		ht_printf("res = %016qx%016qx\n", res.m0, res.m1);
 		if (res.m0 & (1ULL << 48)) {
 			ppc_fpu_quadro_mshr(res, 2+(111-prec));
 			res.e += 2;
@@ -499,16 +499,16 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	ppc_double &s)
 {
 	ppc_quadro p;
-/*	ht_printf("m1 = %d * %016qx * 2^%d, %s\n", m1.s, &m1.m, m1.e,
+/*	ht_printf("m1 = %d * %016qx * 2^%d, %s\n", m1.s, m1.m, m1.e,
 		ppc_fpu_get_fpr_type(m1.type));
-	ht_printf("m2 = %d * %016qx * 2^%d, %s\n", m2.s, &m2.m, m2.e,
+	ht_printf("m2 = %d * %016qx * 2^%d, %s\n", m2.s, m2.m, m2.e,
 		ppc_fpu_get_fpr_type(m2.type));*/
 	// create product with 106 significant bits
 	ppc_fpu_mul_quadro(p, m1, m2, 106);
-/*	ht_printf("p = %d * %016qx%016qx * 2^%d, %s\n", p.s, &p.m0, &p.m1, p.e,
+/*	ht_printf("p = %d * %016qx%016qx * 2^%d, %s\n", p.s, p.m0, p.m1, p.e,
 		ppc_fpu_get_fpr_type(p.type));*/
 	// convert s into ppc_quadro
-/*	ht_printf("s = %d * %016qx * 2^%d %s\n", s.s, &s.m, s.e,
+/*	ht_printf("s = %d * %016qx * 2^%d %s\n", s.s, s.m, s.e,
 		ppc_fpu_get_fpr_type(s.type));*/
 	ppc_quadro q;
 	q.e = s.e;
@@ -518,13 +518,13 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	q.m1 = s.m;
 	// .. with 106 significant bits
 	ppc_fpu_quadro_mshl(q, 106-56);
-/*	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, &q.m0, &q.m1, q.e,
+/*	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, q.m0, q.m1, q.e,
 		ppc_fpu_get_fpr_type(q.type));*/
 	// now we must add p, q.
 	ppc_quadro x;
 	ppc_fpu_add_quadro(x, p, q);
 	// x = [107]
-/*	ht_printf("x = %d * %016qx%016qx * 2^%d %s\n", x.s, &x.m0, &x.m1, x.e,
+/*	ht_printf("x = %d * %016qx%016qx * 2^%d %s\n", x.s, x.m0, x.m1, x.e,
 		ppc_fpu_get_fpr_type(x.type));*/
 	res.type = x.type;
 	res.s = x.s;
@@ -534,7 +534,7 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 		res.m |= (x.m1 >> (64-12)) << 1;	// 12 bits from m1
 		res.m |= x.m1 & 1;			// X' bit from m1
 	}
-/*	ht_printf("res = %d * %016qx * 2^%d %s\n", res.s, &res.m, res.e,
+/*	ht_printf("res = %d * %016qx * 2^%d %s\n", res.s, res.m, res.e,
 		ppc_fpu_get_fpr_type(res.type));*/
 }
 
@@ -653,7 +653,7 @@ void ppc_fpu_test()
 	A.e = 0;
 	A.m = 0;
 	A.m = ((1ULL<<56)-1)-((1ULL<<10)-1);
-	ht_printf("%qb\n", &A.m);
+	ht_printf("%qb\n", A.m);
 	B.s = 1;
 	B.e = 0;
 	B.m = 0;
@@ -665,7 +665,7 @@ void ppc_fpu_test()
 	uint64 d;
 	uint32 s;
 	ppc_fpu_pack_double_as_single(C, d);
-	ht_printf("%064qb\n", &d);
+	ht_printf("%064qb\n", d);
 	ppc_fpu_unpack_double(C, d);
 	ppc_fpu_pack_single(C, s);
 	ht_printf("single: %032b\n", s);

@@ -203,7 +203,7 @@ void Stream::readx(void *buf, uint size)
 //	FileOfs t = f ? f->tell() : mkfofs(0);
 	if (read(buf, size) != size) {
 //		FileOfs sz = f ? f->getSize() : mkfofs(0);
-//		ht_printf("readx failed, ofs = 0x%qx, size = %d (file size 0x%qx)\n", &t, size, &sz);
+//		ht_printf("readx failed, ofs = 0x%qx, size = %d (file size 0x%qx)\n", t, size, sz);
 		throw new IOException(EIO);
 	}	    
 }
@@ -1201,9 +1201,9 @@ String &CroppedFile::getDesc(String &result) const
 {
 	String s;
 	if (mHasCropSize) {
-		result.assignFormat("[->0x%qx,0x%qx] of %y", &mCropStart, &mCropSize, &FileLayer::getDesc(s));
+		result.assignFormat("[->0x%qx,0x%qx] of %y", mCropStart, mCropSize, &FileLayer::getDesc(s));
 	} else {
-		result.assignFormat("[->0x%qx] of %y", &mCropStart, &FileLayer::getDesc(s));
+		result.assignFormat("[->0x%qx] of %y", mCropStart, &FileLayer::getDesc(s));
 	}
 	return result;
 }
@@ -1235,7 +1235,7 @@ uint CroppedFile::read(void *buf, uint size)
 		if (offset >= mCropStart+mCropSize) return 0;
 		if (offset+size >= mCropStart+mCropSize) size = mCropStart+mCropSize-offset;
 	}
-//	ht_printf("CroppedFile::read 0x%08x bytes @ 0x%08qx\n", size, &offset);
+//	ht_printf("CroppedFile::read 0x%08x bytes @ 0x%08qx\n", size, offset);
 	return FileLayer::read(buf, size);
 }
 

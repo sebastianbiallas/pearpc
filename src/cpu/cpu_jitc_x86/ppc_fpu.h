@@ -125,7 +125,7 @@ inline int ppc_fpu_normalize_single(ppc_single &s)
 inline void ppc_fpu_unpack_double(ppc_double &res, uint64 d)
 {
 	FPD_UNPACK_VAR(d, res.s, res.e, res.m);
-//	ht_printf("ud: %qx: s:%d e:%d m:%qx\n", &d, res.s, res.e, &res.m);
+//	ht_printf("ud: %qx: s:%d e:%d m:%qx\n", d, res.s, res.e, res.m);
 	// .124
 	if (res.e == 2047) {
 		if (res.m == 0) {
@@ -150,7 +150,7 @@ inline void ppc_fpu_unpack_double(ppc_double &res, uint64 d)
 		res.m |= 1ULL<<52;
 		res.m <<= 3;
 	}
-//	ht_printf("ud: %qx: s:%d e:%d m:%qx\n", &d, res.s, res.e, &res.m);
+//	ht_printf("ud: %qx: s:%d e:%d m:%qx\n", d, res.s, res.e, res.m);
 }
 
 
@@ -341,9 +341,9 @@ inline uint32 ppc_fpu_pack_double(ppc_double &d, uint64 &res)
 //	ht_printf("pd_type: %d\n", d.type);
 	switch (d.type) {
 	case ppc_fpr_norm:
-//		ht_printf("pd: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
+//		ht_printf("pd: %qx: s:%d e:%d m:%qx\n", d, d.s, d.e, d.m);
 		d.e += 1023; // bias exponent
-//		ht_printf("pd: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
+//		ht_printf("pd: %qx: s:%d e:%d m:%qx\n", d, d.s, d.e, d.m);
 		if (d.e > 0) {
 			bool guardbit = d.m & 4;
 			ret |= ppc_fpu_round(d);
@@ -399,7 +399,7 @@ inline uint32 ppc_fpu_pack_double(ppc_double &d, uint64 &res)
 		d.m = 0;
 		break;
 	}
-//	ht_printf("pd: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
+//	ht_printf("pd: %qx: s:%d e:%d m:%qx\n", d, d.s, d.e, d.m);
 	FPD_PACK_VAR(res, d.s, d.e, d.m);
 	return ret;
 }
@@ -410,10 +410,10 @@ inline uint32 ppc_fpu_pack_single(ppc_double &d, uint32 &res)
 	uint32 ret = 0;
 	switch (d.type) {
 	case ppc_fpr_norm:
-//		ht_printf("ps: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
+//		ht_printf("ps: %qx: s:%d e:%d m:%qx\n", d, d.s, d.e, d.m);
 		d.e += 127; // bias exponent
 		d.m >>= 29;
-//		ht_printf("ps: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
+//		ht_printf("ps: %qx: s:%d e:%d m:%qx\n", d, d.s, d.e, d.m);
 		if (d.e > 0) {
 			ret |= ppc_fpu_round_single(d);
 			if (d.m & (1ULL<<27)) {
@@ -463,7 +463,7 @@ inline uint32 ppc_fpu_pack_single(ppc_double &d, uint32 &res)
 		d.m = 0;
 		break;
 	}
-//	ht_printf("ps: %qx: s:%d e:%d m:%qx\n", &d, d.s, d.e, &d.m);
+//	ht_printf("ps: %qx: s:%d e:%d m:%qx\n", d, d.s, d.e, d.m);
 	FPS_PACK_VAR(res, d.s, d.e, d.m);
 	return ret;
 }
@@ -545,7 +545,7 @@ inline uint32 ppc_fpu_pack_double_as_single(ppc_double &d, uint64 &res)
 	} else {
 		d.m = s.m;
 	}
-//	ht_printf("dm: %qx\n", &d.m);
+//	ht_printf("dm: %qx\n", d.m);
 	ret |= ppc_fpu_pack_double(d, res);
 	return ret;
 }

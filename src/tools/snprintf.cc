@@ -274,8 +274,8 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 						} else if (cflags == DP_C_LLONG) {
 							value = (LLONG)va_arg (args, unsigned LLONG);
 						} else if (cflags == DP_C_QWORD) {
-							sint64 *q = va_arg (args, sint64 *);
-							fmtqword(buffer, &currlen, maxlen, *q, 2, min, max, flags);
+							sint64 q = va_arg (args, sint64);
+							fmtqword(buffer, &currlen, maxlen, q, 2, min, max, flags);
 							break;
 						} else {
 						   value = (long)va_arg (args, unsigned int);
@@ -291,8 +291,8 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 						} else if (cflags == DP_C_LLONG) {
 							value = va_arg (args, LLONG);
 						} else if (cflags == DP_C_QWORD) {
-							sint64 *q = va_arg (args, sint64 *);
-							fmtqword(buffer, &currlen, maxlen, *q, 10, min, max, flags);
+							sint64 q = va_arg (args, sint64);
+							fmtqword(buffer, &currlen, maxlen, q, 10, min, max, flags);
 							break;
 						} else {
 							value = va_arg (args, int);
@@ -308,8 +308,8 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 						} else if (cflags == DP_C_LLONG) {
 							value = (long)va_arg (args, unsigned LLONG);
 						} else if (cflags == DP_C_QWORD) {
-							sint64 *q = va_arg (args, sint64 *);
-							fmtqword(buffer, &currlen, maxlen, *q, 8, min, max, flags);
+							sint64 q = va_arg (args, sint64);
+							fmtqword(buffer, &currlen, maxlen, q, 8, min, max, flags);
 							break;
 						} else {
 							value = (long)va_arg (args, unsigned int);
@@ -325,8 +325,8 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 						} else if (cflags == DP_C_LLONG) {
 							value = (LLONG)va_arg (args, unsigned LLONG);
 						} else if (cflags == DP_C_QWORD) {
-							sint64 *q = va_arg (args, sint64 *);
-							fmtqword(buffer, &currlen, maxlen, *q, 10, min, max, flags);
+							sint64 q = va_arg (args, sint64);
+							fmtqword(buffer, &currlen, maxlen, q, 10, min, max, flags);
 							break;
 						} else {
 							value = (long)va_arg (args, unsigned int);
@@ -344,8 +344,8 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 						} else if (cflags == DP_C_LLONG) {
 							value = (LLONG)va_arg (args, unsigned LLONG);
 						} else if (cflags == DP_C_QWORD) {
-							sint64 *q = va_arg (args, sint64 *);
-							fmtqword(buffer, &currlen, maxlen, *q, 16, min, max, flags);
+							sint64 q = va_arg (args, sint64);
+							fmtqword(buffer, &currlen, maxlen, q, 16, min, max, flags);
 							break;
 						} else {
 							value = (long)va_arg (args, unsigned int);

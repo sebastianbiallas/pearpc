@@ -105,13 +105,13 @@ void ppc_cpu_run()
 	gClientTimeBaseFrequency = PPC_TIMEBASE_FREQUENCY;
 
 /*	uint64 q = sys_get_cpu_ticks_per_second();
-	PPC_CPU_WARN("clock ticks / second = %08qx\n", &q);
+	PPC_CPU_WARN("clock ticks / second = %08qx\n", q);
 	q = sys_get_cpu_ticks();
-	PPC_CPU_WARN("ticks = %08qx\n", &q);
+	PPC_CPU_WARN("ticks = %08qx\n", q);
 	q = sys_get_cpu_ticks();
-	PPC_CPU_WARN("ticks = %08qx\n", &q);
+	PPC_CPU_WARN("ticks = %08qx\n", q);
 	q = sys_get_cpu_ticks();
-	PPC_CPU_WARN("ticks = %08qx\n", &q);*/
+	PPC_CPU_WARN("ticks = %08qx\n", q);*/
 
 	if (!sys_create_timer(&gDECtimer, decTimerCB)) {
 		ht_printf("Unable to create timer\n");
