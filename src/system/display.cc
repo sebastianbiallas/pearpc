@@ -135,7 +135,7 @@ bool SystemDisplay::openVT(int width, int height, int dx, int dy, File &font)
 	mVTDX = dx;
 	mVTDY = dy;	
 	mFont = new Font();
-	if (!((Font*)mFont)->load(font)) return false;
+	if (!((Font*)mFont)->loadFromFile(font)) return false;
 	buf = (BufferedChar*)malloc(sizeof (BufferedChar) * width * height);
 	vt = new VT100Display(width, height, this);
 	((VT100Display*)vt)->setAutoNewLine(true);

@@ -34,7 +34,7 @@ class Font: public Object {
 	byte *mData;
 public:
 		Font();
-	bool	load(File &file);
+	bool	loadFromFile(File &file);
 	void	setPadding(int px, int py);
 	        ~Font();
 

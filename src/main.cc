@@ -128,7 +128,7 @@ void drawLogo()
 {
 	MemMapFile img(ppc_img, sizeof ppc_img);
 	Gif g;
-	g.load(img);
+	g.loadFromByteStream(img);
 	gDisplay->fillRGB(0, 0, gDisplay->mClientChar.width,
 		gDisplay->mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
 	g.draw(gDisplay, (gDisplay->mClientChar.width-g.mWidth)/2, (gDisplay->mClientChar.height >= 600) ? (150-g.mHeight)/2 : 0);

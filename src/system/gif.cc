@@ -48,7 +48,7 @@ Gif::~Gif()
 Gif::Gif(Stream &str)
 {
 	pic = NULL;
-	if (!load(str)) {
+	if (!loadFromByteStream(str)) {
 		String res; str.getDesc(res);
 		throw new MsgfException("error loading '%y' (not a gif?)", &res);
 	}
@@ -85,7 +85,7 @@ static inline bool getlogbyte(Stream &stream, int width, int &bitleft, int &byte
 	return true;
 }
 
-bool Gif::load(Stream &stream)
+bool Gif::loadFromByteStream(Stream &stream)
 {
 	byte buf[768];
 	int idx;

@@ -44,7 +44,7 @@ Font::~Font()
 	if (mData) free(mData);
 }
 
-bool Font::load(File &file)
+bool Font::loadFromFile(File &file)
 {
 	if (mData) free(mData);
 	mData = NULL;

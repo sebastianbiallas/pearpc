@@ -31,7 +31,7 @@ public:
 		Gif();		
 		Gif(Stream &str);
 		~Gif();
-	bool	load(Stream &str);
+	bool	loadFromByteStream(Stream &str);
 	void	draw(SystemDisplay *display, int x, int y);
 };
 
