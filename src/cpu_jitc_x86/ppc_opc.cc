@@ -77,6 +77,9 @@ static inline void ppc_opc_gen_set_pc_rel(uint32 li)
 {
 	li += gJITC.pc;
 	if (li < 4096) {
+		/*
+		 *	ESI is already set
+		 */
 		asmALURegImm(X86_MOV, EAX, li);
 		asmCALL((NativeAddress)ppc_heartbeat_ext_rel_asm);
 		jitcEmitAssure(10);

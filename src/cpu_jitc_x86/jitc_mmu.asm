@@ -1033,7 +1033,6 @@ ppc_read_effective_half_z_asm:
 	cmp	eax, [gMemorySize]
 	jae	.mmio2
 	add	eax, [gMemory]
-.loop2:
 	mov	dl, [eax]
 	ret
 
@@ -1041,18 +1040,17 @@ ppc_read_effective_half_z_asm:
 	pusha
 	mov	edx, 1
 	call	io_mem_read_glue
-	mov	[gCPU+temp], al
+	mov	[gCPU+temp2], al
 	popa
-	mov	eax, gCPU+temp
+	mov	eax, gCPU+temp2
 	jmp	.loop1
 .mmio2:
-	pusha
+	push	edx
 	mov	edx, 1
 	call	io_mem_read_glue
-	mov	[gCPU+temp], al
-	popa
-	mov	eax, gCPU+temp
-	jmp	.loop2
+	pop	edx
+	mov	dl, al
+	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_half()
@@ -1103,7 +1101,6 @@ ppc_read_effective_half_s_asm:
 	cmp	eax, [gMemorySize]
 	jae	.mmio2
 	add	eax, [gMemory]
-.loop2:
 	mov	cl, [eax]
 	movsx	edx, cx
 	ret
@@ -1112,18 +1109,19 @@ ppc_read_effective_half_s_asm:
 	pusha
 	mov	edx, 1
 	call	io_mem_read_glue
-	mov	[gCPU+temp], al
+	mov	[gCPU+temp2], al
 	popa
-	mov	eax, gCPU+temp
+	mov	eax, gCPU+temp2
 	jmp	.loop1
 .mmio2:
-	pusha
+	push	ecx
 	mov	edx, 1
 	call	io_mem_read_glue
-	mov	[gCPU+temp], al
-	popa
-	mov	eax, gCPU+temp
-	jmp	.loop2
+	pop	ecx
+	mov	cl, al
+	movsx	edx, cx
+	ret
+	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_word()
@@ -1164,7 +1162,7 @@ ppc_read_effective_word_asm:
 	mov	ecx, 4096
 	sub	ecx, ebx
 	cmp	eax, [gMemorySize]
-	jae	.mmio
+	jae	.overlapped_mmio_1
 	add	eax, [gMemory]
 	.loop1:
 		shl	edx, 8
@@ -1172,6 +1170,7 @@ ppc_read_effective_word_asm:
 		inc	eax
 		dec	ecx
 	jnz	.loop1
+	.overlapped_mmio_1_back:
 	pop	eax
 	push	edx
 	add	eax, 4
@@ -1183,7 +1182,7 @@ ppc_read_effective_word_asm:
 	pop	edx
 	sub	ebx, 4092
 	cmp	eax, [gMemorySize]
-	jae	.mmio
+	jae	.overlapped_mmio_2
 	add	eax, [gMemory]
 	.loop2:
 		shl	edx, 8
@@ -1193,25 +1192,32 @@ ppc_read_effective_word_asm:
 	jnz	.loop2
 	ret
 
-.mmio1:
-	pusha
-	mov	edx, 4
-	call	io_mem_read_glue
-	bswap	eax
-	mov	[gCPU+temp], eax
-	popa
-	mov	eax, gCPU+temp
-	jmp	.loop1
-.mmio2:
-	pusha
-	mov	edx, 4
-	call	io_mem_read_glue
-	bswap	eax
-	mov	[gCPU+temp], eax
-	popa
-	mov	eax, gCPU+temp
-	jmp	.loop2
-	
+.overlapped_mmio_1:
+	.overlapped_mmio_1_loop:
+		shl	edx, 8
+		pusha
+		mov	edx, 1
+		call	io_mem_read_glue
+		mov	[gCPU+temp2], al
+		popa
+		mov	dl, [gCPU+temp2]
+		inc	eax
+		dec	ecx
+	jnz	.overlapped_mmio_1_loop
+	jmp	.overlapped_mmio_1_back
+.overlapped_mmio_2:
+	.overlapped_mmio_2_loop:
+		shl	edx, 8
+		pusha
+		mov	edx, 1
+		call	io_mem_read_glue
+		mov	[gCPU+temp2], al
+		popa
+		mov	dl, [gCPU+temp2]
+		inc	eax
+		dec	ebx
+	jnz	.overlapped_mmio_2_loop
+	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_dword()
@@ -1254,7 +1260,7 @@ ppc_read_effective_dword_asm:
 	mov	ebp, 4096
 	sub	ebp, ebx
 	cmp	eax, [gMemorySize]
-	jae	.mmio1
+	jae	.overlapped_mmio_1
 	add	eax, [gMemory]
 	.loop1:
 		shld	ecx, edx, 8
@@ -1263,6 +1269,7 @@ ppc_read_effective_dword_asm:
 		inc	eax
 		dec	ebp
 	jnz	.loop1
+	.overlapped_mmio_1_back:
 	pop	eax
 	push	ecx
 	push	edx
@@ -1276,7 +1283,7 @@ ppc_read_effective_dword_asm:
 	pop	ecx
 	sub	ebx, 4088
 	cmp	eax, [gMemorySize]
-	jae	.mmio2
+	jae	.overlapped_mmio_2
 	add	eax, [gMemory]
 	.loop2:
 		shld	ecx, edx, 8
@@ -1287,26 +1294,35 @@ ppc_read_effective_dword_asm:
 	jnz	.loop2
 	ret
 
-.mmio1:
-	pusha
-	call	io_mem_read64_glue
-	bswap	edx
-	bswap	eax
-	mov	[gCPU+temp], edx
-	mov	[gCPU+temp2], eax
-	popa
-	mov	eax, gCPU+temp
-	jmp	.loop1
-.mmio2:
-	pusha
-	call	io_mem_read64_glue
-	bswap	edx
-	bswap	eax
-	mov	[gCPU+temp], edx
-	mov	[gCPU+temp2], eax
-	popa
-	mov	eax, gCPU+temp
-	jmp	.loop2
+.overlapped_mmio_1:
+	.overlapped_mmio_1_loop:
+		shld	ecx, edx, 8
+		shl	edx, 8
+		pusha
+		mov	edx, 1
+		call	io_mem_read_glue
+		mov	[gCPU+temp2], al
+		popa
+		mov	dl, [gCPU+temp2]
+		inc	eax
+		dec	ebp
+	jnz	.overlapped_mmio_1_loop
+	jmp	.overlapped_mmio_1_back
+.overlapped_mmio_2:
+	.overlapped_mmio_2_loop:
+		shld	ecx, edx, 8
+		shl	edx, 8
+		pusha
+		mov	edx, 1
+		call	io_mem_read_glue
+		mov	[gCPU+temp2], al
+		popa
+		mov	dl, [gCPU+temp2]
+		inc	eax
+		dec	ebx
+	jnz	.overlapped_mmio_2_loop
+	ret
+
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_opc_stswi_asm()
