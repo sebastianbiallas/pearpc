@@ -2,7 +2,7 @@
 ==================
 
 version 0.3 (not yet released):
-	- correct clock/timing (Win32 + Posix) (still problems on linux clients)
+	- correct clock/timing (Win32 + Posix) by Keith Rothman, Kimball Thurston and Stefan Weyergraf
 
 version 0.2 (soon to be released):
 	- JITC: all crXX implemented
