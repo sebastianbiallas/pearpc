@@ -4,7 +4,7 @@ AUTOMAKE_OPTIONS = foreign
 
 noinst_LIBRARIES = libssystem.a
 libssystem_a_SOURCES = sysclipboard.cc sysdisplay.cc sysfile.cc \
-sysinit.cc systhread.cc 
+sysinit.cc systhread.cc types.h
 #vaccel.asm
 
 INCLUDES = -I ../.. @X_CFLAGS@
