@@ -3,10 +3,10 @@
                             ===========
 
 
-Main developer: Sebastian Biallas                     <sb t a biallas t d o net>
-Some major parts by: Stefan Weyergraf            <stefan t a weyergraf t o d de>
-BeOS port: Francois Revol                              <revol t a free d t o fr>
-FreeBSD port: Roman Bogorodskiy			<bogorodskiy t a inbox t d o ru>
+Main developer: Sebastian Biallas                  <sb @ biallas . net>
+Some major parts by: Stefan Weyergraf         <stefan @ weyergraf . de>
+BeOS port: Francois Revol                           <revol @ free . fr>
+FreeBSD port: Roman Bogorodskiy              <bogorodskiy @ inbox . ru>
 
 Contains code stolen (i.e. copied with respect to the GPL) from:
 
