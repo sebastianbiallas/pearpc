@@ -819,6 +819,7 @@ static bool cudaKeyboardEventHandler(const SystemEvent &ev)
 {
 	gCUDAEvents.enQueue(new SystemEventObject(ev));
 	sys_signal_semaphore(gCUDAEventSem);
+	return true;
 }
 
 static bool doProcessCudaEvent(const SystemEvent &ev)

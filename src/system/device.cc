@@ -27,19 +27,19 @@
 
 SystemDevice::SystemDevice()
 {
-	mAttachedEventHandler = NULL;
+	mConnectedEventHandler = NULL;
 }
 
 bool SystemDevice::handleEvent(const SystemEvent &ev)
 {
-	return mAttachedEventHandler ? mAttachedEventHandler(ev) : false;
+	return mConnectedEventHandler ? mConnectedEventHandler(ev) : false;
 }
 
-void SystemDevice::attachEventHandler(SystemEventHandler cevh)
+void SystemDevice::connectEventHandler(SystemEventHandler cevh)
 {
-	if (mAttachedEventHandler) {
-		ht_printf("INTERNAL ERROR: only 1 attached event handler allowed.\n");
+	if (mConnectedEventHandler) {
+		ht_printf("INTERNAL ERROR: only 1 connected event handler allowed.\n");
 		exit(1);
 	}
-	mAttachedEventHandler = cevh;
+	mConnectedEventHandler = cevh;
 }

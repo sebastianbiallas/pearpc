@@ -26,7 +26,7 @@
 
 class SystemDevice: public Object {
 protected:
-	SystemEventHandler	mAttachedEventHandler;
+	SystemEventHandler	mConnectedEventHandler;
 public:
 	SystemDevice();
 
@@ -35,7 +35,7 @@ public:
 	 */
 	virtual bool	handleEvent(const SystemEvent &ev);
 
-	virtual void	attachEventHandler(SystemEventHandler cevh);
+	virtual void	connectEventHandler(SystemEventHandler cevh);
 };
 
 #endif /* __SYSTEM_DEVICE_H__ */
