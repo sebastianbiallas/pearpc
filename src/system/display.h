@@ -26,7 +26,7 @@
 
 /* codepages */
 
-#define   CP_DEVICE		H	0
+#define   CP_DEVICE		0
 #define   CP_GRAPHICAL		1
 #define   CP_WINDOWS		0x100
 
@@ -34,7 +34,9 @@
 
 #define	GC_TRANSPARENT		'0'		// transparent
 
-extern byte *gFramebuffer;
+extern byte *	gFramebuffer;
+extern uint	gFramebufferScanlineLen;
+
 extern uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 inline void damageFrameBuffer(uint addr)
@@ -184,7 +186,7 @@ protected:
 		}
 	}
 
-		void	mixRGB();
+	void	mixRGB();
 public:
 	DisplayCharacteristics	mClientChar;
 	BufferedChar	*buf;
@@ -218,7 +220,6 @@ public:
 	virtual	void finishMenu() = 0;
 		void drawMenu();
 		void clickMenu(int x, int y);
-		
 		void composeKeyDialog();
 		bool getCatchMouseToggle();
 		void drawCircleFilled(int x, int y, int w, int h, int cx, int cy, int radius, RGBA fg, RGBA bg);

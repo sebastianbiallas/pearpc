@@ -172,6 +172,9 @@ void SystemDisplay::printf(const char *s, ...)
 	ht_vsnprintf(buf, sizeof buf, s, ap);
 	print(buf);
 	va_end(ap);
+	//these were added for sdl, put inside ifdef HAVE_LIBSDL if needed
+	damageFrameBufferAll();
+	displayShow();
 }
 
 void SystemDisplay::setAnsiColor(vcp color)
@@ -416,8 +419,9 @@ void SystemDisplay::clickMenu(int x, int y)
 
 void SystemDisplay::composeKeyDialog()
 {
-	byte *oldframebuffer = (byte*)malloc(mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
-	memmove(oldframebuffer, gFramebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
+	//translate this to SDL calls at some point
+	byte *oldframebuffer = (byte*)malloc(gFramebufferScanlineLen * mClientChar.height);
+	memmove(oldframebuffer, gFramebuffer, gFramebufferScanlineLen * mClientChar.height);
 
 	const int w = 400;
 	const int h = 200;
@@ -433,7 +437,7 @@ void SystemDisplay::composeKeyDialog()
 	mCatchMouseToggle = false;
 	while (1) {
 redo:
-		memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
+		memmove(gFramebuffer, oldframebuffer, gFramebufferScanlineLen * mClientChar.height);
 		drawBox(x, y, w, h, fg, bg);
 		outText(x+10, y+10, fg, tr, "Press keys to compose key sequence...");
 
@@ -484,7 +488,7 @@ redo:
 	}
 	mCatchMouseToggle = true;
 
-	memmove(gFramebuffer, oldframebuffer, mClientChar.width * mClientChar.height * mClientChar.bytesPerPixel);
+	memmove(gFramebuffer, oldframebuffer, gFramebufferScanlineLen * mClientChar.height);
 	free(oldframebuffer);
 	damageFrameBufferAll();
 }
@@ -582,12 +586,14 @@ void SystemDisplay::mixRGBA(byte *pixel, RGBA rgba)
 
 void SystemDisplay::putPixelRGB(int x, int y, RGB rgb)
 {
-	mixRGB(&gFramebuffer[(x+y*mClientChar.width)*mClientChar.bytesPerPixel], rgb);
+	uint addr = x*mClientChar.bytesPerPixel + y*gFramebufferScanlineLen;
+	mixRGB(&gFramebuffer[addr], rgb);
 	damageFrameBufferAll();
 }
 
 void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 {
-	mixRGBA(&gFramebuffer[(x+y*mClientChar.width)*mClientChar.bytesPerPixel], rgba);
+	uint addr = x*mClientChar.bytesPerPixel + y*gFramebufferScanlineLen;
+	mixRGBA(&gFramebuffer[addr], rgba);
 	damageFrameBufferAll();
 }
