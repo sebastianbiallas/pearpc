@@ -29,6 +29,7 @@
 #define PPC_ALU_TRACE(msg...) ht_printf("[CPU/ALU] "msg)
 #define PPC_FPU_TRACE(msg...) ht_printf("[CPU/FPU] "msg)
 #define PPC_DEC_TRACE(msg...) ht_printf("[CPU/DEC] "msg)
+#define PPC_ESC_TRACE(msg...) ht_printf("[CPU/ESC] "msg)
 //#define PPC_EXC_TRACE(msg...) ht_printf("[CPU/EXC] "msg)
 #define PPC_MMU_TRACE(msg...) ht_printf("[CPU/MMU] "msg)
 #define PPC_OPC_TRACE(msg...) ht_printf("[CPU/OPC] "msg)
@@ -50,6 +51,7 @@
 #define PPC_ALU_WARN(msg...) ht_printf("[CPU/ALU] <Warning> "msg)
 #define PPC_FPU_WARN(msg...) ht_printf("[CPU/FPU] <Warning> "msg)
 #define PPC_DEC_WARN(msg...) ht_printf("[CPU/DEC] <Warning> "msg)
+#define PPC_ESC_WARN(msg...) ht_printf("[CPU/ESC] <Warning> "msg)
 #define PPC_EXC_WARN(msg...) ht_printf("[CPU/EXC] <Warning> "msg)
 #define PPC_MMU_WARN(msg...) ht_printf("[CPU/MMU] <Warning> "msg)
 #define PPC_OPC_WARN(msg...) ht_printf("[CPU/OPC] <Warning> "msg)
@@ -71,6 +73,7 @@
 #define PPC_ALU_ERR(msg...) {ht_printf("[CPU/ALU] <Error> "msg);exit(1); }
 #define PPC_FPU_ERR(msg...) {ht_printf("[CPU/FPU] <Error> "msg);exit(1); }
 #define PPC_DEC_ERR(msg...) {ht_printf("[CPU/DEC] <Error> "msg);exit(1); }
+#define PPC_ESC_ERR(msg...) {ht_printf("[CPU/ESC] <Error> "msg);exit(1); }
 #define PPC_EXC_ERR(msg...) {ht_printf("[CPU/EXC] <Error> "msg);exit(1); }
 #define PPC_MMU_ERR(msg...) {ht_printf("[CPU/MMU] <Error> "msg);exit(1); }
 #define PPC_OPC_ERR(msg...) {ht_printf("[CPU/OPC] <Error> "msg);exit(1); }
@@ -109,6 +112,10 @@
 
 #ifndef PPC_EXC_TRACE
 #define PPC_EXC_TRACE(msg...)
+#endif
+
+#ifndef PPC_ESC_TRACE
+#define PPC_ESC_TRACE(msg...)
 #endif
 
 #ifndef PPC_MMU_TRACE
