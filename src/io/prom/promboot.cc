@@ -1051,8 +1051,7 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 				gDisplay->printf("\r\e[0K\rYour choice (ESC abort): %d", choice);
 				uint32 keycode;
 				do {
-					cuda_prom_get_key(keycode);
-					if (keycode & 0x80) sys_suspend();
+					while (!cuda_prom_get_key(keycode)) sys_suspend();
 				} while (keycode & 0x80);
 
 				if (keycode == KEY_DELETE) choice = 0; else
