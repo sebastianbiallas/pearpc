@@ -1018,8 +1018,8 @@ void FASTCALL asmALURegImm8(X86ALUopc opc, NativeReg8 reg1, uint8 imm)
 			jitcEmit(instr, 2);		
 		} else {
 			instr[0] = 0xf6;
-			instr[0] = 0xc0 + reg1;
-			instr[1] = imm;
+			instr[1] = 0xc0 + reg1;
+			instr[2] = imm;
 			jitcEmit(instr, 3);		
 		}
 		break;	
