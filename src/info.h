@@ -22,7 +22,7 @@
 #define __INFO_H__
 
 #define APPNAME "PearPC"
-#define APPVERSION "0.1"
+#define APPVERSION "0.1+"
 #define EMULATOR_MODEL "PearPC"
 #define COPYRIGHT "(c) 2003, 2004 Sebastian Biallas <sb@biallas.net>"
 
