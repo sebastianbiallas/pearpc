@@ -403,7 +403,14 @@ protection_fault_8_data:
 %endmacro
 
 align 16
-ppc_effective_to_physical_ret:
+ppc_effective_to_physical_code_ret:
+	mov	edx, eax
+	mov	ecx, eax
+	shr	edx, 12
+	and	ecx, 0xfffff000
+	and	edx, TLB_ENTRIES-1
+	mov	[gJITC+tlb_code_0_eff+edx*4], ecx
+	mov	[gJITC+tlb_code_0_phys+edx*4], ecx
 	ret	4
 
 align 16
@@ -415,11 +422,11 @@ align 16
 ;;	WILL NOT RETURN ON EXCEPTION!
 ;;
 ppc_effective_to_physical_code:
+	tlb_lookup 0, code
+
 	; if (!gCPU.msr & MSR_IR) this should be patched to "ret"
 	test	byte [gCPU+msr], (1<<5)	; MSR_IR
-	jz	ppc_effective_to_physical_ret
-
-	tlb_lookup 0, code
+	jz	ppc_effective_to_physical_code_ret
 
 	; FIXME: self-modifying code would be better
 	bat_lookup i, 0, 0, code
@@ -508,6 +515,17 @@ ppc_effective_to_physical_code:
 	jmp	ppc_isi_exception_asm
 
 align 16
+ppc_effective_to_physical_data_read_ret:
+	mov	edx, eax
+	mov	ecx, eax
+	shr	edx, 12
+	and	ecx, 0xfffff000
+	and	edx, TLB_ENTRIES-1
+	mov	[gJITC+tlb_data_0_eff+edx*4], ecx
+	mov	[gJITC+tlb_data_0_phys+edx*4], ecx
+	ret	4
+
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_effective_to_physical_data_read(uint32 addr)
 ;; 
@@ -516,13 +534,12 @@ align 16
 ;;	WILL NOT RETURN ON EXCEPTION!
 ;;
 ppc_effective_to_physical_data_read:
-	; if (!gCPU.msr & MSR_DR) this should be patched to "ret"
-	
-	test	byte [gCPU+msr], (1<<4)	; MSR_DR
-	jz	ppc_effective_to_physical_ret
-	
 	tlb_lookup 0, data
 
+	; if (!gCPU.msr & MSR_DR) this should be patched to "ret"	
+	test	byte [gCPU+msr], (1<<4)	; MSR_DR
+	jz	ppc_effective_to_physical_data_read_ret
+	
 	; FIXME: self-modifying code would be better
 	bat_lookup d, 0, 0, data
 	bat_lookup d, 1, 0, data
@@ -599,6 +616,17 @@ ppc_effective_to_physical_data_read:
 	jmp	ppc_dsi_exception_asm
 
 align 16
+ppc_effective_to_physical_data_write_ret:
+	mov	edx, eax
+	mov	ecx, eax
+	shr	edx, 12
+	and	ecx, 0xfffff000
+	and	edx, TLB_ENTRIES-1
+	mov	[gJITC+tlb_data_8_eff+edx*4], ecx
+	mov	[gJITC+tlb_data_8_phys+edx*4], ecx
+	ret	4
+
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_effective_to_physical_data_write(uint32 addr)
 ;;
@@ -607,13 +635,13 @@ align 16
 ;;	WILL NOT RETURN ON EXCEPTION!
 ;;
 ppc_effective_to_physical_data_write:
+	tlb_lookup 8, data
+
 	; if (!gCPU.msr & MSR_DR) this should be patched to "ret"
 
 	test	byte [gCPU+msr], (1<<4)	; MSR_DR
-	jz	ppc_effective_to_physical_ret
+	jz	ppc_effective_to_physical_data_write_ret
 	
-	tlb_lookup 8, data
-
 	; FIXME: self-modifying code would be better
 	bat_lookup d, 0, 8, data
 	bat_lookup d, 1, 8, data

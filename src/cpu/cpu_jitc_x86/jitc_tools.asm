@@ -366,6 +366,7 @@ ppc_flush_flags_unsigned_odd_asm:
 singlestep_error: db	'Singlestep support not implemented yet',10,0
 align 16
 ppc_set_msr_asm:
+	mov	ecx, [gCPU+msr]
 	test	eax, (1<<10)	; MSR_SE
 	jnz	.singlestep
 	test	eax, ~((1<<18)|(1<<30)|(1<<27)|(1<<25)|(1<<15)|(1<<14)|(1<<13)|(1<<12)|(1<<11)|(1<<10)|(1<<8)|(1<<5)|(1<<4)|(1<<1))
@@ -376,11 +377,13 @@ ppc_set_msr_asm:
 		;; Do this first so the invalidate can clobber eax and
 		;; we won't care
  	mov	[gCPU+msr], eax
-		;; See if the privilege level is changing (MSR_PR) to
-		;; non-privileged, in which case we need to inval the tlb
-	test	eax, (1<<14)
+	xor	eax, ecx
+	
+		;; See if the privilege level (MSR_PR), data address
+		;; translation (MSR_DR) or code address translation (MSR_IR)
+		;; is changing, in which case we need to inval the tlb
+	test	eax, (1<<14) | (1<<4) | (1<<5)
 	jnz	.msr_pr_change
-.msr_pr_change_back:
 	ret
 	
 .power:
@@ -392,7 +395,7 @@ ppc_set_msr_asm:
 	
 .msr_pr_change:
 	call ppc_mmu_tlb_invalidate_all_asm
-	jmp .msr_pr_change_back
+	ret
 
 .singlestep:
 	mov	eax, singlestep_error
