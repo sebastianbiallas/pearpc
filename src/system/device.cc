@@ -1,6 +1,6 @@
 /* 
  *	PearPC
- *	keyboard.cc
+ *	device.cc
  *
  *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *	Copyright (C) 2003,2004 Sebastian Biallas (sb@biallas.net)
@@ -27,19 +27,19 @@
 
 SystemDevice::SystemDevice()
 {
-	mConnectedEventHandler = NULL;
+	mAttachedEventHandler = NULL;
 }
 
 bool SystemDevice::handleEvent(const SystemEvent &ev)
 {
-	return mConnectedEventHandler ? mConnectedEventHandler(ev) : false;
+	return mAttachedEventHandler ? mAttachedEventHandler(ev) : false;
 }
 
-void SystemDevice::connectEventHandler(SystemEventHandler cevh)
+void SystemDevice::attachEventHandler(SystemEventHandler cevh)
 {
-	if (mConnectedEventHandler) {
-		ht_printf("INTERNAL ERROR: only 1 connected event handler allowed.\n");
+	if (mAttachedEventHandler) {
+		ht_printf("INTERNAL ERROR: only 1 attached event handler allowed.\n");
 		exit(1);
 	}
-	mConnectedEventHandler = cevh;
+	mAttachedEventHandler = cevh;
 }

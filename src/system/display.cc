@@ -131,7 +131,7 @@ SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics, int
 	mMenuHeight = 20;
 	mMouseGrabbed = false;
 	
-	mFullscreen = false;
+	mFullscreenChanged = false;
 }
 
 SystemDisplay::~SystemDisplay()
@@ -594,5 +594,5 @@ void SystemDisplay::setMouseGrab(bool mouseGrab)
 bool SystemDisplay::setFullscreenMode(bool fullscreen)
 {
 	mFullscreen = fullscreen;
-	changeResolution(mClientChar);
+	return changeResolution(mClientChar);
 }

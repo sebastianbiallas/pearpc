@@ -134,24 +134,45 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		dm.dmDisplayFrequency = mWinChar.vsyncFrequency;
 		if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
 			ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
+			gMenuHeight = 0;
+			damageFrameBufferAll();
+			mFullscreenChanged = true;
+			LeaveCriticalSection(&gDrawCS);
 			return true;
 		} else {
 			if (mWinChar.bytesPerPixel == 2) {
 				dm.dmBitsPerPel = 16;
-			} else {
-				mWinChar = oldhost;
-				mClientChar = oldclient;
-				return false;
+				if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
+					ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
+					gMenuHeight = 0;
+					damageFrameBufferAll();
+					mFullscreenChanged = true;
+					LeaveCriticalSection(&gDrawCS);
+					return true;
+				}
 			}
-			if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
-				ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
-			} else {
-				mWinChar = oldhost;
-				mClientChar = oldclient;
-				return false;
+			mWinChar = oldhost;
+			mClientChar = oldclient;
+			LeaveCriticalSection(&gDrawCS);
+			/*
+			 * FIXME: maybe we should switch back to windowed mode
+			 *        here if running in fullscreen mode.
+			 */
+			if (mFullscreenChanged) {
+				// do something
 			}
+			return false;
 		}
 	} else {
+		EnterCriticalSection(&gDrawCS);
+		if (mFullscreenChanged) {
+			// switch out of fullscreen mode
+			setMouseGrab(false);
+			gMenuHeight = 28;
+
+			ChangeDisplaySettings(NULL, 0);
+		}
+
 		/*
 		 * get size of desktop first
 		 * (windows doesn't allow windows greater than the desktop)
@@ -161,10 +182,18 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		GetWindowRect(dw, &desktoprect);
 		if (aClientChar.width > (desktoprect.right-desktoprect.left)
 		|| aClientChar.height > (desktoprect.bottom-desktoprect.top)) {
-				// protect user from himself
-				return false;
-		}		
-		EnterCriticalSection(&gDrawCS);
+				/*
+				 * protect user from himself
+				 * Want shall we do if switching out of full-
+				 * screen mode does not work?
+				 */
+				if (mFullscreen) {
+					// FIXME: insert clever code here
+				} else {
+					return false;
+				}
+		}
+		mFullscreenChanged = false;
 		mClientChar = aClientChar;
 		convertCharacteristicsToHost(mWinChar, mClientChar);
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
@@ -184,9 +213,16 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		GetWindowRect(gHWNDMain, &rect2);
 		rect.right = rect.left+mWinChar.width;
 		rect.bottom = rect.top+mWinChar.height+gMenuHeight;
+		/*
+			SetWindowLong(gHWNDMain, GWL_STYLE, WS_VISIBLE | WS_SYSMENU | WS_CAPTION | WS_BORDER | WS_MINIMIZEBOX);
+			SetWindowPos(gHWNDMain, HWND_NOTOPMOST, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED, 0, 0, 0, 0);
+			SetWindowPos(gHWNDMain, HWND_TOP, 0, 0,	mWinChar.width + GetSystemMetrics(SM_CXFIXEDFRAME) * 2,
+						mWinChar.height + gMenuHeight + GetSystemMetrics(SM_CYFIXEDFRAME) * 2 + GetSystemMetrics(SM_CYCAPTION),	0);
+		*/
 		AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
 			| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
 		MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, TRUE);
+		ShowWindow(gHWNDMain, SW_SHOWNORMAL);
 	}
 	damageFrameBufferAll();
 	return true;

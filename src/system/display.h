@@ -196,6 +196,7 @@ public: // until we know better
 	int mResetMouseX, mResetMouseY;
 	int mHomeMouseX, mHomeMouseY;
 	bool mFullscreen;
+	bool mFullscreenChanged;
 	
 	static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
 	{
@@ -223,7 +224,7 @@ public:
 	virtual void	convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar) = 0;
 
 	virtual bool	changeResolution(const DisplayCharacteristics &aChar) = 0;
-	virtual bool	setFullscreenMode(bool fullscreen);
+		bool	setFullscreenMode(bool fullscreen);
 	virtual void	getHostCharacteristics(Container &modes) = 0;
 
 	/* VT */
