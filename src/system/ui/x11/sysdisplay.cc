@@ -149,6 +149,10 @@ public:
 		gFrameBuffer = NULL;
 		reinitChar();
 
+		// clear fb once on startup
+		memset(gFrameBuffer, 0, mClientChar.width *
+			mClientChar.height * mClientChar.bytesPerPixel);
+
 #if 0
 		fprintf(stderr, "X Server display characteristics:\n");
 		dumpDisplayChar(mXChar);
@@ -199,8 +203,6 @@ public:
 	void reinitChar()
 	{
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
-			mClientChar.height * mClientChar.bytesPerPixel);
-		memset(gFrameBuffer, 0, mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
 		damageFrameBufferAll();
 
