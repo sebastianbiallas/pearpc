@@ -11,6 +11,8 @@ version 0.4pre (not yet released):
 	- warn that the generic CPU is slow
 	- better detection of HFS+ volumes
 	- support for DVD-Drives
+	- correctly check for NASM
+	- Work-around for graphic errors in Mac OS X 10.1
 
 version 0.3.1 (released 5. September 2004):
 	- JITC_X86: increased translation cache size
