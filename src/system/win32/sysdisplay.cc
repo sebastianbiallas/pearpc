@@ -125,10 +125,14 @@ public:
 			exit(-1);
 			break;
 		case 2:
-			ht_printf("nyi: %s::%d", __FILE__, __LINE__);
-			exit(-1);
+			mWinChar.redShift = 10;
+			mWinChar.redSize = 5;
+			mWinChar.greenShift = 5;
+			mWinChar.greenSize = 5;
+			mWinChar.blueShift = 0;
+			mWinChar.blueSize = 5;
 			switch (mClientChar.bytesPerPixel) {
-			case 2: win32_vaccel_func = win32_vaccel_15_to_16; break;
+			case 2: win32_vaccel_func = win32_vaccel_15_to_15; break;
 			break;
 			}
 			break;
@@ -603,7 +607,6 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_LBUTTONUP:
 		if (!mMouseEnabled) {
 			if (HIWORD(lParam) < gMenuHeight) {
-				ht_printf("test click\n");
 				gDisplay->clickMenu(LOWORD(lParam), HIWORD(lParam));
 			}
 		}

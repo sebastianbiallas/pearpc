@@ -82,6 +82,7 @@ struc PPC_CPU_State
 	physical_code_page: resd 1
 
 	temp: resd 1
+	temp2: resd 1
 	pc_ofs: resd 1
 	start_pc_ofs: resd 1
 	current_code_base: resd 1
@@ -743,8 +744,14 @@ ppc_write_effective_half_asm:
 	pop	edx
 	add	ebx, [gMemory]
 	add	eax, [gMemory]
+	cmp	ebx, [gMemorySize]
+	jae	.f
 	mov	[ebx], dh
+	.f:
+	cmp	eax, [gMemorySize]
+	jae	.g
 	mov	[eax], dl
+	.g
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -795,22 +802,28 @@ ppc_write_effective_word_asm:
 	neg	ebp
 	add	ebp, 4096
 	add	ebx, [gMemory]
+	cmp	ebx, [gMemorySize]
+	jae	.dslk
 	.loop1:
 		rol	edx, 8
 		mov	[ebx], dl
 		inc	ebx
 		dec	ebp
 	jnz	.loop1
+	.dslk:
 	mov	ebp, eax
 	and	eax, 0xfffff000
 	and	ebp, 0x00000fff
 	add	eax, [gMemory]
+	cmp	ebx, [gMemorySize]
+	jae	.dslk5
 	.loop2:
 		rol	edx, 8
 		mov	[eax], dl
 		inc	eax
 		dec	ebp
 	jnz	.loop2
+	.dslk5:
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -868,6 +881,8 @@ ppc_write_effective_dword_asm:
 	add	ebx, [gMemory]
 	bswap	ecx
 	bswap	edx
+	cmp	ebx, [gMemorySize]
+	jae	.fjfjjfjf
 	.loop1:
 		mov	[ebx], cl
 		shrd	ecx, edx, 8
@@ -875,10 +890,13 @@ ppc_write_effective_dword_asm:
 		shr	edx, 8
 		dec	ebp
 	jnz	.loop1
+	.fjfjjfjf:
 	mov	ebp, eax
 	and	eax, 0xfffff000
 	and	ebp, 0x00000fff
 	add	eax, [gMemory]
+	cmp	eax, [gMemorySize]
+	jae	.fjfjjfjffffffffffffffffffffjjjfffffffffffffffffjfjfjfjjfjfjfjf
 	.loop2:
 		mov	[eax], cl
 		shrd	ecx, edx, 8
@@ -886,6 +904,7 @@ ppc_write_effective_dword_asm:
 		shr	edx, 8
 		dec	ebp
 	jnz	.loop2
+	.fjfjjfjffffffffffffffffffffjjjfffffffffffffffffjfjfjfjjfjfjfjf:
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -950,7 +969,10 @@ ppc_read_effective_half_z_asm:
 	push	8			; roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	xor	edx, edx
+	cmp	eax, [gMemorySize]
+	jae	.mmio1
 	add	eax, [gMemory]
+.loop1:
 	mov	dh, [eax]
 	pop	eax
 	push	edx
@@ -958,9 +980,28 @@ ppc_read_effective_half_z_asm:
 	push	8			; roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	pop	edx
+	cmp	eax, [gMemorySize]
+	jae	.mmio2
 	add	eax, [gMemory]
+.loop2:
 	mov	dl, [eax]
 	ret
+.mmio1:
+	pusha
+	mov	edx, 1
+	call	io_mem_read_glue
+	mov	[gCPU+temp], al
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop1
+.mmio2:
+	pusha
+	mov	edx, 1
+	call	io_mem_read_glue
+	mov	[gCPU+temp], al
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop2
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_half()
@@ -997,7 +1038,10 @@ ppc_read_effective_half_s_asm:
 	push	eax
 	push	8			; roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	cmp	eax, [gMemorySize]
+	jae	.mmio1
 	add	eax, [gMemory]
+.loop1:
 	mov	ch, [eax]
 	pop	eax
 	push	ecx
@@ -1005,10 +1049,30 @@ ppc_read_effective_half_s_asm:
 	push	8			; roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	pop	ecx
+	cmp	eax, [gMemorySize]
+	jae	.mmio2
 	add	eax, [gMemory]
+.loop2:
 	mov	cl, [eax]
 	movsx	edx, cx
 	ret
+
+.mmio1:
+	pusha
+	mov	edx, 1
+	call	io_mem_read_glue
+	mov	[gCPU+temp], al
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop1
+.mmio2:
+	pusha
+	mov	edx, 1
+	call	io_mem_read_glue
+	mov	[gCPU+temp], al
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop2
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_word()
@@ -1047,8 +1111,10 @@ ppc_read_effective_word_asm:
 	call	ppc_effective_to_physical_data_read
 	pop	ebx
 	mov	ecx, 4096
-	add	eax, [gMemory]
 	sub	ecx, ebx
+	cmp	eax, [gMemorySize]
+	jae	.mmio
+	add	eax, [gMemory]
 	.loop1:
 		shl	edx, 8
 		mov	dl, [eax]
@@ -1065,6 +1131,8 @@ ppc_read_effective_word_asm:
 	pop	ebx
 	pop	edx
 	sub	ebx, 4092
+	cmp	eax, [gMemorySize]
+	jae	.mmio
 	add	eax, [gMemory]
 	.loop2:
 		shl	edx, 8
@@ -1073,6 +1141,25 @@ ppc_read_effective_word_asm:
 		dec	ebx
 	jnz	.loop2
 	ret
+
+.mmio1:
+	pusha
+	mov	edx, 4
+	call	io_mem_read_glue
+	bswap	eax
+	mov	[gCPU+temp], eax
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop1
+.mmio2:
+	pusha
+	mov	edx, 4
+	call	io_mem_read_glue
+	bswap	eax
+	mov	[gCPU+temp], eax
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop2
 	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1114,8 +1201,10 @@ ppc_read_effective_dword_asm:
 	call	ppc_effective_to_physical_data_read
 	pop	ebx
 	mov	ebp, 4096
-	add	eax, [gMemory]
 	sub	ebp, ebx
+	cmp	eax, [gMemorySize]
+	jae	.mmio1
+	add	eax, [gMemory]
 	.loop1:
 		shld	ecx, edx, 8
 		shl	edx, 8
@@ -1135,6 +1224,8 @@ ppc_read_effective_dword_asm:
 	pop	edx
 	pop	ecx
 	sub	ebx, 4088
+	cmp	eax, [gMemorySize]
+	jae	.mmio2
 	add	eax, [gMemory]
 	.loop2:
 		shld	ecx, edx, 8
@@ -1145,6 +1236,26 @@ ppc_read_effective_dword_asm:
 	jnz	.loop2
 	ret
 
+.mmio1:
+	pusha
+	call	io_mem_read64_glue
+	bswap	edx
+	bswap	eax
+	mov	[gCPU+temp], edx
+	mov	[gCPU+temp2], eax
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop1
+.mmio2:
+	pusha
+	call	io_mem_read64_glue
+	bswap	edx
+	bswap	eax
+	mov	[gCPU+temp], edx
+	mov	[gCPU+temp2], eax
+	popa
+	mov	eax, gCPU+temp
+	jmp	.loop2
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_opc_stswi_asm()

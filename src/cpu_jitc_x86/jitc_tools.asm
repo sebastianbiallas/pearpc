@@ -82,6 +82,7 @@ struc PPC_CPU_State
 	physical_code_page: resd 1
 
 	temp: resd 1
+	temp2: resd 1
 	pc_ofs: resd 1
 	start_pc_ofs: resd 1
 	current_code_base: resd 1

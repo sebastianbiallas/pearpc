@@ -83,6 +83,7 @@ win32_vaccel_15_to_16:
 	shr		eax, 3		; we can convert 8 pixels at a time
 .loop:
 	movq		mm1, [edx]
+	movq		mm3, [edx+8]
 	;; convert big to little endian
 	movq		mm2, mm1
 	movq		mm4, mm3
@@ -178,6 +179,7 @@ win32_vaccel_15_to_32:
 	jnz		.loop
 	emms
 	ret
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
