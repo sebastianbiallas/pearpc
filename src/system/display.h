@@ -212,7 +212,7 @@ public:
 	DisplayCharacteristics	mClientChar;
 	BufferedChar	*buf;
 
-			SystemDisplay(const DisplayCharacteristics &aCharacteristics, int redraw_ms);
+			SystemDisplay(const DisplayCharacteristics &aClientChr, int redraw_ms);
 	virtual 	~SystemDisplay();
 
 	virtual void	displayShow() = 0;

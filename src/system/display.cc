@@ -117,9 +117,9 @@ void dumpDisplayChar(const DisplayCharacteristics &chr)
 	fprintf(stderr, "\tdepth:               %d\n", chr.redSize + chr.greenSize + chr.blueSize);
 }
 
-SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics, int redraw_ms)
+SystemDisplay::SystemDisplay(const DisplayCharacteristics &aClientChr, int redraw_ms)
 {
-	mClientChar = aCharacteristics;
+	mClientChar = aClientChr;
 	mRedraw_ms = redraw_ms;
 	mHWCursorX = 0;
 	mHWCursorY = 0;
