@@ -253,9 +253,9 @@ bool tryBootHFS(File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEn
 				IO_PROM_FS_TRACE("start=%08x, count=%08x\n",
 					mdb.drEmbedExtent.startBlock, 
 					mdb.drEmbedExtent.blockCount);
-				IO_PROM_FS_TRACE("FIXME: start-offset?\n");
-//				return tryBootHFSPlus(aDevice, start, partEnt);
-				return false;
+//				IO_PROM_FS_TRACE("FIXME: start-offset?\n");
+				return tryBootHFSPlus(aDevice, aDeviceBlocksize, start, partEnt);
+//				return false;
 			} else {
 				IO_PROM_FS_TRACE("contains HFS volume\n");
 				return doTryBootHFS(mdb, aDevice, aDeviceBlocksize, start, partEnt);
