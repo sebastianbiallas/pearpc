@@ -97,11 +97,13 @@ struct PPC_CPU_State {
 	uint32 tlb_last;
 	uint32 tlb_pa[4];
 	uint32 tlb_va[4];
-	
+
 	// for generic cpu core
 	uint32 effective_code_page;
 	byte  *physical_code_page;
-	
+	uint64 pdec;	// more precise version of dec
+	uint64 ptb;	// more precise version of tb
+
 	// for jitc
 	uint32 temp;
 	uint32 temp2;

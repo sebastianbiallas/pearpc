@@ -85,6 +85,8 @@ struc PPC_CPU_State
 	
 	effective_code_page: resd 1
 	physical_code_page: resd 1
+	pdec: resd 2
+	ptb: resd 2
 
 	temp: resd 1
 	temp2: resd 1
