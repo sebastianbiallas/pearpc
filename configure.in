@@ -48,8 +48,8 @@ dnl	profiling implies debug
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -pg -g"
 else
 	if test "x$enable_debug" = "xyes"; then
-		PPC_CFLAGS="$PPC_CFLAGS -g"
-		PPC_CXXFLAGS="$PPC_CXXFLAGS -g"
+		PPC_CFLAGS="$PPC_CFLAGS -g -fno-inline"
+		PPC_CXXFLAGS="$PPC_CXXFLAGS -g -fno-inline"
 	fi
 fi
 
@@ -409,9 +409,9 @@ linux*)
              ]])
 ;;
 beos*)
-echo "BEOS CFLAGS=$CFLAGS"
-echo "BEOS CPPFLAGS=$CPPFLAGS"
-echo "BEOS CXFLAGS=$CXXFLAGS"
+	echo "BEOS CFLAGS=$CFLAGS"
+	echo "BEOS CPPFLAGS=$CPPFLAGS"
+	echo "BEOS CXFLAGS=$CXXFLAGS"
         dnl Have BeOS TUN ? (same API as Linux, except the device path)
         dnl might be in linux/ for compatibility
         AC_CHECK_HEADERS(linux/if_tun.h, AC_DEFINE(HAVE_BEOS_TUN, 1, [Have TUN/TAP headers?]))
