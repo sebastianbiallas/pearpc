@@ -8,8 +8,7 @@ if USE_ARCH_X86
 THE_ARCH_DIR=x86
 endif
 
-noinst_LIBRARIES = libsystemarch.a
-libsystemarch_a_SOURCES = sysfeatures.h sysendian.h
+EXTRA_DIST = sysfeatures.h sysendian.h
 
 SUBDIRS = $(THE_ARCH_DIR)
 EXTRA_SUBDIRS = generic x86
