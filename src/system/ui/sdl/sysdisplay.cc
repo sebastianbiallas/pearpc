@@ -44,15 +44,7 @@
 
 #include "syssdl.h"
 
-/*static char *mTitle;
-static char mCurTitle[200];*/
-
-class SDLSystemDisplay: public SystemDisplay {
-protected:
-	DisplayCharacteristics	mSDLChar;
-	byte *			mSDLFrameBuffer;
-
-uint bitsPerPixelToXBitmapPad(uint bitsPerPixel)
+uint SDLSystemDisplay::bitsPerPixelToXBitmapPad(uint bitsPerPixel)
 {
 	if (bitsPerPixel <= 8) {
 		return 8;
@@ -65,7 +57,7 @@ uint bitsPerPixelToXBitmapPad(uint bitsPerPixel)
 
 #define MASK(shift, size) (((1 << (size))-1)<<(shift))
 
-void dumpDisplayChar(const DisplayCharacteristics &chr)
+void SDLSystemDisplay::dumpDisplayChar(const DisplayCharacteristics &chr)
 {
 	fprintf(stderr, "\tdimensions:          %d x %d pixels\n", chr.width, chr.height);
 	fprintf(stderr, "\tpixel size in bytes: %d\n", chr.bytesPerPixel);
@@ -76,35 +68,31 @@ void dumpDisplayChar(const DisplayCharacteristics &chr)
 	fprintf(stderr, "\tdepth:               %d\n", chr.redSize + chr.greenSize + chr.blueSize);
 }
 
-public:
-
-SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
+SDLSystemDisplay::SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
 : SystemDisplay(chr, redraw_ms)
 {
-	SDL_WM_SetCaption(title, title);
+	mTitle = strdup(title);
 
 	gSDLScreen = NULL;
 	mSDLFrameBuffer = NULL;
-
-	changeResolution(chr);
 }
 
-void finishMenu()
+void SDLSystemDisplay::finishMenu()
 {
 }
 
-void updateTitle() 
+void SDLSystemDisplay::updateTitle() 
 {
 //	ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseEnabled ? "disables" : "enables");
 //	SDL_WM_SetCaption(mTitle, NULL);
 }
 
-int toString(char *buf, int buflen) const
+int SDLSystemDisplay::toString(char *buf, int buflen) const
 {
 	return snprintf(buf, buflen, "SDL");
 }
 
-void ToggleFullScreen()
+void SDLSystemDisplay::ToggleFullScreen()
 {
 /*
 	SDL_Surface *backup, *backup2;
@@ -148,7 +136,7 @@ void ToggleFullScreen()
 	displayShow();*/
 }
 
-void displayShow()
+void SDLSystemDisplay::displayShow()
 {
 	int firstDamagedLine, lastDamagedLine;
 	// We've got problems with races here because gcard_write1/2/4
@@ -193,17 +181,12 @@ void displayShow()
 	}
 }
 
-void *eventLoop(void *p)
-{
-	return NULL;
-}
-
-void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
+void SDLSystemDisplay::convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 {
 	aHostChar = aClientChar;
 }
 
-bool changeResolution(const DisplayCharacteristics &aCharacteristics)
+bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacteristics)
 {
 	DPRINTF("Changing resolution to %dx%d\n", aCharacteristics.width, aCharacteristics.height);
 
@@ -229,6 +212,7 @@ bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 		printf("SDL: FATAL: can't switch mode?!\n");
 		exit(1);
 	}
+
 	if (gSDLScreen->pitch != aCharacteristics.width * aCharacteristics.bytesPerPixel) {
 		// FIXME: this is really bad.
 		printf("SDL: FATAL: new mode has scanline gap. Trying to revert to old mode.\n");
@@ -252,12 +236,10 @@ bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 	return true;
 }
 
-void getHostCharacteristics(Container &modes)
+void SDLSystemDisplay::getHostCharacteristics(Container &modes)
 {
 	// FIXME: implement me
 }
-
-};
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
 {

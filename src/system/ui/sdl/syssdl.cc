@@ -31,6 +31,7 @@
 #include "system/display.h"
 #include "system/keyboard.h"
 #include "system/mouse.h"
+#include "system/systhread.h"
 #include "system/systimer.h"
 
 #include "tools/snprintf.h"
@@ -324,6 +325,18 @@ sys_timer gSDLRedrawTimer;
 
 static void *SDLeventLoop(void *p)
 {
+	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
+		printf("SDL: Unable to init: %s\n", SDL_GetError());
+		exit(1);
+	}
+	SDLSystemDisplay *sd = (SDLSystemDisplay*)gDisplay;
+
+//	SDL_WM_SetCaption(sd->mTitle, sd->mTitle);
+
+        SDL_WM_GrabInput(SDL_GRAB_OFF);
+
+	sd->changeResolution(sd->mClientChar);
+
 	gSDLVideoExposePending = false;
 	SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
 
@@ -341,20 +354,13 @@ SystemMouse *allocSystemMouse();
 
 void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms)
 {
-	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
-		printf("SDL: Unable to init: %s\n", SDL_GetError());
-		exit(1);
-	}
-
-        SDL_WM_GrabInput(SDL_GRAB_OFF);
-
 	createSDLToADBKeytable();
+
+	sys_thread SDLeventLoopThread;
 
 	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
 	gMouse = allocSystemMouse();
 	gKeyboard = allocSystemKeyboard();
-
-	sys_thread SDLeventLoopThread;
 
 	if (sys_create_thread(&SDLeventLoopThread, 0, SDLeventLoop, NULL)) {
 		printf("SDL: can't create event thread!\n");

@@ -23,8 +23,30 @@
 
 #include <SDL/SDL.h>
 
-#include "system/systhread.h"
+#include "system/display.h"
 
 extern SDL_Surface *	gSDLScreen;
+
+class SDLSystemDisplay: public SystemDisplay {
+protected:
+	DisplayCharacteristics	mSDLChar;
+	byte *			mSDLFrameBuffer;
+
+	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel);
+	void dumpDisplayChar(const DisplayCharacteristics &chr);
+public:
+	char *			mTitle;
+
+	SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
+
+		void finishMenu();
+		void updateTitle();
+	virtual	int toString(char *buf, int buflen) const;
+		void ToggleFullScreen();
+	virtual	void displayShow();
+	virtual	void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar);
+	virtual	bool changeResolution(const DisplayCharacteristics &aCharacteristics);
+	virtual	void getHostCharacteristics(Container &modes);
+};
 
 #endif
