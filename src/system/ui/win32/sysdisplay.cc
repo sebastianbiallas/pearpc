@@ -125,12 +125,6 @@ public:
 		mMenuHeight = 28;
 		gMenuHeight = mMenuHeight;
 
-		int lock_res = gConfig->getConfigInt("ppc_lock_resolution");
-		if (lock_res == 1)
-			lock_resolution = true;
-		else 
-			lock_resolution = false;
-		
 		gHInst = GetModuleHandle(NULL);
 
 		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width 
@@ -169,7 +163,6 @@ public:
 
 	bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 	{
-		if (lock_resolution) return false;
 		/*
 		 * get size of desktop first
 		 * (windows doesn't allow windows greater than the desktop)

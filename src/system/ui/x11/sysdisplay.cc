@@ -156,13 +156,6 @@ public:
 		sys_create_mutex(&mutex);
 		mEventQueue = new Queue(true);
 
-		// display
-		int lock_res = gConfig->getConfigInt("ppc_lock_resolution");
-		if (lock_res == 1)
-			lock_resolution = true;
-		else 
-			lock_resolution = false;
-		
 		// mouse
 		mMouseGrabbed = false;
 		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
