@@ -656,11 +656,12 @@ inline void ppc_fpu_sqrt(ppc_double &D, const ppc_double &B)
 
 void ppc_fpu_test()
 {
-	double bb = 2.0;
+	double bb = 1.0;
 	uint64 b = *(uint64 *)&bb;
 	ppc_double B;
 	ppc_double D;
 	ppc_fpu_unpack_double(B, b);
+	ht_printf("%d\n", B.e);
 	ppc_fpu_sqrt(D, B);
 	uint64 d;
 	gCPU.fpscr |= ppc_fpu_pack_double(D, d);
@@ -1469,12 +1470,19 @@ void ppc_opc_frsqrtex()
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frA==0 && frC==0);
-	
+	ppc_double B;
+	ppc_double D;
+	ppc_double E;
+	ppc_double Q;
+	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
+	ppc_fpu_sqrt(Q, B);
+	E.type = ppc_fpr_norm; E.s = 0; E.e = 0; E.m = 0x80000000000000ULL;
+	ppc_fpu_div(D, E, Q);
+	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);	
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("frsqrte.\n");
 	}
-	PPC_FPU_ERR("frsqrte\n");
 }
 JITCFlow ppc_opc_gen_frsqrtex()
 {
