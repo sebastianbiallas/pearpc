@@ -107,7 +107,7 @@ static int mCurMouseX, mCurMouseY;
 static int mResetMouseX, mResetMouseY;
 static int mHomeMouseX, mHomeMouseY;
 static bool mMouseButton[3];
-static bool mMouseEnabled;
+static bool mMouseGrabbed;
 static bool mVisible;
 static bool mMapped;
 static char *mTitle;
@@ -155,7 +155,7 @@ public:
 		mEventQueue = new Queue(true);
 
 		// mouse
-		mMouseEnabled = false;
+		mMouseGrabbed = false;
 		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
 		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
 
@@ -225,7 +225,7 @@ public:
 			ExposureMask | KeyPressMask | KeyReleaseMask 
 			| ButtonPressMask | ButtonReleaseMask | PointerMotionMask
 			| EnterWindowMask | LeaveWindowMask | StructureNotifyMask
-			| VisibilityChangeMask);
+			| VisibilityChangeMask | FocusChangeMask);
 
 		XGCValues values;
 		gWhiteGC = XCreateGC(gXDisplay, gXWindow, 0, &values);
@@ -403,7 +403,7 @@ public:
 
 	void updateTitle() 
 	{
-		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseEnabled ? "disables" : "enables");
+		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseGrabbed ? "disables" : "enables");
 		XTextProperty name_prop;
 		char *mCurTitlep = mCurTitle;
 		XStringListToTextProperty(&mCurTitlep, 1, &name_prop);
@@ -417,7 +417,7 @@ public:
 
 	void setClientMouseGrab(bool enable)
 	{
-		mMouseEnabled = enable;
+		mMouseGrabbed = enable;
 		updateTitle();
 		if (enable) {
 			mResetMouseX = mCurMouseX;
@@ -463,7 +463,7 @@ public:
 		char buffer[4];
 		while (1) {
 			sys_lock_mutex(mutex);
-			XWindowEvent(gXDisplay, gXWindow, 
+			XWindowEvent(gXDisplay, gXWindow,
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
 			| ButtonReleaseMask | PointerMotionMask
 			| EnterWindowMask | LeaveWindowMask | StructureNotifyMask
@@ -489,7 +489,7 @@ public:
 			case KeyPress:
 				ev.keyEvent.keycode = x11_key_to_adb_key[event.xkey.keycode];
 				if ((ev.keyEvent.keycode == KEY_F12) && getCatchMouseToggle()) {
-					setClientMouseGrab(!mMouseEnabled);
+					setClientMouseGrab(!mMouseGrabbed);
 					break;
 				}
 				if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
@@ -533,7 +533,7 @@ public:
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
 			| ButtonReleaseMask | PointerMotionMask 
 			| EnterWindowMask | LeaveWindowMask  | StructureNotifyMask
-			| VisibilityChangeMask, &event)) {
+			| VisibilityChangeMask | FocusChangeMask, &event)) {
 
 			switch (event.type) {
 			case Expose: 
@@ -555,7 +555,7 @@ public:
 			case KeyPress:
 				ev.keyEvent.keycode = x11_key_to_adb_key[event.xkey.keycode];
 				if (ev.keyEvent.keycode == KEY_F12 && mCurMouseX != -1) {
-					setClientMouseGrab(!mMouseEnabled);
+					setClientMouseGrab(!mMouseGrabbed);
 					break;
 				}
 				if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
@@ -567,7 +567,7 @@ public:
 				sys_unlock_mutex(mutex);
 				return true;
 			case ButtonPress:
-				if (!mMouseEnabled) break;
+				if (!mMouseGrabbed) break;
 				ev.type = evMouse;
 				switch (((XButtonEvent *)&event)->button) {
 				case Button1:
@@ -590,7 +590,7 @@ public:
 				sys_unlock_mutex(mutex);
 				return true;
 			case ButtonRelease: 
-				if (!mMouseEnabled) {
+				if (!mMouseGrabbed) {
 					if (mCurMouseY < mMenuHeight) {
 						sys_unlock_mutex(mutex);
 						clickMenu(mCurMouseX, mCurMouseY);
@@ -627,7 +627,7 @@ public:
 				mCurMouseX = ev.mouseEvent.x = ((XPointerMovedEvent *)&event)->x;
 				mCurMouseY = ev.mouseEvent.y = ((XPointerMovedEvent *)&event)->y;
 				if (mCurMouseX == mHomeMouseX && mCurMouseY == mHomeMouseY) break;
-				if (!mMouseEnabled) break;
+				if (!mMouseGrabbed) break;
 				mLastMouseX = mCurMouseX;
 				mLastMouseY = mCurMouseY;
 				if (mLastMouseX == -1) break;
@@ -646,6 +646,9 @@ public:
 				break;
 			case LeaveNotify:
 				mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
+				break;
+			case FocusOut:
+				if (mMouseGrabbed) setClientMouseGrab(false);
 				break;
 			case MapNotify:
 				mMapped = true;
