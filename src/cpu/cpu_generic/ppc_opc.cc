@@ -352,6 +352,16 @@ void ppc_opc_mfspr()
 		break;
 	case 8:
 		switch (spr1) {
+		case 12: {
+			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+			gCPU.gpr[rD] = gCPU.tb;
+			return;
+		}
+		case 13: {
+			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+			gCPU.gpr[rD] = gCPU.tb >> 32;
+			return;
+		}
 		case 16: gCPU.gpr[rD] = gCPU.sprg[0]; return;
 		case 17: gCPU.gpr[rD] = gCPU.sprg[1]; return;
 		case 18: gCPU.gpr[rD] = gCPU.sprg[2]; return;

@@ -776,6 +776,8 @@ void ppc_opc_mfspr()
 		break;
 	case 8:
 		switch (spr1) {
+		case 12: gCPU.gpr[rD] = ppc_get_cpu_timebase(); return;
+		case 13: gCPU.gpr[rD] = ppc_get_cpu_timebase() >> 32; return;
 		case 16: gCPU.gpr[rD] = gCPU.sprg[0]; return;
 		case 17: gCPU.gpr[rD] = gCPU.sprg[1]; return;
 		case 18: gCPU.gpr[rD] = gCPU.sprg[2]; return;
@@ -880,6 +882,18 @@ JITCFlow ppc_opc_gen_mfspr()
 		break;
 	case 8:
 		switch (spr1) {
+		case 12: {
+			jitcClobberAll();
+			asmCALL((NativeAddress)ppc_get_cpu_timebase);
+			jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EAX);
+			return flowContinue;
+		}
+		case 13: {
+			jitcClobberAll();
+			asmCALL((NativeAddress)ppc_get_cpu_timebase);
+			jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
+			return flowContinue;
+		}
 		case 16: move_reg(PPC_GPR(rD), PPC_SPRG(0)); return flowContinue;
 		case 17: move_reg(PPC_GPR(rD), PPC_SPRG(1)); return flowContinue;
 		case 18: move_reg(PPC_GPR(rD), PPC_SPRG(2)); return flowContinue;
