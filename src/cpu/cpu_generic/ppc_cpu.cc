@@ -215,7 +215,7 @@ void ppc_cpu_run()
 	}
 }
 
-void ppc_stop()
+void ppc_cpu_stop()
 {
 	sys_lock_mutex(exception_mutex);
 	gCPU.stop_exception = true;
