@@ -605,8 +605,6 @@ align 16
 ;;
 ;;
 ppc_heartbeat_ext_rel_asm:
-	mov	[gCPU+start_pc_ofs], eax
-	mov	[gCPU+pc_ofs], eax
 	test	byte [gCPU+exception_pending], 1
 	jnz	.handle_exception
 .back:
@@ -631,16 +629,13 @@ ppc_heartbeat_ext_rel_asm:
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	ppc_heartbeat_ext_asm
-;;	eax -- 
+;;	eax -- new pc
 ;;
 ppc_heartbeat_ext_asm:
-	mov	ebx, eax
 	mov	edx, eax
-	and	ebx, 0x00000fff
 	and	edx, 0xfffff000
-	mov	[gCPU+pc_ofs], ebx
-	mov	[gCPU+current_code_base], edx
 	test	byte [gCPU+exception_pending], 1
+	mov	[gCPU+current_code_base], edx
 	jnz	.handle_exception
 .back:
 	ret
@@ -668,7 +663,6 @@ align 16
 ;;	ppc_new_pc_rel_asm
 ;;
 ;;	IN: eax new client pc relative
-;;	    esi current client pc offset
 ;;
 ;;	does not return, so call this per JMP
 ppc_new_pc_rel_asm:
@@ -700,7 +694,6 @@ align 16
 ;;
 ppc_new_pc_this_page_asm:
 	add	eax, [gCPU+current_code_base]
-	mov	esi, [gCPU+pc_ofs]
 	push	4
 	call	ppc_effective_to_physical_code
 	call	jitcNewPC
