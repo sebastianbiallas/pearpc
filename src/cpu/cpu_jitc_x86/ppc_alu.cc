@@ -737,6 +737,7 @@ JITCFlow ppc_opc_gen_cmp()
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 	asmALURegReg(X86_CMP, a, b);
+#if 0
 	if (cr == 0) {
 		asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
 	} else {
@@ -744,6 +745,13 @@ JITCFlow ppc_opc_gen_cmp()
 		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
 		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
 	}
+#else
+	if (cr & 1) {
+		jitcFlushFlagsAfterCMP_L((7-cr)/2);
+	} else {
+		jitcFlushFlagsAfterCMP_U((7-cr)/2);
+	}
+#endif
 	return flowContinue;
 }
 /*
@@ -782,6 +790,7 @@ JITCFlow ppc_opc_gen_cmpi()
 	jitcClobberCarryAndFlags();
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	asmALURegImm(X86_CMP, a, imm);
+#if 0
 	if (cr == 0) {
 		asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
 	} else {
@@ -789,6 +798,13 @@ JITCFlow ppc_opc_gen_cmpi()
 		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
 		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
 	}
+#else
+	if (cr & 1) {
+		jitcFlushFlagsAfterCMP_L((7-cr)/2);
+	} else {
+		jitcFlushFlagsAfterCMP_U((7-cr)/2);
+	}
+#endif
 	return flowContinue;
 }
 /*
@@ -826,6 +842,7 @@ JITCFlow ppc_opc_gen_cmpl()
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 	asmALURegReg(X86_CMP, a, b);
+#if 0
 	if (cr == 0) {
 		asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
 	} else {
@@ -833,6 +850,13 @@ JITCFlow ppc_opc_gen_cmpl()
 		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
 		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
 	}
+#else
+	if (cr & 1) {
+		jitcFlushFlagsAfterCMPL_L((7-cr)/2);
+	} else {
+		jitcFlushFlagsAfterCMPL_U((7-cr)/2);
+	}
+#endif
 	return flowContinue;
 }
 /*
@@ -871,6 +895,7 @@ JITCFlow ppc_opc_gen_cmpli()
 	jitcClobberCarryAndFlags();
 	NativeReg a = jitcGetClientRegister(PPC_GPR(rA));
 	asmALURegImm(X86_CMP, a, imm);
+#if 0
 	if (cr == 0) {
 		asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
 	} else {
@@ -878,6 +903,13 @@ JITCFlow ppc_opc_gen_cmpli()
 		asmMOVRegImm_NoFlags(EAX, (7-cr)/2);
 		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
 	}
+#else
+	if (cr & 1) {
+		jitcFlushFlagsAfterCMPL_L((7-cr)/2);
+	} else {
+		jitcFlushFlagsAfterCMPL_U((7-cr)/2);
+	}
+#endif
 	return flowContinue;
 }
 
@@ -1972,6 +2004,25 @@ void ppc_opc_rlwimix()
 		ppc_update_cr0(gCPU.gpr[rA]);
 	}
 }
+static void ppc_opc_gen_rotl_and(NativeReg r, int SH, uint32 mask)
+{
+	SH &= 0x1f;
+	if (SH) {
+		if (mask & ((1<<SH)-1)) {
+			if (mask & ~((1<<SH)-1)) {
+				if (SH == 31) {
+					asmShiftRegImm(X86_ROR, r, 1);
+				} else {
+					asmShiftRegImm(X86_ROL, r, SH);
+				}
+			} else {
+				asmShiftRegImm(X86_SHR, r, 32-SH);
+			}
+		} else {
+			asmShiftRegImm(X86_SHL, r, SH);
+		}
+	}	
+}
 JITCFlow ppc_opc_gen_rlwimix()
 {
 	int rS, rA, SH, MB, ME;
@@ -1986,7 +2037,7 @@ JITCFlow ppc_opc_gen_rlwimix()
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg tmp = jitcAllocRegister();
 	asmALURegReg(X86_MOV, tmp, s);
-	if (SH & 0x1f) asmShiftRegImm(X86_ROL, tmp, SH & 0x1f);
+	ppc_opc_gen_rotl_and(tmp, SH, mask);
 	asmALURegImm(X86_AND, a, ~mask);
 	asmALURegImm(X86_AND, tmp, mask);
 	asmALURegReg(X86_OR, a, tmp);
@@ -2030,10 +2081,15 @@ JITCFlow ppc_opc_gen_rlwinmx()
 		a = jitcMapClientRegisterDirty(PPC_GPR(rA));
 		asmALURegReg(X86_MOV, a, s);
 	}
-	if (SH & 0x1f) asmShiftRegImm(X86_ROL, a, SH & 0x1f);
 	uint32 mask = ppc_mask(MB, ME);
+	ppc_opc_gen_rotl_and(a, SH, mask);
 	asmALURegImm(X86_AND, a, mask);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
+		/*
+		 *	Important side-node:
+		 *	ROL doesn't update the flags, so beware if you want to
+		 *	get rid of the above AND
+		 */
 		jitcMapFlagsDirty();
 	}
 	return flowContinue;
