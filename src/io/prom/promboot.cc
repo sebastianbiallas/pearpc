@@ -267,7 +267,7 @@ bool mapped_load_elf(File &f)
 {
 	String fn;
 	gDisplay->printf("ELF: trying to load '%y'\n", &f.getDesc(fn));
-	ht_printf("ELF: trying to load '%y'\n", &fn);
+	IO_PROM_TRACE("ELF: trying to load '%y'\n", &fn);
 	try {
 		// FIXME: better code
 		byte magic[4];
@@ -275,7 +275,7 @@ bool mapped_load_elf(File &f)
 		f.readx(magic, 4);
 		if ((magic[0] != 0x7f) || (magic[1] != 'E') 
 		|| (magic[2] != 'L') ||(magic[3] != 'F')) {
-			ht_printf("no ELF\n");
+			IO_PROM_TRACE("no ELF\n");
 			return false;
 		}
 
@@ -287,7 +287,7 @@ bool mapped_load_elf(File &f)
 		uint32 stack=0;
 		uint32 stackp=0;
 		for (int i=0; i<program_hdrs; i++) {
-//			ht_printf("program header %d:\n", i);
+//			IO_PROM_TRACE("program header %d:\n", i);
 			ELF_PROGRAM_HEADER32 program_hdr;
 			f.seek(0x34+i*sizeof program_hdr);
 			f.readx(&program_hdr, sizeof program_hdr);
@@ -300,7 +300,7 @@ bool mapped_load_elf(File &f)
 			byte page[4096];
 			byte *ptr;
 			while (pages_from_file) {
-//				ht_printf("loading from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
+//				IO_PROM_TRACE("loading from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
 				f.readx(page, sizeof page);
 		    		if (!init_page_create(ea, la)) return false;
 				if (ppc_direct_physical_memory_handle(la, ptr)) {
@@ -374,7 +374,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 {
 	String fn;
 	gDisplay->printf("XCOFF trying to load '%y'\n", &f.getDesc(fn));
-	ht_printf("XCOFF trying to load '%y'\n", &fn);
+	IO_PROM_TRACE("XCOFF trying to load '%y'\n", &fn);
 
 	f.seek(disp_ofs);
 	try {
@@ -382,11 +382,11 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 		f.readx(&hdr, sizeof hdr);
 		createHostStructx(&hdr, sizeof hdr, COFF_HEADER_struct, big_endian);
 		if (hdr.machine != 0x1df) {
-			ht_printf("invalid machine %04x (expecting 01df)\n", hdr.machine);
+			IO_PROM_TRACE("invalid machine %04x (expecting 01df)\n", hdr.machine);
 			return false;
 		}
 		if (hdr.optional_header_size != 0x48) {
-			ht_printf("invalid optional header size %04x (expecting 0048)\n", hdr.optional_header_size);
+			IO_PROM_TRACE("invalid optional header size %04x (expecting 0048)\n", hdr.optional_header_size);
 			return false;
 		}
 		uint32 stack=0;
@@ -404,7 +404,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 			f.readx(&shdr, sizeof shdr);
 			createHostStructx(&shdr, sizeof shdr, COFF_SECTION_HEADER_struct, big_endian);
 			if ((entrypoint >= shdr.data_address) && (entrypoint < shdr.data_address+shdr.data_size)) {
-				ht_printf("found entrypoint-structure in section %d\n", i);
+				IO_PROM_TRACE("found entrypoint-structure in section %d\n", i);
 				entrypoint_ofs = entrypoint - shdr.data_address + shdr.data_offset;
 			}
 			uint32 in_file_size = (shdr.data_offset) ? shdr.data_size : 0;
@@ -454,7 +454,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 			stackp = pa;
 		}
 		if (!entrypoint_ofs) {
-			ht_printf("couldn't find entrypoint offset\n");
+			IO_PROM_TRACE("couldn't find entrypoint offset\n");
 			return false;
 		}
 		// allocate stack
@@ -468,7 +468,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 		f.seek(disp_ofs+entrypoint_ofs);
 		f.read(&real_entrypoint, 4);
 		real_entrypoint = createHostInt(&real_entrypoint, 4, big_endian);
-		ht_printf("real_entrypoint = %08x\n", real_entrypoint);
+		IO_PROM_TRACE("real_entrypoint = %08x\n", real_entrypoint);
 		// turn on address translation
 		gCPU.msr = MSR_IR | MSR_DR | MSR_FP;
 
@@ -550,7 +550,7 @@ static void readCHRPIcon(byte *icon, char *&t, uint width, uint height)
 
 static bool chrpBoot(const char *bootpath, const char *bootargs)
 {
-	ht_printf("CHRP boot file (bootpath = %s, bootargs = %s).\n", bootpath, bootargs);
+	IO_PROM_TRACE("CHRP boot file (bootpath = %s, bootargs = %s).\n", bootpath, bootargs);
 	// set bootpath in device tree
 	PromNode *chosen = findDevice("/chosen", FIND_DEVICE_FIND, NULL);
 	if (chosen) {
@@ -581,7 +581,7 @@ static bool chrpBoot(const char *bootpath, const char *bootargs)
 
 	PromInstanceDiskFile *ix = dynamic_cast<PromInstanceDiskFile*>(handleToInstance(ih));
 	if (!ix || !ix->mFile) {
-		ht_printf("couldn't load CHRP boot file (1) (bootpath = %s).\n", bootpath);
+		IO_PROM_TRACE("couldn't load CHRP boot file (1) (bootpath = %s).\n", bootpath);
 		return false;
 	}
 
@@ -591,7 +591,7 @@ static bool chrpBoot(const char *bootpath, const char *bootargs)
 	if (!mapped_load_elf(*f)
 	&&  !mapped_load_xcoff(*f, 0)
 	&&  !mapped_load_chrp(*f)) {
-		ht_printf("couldn't load CHRP boot file (2) (bootpath = %s).\n", bootpath);
+		IO_PROM_TRACE("couldn't load CHRP boot file (2) (bootpath = %s).\n", bootpath);
 		pn->close(ih);
 		return false;
 	}
@@ -603,13 +603,13 @@ bool mapped_load_chrp(File &f)
 {
 	String fn;
 	gDisplay->printf("CHRP: trying to load '%y'\n", &f.getDesc(fn));
-	ht_printf("CHRP: trying to load '%y'\n", &fn);
+	IO_PROM_TRACE("CHRP: trying to load '%y'\n", &fn);
 	try {
 		char hdr[13];
 		f.seek(0);
 		if (f.read(hdr, 12) != 12) return false;
 		hdr[12] = 0;
-		ht_printf("header: %s\n", hdr);
+		IO_PROM_TRACE("header: %s\n", hdr);
 		if (strncmp(hdr, "<CHRP-BOOT>\n", sizeof hdr)) return false;
 		char buf[32*1024];
 		uint buflen;
@@ -618,7 +618,7 @@ bool mapped_load_chrp(File &f)
 		while (1) {
 			chrpReadWaitForChar(f, buf, sizeof buf, '\n');
 			buflen = strlen(buf);
-			ht_printf("read: %s\n", buf);
+			IO_PROM_TRACE("read: %s\n", buf);
 			if ((buf[0] != '<') || (buflen<3) || (buf[buflen-1] != '>')) return false;
 			if (buf[1] == '/') {
 				if (memcmp(buf, "</CHRP-BOOT>\n", buflen) != 0) return false;
@@ -638,9 +638,9 @@ bool mapped_load_chrp(File &f)
 			expect[buflen+1] = '\n';
 			expect[buflen+2] = 0;
 			strcpy(tag, buf);
-			ht_printf("waitforstring: %s\n", expect);
+			IO_PROM_TRACE("waitforstring: %s\n", expect);
 			chrpReadWaitForString(f, buf, sizeof buf, expect);
-			ht_printf("found: %s\n", buf);
+			IO_PROM_TRACE("found: %s\n", buf);
 			if (strcmp(tag, "<BOOT-SCRIPT>") == 0) {
 				char *bootpath = strstr(buf, "boot ");
 				if (bootpath) {
@@ -737,7 +737,7 @@ bool mapped_load_chrp(File &f)
 		return false;
 	} catch (Exception *x) {
 		String s;
-		ht_printf("found: %y\n", &x->reason(s));
+		IO_PROM_TRACE("mapped_load_chrp: exception: %y\n", &x->reason(s));
 		return false;
 	} catch (...) {
 		return false;
@@ -813,7 +813,7 @@ bool mapped_load_direct(File &f, uint vaddr, uint pc)
 {
 	String fn;
 	gDisplay->printf("direct: trying to load '%y'\n", &f.getDesc(fn));
-	ht_printf("direct: trying to load '%y'\n", &fn);
+	IO_PROM_TRACE("direct: trying to load '%y'\n", &fn);
 
 	byte *pt;
 
@@ -1117,11 +1117,11 @@ bool prom_load_boot_file()
 			if (!mapped_load_elf(f)
 			&&  !mapped_load_xcoff(f, 0)
 			&&  !mapped_load_chrp(f)) {
-				ht_printf("couldn't load '%y'.\n", &loadfile);
+				IO_PROM_WARN("couldn't load '%y'.\n", &loadfile);
 				return false;
 			}
 		} else {
-			IO_PROM_ERR("bootmethod is force, but no prom_loadfile defined\n");
+			IO_PROM_ERR("bootmethod is 'force', but no prom_loadfile defined\n");
 			return false;
 		}
 	} else {
@@ -1131,18 +1131,17 @@ bool prom_load_boot_file()
 		uint32 msize;
 		bool direct;
 		if (!prom_user_boot_partition(f, msize, direct, loadAddr, entryAddr)) {
-			ht_printf("Can't boot a partition.\nTry bootmethod 'force' and specify a 'prom_loadfile' in your config-file...\n");
+			IO_PROM_WARN("Can't boot a partition.\nTry bootmethod 'force' and specify a 'prom_loadfile' in your config-file...\n");
 			return false;
 		}
-		ht_printf("msize = %d\n", msize);
 		if (direct) {
 			if (!mapped_load_direct(*f, loadAddr, entryAddr)) {
-				ht_printf("couldn't load.\n");
+				IO_PROM_TRACE("couldn't load.\n");
 				return false;
 			}
 		} else {
 			if (!mapped_load_chrp(*f)) {
-				ht_printf("couldn't load.\n");
+				IO_PROM_TRACE("couldn't load.\n");
 				return false;
 			}
 		}

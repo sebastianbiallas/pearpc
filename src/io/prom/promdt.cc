@@ -699,7 +699,7 @@ PromInstance *PromNodeDisk::createInstance(const String &param)
 		}
 		PartitionEntry *pe = (PartitionEntry*)((*pm->getPartitions())[partNumber]);
 		char *f = file.contentChar();
-//		file.translate("\\", "/");
+		file.translate("\\", "/");
 		int flen = file.length();
 		if (!pe || !pe->mInstantiateFileSystem) {
 			IO_PROM_WARN("can't instantiate file system\n");
@@ -711,7 +711,7 @@ PromInstance *PromNodeDisk::createInstance(const String &param)
 		if (!mFS) mFS = pe->mInstantiateFileSystem(mDevice, partNumber);
 		String filename;
 		File *file = NULL;
-		if ((flen >= 2) && ((f[0] == '\\') && (f[1] == '\\'))) {
+		if ((flen >= 2) && ((f[0] == '/') && (f[1] == '/'))) {
 			IO_PROM_TRACE("FS: in boot path\n");
 			if (mFS->getBlessedPath(filename)) {
 				filename.append(f+2);
@@ -1480,6 +1480,7 @@ void prom_init_device_tree()
 	0x82,0x00,0x38,0x10, 0x00,0x00,0x00,0x00, UINT32(IO_GCARD_FRAMEBUFFER_PA_START), 0x00,0x00,0x00,0x00,
 	0x01,0x00,0x00,0x00,
 	};
+	aty->addProp(new PromPropMemory("assigned-addresses", &assigned_addresses, sizeof assigned_addresses));
 	
 	aliases->addProp(new PromPropString("pci", "/pci"));
 	aliases->addProp(new PromPropString("bridge", "/pci/pci-bridge"));

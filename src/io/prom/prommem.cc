@@ -59,7 +59,7 @@ bool prom_claim_page(uint32 phys)
 {
 	uint32 page = phys / 4096;
 	if (gPhysMemoryUsed[page / 8] & (1<<(page&0x7))) {
-		ht_printf("%08x in use!\n", phys);
+		IO_PROM_WARN("%08x in use!\n", phys);
 		return false;
 	}
 	gPhysMemoryUsed[page / 8] |= (1<<(page&0x7));
@@ -159,8 +159,7 @@ void *prom_mem_ptr(uint32 pa)
 void prom_mem_set(uint32 pa, int c, int size)
 {
 	if (pa >= gMemorySize || (pa+size) >= gMemorySize) {
-		ht_printf("in mem_set\n");
-		exit(1);
+		IO_PROM_ERR("in mem_set\n");
 	}	
 	memset(gMemory+pa, c, size);
 }
@@ -169,8 +168,7 @@ uint32 prom_mem_malloc(uint32 size)
 {
 //	ht_printf("malloc: %d", size);
 	if (!size) {
-		ht_printf("zero byte allocation!\n");
-		exit(1);
+		IO_PROM_ERR("zero byte allocation!\n");
 	}
 	size = (size+7) & ~7;
 	size += sizeof(malloc_entry);
@@ -207,8 +205,7 @@ uint32 prom_mem_malloc(uint32 size)
 			gPromMemFreeBlock = (malloc_entry*)prom_mem_ptr(gPromMemFreeBlockp);
 			if (gPromMemFreeBlock->size & MALLOC_BLOCK_GUARD) {
 				if (i) {
-					ht_printf("out of memory!\n");
-					exit(1);
+					IO_PROM_ERR("out of memory!\n");
 				}
 				i++;
 				gPromMemFreeBlockp = gPromMemLastBlock->prev;
@@ -223,13 +220,11 @@ void prom_mem_free(uint32 p)
 {
 	p -= sizeof(malloc_entry);
 	malloc_entry *block = (malloc_entry*)prom_mem_ptr(p);
-	if (block->size & MALLOC_BLOCK_FREE) {
-		ht_printf("attempt to free unused block!\n");
-		exit(1);
+	if (block->size & MALLOC_BLOCK_FREE) {	
+		IO_PROM_ERR("attempt to free unused block!\n");
 	}
 	if (block->size & MALLOC_BLOCK_GUARD) {
-		ht_printf("attempt to free guard block!\n");
-		exit(1);
+		IO_PROM_ERR("attempt to free guard block!\n");
 	}
 	malloc_entry *prev = (malloc_entry*)prom_mem_ptr(block->prev);
 	malloc_entry *next = (malloc_entry*)prom_mem_ptr(p+block->size);

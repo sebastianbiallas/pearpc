@@ -20,6 +20,7 @@
 
 #include <string.h>
 
+#include "debug/tracers.h"
 #include "hfsplus.h"
 #include "tools/endianess.h"
 #include "tools/except.h"
@@ -260,8 +261,8 @@ bool tryBootHFSPlus(File *aDevice, uint aDeviceBlocksize, FileOfs start, Partiti
 	if (aDevice->read((byte*)&HP_VH, sizeof HP_VH) == sizeof HP_VH) {
 		createHostStructx(&HP_VH, sizeof HP_VH, HFSPlusVolumeHeader_struct, big_endian);
 		if ((HP_VH.signature == HFSPlusSigWord) || (HP_VH.signature == HFSXSigWord)) {
-			ht_fprintf(stderr, "contains HFS+/HFSX volume (startup file size %08x, total blocks %d)\n", HP_VH.startupFile.logicalSize, HP_VH.startupFile.totalBlocks);
-			ht_fprintf(stderr, "finderinfo[0]=%08x\n", HP_VH.finderInfo[0]);
+			IO_PROM_FS_TRACE("contains HFS+/HFSX volume (startup file size %08x, total blocks %d)\n", HP_VH.startupFile.logicalSize, HP_VH.startupFile.totalBlocks);
+			IO_PROM_FS_TRACE("finderinfo[0]=%08x\n", HP_VH.finderInfo[0]);
 			return doTryBootHFSPlus(HP_VH, aDevice, aDeviceBlocksize, start, partEnt);
 		}
 	}
@@ -312,7 +313,7 @@ static bool doTryBootHFSPlus(const HFSPlusVolumeHeader &vh, File *aDevice, uint 
 		partEnt->mInstantiateFileSystem = HFSPlusInstantiateFileSystem;
 		partEnt->mBootMethod = BM_chrp;
 		return true;
-	} else ht_fprintf(stderr, "couldn't mount HFS+ partition.\n");
+	} else IO_PROM_FS_TRACE("couldn't mount HFS+ partition.\n");
 	return false;
 }
 
@@ -452,7 +453,7 @@ File *HFSPlusFileSystem::openBootFile()
 		case HFSP_FOLDER: {
 //			char buf[256];
 //			unicode_uni2asc(buf, &rec.key.name, sizeof buf);
-//			ht_fprintf(stderr, "folder: %s\n", buf);
+//			IO_PROM_FS_TRACE("folder: %s\n", buf);
 			break;
 		}
 		case HFSP_FILE: {
@@ -475,17 +476,17 @@ File *HFSPlusFileSystem::openBootFile()
 			if (strcmp(t2, "tbxi") == 0) {
 				return new HFSPlusFile(vol, rec.record.u.file, this, true);
 			}
-//			ht_fprintf(stderr, "file: %4s/%4s %s\n", t2, c2, buf);
+//			IO_PROM_FS_TRACE("file: %4s/%4s %s\n", t2, c2, buf);
 			break;
 		}
 		case HFSP_FOLDER_THREAD: {
 //			char buf[256];
 //			unicode_uni2asc(buf, &rec.record.u.thread.nodeName, sizeof buf);
-//			ht_fprintf(stderr, "folder thread: %s\n", buf);
+//			IO_PROM_FS_TRACE("folder thread: %s\n", buf);
 			break;
 		}
 		case HFSP_FILE_THREAD: {
-//			ht_fprintf(stderr, "file thread\n");
+//			IO_PROM_FS_TRACE("file thread\n");
 			break;
 		}
 		}

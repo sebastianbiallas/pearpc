@@ -20,6 +20,7 @@
 
 #include <string.h>
 
+#include "debug/tracers.h"
 #include "hfs.h"
 #include "hfsstruct.h"
 #include "hfsplus.h"
@@ -248,15 +249,15 @@ bool tryBootHFS(File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEn
 		if (mdb.drSigWord == HFSSigWord) {
 			if (mdb.drEmbedSigWord == HFSPlusSigWord) {
 				// HFS+ (embedded in HFS)
-				ht_fprintf(stderr, "contains HFS volume, embedding a HFS+ volume\n");
-				ht_fprintf(stderr, "start=%08x, count=%08x\n",
+				IO_PROM_FS_TRACE("contains HFS volume, embedding a HFS+ volume\n");
+				IO_PROM_FS_TRACE("start=%08x, count=%08x\n",
 					mdb.drEmbedExtent.startBlock, 
 					mdb.drEmbedExtent.blockCount);
-				ht_fprintf(stderr, "FIXME: start-offset?\n");
+				IO_PROM_FS_TRACE("FIXME: start-offset?\n");
 //				return tryBootHFSPlus(aDevice, start, partEnt);
 				return false;
 			} else {
-				ht_fprintf(stderr, "contains HFS volume\n");
+				IO_PROM_FS_TRACE("contains HFS volume\n");
 				return doTryBootHFS(mdb, aDevice, aDeviceBlocksize, start, partEnt);
 			}
 		}
@@ -299,7 +300,7 @@ static bool doTryBootHFS(const HFSMDB &mdb, File *aDevice, uint aDeviceBlocksize
 		partEnt->mInstantiateFileSystem = HFSInstantiateFileSystem;
 		partEnt->mBootMethod = BM_chrp;
 		return true;
-	} else ht_fprintf(stderr, "couldn't mount HFS partition.\n");
+	} else IO_PROM_FS_TRACE("couldn't mount HFS partition.\n");
 	return false;
 }
 
@@ -380,25 +381,25 @@ File *HFSFileSystem::openBootFile()
 	uint startupFolderID = vol->mdb.drFndrInfo[0];
 	hfsdir *dir = hfs_opendir_by_id(vol, startupFolderID);
 	if (!dir) {
-		ht_fprintf(stderr, "couldn't get Startup Folder of HFS partition.\n");
+		IO_PROM_FS_TRACE("couldn't get Startup Folder of HFS partition.\n");
 		return NULL;
 	}
 	hfsdirent dirent;
 	while (hfs_readdir(dir, &dirent) == 0) {
-//		ht_fprintf(stderr, "%-4s %08x %s\n", dirent.u.file.type, dirent.cnid, dirent.name);
+//		IO_PROM_FS_TRACE("%-4s %08x %s\n", dirent.u.file.type, dirent.cnid, dirent.name);
 		if (strcmp(dirent.u.file.type, "tbxi") == 0) {
 			hfsfile *file = hfs_open_by_dirent(vol, &dirent);
 			if (file) {
-/*				ht_fprintf(stderr, "got Startup FILE!\n");
+/*				IO_PROM_FS_TRACE("got Startup FILE!\n");
 				char buf[32];
 				hfs_read(file, buf, 32);
 				buf[31] = 0;
-				ht_fprintf(stderr, "%s\n", buf);*/
+				IO_PROM_FS_TRACE("%s\n", buf);*/
 				return new HFSFile(file, this, true);
 			}
 		}
 	}
-	ht_fprintf(stderr, "couldn't find a Startup File in the Startup Folder of the HFS partition.\n");
+	IO_PROM_FS_TRACE("couldn't find a Startup File in the Startup Folder of the HFS partition.\n");
 	return NULL;
 }
 

@@ -32,6 +32,9 @@
 //#define IO_CUDA_TRACE2(str...) ht_printf(str)
 #define IO_CUDA_TRACE2(str...) 
 
+//#define IO_CUDA_TRACE3(str...) ht_printf(str)
+#define IO_CUDA_TRACE3(str...) 
+
 #define RS		(0x200)
 #define B		0		/* B-side data */
 #define A		RS		/* A-side data */
@@ -216,7 +219,7 @@ void cuda_send_packet(uint8 type, int nb, ...)
 
 void cuda_receive_adb_packet()
 {
-	ht_printf("ADB_PACKET %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
+	IO_CUDA_TRACE3("ADB_PACKET %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
 //	gSinglestep = true;
 	IO_CUDA_TRACE2("ADB_PACKET ");
 	if (gCUDA.data[1] == ADB_BUSRESET) {
@@ -233,7 +236,7 @@ void cuda_receive_adb_packet()
 	}
 	int reg = cmd & 3;
 	cmd &= 0xc;
-	ht_printf("devaddr %x reg %x cmd %s\n", devaddr, reg, (cmd==ADB_WRITEREG)?"write":"read");
+	IO_CUDA_TRACE3("devaddr %x reg %x cmd %s\n", devaddr, reg, (cmd==ADB_WRITEREG)?"write":"read");
 	switch (cmd) {
 	case ADB_WRITEREG:
 		switch (reg) {

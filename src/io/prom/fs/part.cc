@@ -28,6 +28,7 @@
 
 #include <cstring>
 
+#include "debug/tracers.h"
 #include "tools/endianess.h"
 #include "tools/snprintf.h"
 #include "tools/except.h"
@@ -265,10 +266,10 @@ PartitionMapApple::PartitionMapApple(File *aDevice, uint aDeviceBlocksize)
 
 	if (apple_part->signature != APPLE_DRIVER_MAGIC) throw new Exception();
 
-	ht_fprintf(stderr, "New Apple partition map, (physical) blocksize %d/0x%08x\n", blocksize, blocksize);
+	IO_PROM_FS_TRACE("New Apple partition map, (physical) blocksize %d/0x%08x\n", blocksize, blocksize);
 	int map_size = 1;
-	ht_fprintf(stderr, "name             status   start    +data    datasize +boot    bootsize bootload bootentry\n"); 
-//	ht_fprintf(stderr, "0123456789123456 12345678 12345678 12345678 12345678 12345678 12345678 12345678 12345678\n");
+	IO_PROM_FS_TRACE("name             status   start    +data    datasize +boot    bootsize bootload bootentry\n"); 
+//	IO_PROM_FS_TRACE("0123456789123456 12345678 12345678 12345678 12345678 12345678 12345678 12345678 12345678\n");
 	for (int block = 1; block < map_size + 1; block++) {
 		aDevice->seek(block*blocksize);
 		if (aDevice->read(buffer, blocksize) != blocksize) continue;
@@ -282,7 +283,7 @@ PartitionMapApple::PartitionMapApple(File *aDevice, uint aDeviceBlocksize)
 		PartitionEntry *partEnt = addPartition(block, apple_part->name, apple_part->type, 
 			(apple_part->start_block+apple_part->data_start) * blocksize, 
 			apple_part->data_count * blocksize);
-		ht_fprintf(stderr, "%-16s %08x %08x %08x %08x %08x %08x %08x %08x\n",
+		IO_PROM_FS_TRACE("%-16s %08x %08x %08x %08x %08x %08x %08x %08x\n",
 			apple_part->name, apple_part->status,
 			apple_part->start_block*blocksize,
 			apple_part->data_start*blocksize,
@@ -342,7 +343,7 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 			return new PartitionMapApple(aDevice, aDeviceBlocksize);
 		} catch (Exception *e) {
 			String s;
-			ht_fprintf(stderr, "exception probing Apple partitions: %y\n", &e->reason(s));
+			IO_PROM_FS_TRACE("exception probing Apple partitions: %y\n", &e->reason(s));
 			delete e;
 		}
 	}
@@ -351,7 +352,7 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 			return new PartitionMapFDisk(aDevice, aDeviceBlocksize);
 		} catch (Exception *e) {
 			String s;
-			ht_fprintf(stderr, "exception probing fdisk partitions: %y\n", &e->reason(s));
+			IO_PROM_FS_TRACE("exception probing fdisk partitions: %y\n", &e->reason(s));
 			delete e;
 		}
 	}

@@ -207,7 +207,6 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 //					ht_printf("TLB: STORE %d: %08x -> %08x\n", gCPU.tlb_last, addr, pap);
 #endif
 					// update access bits
-					// FIXME: is someone actually using this?
 					if (flags & PPC_MMU_WRITE) {
 						pte |= PTE2_C | PTE2_R;
 					} else {
@@ -270,7 +269,6 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 					result = PTE2_RPN(pte) | offset;
 					
 					// update access bits
-					// FIXME: is someone actually using this?
 					if (flags & PPC_MMU_WRITE) {
 						pte |= PTE2_C | PTE2_R;
 					} else {
