@@ -42,8 +42,9 @@
 #define READ_SIZE	16384
 #define ERRORMSG_SIZE	1024
 
-static void GetErrorString(char *out, DWORD error) {
-	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+static void GetErrorString(char *out, DWORD error) 
+{
+	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
     		  	NULL,
     			error,
     			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
@@ -132,11 +133,9 @@ static bool is_tap_win32_dev(const char *guid)
 					(BYTE *)net_cfg_instance_id,
 					&len);
 
-				if (status == ERROR_SUCCESS && data_type == REG_SZ)
-				{
+				if (status == ERROR_SUCCESS && data_type == REG_SZ) {
 					if (!strcmp(component_id, "tap")
-					    && !strcmp(net_cfg_instance_id, guid))
-					{
+					    && !strcmp(net_cfg_instance_id, guid)) {
 						RegCloseKey(unit_key);
 						RegCloseKey(netcard_key);
 						return true;
