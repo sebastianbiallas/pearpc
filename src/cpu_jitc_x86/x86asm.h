@@ -161,6 +161,7 @@ void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1);
 void FASTCALL asmMOVRegImm_NoFlags(NativeReg reg1, uint32 imm);
 void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2);
 void FASTCALL asmSETReg(X86FlagTest flags, NativeReg reg1);
+void FASTCALL asmSETMem(X86FlagTest flags, byte *modrm, int len);
 void FASTCALL asmALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2);
 void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg reg1, byte *modrm, int len);
 void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2);
@@ -205,6 +206,7 @@ void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm);
 void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2);
 
 void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len);
+void FASTCALL asmBTxRegImm(X86BitTest opc, NativeReg reg1, int value);
 void FASTCALL asmBTxMemImm(X86BitTest opc, byte *modrm, int len, int value);
 void FASTCALL asmBSxRegReg(X86BitSearch opc, NativeReg reg1, NativeReg reg2);
 void FASTCALL asmBSWAP(NativeReg reg);
@@ -217,50 +219,87 @@ void FASTCALL asmCALL(NativeAddress to);
  
 void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to);
 
+enum NativeFloatReg {
+	Float_ST0=0,
+	Float_ST1=1,
+	Float_ST2=2,
+	Float_ST3=3,
+	Float_ST4=4,
+	Float_ST5=5,
+	Float_ST6=6,
+	Float_ST7=7,
+};
+
+#define X86_FLOAT_ST(i) ((X86FloatReg)(i))
+
+enum X86FloatFlagTest {
+	X86_FB=0,
+	X86_FE=1,
+	X86_FBE=2,
+	X86_FU=3,
+	X86_FNB=4,
+	X86_FNE=5,
+	X86_FNBE=6,
+	X86_FNU=7,
+};
+
+/*d8 = result st0
+dc = result sti
+de = result sti and pop*/
+enum X86FloatArithOp {
+	X86_FADD = 0xc0,  // .238
+	
+	// st(i)/st(0)
+	X86_FDIV = 0xf8,  //  .261
+
+	// st(0)/st(i)
+	X86_FRDIV = 0xf0,  //  .265
+
+	X86_FMUL = 0xc8,  // .288
+	
+	// st(i) - st(0)
+	X86_FSUB = 0xe8,  //  .327
+	
+	// st(0) - st(i)
+	X86_FRSUB = 0xe0,  //  .330
+};
+
+enum X86FloatCompOp {
+	//dbf0+i
+	X86_FCOMI = 0xf0db,  // .255
+	
+	//dff0+i
+	X86_FCOMIP = 0xf0df,  // .255
+
+	//dbe8+i
+	X86_FUCOMI = 0xe8db, // .255 
+	//dfe8+i
+	X86_FUCOMIP = 0xe8df, // .255 
+};
+	
 
 enum X86FloatOp {
-/*	d8c0+i  result st0
-	dcc0+i	result sti
-	dec0+i	result sti
-	X86_FADD = 0xf0;  // 238
-	
-	dbf0+i
-	X86_FCOMI = 0xf0;  // 255
-	
-	dff0+i
-	X86_FCOMIP = 0xf0;  // 255
-
-	dbe8+i
-	X86_FUCOMI = 0xe8; // 255 
-	dfe8+i
-	X86_FUCOMIP = 0xe8; // 255 
-	
-	d8f0+i  st0=st(0)/st(i)
-	dcf8+i	sti=st(i)/st(0)
-	def8+i	sti=st(i)/st(0)
-	X86_FDIV = 0xdef0;  //  261
-
-	d8f8+i  st0=st(i)/st(0)
-	dcf0+i	sti=st(0)/st(i)
-	def0+i	sti=st(0)/st(i)
-	X86_FRDIV = 0xdef0;  //  265*/
+	FRNDINT = 0xfcd9,
+	FSQRT = 0xfad9, // .314
+	FCHS = 0xe0d9, // .246
+	FLDZ = 0xeed9, // .282
 };
-void FASTCALL asmFCOMISTiST0(); 
-void FASTCALL asmFCOMIST0STi();
-void FASTCALL asmFUCOMISTiST0();
-void FASTCALL asmFUCOMIST0STi();
 
-void FASTCALL asmFloatMem();
-void FASTCALL asmFloatSTiST0();
-void FASTCALL asmFloatST0STi();
-void FASTCALL asmFloatPST0STi();
-void FASTCALL asmFCHS();
+//d9c8+i FXCH
+
+// .250 FCMOVcc
+
+void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti);
+void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm);
+void FASTCALL asmFArithST0(X86FloatArithOp op, NativeFloatReg sti);
+void FASTCALL asmFArithSTi(X86FloatArithOp op, NativeFloatReg sti);
+void FASTCALL asmFArithSTiP(X86FloatArithOp op, NativeFloatReg sti);
+void FASTCALL asmFXCHSTi(NativeFloatReg sti);
+void FASTCALL asmFSimpleST0(X86FloatOp op);
 void FASTCALL asmFLDSingleMem();
 void FASTCALL asmFLDDoubleMem();
 void FASTCALL asmFSTSingleMem();
 void FASTCALL asmFSTDoubleMem();
-
-
 
 /*
  *	reg1 must not be ESP

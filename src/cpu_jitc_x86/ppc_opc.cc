@@ -621,8 +621,9 @@ void ppc_opc_mcrxr()
 	crD >>= 2;
 	crD = 7-crD;
 	gCPU.cr &= ppc_cmp_and_mask[crD];
-	gCPU.cr |= ((gCPU.xer & 0xf0000000)>>28)<<(crD*4);
+	gCPU.cr |= (((gCPU.xer & 0xf0000000) | (gCPU.xer_ca ? XER_CA : 0))>>28)<<(crD*4);
 	gCPU.xer = ~0xf0000000;
+	gCPU.xer_ca = 0;
 }
 JITCFlow ppc_opc_gen_mcrxr()
 {
@@ -724,7 +725,7 @@ void ppc_opc_mfspr()
 	switch (spr2) {
 	case 0:
 		switch (spr1) {
-		case 1: gCPU.gpr[rD] = gCPU.xer; return;
+		case 1: gCPU.gpr[rD] = gCPU.xer | (gCPU.xer_ca ? XER_CA : 0); return;
 		case 8: gCPU.gpr[rD] = gCPU.lr; return;
 		case 9: gCPU.gpr[rD] = gCPU.ctr; return;
 		}
@@ -816,7 +817,17 @@ JITCFlow ppc_opc_gen_mfspr()
 	switch (spr2) {
 	case 0:
 		switch (spr1) {
-		case 1: move_reg(PPC_GPR(rD), PPC_XER); return flowContinue;
+		case 1: {
+			jitcClobberFlags();
+			jitcGetClientCarry();
+			NativeReg reg2 = jitcGetClientRegister(PPC_XER);
+			NativeReg reg1 = jitcMapClientRegisterDirty(PPC_GPR(rD));
+			asmALURegReg(X86_SBB, reg1, reg1);   // reg1 = CA ? -1 : 0
+			asmALURegImm(X86_AND, reg1, XER_CA); // reg1 = CA ? XER_CA : 0
+			asmALURegReg(X86_OR, reg1, reg2);
+			jitcClobberCarry();
+			return flowContinue;
+		}
 		case 8: move_reg(PPC_GPR(rD), PPC_LR); return flowContinue;
 		case 9: move_reg(PPC_GPR(rD), PPC_CTR); return flowContinue;
 		}
@@ -1116,7 +1127,10 @@ void ppc_opc_mtspr()
 	switch (spr2) {
 	case 0:
 		switch (spr1) {
-		case 1: gCPU.xer = gCPU.gpr[rS]; return;
+		case 1:
+			gCPU.xer = gCPU.gpr[rS] & ~XER_CA;
+			gCPU.xer_ca = !!(gCPU.gpr[rS] & XER_CA);
+			return;
 		case 8:	gCPU.lr = gCPU.gpr[rS]; return;
 		case 9:	gCPU.ctr = gCPU.gpr[rS]; return;
 		}
@@ -1265,7 +1279,16 @@ JITCFlow ppc_opc_gen_mtspr()
 	switch (spr2) {
 	case 0:
 		switch (spr1) {
-		case 1: move_reg(PPC_XER, PPC_GPR(rS)); return flowContinue;
+		case 1: {
+			jitcClobberFlags();
+			NativeReg reg2 = jitcGetClientRegister(PPC_GPR(rS));
+			NativeReg reg1 = jitcMapClientRegisterDirty(PPC_XER);
+			asmALURegReg(X86_MOV, reg1, reg2);
+			asmALURegImm(X86_AND, reg1, ~XER_CA);
+			asmBTxRegImm(X86_BT, reg2, 29);
+			jitcMapCarryDirty();
+			return flowContinue;
+		}
 		case 8:	move_reg(PPC_LR, PPC_GPR(rS)); return flowContinue;
 		case 9:	move_reg(PPC_CTR, PPC_GPR(rS)); return flowContinue;
 		}

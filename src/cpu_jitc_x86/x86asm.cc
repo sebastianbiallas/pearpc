@@ -465,9 +465,16 @@ void FASTCALL jitcGetClientCarry()
 {
 	if (gJITC.nativeCarryState == rsUnused) {
 		jitcClobberFlags();
+
+#if 0
 		// bt [gCPU.xer], XER_CA
 		byte modrm[6];
 		asmBTxMemImm(X86_BT, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer), 29);
+#else
+		// bt [gCPU.xer_ca], 0
+		byte modrm[6];
+		asmBTxMemImm(X86_BT, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca), 0);
+#endif
 		gJITC.nativeCarryState = rsMapped;
 	}
 }
@@ -498,11 +505,18 @@ void FASTCALL jitcMapCarryDirty()
 	gJITC.nativeCarryState = rsDirty;
 }
 
+static inline void FASTCALL jitcFlushCarry()
+{
+	byte modrm[6];
+	asmSETMem(X86_C, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca));
+}
+
 void FASTCALL jitcClobberFlags()
 {
 	if (gJITC.nativeFlagsState == rsDirty) {
 		if (gJITC.nativeCarryState == rsDirty) {
-			asmCALL((NativeAddress)ppc_flush_carry_and_flags_asm);
+			jitcFlushCarry();
+			asmCALL((NativeAddress)ppc_flush_flags_asm);
 		} else {
 			asmCALL((NativeAddress)ppc_flush_flags_asm);
 		}
@@ -514,6 +528,8 @@ void FASTCALL jitcClobberFlags()
 void FASTCALL jitcClobberCarry()
 {
 	if (gJITC.nativeCarryState == rsDirty) {
+		jitcFlushCarry();
+#if 0
 		if (gJITC.nativeFlagsState == rsDirty) {
 			asmCALL((NativeAddress)ppc_flush_carry_and_flags_asm);
 		} else {
@@ -527,6 +543,7 @@ void FASTCALL jitcClobberCarry()
 			asmResolveFixup(fixup2, asmHERE());
 		}
 		gJITC.nativeFlagsState = rsUnused;
+#endif
 	}
 	gJITC.nativeCarryState = rsUnused;
 }
@@ -535,7 +552,8 @@ void FASTCALL jitcClobberCarryAndFlags()
 {
 	if (gJITC.nativeCarryState == rsDirty) {
 		if (gJITC.nativeFlagsState == rsDirty) {
-			asmCALL((NativeAddress)ppc_flush_carry_and_flags_asm);
+			jitcFlushCarry();
+			asmCALL((NativeAddress)ppc_flush_flags_asm);
 			gJITC.nativeCarryState = gJITC.nativeFlagsState = rsUnused;
 		} else {
 			jitcClobberCarry();
@@ -551,9 +569,11 @@ void FASTCALL jitcClobberCarryAndFlags()
 void FASTCALL jitcFlushCarryAndFlagsDirty()
 {
 	if (gJITC.nativeCarryState == rsDirty) {
+		jitcFlushCarry();
 		if (gJITC.nativeFlagsState == rsDirty) {
-			asmCALL((NativeAddress)ppc_flush_carry_and_flags_asm);
+			asmCALL((NativeAddress)ppc_flush_flags_asm);
 		} else {
+#if 0
 			NativeAddress fixup = asmJxxFixup(X86_C);
 			byte modrm[6];
 			asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer+3), ~(1<<5));
@@ -561,6 +581,7 @@ void FASTCALL jitcFlushCarryAndFlagsDirty()
 			asmResolveFixup(fixup, asmHERE());
 			asmALUMemImm8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer+3), 1<<5);
 			asmResolveFixup(fixup2, asmHERE());
+#endif
 		}
 	} else {
 		if (gJITC.nativeFlagsState == rsDirty) {
@@ -1040,6 +1061,15 @@ void FASTCALL asmSETReg(X86FlagTest flags, NativeReg reg1)
 	jitcEmit(instr, sizeof(instr));
 }
 
+void FASTCALL asmSETMem(X86FlagTest flags, byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0x0f;
+	instr[1] = 0x90+flags;
+	memcpy(instr+2, modrm, len);
+	jitcEmit(instr, len+2);
+}
+
 void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[3] = {0x0f, 0x40+flags, 0xc0+(reg1<<3)+reg2};
@@ -1099,6 +1129,12 @@ void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= reg1<<3;
 	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmBTxRegImm(X86BitTest opc, NativeReg reg1, int value)
+{
+	byte instr[4] = {0x0f, 0xba, 0xc0+(opc<<3)+reg1, value};
+	jitcEmit(instr, sizeof instr);
 }
 
 void FASTCALL asmBTxMemImm(X86BitTest opc, byte *modrm, int len, int value)

@@ -10,6 +10,7 @@ version 0.2 (in progress):
 	- IO/IDE: regs are per device, not per controller
 	- implemented runtime video mode switching via video.x
 	- got rid of indexed modes
+	- better XER carry mapping
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- HFS partition code fixes (reportedly working)
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c

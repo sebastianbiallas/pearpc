@@ -42,6 +42,7 @@ struct PPC_CPU_State {
 	uint32 cr;
 	uint32 fpscr;
 	uint32 xer;	// spr 1
+	uint32 xer_ca;  // for jitc
 	uint32 lr;	// spr 8
 	uint32 ctr;	// spr 9
 	// * oea

@@ -175,6 +175,7 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.cr+2), new String("cr+2")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.cr+3), new String("cr+3")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.xer), new String("xer")));
+	symbols->insert(new KeyValue(new UInt((uint)&gCPU.xer_ca), new String("xer_ca")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.xer+3), new String("xer+3")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.msr), new String("msr")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.srr[0]), new String("srr0")));

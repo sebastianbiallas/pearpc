@@ -25,6 +25,7 @@ struc PPC_CPU_State
 	cr:	resd  1
 	fpscr:	resd  1
 	xer:	resd  1
+	xer_ca:	resd  1
 	lr:	resd  1
 	ctr:	resd  1
 
