@@ -654,8 +654,9 @@ void totalReset()
 	// MII
 	memset(mMIIRegs, 0, sizeof mMIIRegs);
 	MIIRegisters &miiregs = *(MIIRegisters*)mMIIRegs;
-	miiregs.status = (1<<13) | (1<<2) | (1<<5) | (1<<3);
+	miiregs.status = (1<<12) | (1<<13) | (1<<14) | (1<<15) | (1<<2) | (1<<5) | (1<<3);
 	miiregs.linkPartner = 1<<7;
+	miiregs.advert = (1<<5) | (1<<6) | (1<<7) | (1<<8) | (1<<9);
 	mMIIReadWord = 0;
 	mMIIWriteWord = 0;
 	mMIIWrittenBits = 0;
@@ -737,8 +738,15 @@ void readRegWindow(uint window, uint32 port, uint32 &data, uint size)
 				SINGLESTEP("");
 			}
 			data = w4.PhysMgmt;
+			bool mgmtData = mMIIReadWord & 0x80000000;
+			IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
+			if (mgmtData) {
+				data = w4.PhysMgmt | PM_mgmtData;
+			} else {
+				data = w4.PhysMgmt & (~PM_mgmtData);
+			}
 			IO_3C90X_TRACE("read PhysMgmt = %04x (mgmtData = %d)\n",
-				w4.PhysMgmt, (w4.PhysMgmt & PM_mgmtDir) ? 1 : 0);
+				data, mgmtData ? 1 : 0);
 			break;
 		}
 		case 0xc: {
@@ -1051,8 +1059,9 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 								IO_3C90X_TRACE("Opcode Write\n");
 								if (mMIIWrittenBits == 64) {
 									uint32 value = mMIIWriteWord & 0xffff;
-									IO_3C90X_TRACE("Writing 0x%04x to register (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
-									mMIIRegs[REGaddr] = value;
+									IO_3C90X_TRACE("NOT writing 0x%04x to register. feature disabled. (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
+//									IO_3C90X_TRACE("Writing 0x%04x to register (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
+//									mMIIRegs[REGaddr] = value;
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
 								}
@@ -1064,7 +1073,9 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 								IO_3C90X_TRACE("Opcode Read\n");
 								if (mMIIWrittenBits == 32+2+2+5+5) {
 									// msb gets sent first and is zero to indicated success
-									mMIIReadWord = mMIIRegs[REGaddr] << 15;
+									// shift one more for algorithmic reasons. not beautiful I know.
+									mMIIReadWord = mMIIRegs[REGaddr];
+									mMIIReadWord <<= 14;
 									IO_3C90X_TRACE("Read 0x%04x from register\n", mMIIRegs[REGaddr]);
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
