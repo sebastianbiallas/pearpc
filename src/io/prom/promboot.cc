@@ -1134,13 +1134,13 @@ bool prom_load_boot_file()
 			IO_PROM_WARN("Can't boot a partition.\nTry bootmethod 'force' and specify a 'prom_loadfile' in your config-file...\n");
 			return false;
 		}
-		try {
+/*		try {
 			LocalFile lf("bootfile.dump", IOAM_WRITE, FOM_CREATE);
 			f->seek(0);
 			f->copyAllTo(&lf);
 		} catch (...) {
 			printf("error dumping bootfile");
-		}
+		}*/
 		if (direct) {
 			if (!mapped_load_direct(*f, loadAddr, entryAddr)) {
 				IO_PROM_TRACE("couldn't load.\n");

@@ -5,6 +5,7 @@ version 0.2:
 	- got rid of printf() and exit() in HFS and HFS+ code
 	- fixed buggy copyTo() and copyAllTo() in stream.cc
 	- fixed IDEDevice::read(). must update "tel".
+	- fixed: Alt and AltGr are swapped
 
 version 0.1:
 	- initial release
