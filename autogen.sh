@@ -1,6 +1,6 @@
 #!/bin/sh
 # script to prepare PearPC sources
-aclocal -I .\
+aclocal -I . \
 && autoheader \
 && automake --add-missing \
 && autoconf \
