@@ -215,7 +215,7 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 
 	if (gSDLScreen->pitch != aCharacteristics.width * aCharacteristics.bytesPerPixel) {
 		// FIXME: this is really bad.
-		printf("SDL: FATAL: new mode has scanline gap. Trying to revert to old mode.\n");
+		printf("SDL: FATAL: new mode has scanline gap.\n");
 		exit(1);
 	}
 
