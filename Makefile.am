@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS = foreign
 
-EXTRA_DIST	= TODO ChangeLog README COPYING AUTHORS
+EXTRA_DIST	= TODO ChangeLog README COPYING AUTHORS ppccfg.example video.x
 SUBDIRS		= src scripts
 
 dist2: distdir
