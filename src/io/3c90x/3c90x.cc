@@ -1360,7 +1360,6 @@ void txDPD0(DPD0 *dpd)
 		p += len;
 		// last fragment ?
 		if (frags->DnFragLen & 0x80000000) break;
-		break;
 		frags++;
 		i++;
 	}
@@ -1666,7 +1665,7 @@ void checkUpWork()
 			SINGLESTEP("");
 		}
 	} else {
-		IO_3C90X_TRACE("mUpStalled(=%d) or UpListPtr == 0 (=%08x) or not mRxPacketSize(=%d)\n", mUpStalled, mRegisters.UpListPtr, mRxPacketSize);
+		IO_3C90X_TRACE("Not uploading, because: mUpStalled(=%d) or UpListPtr == 0 (=%08x) or not mRxPacketSize(=%d)\n", mUpStalled, mRegisters.UpListPtr, mRxPacketSize);
 	}
 }
 
@@ -1894,12 +1893,14 @@ void handleRxQueue()
 				IO_3C90X_TRACE("Argh. old packet not yet uploaded. waiting some more...\n");
 			} else {
 				mRxPacketSize = read(mENetIf.fd, mRxPacket, sizeof mRxPacket);
-				IO_3C90X_TRACE("EnetIf: %d bytes read !!\n", mRxPacketSize);
 				indicate(IS_rxComplete);
 				maybeRaiseIntr();
 				acknowledge(IS_rxComplete);
 				if (!passesRxFilter(mRxPacket, mRxPacketSize)) {
+					IO_3C90X_TRACE("EnetIf: %d bytes read (not passing the filter)!!\n", mRxPacketSize);
 					mRxPacketSize = 0;
+				} else {
+					IO_3C90X_TRACE("EnetIf: %d bytes read (passing the filter) !!\n", mRxPacketSize);
 				}
 			}
 		        checkUpWork();
