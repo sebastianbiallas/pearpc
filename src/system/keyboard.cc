@@ -41,6 +41,14 @@ NULL,"F12",NULL,"Pause","Insert","Home","Pageup","Delete","F4","End",
 "F2","Pagedown","F1",
 };
 
+SystemKeyboard::SystemKeyboard()
+{	
+	mCtrl = false;
+	mLAlt = false;
+	mRAlt = false;
+	mShift = false;
+}
+
 bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 {
 	if (ev.type != sysevKey) return false;

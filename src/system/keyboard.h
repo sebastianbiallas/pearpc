@@ -161,6 +161,7 @@ class SystemKeyboard: public SystemDevice {
 	int mRAlt;
 	int mCtrl;
 public:
+			SystemKeyboard();
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
 	virtual bool	handleEvent(const SystemEvent &ev);
