@@ -25,6 +25,11 @@
 
 #include "system/systhread.h"
 
+#ifdef HAVE_MACH_CLOCK_H
+#include <mach/clock.h>
+static mach_port_t clock_port;
+#endif
+
 struct sys_pthread_semaphore {
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
@@ -100,10 +105,20 @@ void sys_wait_semaphore(sys_semaphore s)
 void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
 {
 	struct timespec ts;
+	uint64 nsec;
+#ifdef HAVE_MACH_CLOCK_H
+	mach_timespec_t ts2;
+	clock_get_time(clock_port, &ts2);
+	nsec = (ts2.tv_nsec + ((uint64)ms)*1000*1000);
+	ts.tv_sec = ts2.tv_sec+(uint)(nsec/1000000000);
+	ts.tv_nsec = (nsec % 1000000000ULL);
+#else
 	clock_gettime(CLOCK_REALTIME, &ts);
-        uint64 nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
-        ts.tv_sec = ts.tv_sec+(uint)(nsec/1000000000);
-        ts.tv_nsec = (nsec % 1000000000ULL);
+	uint64 nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
+	nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
+	ts.tv_sec = ts.tv_sec+(uint)(nsec/1000000000);
+	ts.tv_nsec = (nsec % 1000000000ULL);
+#endif
 	pthread_cond_timedwait(&((sys_pthread_semaphore*)s)->cond, &((sys_pthread_semaphore*)s)->mutex, &ts);
 }
 
