@@ -179,11 +179,11 @@ extern "C" FASTCALL ClientPage *jitcTouchClientPage(ClientPage *cp)
 /*
  *	Puts fragments into the freeFragmentsList
  */
-#include <valgrind/valgrind.h>
+//#include <valgrind/valgrind.h>
 void FASTCALL jitcDestroyFragments(TranslationCacheFragment *tcf)
 {
 	while (tcf) {
-		VALGRIND_DISCARD_TRANSLATIONS(tcf->base, FRAGMENT_SIZE);
+//		VALGRIND_DISCARD_TRANSLATIONS(tcf->base, FRAGMENT_SIZE);
 		// FIXME: this could be done in O(1) with an additional
 		// variable in ClientPage
 		TranslationCacheFragment *next = tcf->prev;
