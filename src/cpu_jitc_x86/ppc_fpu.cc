@@ -3,7 +3,7 @@
  *	ppc_fpu.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
- *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003, 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -19,8 +19,6 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
  
-#include <math.h>
-
 #include "debug/tracers.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
