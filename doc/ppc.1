@@ -1,0 +1,59 @@
+.\" pearpc - architecture independent PowerPC platform emulator capable of running most PowerPC operating systems.
+.TH "PEARPC" "1" "0.1" "" "PowerPC platform emulator"
+.SH "NAME"
+pearpc \- architecture independent PowerPC platform emulator capable of running most PowerPC operating systems.
+.SH "SYNOPSIS"
+ppc configfile
+.SH "DESCRIPTION"
+PearPC (ppc) is an architecture independent PowerPC platform emulator capable of running most PowerPC operating systems.
+
+Features
+    * License: GPL
+    * Programming language: C++, C and (on x86 platforms) assembler
+    * Supported platforms: POSIX\-X11 (Linux, ...), Win32
+
+The following operating systems were tested and run (to some extend) under PearPC:
+    * Mandrake Linux 9.1 for PPC: Runs very well
+    * Darwin for PPC: Runs well
+    * Mac OS X 10.3: Runs well with some caveats
+    * OpenBSD for PPC: Crashes while booting (accesses PCI in an unsupported way)
+    * NetBSD for PPC: Crashes while booting
+
+PearPC simulates the following hardware:
+    * CPU: Sort of G3, no altivec yet. Includes a minimalistic debugger. The CPU is completely deterministic, optimal for OS\-development.
+    * CPU JITC\-X86: A very fast CPU for x86 systems that translates the PowerPC code on\-the\-fly to native code. Still a little bit experimental.
+    * PCI\-Brige: A barebone PCI\-Bridge, enough to work with.
+    * IDE\-Controller: Sort of CMD646 with bus\-mastering support. You can attach IDE\-Harddisk(s) and/or IDE\-CDROM(s) (represented through files or devices on the host).
+    * PIC: A programmable interrupt controller (sort of Heathrow).
+    * VIA\-Cuda: With attached Mouse and Keyboard.
+    * Network Controller: Emulates a 3COM 3C90x, works currently only on POSIX with /dev/tun support.
+    * NVRAM: Capable of storing 8KiB non\-volatile memory.
+    * USB: A non\-usable USB\-hub, but enough to make the OS think that there is an USB\-hub.
+    * PROM: Sort of openfirmware. Ugly and contains a lot of hacks, but enough to support Yaboot and BootX and to boot from HFS/HFS+ partitions.
+.SH "CONFIG FILE"
+See ppcconf.example for commented configuration file in docs/example directory
+
+See also online ppc documentation on the website URLed above.
+.SH "LIMITATIONS"
+Due to the nature of emulation, PearPC is quite slow (the client will run about 500 times slower than the host). Note that only the CPU is that slow, the speed of the emulated hardware doesn't suffer that much from the emulation; e.g. the speed of simulated harddrive/CDROM is quite good, especially when using the busmaster interface. This situation is better if you can use the JITC (about 40 times slower) but still not ready for productive use.
+
+Because the author has only access to little endian machine, PearPC will most likely only run on little endian architectures due to some stupid assumptions in the code. This shouldn't be hard to fix, the author would fix this himself if he had big endian hardware (Hint: You should donate big endian hardware to the author if you want this to be fixed!)
+
+Because of some equally stupid reasons PearPC will only run on 32\-bit architectures. Yes, this also shouldn't be hard to fix.
+
+A lot of unimplementated features are currently critical (i.e. will abort PearPC).
+
+Timings are very unaccurate. This will be fixed in later versions.
+
+No idle sleep (PearPC will consume cpu resources although the client is idle).
+
+PearPC lacks a save/restore emulator\-state feature.
+
+No Altivec support but planned.
+
+No LBA48, so no support for harddisks greater than 128 GiB. But I'd be really suprised if PearPC correctly supported harddisks greater than 4 GiB, although that should theoretically be possible. 
+.SH "AUTHORS"
+Main developer: Sebastian Biallas <sb@biallas.net>
+Some major parts by: Stefan Weyergraf <sw@weyergraf.de>
+.SH "WEBSITE"
+Visit PearPC website at http://pearpc.sourceforge.net/

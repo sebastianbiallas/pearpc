@@ -1,7 +1,7 @@
 AUTOMAKE_OPTIONS = foreign
 
 EXTRA_DIST	= TODO ChangeLog README COPYING AUTHORS ppccfg.example video.x
-SUBDIRS		= src scripts
+SUBDIRS		= doc src scripts
 
 dist2: distdir
 	-chmod -R a+r $(distdir)

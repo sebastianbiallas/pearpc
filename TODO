@@ -19,3 +19,4 @@
 - usability: make Win32 CDROM drives work
 - hardware: full USB support
 - Win32: displayConvert() incorrectly uses it's arguments
+- rtl8139 doesn't implement write-frame-prefixes

@@ -356,6 +356,7 @@ AC_CHECK_SIZEOF(long long, 8)
 
 AC_OUTPUT([
 Makefile
+doc/Makefile
 scripts/Makefile
 src/Makefile
 src/cpu_generic/Makefile
