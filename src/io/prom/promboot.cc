@@ -440,7 +440,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 			uint32 fo = shdr.data_offset;
 			byte page[4096];
 			while (pages_from_file) {
-//				ht_printf("loading from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
+//				ht_printf("loading from %08x to ea:%08x (pa:%08x)\n", fo, ea, pa);
 				f.readx(page, sizeof page);
 		    		if (!init_page_create(ea, pa)) return false;
 				if (!ppc_dma_write(pa, page, 4096)) {
@@ -453,7 +453,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 				vs -= 4096;
 			}
 			if (in_file_size % 4096) {
-//  				ht_printf("loading remaining from %08x to ea:%08x (pa:%08x)\n", fo, ea, la);
+//				ht_printf("loading remaining from %08x to ea:%08x (pa:%08x)\n", fo, ea, pa);
 				f.readx(page, in_file_size % 4096);
 				if (!init_page_create(ea, pa)) return false;
 				if (!ppc_dma_write(pa+(ea&0xfff), page, in_file_size % 4096)) {
@@ -465,7 +465,7 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 				vs -= 4096;
 			}
 			while (vs > 0) {
-// 	 		   	ht_printf("creating for ea:%08x (pa:%08x)\n", ea, la);
+//				ht_printf("creating for ea:%08x (pa:%08x)\n", ea, pa);
 				if (!init_page_create(ea, pa)) return false;
 				pa += 4096;
 				ea += 4096;
