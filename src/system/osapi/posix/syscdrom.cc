@@ -23,6 +23,7 @@
 #include "errno.h"
 
 #include "io/ide/cd.h"
+#include "debug/tracers.h"
 
 /// Creates a native CDROM device
 /// @param device_name The PearPC internal device name for the drive
