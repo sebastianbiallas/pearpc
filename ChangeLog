@@ -7,8 +7,8 @@ version 0.2 (in progress):
 	- JITC: optimize tlb_invalidate_all
 	- IO/IDE: regs are per device, not per controller
 	- (POSIX) fixed: Alt and AltGr are swapped
-	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
-	  improvements
+	- incorporated Roman Bogorodskiy's FreeBSD patch
+	- configure-system improved
 	- tools/regex.h dos2unixed and then removed (in no particular order)
 	- applied Francois Revol's BeOS patches (2,4,6-fixes,6-beos,6-compose).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
@@ -19,7 +19,7 @@ version 0.2 (in progress):
 	- code to minimize redraw races
 	- added RealTek-8139 network card driver by Eric Estabrooks
 	- configure support for mingw and darwin
-	- bnstr() is evil and has been banned. fixes can't parse pci_3c90x_mac = "00:20:35:67:e7:0e" 
+	- bnstr() is evil and has been banned. fixes: can't parse pci_3c90x_mac = "00:20:35:67:e7:0e" 
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.
