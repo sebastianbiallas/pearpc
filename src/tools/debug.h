@@ -29,4 +29,6 @@ void ht_assert_failed(const char *file, int line, const char *assertion);
 #define ASSERT(a) if (!(a)) ht_assert_failed(__FILE__, __LINE__, (#a));
 #define HERE __FILE__, __LINE__
 
+void debugDumpMem(void *buf, int len);
+
 #endif /* !__DEBUG_H__ */

@@ -41,6 +41,7 @@
 #include "system/sysethtun.h"
 #include "tools/crc32.h"
 #include "tools/data.h"
+#include "tools/debug.h"
 #include "tools/except.h"
 #include "tools/snprintf.h"
 #include "io/pic/pic.h"
@@ -173,32 +174,6 @@ enum EEPROMField {
         EEPROM_PCIParam3 =              0x1d,
         EEPROM_Checksum =               0x20
 };
-
-/*
- *	misc
- */
-static void dumpMem(byte *p, uint16 len)
-{
-	while (len) {
-		uint w = 16;
-		uint m = w;
-		if (m>len) m = len;
-		for (uint i=0; i<m; i++) {
-			printf("%02x ", *p);
-			p++;
-		}
-		for (uint i=0; i<w-m; i++) {
-			printf("   ");
-		}
-		p-=m;
-		for (uint i=0; i<m; i++) {
-			printf("%c", ((*p < 32) || (*p > 0x80)) ? '.' : *p);
-			p++;
-		}
-		printf("\n");
-		len -= m;
-	}
-}
 
 /*
  *
@@ -356,7 +331,7 @@ void TxPacket(uint32 address, uint32 size)
 	if (mVerbose) IO_RTL8139_TRACE ("address: %08x, size: %04x\n", address, size);
 	if (ppc_direct_physical_memory_handle(address, ppc_addr) == PPC_MMU_OK) {
 		if (mVerbose > 1) {
-			dumpMem(ppc_addr, size);
+			debugDumpMem(ppc_addr, size);
 		}
 		memcpy(p, ppc_addr, size);
 		crc = ether_crc(size, p);
@@ -696,7 +671,7 @@ void handleRxQueue()
 		if (mVerbose) IO_RTL8139_TRACE("got packet from the world at large\n");
 		if (!mGoodBSA) continue;
 		if (mVerbose > 1) {
-			dumpMem(rxPacket, rxPacketSize);
+			debugDumpMem(rxPacket, rxPacketSize);
 		}
 		header = 0;
 		if (rxPacketSize < 64) {

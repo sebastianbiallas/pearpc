@@ -511,36 +511,6 @@ struct EthFrameII {
 /*
  *	misc
  */
-static void dumpMem(byte *p, uint16 len)
-{
-	while (len) {
-		uint w = 16;
-		uint m = w;
-		if (m>len) m = len;
-		for (uint i=0; i<m; i++) {
-			printf("%02x ", *p);
-			p++;
-		}
-		for (uint i=0; i<w-m; i++) {
-			printf("   ");
-		}
-		p-=m;
-		for (uint i=0; i<m; i++) {
-			printf("%c", ((*p < 32) || (*p > 0x80)) ? '.' : *p);
-			p++;
-		}
-		printf("\n");
-		len -= m;
-	}
-}
-
-/*static void dumpClientMem(uint32 addr, uint16 len)
-{
-	byte *p;
-	if (ppc_direct_physical_memory_handle(addr, p) != PPC_MMU_OK) return;
-	dumpMem(p, len);
-}*/
-
 static int compareMACs(byte a[6], byte b[6])
 {
 	for (uint i=0; i<6; i++) {
@@ -1408,8 +1378,8 @@ void txDPD0(DPD0 *dpd)
 		IO_3C90X_TRACE("packet has crc: %08x\n", crc);
 	}
 
-	IO_3C90X_TRACE("tx(%d):\n", psize);
-	dumpMem(pbuf, psize);
+//	IO_3C90X_TRACE("tx(%d):\n", psize);
+//	dumpMem(pbuf, psize);
 	uint w = mEthTun->sendPacket(pbuf, psize);
 	if (w) {
 		if (w == psize) {
@@ -1552,8 +1522,8 @@ void rxUPD(UPD *upd)
 	mRxPacketSize += 4;
 	IO_3C90X_TRACE("packet has crc: %08x\n", crc);
 	//
-	IO_3C90X_TRACE("rx(%d):\n", mRxPacketSize);
-	dumpMem(mRxPacket, mRxPacketSize);
+//	IO_3C90X_TRACE("rx(%d):\n", mRxPacketSize);
+//	dumpMem(mRxPacket, mRxPacketSize);
 	//
 	if (!error) {
 		IO_3C90X_TRACE("successfully uploaded packet of %d bytes\n", mRxPacketSize);
@@ -1617,8 +1587,6 @@ void checkDnWork()
 		if (ppc_direct_physical_memory_handle(mRegisters.DnListPtr, dpd) == PPC_MMU_OK) {
 			// get packet type
 			byte type = dpd[7]>>6;
-			DPD0 *test = (DPD0*)dpd;
-			IO_3C90X_TRACE("test72: type = %02x, assuming DPD type 0, fsh = %08x\n", type, test->FrameStartHeader);
 			switch (type) {
 			case 0:
 			case 2: {
@@ -1629,9 +1597,8 @@ void checkDnWork()
 				break;
 			}
 			case 1: {
-				DPD1 *p = (DPD1*)dpd;
 				IO_3C90X_TRACE("Got a type 1 DPD ! not implemented !\n");
-				IO_3C90X_TRACE("DnNextPtr is %08x\n", p->DnNextPtr);
+				IO_3C90X_TRACE("DnNextPtr is %08x\n", ((DPD1*)dpd)->DnNextPtr);
 				SINGLESTEP("");
 				mRegisters.DnListPtr = 0;
 				break;
