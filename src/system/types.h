@@ -3,7 +3,7 @@
  *	types.h
  *
  *	Copyright (C) 1999-2003 Sebastian Biallas (sb@biallas.net)
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 1999-2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -40,16 +40,19 @@
  */
 
 #ifdef __GNUC__
-#define FUNCTION_CONST __attribute__((const))
-#ifndef __ppc__
-#define FASTCALL __attribute__((regparm (3)))
+#	define FUNCTION_CONST __attribute__((const))
+
+	// FIXME: configure
+#	ifndef __ppc__
+#		define FASTCALL __attribute__((regparm (3)))
+#	else
+#		define FASTCALL
+#	endif
+
+#	define PACKED __attribute__((packed))
+#	define UNUSED __attribute__((unused))
 #else
-#define FASTCALL
-#endif
-#define PACKED __attribute__((packed))
-#define UNUSED __attribute__((unused))
-#else
-#error "you're not using the GNU C compiler :-( please add the macros and conditionals for your compiler"
+#	error "you're not using the GNU C compiler :-( please add the macros and conditionals for your compiler"
 #endif /* !__GNUC__ */
 
 /*
