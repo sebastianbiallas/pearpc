@@ -918,9 +918,9 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 			IO_CUDA_TRACE2("cuda not idle (%d)!\n", gCUDA.state);
 		}
 		sys_unlock_mutex(gCUDAMutex);
-		sys_lock_mutex(gCUDA.idle_sem);
+		sys_lock_semaphore(gCUDA.idle_sem);
 		sys_wait_semaphore_bounded(gCUDA.idle_sem, 10);
-		sys_unlock_mutex(gCUDA.idle_sem);
+		sys_unlock_semaphore(gCUDA.idle_sem);
 	}
 	IO_CUDA_WARN("Event processing timed out. Event dropped.\n");
 	return false;
