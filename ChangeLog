@@ -3,6 +3,7 @@
 
 version 0.2:
 	- got rid of printfs in HFS and HFS+ code
+	- fixed buggy copyTo() and copyAllTo() in stream.cc
 
 version 0.1:
 	- initial release
