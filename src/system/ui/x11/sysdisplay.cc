@@ -93,7 +93,7 @@ public:
 		:SystemDisplay(aClientChar, redraw_ms)
 	{
 		if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
-			printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
+			ht_printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
 			exit(1);
 		}
 

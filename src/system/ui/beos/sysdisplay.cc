@@ -372,7 +372,7 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 	gBeOSFramebuffer = NULL;
 	
 	if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
-		printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
+		ht_printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
 		exit(1);
 	}
 	

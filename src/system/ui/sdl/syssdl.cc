@@ -351,7 +351,7 @@ sys_timer gSDLRedrawTimer;
 static void *SDLeventLoop(void *p)
 {
 	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
-		printf("SDL: Unable to init: %s\n", SDL_GetError());
+		ht_printf("SDL: Unable to init: %s\n", SDL_GetError());
 		exit(1);
 	}
 	SDLSystemDisplay *sd = (SDLSystemDisplay*)gDisplay;

@@ -313,7 +313,7 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 	}
 	gX11Display = XOpenDisplay(display);
 	if (!gX11Display) {
-		printf("can't open X11 display (%s)!\n", display);
+		ht_printf("can't open X11 display (%s)!\n", display);
 		exit(1);
 	}
 
