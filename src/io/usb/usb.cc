@@ -299,8 +299,6 @@ virtual bool readDeviceMem(uint r, uint32 address, uint32 &data, uint size)
 		return false;
 	}
 	
-	data = ppc_word_to_BE(data);
-	
 //	gSinglestep = true;
 	return true;
 }
@@ -310,8 +308,6 @@ virtual bool writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 	if (r != 0) return false;
 	if (size != 4) return false;
 	IO_USB_TRACE("write(r=%d, a=%08x (%s), data=%08x, %d)\n", r, address, hc_regname(address), data, size);
-
-	data = ppc_word_to_BE(data);
 
 	switch (address) {
 	case OHCI_REG_REVISION:

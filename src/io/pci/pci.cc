@@ -38,6 +38,7 @@
 
 uint32 gPCI_Address;
 uint32 gPCI_Data;
+static uint32 gPCI_Data_LE;
 Container *gPCI_Devices;
 
 class PCI_Bridge: public PCI_Device {
@@ -187,7 +188,7 @@ bool PCI_Device::writeDeviceIO(uint r, uint32 io, uint32 data, uint size)
 
 void PCI_Device::readConfig(uint reg)
 {
-	gPCI_Data = *(uint32*)&(mConfig[reg]);
+	gPCI_Data = ppc_word_from_LE(*(uint32*)&(mConfig[reg]));
 }
 
 void PCI_Device::writeConfig(uint reg, int offset, int size)
@@ -222,7 +223,7 @@ void PCI_Device::writeConfig(uint reg, int offset, int size)
 			gPCI_Data |= mIORegType[rreg];
 		}
 	}
-	*(uint32*)&(mConfig[reg]) = gPCI_Data;
+	*(uint32*)&(mConfig[reg]) = ppc_word_to_LE(gPCI_Data);
 }
 
 void PCI_Device::setCommand(uint16 command)
@@ -323,9 +324,11 @@ static void pci_config_read_write(bool write, int offset, int size)
 			return;
 		}
 		if (write) {
+			gPCI_Data = ppc_word_from_LE(gPCI_Data_LE);
 			p->writeConfig(PCI_ADDRESS_REG(gPCI_Address), offset, size);
 		} else {
 			p->readConfig(PCI_ADDRESS_REG(gPCI_Address));
+			gPCI_Data_LE = ppc_word_to_LE(gPCI_Data);
 		}
 	} else {
 		IO_PCI_WARN("PCI: ecd != 1\n");
@@ -342,25 +345,25 @@ void pci_write(uint32 addr, uint32 data, int size)
 		if (size != 4) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		gPCI_Address = ppc_word_from_BE(data);
+		gPCI_Address = data;
 		pci_config_read_write(false, 0, 4);
 		return;
 	case 0x200000:
 	case 0x200cfc:
 		if (size == 1) {
-			(*(((uint8 *)&gPCI_Data))) = data;
+			(*(((uint8 *)&gPCI_Data_LE))) = data;
 			pci_config_read_write(true, 0, 1);
 			return;
 		}
 		if (size == 2) {
-			(*(((uint16 *)&gPCI_Data))) = ppc_half_from_BE(data);
+			(*(((uint16 *)&gPCI_Data_LE))) = ppc_half_to_LE(data);
 			pci_config_read_write(true, 0, 2);
 			return;
 		}
 		if (size != 4) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		gPCI_Data = ppc_word_from_BE(data);
+		gPCI_Data_LE = ppc_word_to_LE(data);
 		pci_config_read_write(true, 0, 4);
 		return;
 	case 0x200001:
@@ -368,7 +371,7 @@ void pci_write(uint32 addr, uint32 data, int size)
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		(*(((uint8 *)&gPCI_Data)+1)) = data;
+		(*(((uint8 *)&gPCI_Data_LE)+1)) = data;
 		pci_config_read_write(true, 1, 1);
 		return;
 	case 0x200002:
@@ -377,11 +380,11 @@ void pci_write(uint32 addr, uint32 data, int size)
 			IO_PCI_ERR("pci bla\n");
 		}
 		if (size == 1) {
-			(*(((uint8 *)&gPCI_Data)+2)) = data;
+			(*(((uint8 *)&gPCI_Data_LE)+2)) = data;
 			pci_config_read_write(true, 2, 1);
 			return;
 		}
-		(*(((uint16 *)&gPCI_Data)+1)) = ppc_half_to_BE(data);
+		(*(((uint16 *)&gPCI_Data_LE)+1)) = ppc_half_to_LE(data);
 		pci_config_read_write(true, 2, 2);
 		return;
 	case 0x200003:
@@ -389,7 +392,7 @@ void pci_write(uint32 addr, uint32 data, int size)
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		(*(((uint8 *)&gPCI_Data)+3)) = data;
+		(*(((uint8 *)&gPCI_Data_LE)+3)) = data;
 		pci_config_read_write(true, 3, 1);
 		return;
 	}
@@ -404,24 +407,24 @@ void pci_read(uint32 addr, uint32 &data, int size)
 	switch (addr) {
 	case 0:
 	case 0xcf8:
-		data = ppc_word_to_BE(gPCI_Address);
+		data = gPCI_Address;
 		return;
 	case 0x200000:
 	case 0x200cfc:
 		if (size == 1) {
-			data = *((uint8 *)&gPCI_Data);
+			data = *((uint8 *)&gPCI_Data_LE);
 			IO_PCI_TRACE("%02x\n", data);
 			return;
 		}
 		if (size == 2) {
-			data = ppc_half_to_BE(*((uint16 *)&gPCI_Data));
+			data = ppc_half_from_LE(*((uint16 *)&gPCI_Data_LE));
 			IO_PCI_TRACE("%04x\n", data);
 			return;
 		}
 		if (size != 4) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		data = ppc_word_to_BE(gPCI_Data);
+		data = ppc_word_from_LE(gPCI_Data_LE);
 		IO_PCI_TRACE("%08x\n", data);
 		return;
 	case 0x200001:
@@ -429,7 +432,7 @@ void pci_read(uint32 addr, uint32 &data, int size)
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		data = (*(((uint8 *)&gPCI_Data)+1));
+		data = (*(((uint8 *)&gPCI_Data_LE)+1));
 		IO_PCI_TRACE("%02x\n", data);
 		return;
 	case 0x200002: 
@@ -438,11 +441,11 @@ void pci_read(uint32 addr, uint32 &data, int size)
 			IO_PCI_ERR("pci bla\n");
 		}
 		if (size==1) {
-			data = *(((uint8 *)&gPCI_Data)+2);
+			data = *(((uint8 *)&gPCI_Data_LE)+2);
 			IO_PCI_TRACE("%02x\n", data);
 			return;
 		}
-		data = ppc_half_to_BE(*(((uint16 *)&gPCI_Data)+1));
+		data = ppc_half_from_LE(*(((uint16 *)&gPCI_Data_LE)+1));
 		IO_PCI_TRACE("%04x\n", data);
 		return;
 	case 0x200003:
@@ -450,7 +453,7 @@ void pci_read(uint32 addr, uint32 &data, int size)
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		data = (*(((uint8 *)&gPCI_Data)+3));
+		data = (*(((uint8 *)&gPCI_Data_LE)+3));
 		IO_PCI_TRACE("%02x\n", data);
 		return;
 	}

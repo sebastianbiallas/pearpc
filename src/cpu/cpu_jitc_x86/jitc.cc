@@ -377,7 +377,7 @@ extern "C" NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 basea
 	// now we've setup gJITC and can start the real compilation
 
 	while (1) {
-		gJITC.current_opc = ppc_word_to_BE(*(uint32 *)(&physpage[ofs]));
+		gJITC.current_opc = ppc_word_from_BE(*(uint32 *)(&physpage[ofs]));
 		jitcDebugLogNewInstruction();
 		JITCFlow flow = ppc_gen_opc();
 		if (flow == flowContinue) {

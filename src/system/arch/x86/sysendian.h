@@ -23,19 +23,7 @@
 
 #include "system/types.h"
 
-#define ppc_dword_from_BE ppc_dword_to_BE
-#define ppc_word_from_BE ppc_word_to_BE
-#define ppc_half_from_BE ppc_half_to_BE
-
-#define ppc_dword_from_LE ppc_dword_to_LE
-#define ppc_word_from_LE ppc_word_to_LE
-#define ppc_half_from_LE ppc_half_to_LE
-
-#define ppc_dword_to_LE(n) (n)
-#define ppc_word_to_LE(n) (n)
-#define ppc_half_to_LE(n) (n)
-
-static inline FUNCTION_CONST uint32 ppc_word_to_BE(uint32 data)
+static inline FUNCTION_CONST uint32 ppc_bswap_word(uint32 data)
 {
 	asm (
 		"bswap %0": "=r" (data) : "0" (data)
@@ -43,7 +31,7 @@ static inline FUNCTION_CONST uint32 ppc_word_to_BE(uint32 data)
 	return data;
 }
 
-static inline FUNCTION_CONST uint16 ppc_half_to_BE(uint16 data) 
+static inline FUNCTION_CONST uint16 ppc_bswap_half(uint16 data) 
 {
 	asm (
 		"xchgb %b0,%h0": "=q" (data): "0" (data)
@@ -51,9 +39,25 @@ static inline FUNCTION_CONST uint16 ppc_half_to_BE(uint16 data)
 	return data;
 }
 
-static inline FUNCTION_CONST uint64 ppc_dword_to_BE(uint64 data)
+static inline FUNCTION_CONST uint64 ppc_bswap_dword(uint64 data)
 {
-	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
+	return (((uint64)ppc_bswap_word(data)) << 32) | (uint64)ppc_bswap_word(data >> 32);
 }
+
+#	define ppc_dword_from_BE(data)	(ppc_bswap_dword(data))
+#	define ppc_word_from_BE(data)	(ppc_bswap_word(data))
+#	define ppc_half_from_BE(data)	(ppc_bswap_half(data))
+
+#	define ppc_dword_from_LE(data)	((uint64)(data))
+#	define ppc_word_from_LE(data)	((uint32)(data))
+#	define ppc_half_from_LE(data)	((uint16)(data))
+
+#	define ppc_dword_to_LE(data)	ppc_dword_from_LE(data)
+#	define ppc_word_to_LE(data)	ppc_word_from_LE(data)
+#	define ppc_half_to_LE(data)	ppc_half_from_LE(data)
+
+#	define ppc_dword_to_BE(data)	ppc_dword_from_BE(data)
+#	define ppc_word_to_BE(data)	ppc_word_from_BE(data)
+#	define ppc_half_to_BE(data)	ppc_half_from_BE(data)
 
 #endif

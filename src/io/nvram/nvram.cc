@@ -52,8 +52,7 @@ void nvram_write(uint32 addr, uint32 data, int size)
 	if (addr >= NVRAM_IMAGE_SIZE) IO_NVRAM_ERR("out of bounds\n");
 	if (size != 1) IO_NVRAM_ERR("only supports byte writes\n");
 	fseek(gNVRAM.f, addr, SEEK_SET);
-	// FIXME: endianess is ok, but by accident
-	fwrite(&data, 1, size, gNVRAM.f);
+	fwrite(&data, 1, 1, gNVRAM.f);
 	fflush(gNVRAM.f);
 }
 
@@ -67,9 +66,7 @@ void nvram_read(uint32 addr, uint32 &data, int size)
 	if (size != 1) IO_NVRAM_ERR("only supports byte reads\n");
 	fseek(gNVRAM.f, addr, SEEK_SET);
 	data = 0;
-	// FIXME: endianess is ok, but by accident
-	fread(&data, 1, size, gNVRAM.f);
-//	gSinglestep = true;
+	fread(&data, 1, 1, gNVRAM.f);
 }
 
 static uint8 calcChksum(byte *buf)

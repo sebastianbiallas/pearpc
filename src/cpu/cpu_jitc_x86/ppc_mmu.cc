@@ -394,7 +394,9 @@ int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
 		result = ppc_dword_from_BE(*((uint64*)(gMemory+addr)));
 		return PPC_MMU_OK;
 	}
-	return io_mem_read64(addr, result);
+	int ret = io_mem_read64(addr, result);
+	result = ppc_bswap_dword(result);
+	return ret;
 }
 
 int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
@@ -404,7 +406,9 @@ int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
 		result = ppc_word_from_BE(*((uint32*)(gMemory+addr)));
 		return PPC_MMU_OK;
 	}
-	return io_mem_read(addr, result, 4);
+	int ret = io_mem_read(addr, result, 4);
+	result = ppc_bswap_word(result);
+	return ret;
 }
 
 int FASTCALL ppc_read_physical_half(uint32 addr, uint16 &result)
@@ -416,7 +420,7 @@ int FASTCALL ppc_read_physical_half(uint32 addr, uint16 &result)
 	}
 	uint32 r;
 	int ret = io_mem_read(addr, r, 2);
-	result = r;
+	result = ppc_bswap_half(r);
 	return ret;
 }
 
@@ -463,7 +467,7 @@ int FASTCALL ppc_read_effective_dword(uint32 addr, uint64 &result)
 			memmove(&b[0], r1, 7);
 			memmove(&b[7], r2, 7);
 			memmove(&result, &b[EA_Offset(addr)-4089], 8);
-			result = ppc_dword_to_BE(result);
+			result = ppc_dword_from_BE(result);
 			return PPC_MMU_OK;
 		} else {
 			return ppc_read_physical_dword(p, result);
@@ -488,7 +492,7 @@ int FASTCALL ppc_read_effective_word(uint32 addr, uint32 &result)
 			memmove(&b[0], r1, 3);
 			memmove(&b[3], r2, 3);
 			memmove(&result, &b[EA_Offset(addr)-4093], 4);
-			result = ppc_word_to_BE(result);
+			result = ppc_word_from_BE(result);
 			return PPC_MMU_OK;
 		} else {
 			return ppc_read_physical_word(p, result);
@@ -535,7 +539,7 @@ int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 		*((uint64*)(gMemory+addr)) = ppc_dword_to_BE(data);
 		return PPC_MMU_OK;
 	}
-	if (io_mem_write64(addr, data) == IO_MEM_ACCESS_OK) {
+	if (io_mem_write64(addr, ppc_bswap_dword(data)) == IO_MEM_ACCESS_OK) {
 		return PPC_MMU_OK;
 	} else {
 		return PPC_MMU_FATAL;
@@ -549,7 +553,7 @@ int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
 		*((uint32*)(gMemory+addr)) = ppc_word_to_BE(data);
 		return PPC_MMU_OK;
 	}
-	return io_mem_write(addr, data, 4);
+	return io_mem_write(addr, ppc_bswap_word(data), 4);
 }
 
 int FASTCALL ppc_write_physical_half(uint32 addr, uint16 data)
@@ -559,7 +563,7 @@ int FASTCALL ppc_write_physical_half(uint32 addr, uint16 data)
 		*((uint16*)(gMemory+addr)) = ppc_half_to_BE(data);
 		return PPC_MMU_OK;
 	}
-	return io_mem_write(addr, data, 2);
+	return io_mem_write(addr, ppc_bswap_half(data), 2);
 }
 
 int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
@@ -585,7 +589,7 @@ int FASTCALL ppc_write_effective_dword(uint32 addr, uint64 data)
 			if ((r = ppc_direct_physical_memory_handle(p, r1))) return r;
 			if ((r = ppc_effective_to_physical((addr & ~0xfff)+4096, PPC_MMU_WRITE, p))) return r;
 			if ((r = ppc_direct_physical_memory_handle(p, r2))) return r;
-			data = ppc_dword_from_BE(data);
+			data = ppc_dword_to_BE(data);
 			memmove(&b[0], r1, 7);
 			memmove(&b[7], r2, 7);
 			memmove(&b[EA_Offset(addr)-4089], &data, 8);
@@ -612,7 +616,7 @@ int FASTCALL ppc_write_effective_word(uint32 addr, uint32 data)
 			if ((r = ppc_direct_physical_memory_handle(p, r1))) return r;
 			if ((r = ppc_effective_to_physical((addr & ~0xfff)+4096, PPC_MMU_WRITE, p))) return r;
 			if ((r = ppc_direct_physical_memory_handle(p, r2))) return r;
-			data = ppc_word_from_BE(data);
+			data = ppc_word_to_BE(data);
 			memmove(&b[0], r1, 3);
 			memmove(&b[3], r2, 3);
 			memmove(&b[EA_Offset(addr)-4093], &data, 4);
@@ -1706,7 +1710,7 @@ void ppc_opc_lhbrx()
 	uint16 r;
 	int ret = ppc_read_effective_half((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], r);
 	if (ret == PPC_MMU_OK) {
-		gCPU.gpr[rD] = ppc_half_to_BE(r);
+		gCPU.gpr[rD] = ppc_bswap_half(r);
 	}
 }
 JITCFlow ppc_opc_gen_lhbrx()
@@ -2013,7 +2017,7 @@ void ppc_opc_lwbrx()
 	uint32 r;
 	int ret = ppc_read_effective_word((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], r);
 	if (ret == PPC_MMU_OK) {
-		gCPU.gpr[rD] = ppc_word_to_BE(r);
+		gCPU.gpr[rD] = ppc_bswap_word(r);
 	}
 }
 JITCFlow ppc_opc_gen_lwbrx()
@@ -2624,7 +2628,7 @@ void ppc_opc_sthbrx()
 {
 	int rA, rS, rB;
 	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	ppc_write_effective_half((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], ppc_half_to_BE((uint16)gCPU.gpr[rS])) != PPC_MMU_FATAL;
+	ppc_write_effective_half((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], ppc_bswap_half((uint16)gCPU.gpr[rS])) != PPC_MMU_FATAL;
 }
 JITCFlow ppc_opc_gen_sthbrx()
 {
@@ -2867,7 +2871,7 @@ void ppc_opc_stwbrx()
 	int rA, rS, rB;
 	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
 	// FIXME: doppelt gemoppelt
-	ppc_write_effective_word((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], ppc_word_to_BE(gCPU.gpr[rS])) != PPC_MMU_FATAL;
+	ppc_write_effective_word((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], ppc_bswap_word(gCPU.gpr[rS])) != PPC_MMU_FATAL;
 }
 JITCFlow ppc_opc_gen_stwbrx()
 {

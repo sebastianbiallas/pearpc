@@ -111,7 +111,7 @@ void ppc_cpu_run()
 	while (true) {
 		gCPU.npc = gCPU.pc+4;
 		if ((gCPU.pc & ~0xfff) == gCPU.effective_code_page) {
-			gCPU.current_opc = ppc_word_to_BE(*((uint32*)(&gCPU.physical_code_page[gCPU.pc & 0xfff])));
+			gCPU.current_opc = ppc_word_from_BE(*((uint32*)(&gCPU.physical_code_page[gCPU.pc & 0xfff])));
 			ppc_debug_hook();
 		} else {
 			int ret;

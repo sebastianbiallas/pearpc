@@ -201,7 +201,7 @@ protected:
 
 void PCIReset()
 {
-	IO_RTL8139_TRACE ("PCIReset()\n");	// PCI config
+	IO_RTL8139_TRACE("PCIReset()\n");	// PCI config
 	memset(mConfig, 0, sizeof mConfig);
 	// 0-3 set by totalReset()
 //	mConfig[0x04] = 0x07;	// io+memory+master
@@ -227,7 +227,7 @@ void PCIReset()
 
 void totalReset()
 {
-	IO_RTL8139_TRACE ("totalReset()\n");	// PCI config
+	IO_RTL8139_TRACE("totalReset()\n");	// PCI config
 	/* FIXME: resetting can be done more fine-grained (see TotalReset cmd).
 	 *        this is reset ALL regs.
 	 */
@@ -311,10 +311,10 @@ void setCR(uint8 cr)
 
 void maybeRaiseIntr()
 {
-	IO_RTL8139_TRACE ("maybeRaiseIntr()\n");
+	IO_RTL8139_TRACE("maybeRaiseIntr()\n");
 	if (mRegisters.InterruptMask & mIntStatus) {
 		//mIntStatus |= IS_interruptLatch;
-		IO_RTL8139_TRACE ("Generating interrupt. mIntStatus=%04x\n", mIntStatus);
+		IO_RTL8139_TRACE("Generating interrupt. mIntStatus=%04x\n", mIntStatus);
 		pic_raise_interrupt(mConfig[0x3c]);
 	}
 }
@@ -327,7 +327,7 @@ void TxPacket(uint32 address, uint32 size)
 	uint32	psize;
 
 	p = pbuf;
-	IO_RTL8139_TRACE ("address: %08x, size: %04x\n", address, size);
+	IO_RTL8139_TRACE("address: %08x, size: %04x\n", address, size);
 	if (ppc_dma_read(pbuf, address, size)) {
 /*		if (mVerbose > 1) {
 			debugDumpMem(ppc_addr, size);
@@ -352,17 +352,6 @@ void TxPacket(uint32 address, uint32 size)
 		}
 		maybeRaiseIntr();
 	}
-}
-
-inline uint32 swapData(uint32 data, uint size)
-{
-	switch (size) {
-		case 1: break;
-		case 2: data = ppc_half_to_BE(data); break;
-		case 4: data = ppc_word_to_BE(data); break;
-		default: IO_RTL8139_ERR("impossibile!\n");
-	}
-	return data;
 }
 
 public:
@@ -465,14 +454,14 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 			IO_RTL8139_WARN("unaligned read from IntStatus\n");
 		}
 		IO_RTL8139_TRACE("read IntStatus = %04x\n", mIntStatus);
-		data = swapData(mIntStatus, 2);
+		data = mIntStatus;
 		mIntStatus = 0; // a read resets the interrupt status register
 		retval = true;
 	} else if ((port >= 0) && (port+size <= sizeof(Registers))) {
 		// read from (standard) register
 		data = 0;
 		memcpy(&data, ((byte*)&mRegisters)+port, size);
-		//data = swapData(data, size);
+
 		switch (port) {
 		case 0x48:
 			IO_RTL8139_TRACE("read Timer = %08x\n", data);
@@ -492,7 +481,6 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 			IO_RTL8139_TRACE("read reg %04x (size %d) = %08x\n", port, size, data);
 			break;
 		}
-		data = swapData(data, size);
 		retval = true;
 	}
 	sys_unlock_mutex(mLock);
@@ -510,7 +498,6 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 	sys_lock_mutex(mLock);
 //	IO_RTL8139_TRACE("writeDevice has mLock\n");
 	original = data;
-	data = swapData(data, size);
 	if (port == 0x37) {
 		// CommandReg (no matter which window)
 		if (size != 1) {

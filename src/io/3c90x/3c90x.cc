@@ -596,7 +596,6 @@ void totalReset()
 	w3.TxFree = 16*1024;
 	mRxPacketSize = 0;
 	w5.TxStartThresh = 8188;
-	// EEPROM config (FIXME: endianess)
 	memset(mEEPROM, 0, sizeof mEEPROM);
 	mEEPROM[EEPROM_NodeAddress0] =		(mMAC[0]<<8) | mMAC[1];
 	mEEPROM[EEPROM_NodeAddress1] =		(mMAC[2]<<8) | mMAC[3];
@@ -1629,17 +1628,6 @@ void checkUpWork()
 	}
 }
 
-inline uint32 swapData(uint32 data, uint size)
-{
-	switch (size) {
-		case 1: break;
-		case 2: data = ppc_half_to_BE(data); break;
-		case 4: data = ppc_word_to_BE(data); break;
-		default: IO_3C90X_ERR("impossibile!\n");
-	}
-	return data;
-}
-
 public:
 _3c90x_NIC(EthTunDevice *aEthTun, const byte *mac)
 : PCI_Device("3c90x Network interface card", 0x1, 0xc)
@@ -1693,13 +1681,12 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 			SINGLESTEP("");
 		}
 		IO_3C90X_TRACE("read IntStatus = %04x\n", mIntStatus);
-		data = swapData(mIntStatus, 2);
+		data = mIntStatus;
 		retval = true;
 	} else if ((port >= 0) && (port+size <= 0x0e)) {
 		// read from window
 		uint curwindow = mIntStatus >> 13;
 		readRegWindow(curwindow, port, data, size);
-		data = swapData(data, size);
 		retval = true;
 	} else if ((port+size > 0x1e) && (port <= 0x1f)) {
 		if ((port != 0x1e) || (size != 2)) {
@@ -1716,7 +1703,6 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 			| IS_interruptLatch | IS_linkEvent);
 		data = mIntStatus;
 		IO_3C90X_TRACE("read IntStatusAuto = %04x\n", data);
-		data = swapData(data, 2);
 		retval = true;
 	} else if ((port >= 0x10) && (port+size <= 0x10 + sizeof(Registers))) {
 		byte l = gRegAccess[port-0x10];
@@ -1745,7 +1731,6 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 			SINGLESTEP("");
 			break;
 		}
-		data = swapData(data, size);
 		retval = true;
 	}
 	sys_unlock_mutex(mLock);
@@ -1757,7 +1742,6 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 	if (r != 0) return false;
 	bool retval = false;
 	sys_lock_mutex(mLock);
-	data = swapData(data, size);
 	if (port == 0xe) {
 		// CommandReg (no matter which window)
 		if (size != 2) {

@@ -1304,35 +1304,23 @@ void receive_atapi_packet()
 	}
 }
 
-	bool bm_ide_dotransfer(bool &prd_exhausted, uint32 bmide_prd_addr, byte bmide_command, byte bmide_status, uint32 lba, uint32 count)
+	bool bm_ide_dotransfer(bool &prd_exhausted, uint32 prd_addr, byte bmide_command, byte bmide_status, uint32 lba, uint32 count)
 	{
 		IO_IDE_TRACE("BM IDE transfer: prd_addr = %08x, lba = %08x, size = %08x\n", bmide_prd_addr, lba, count ? count : gIDEState.state[gIDEState.drive].sector_count);
-//		printf("holla die waldfee v2\n");
 
 		struct prd_entry {
 			uint32 addr PACKED;
 			uint32 size PACKED;
 		};
 
-		uint32 prd_addr = ppc_word_from_BE(bmide_prd_addr);
-/*		byte *xx;
-		if (ppc_direct_physical_memory_handle(prd_addr, xx)) {
-			IO_IDE_ERR("false 47\n");
-			return false;
-		}*/
-//		prd_entry *prd = (prd_entry*)xx;
 		prd_entry prd;
-		ppc_dma_read(&prd, prd_addr, 8);
-
+		if (!ppc_dma_read(&prd, prd_addr, 8)) return false;
+		prd.addr = ppc_word_from_LE(prd.addr);
+		prd.size = ppc_word_from_LE(prd.size);
 		prd_exhausted = false;
-		int pr_left = ppc_word_from_LE(prd.size) & 0xffff;
+		int pr_left = prd.size & 0xffff;
 		if (!pr_left) pr_left = 64*1024;
-/*		byte *pr;
-		if (ppc_direct_physical_memory_handle(prd->addr, pr)) {
-			IO_IDE_ERR("false 46\n");
-			return false;
-		}*/
-		uint32 pr = ppc_word_from_LE(prd.addr);
+
 		bool write_to_mem = bmide_command & BM_IDE_CR_WRITE;
 		bool write_to_device = !write_to_mem;
 		while (true) {
@@ -1342,23 +1330,27 @@ void receive_atapi_packet()
 			do {
 				uint8 buffer[transfer_at_once];
 				if (write_to_device) {
-					ppc_dma_read(buffer, pr, transfer_at_once);
+					ppc_dma_read(buffer, prd.addr, transfer_at_once);
 					if (gIDEState.config[gIDEState.drive].device->write(buffer, transfer_at_once) != transfer_at_once) {
-						IO_IDE_ERR("false3\n");
+						gIDEState.config[gIDEState.drive].device->release();
+						IO_IDE_WARN("write failed!\n");
 						return false;
 					}
 				} else {
 					if (gIDEState.config[gIDEState.drive].device->read(buffer, transfer_at_once) != transfer_at_once) {
-						IO_IDE_ERR("false3\n");
+						gIDEState.config[gIDEState.drive].device->release();
+						IO_IDE_WARN("read failed!\n");
 						return false;
 					}
-					ppc_dma_write(pr, buffer, transfer_at_once);
+					ppc_dma_write(prd.addr, buffer, transfer_at_once);
 				}
 				pr_left -= transfer_at_once;
-				pr += transfer_at_once;
+				prd.addr += transfer_at_once;
 				to_transfer -= transfer_at_once;
 				if (pr_left < 0) {
-					IO_IDE_ERR("pr_left became negative!\n");
+					gIDEState.config[gIDEState.drive].device->release();
+					IO_IDE_WARN("pr_left became negative!\n");
+					return false;
 				}
 				if (!pr_left) {
         				if (prd.size & 0x80000000) {
@@ -1370,17 +1362,22 @@ void receive_atapi_packet()
 							ready = gIDEState.state[gIDEState.drive].sector_count > 1;
 						}
 						if (to_transfer || ready) {
-							IO_IDE_ERR("false1\n");
+							gIDEState.config[gIDEState.drive].device->release();
+							IO_IDE_WARN("no more prd's, but still something to transfer\n");
 							return false;
 						}
 						prd_exhausted = true;
 					} else {
 						// get next prd
 						prd_addr += 8;
-						ppc_dma_read(&prd, prd_addr, 8);
+						if (!ppc_dma_read(&prd, prd_addr, 8)) {
+							gIDEState.config[gIDEState.drive].device->release();
+							return false;
+						}
+						prd.addr = ppc_word_from_LE(prd.addr);
+						prd.size = ppc_word_from_LE(prd.size);
 						pr_left = prd.size & 0xffff;
 						if (!pr_left) pr_left = 64*1024;
-						pr = ppc_word_from_LE(prd.addr);
 						transfer_at_once = to_transfer;
 						if (transfer_at_once > pr_left) transfer_at_once = pr_left;
 					}
@@ -1396,7 +1393,7 @@ void receive_atapi_packet()
 		}
 		gIDEState.config[gIDEState.drive].device->release();
 		return true;
-        };
+        }
 
 	bool read_bmdma_reg(uint32 port, uint32 &data, uint size)
 	{
@@ -1431,8 +1428,9 @@ void receive_atapi_packet()
 			break;
 		case 4:
 			if (size==4) {
-				IO_IDE_TRACE("bmide prd address: %08x(endianess)\n", mConfig[DTPR0]);
-				memcpy(&data, &mConfig[DTPR0], 4);// FIXME: endianess
+				memcpy(&data, &mConfig[DTPR0], 4);
+				data = ppc_word_from_LE(data);
+				IO_IDE_TRACE("bmide prd address: %08x\n", data);
 				return true;
 			}
 			break;
@@ -1461,7 +1459,8 @@ void receive_atapi_packet()
 		gIDEState.state[gIDEState.drive].mode = IDE_TRANSFER_MODE_NONE;
 		bool prd_exhausted;
 		uint32 bmide_prd_addr;
-		memcpy(&bmide_prd_addr, &mConfig[DTPR0], 4);	// FIXME: endianess
+		memcpy(&bmide_prd_addr, &mConfig[DTPR0], 4);
+		bmide_prd_addr = ppc_word_from_LE(bmide_prd_addr);
 		if (bm_ide_dotransfer(prd_exhausted, bmide_prd_addr, 
 				mConfig[BMIDECR0], mConfig[BMIDESR0], 
 				gIDEState.state[gIDEState.drive].dma_lba_start, 
@@ -1550,7 +1549,8 @@ void receive_atapi_packet()
 		case 4:
 			if (size==4) {
 				IO_IDE_TRACE("bmide prd address: %08x\n", data);
-				memcpy(&mConfig[DTPR0], &data, 4);// FIXME: endianess
+				data = ppc_word_to_LE(data);
+				memcpy(&mConfig[DTPR0], &data, 4);
 				return true;
 			}
 		}
@@ -1569,8 +1569,8 @@ void receive_atapi_packet()
 //			IO_IDE_TRACE("data <- %04x\n", data);
 			switch (gIDEState.state[gIDEState.drive].current_command) {
 			case IDE_COMMAND_WRITE_SECTOR: 
-				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data >> 8;
-				gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++] = data;
+				*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]) = data;
+				gIDEState.state[gIDEState.drive].sectorpos += 2;
 				if (gIDEState.state[gIDEState.drive].sectorpos == 512) {
 					if (gIDEState.state[gIDEState.drive].mode == IDE_TRANSFER_MODE_WRITE) {
 						uint32 pos = makeLogical(gIDEState.state[gIDEState.drive].head, 
@@ -1959,8 +1959,8 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 		case IDE_COMMAND_READ_SECTOR: 
 		case IDE_COMMAND_IDENT:
 		case IDE_COMMAND_IDENT_ATAPI:
-			data = ((uint16)gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++])<<8;
-			data |= gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++];
+			data = *((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]);
+			gIDEState.state[gIDEState.drive].sectorpos += 2;
 //			IO_IDE_TRACE("data: %04x\n", data);
 			if (gIDEState.state[gIDEState.drive].sectorpos == 512) {
 				if (gIDEState.state[gIDEState.drive].mode == IDE_TRANSFER_MODE_READ) {
@@ -2159,7 +2159,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 		if (reg >= BMIDECR0 && reg <= DTPR0) {
 			// FIXME: please fix this. I won't.
 			if (size != 1) IO_IDE_ERR("size != 1 bla in writeConfig()\n");
-			uint32 data = gPCI_Data >> (offset*8);
+			uint32 data = (gPCI_Data >> (offset*8)) & 0xff;
 			write_bmdma_reg(reg-BMIDECR0+offset, data, size);
 			return ;
 		}
@@ -2249,11 +2249,11 @@ void ide_init()
 			} else if (ext == (String)"nativecdrom") {
 				gIDEState.config[DISK].protocol = IDE_ATAPI;
 				CDROMDevice* cdrom = createNativeCDROMDevice(name, img);
-				if(!cdrom)
+				if (!cdrom)
 				    IO_IDE_ERR("Error creating native CDROM device\n");
 				gIDEState.config[DISK].device = cdrom;
 				const char *error;
-				if(error = gIDEState.config[DISK].device->getError())
+				if ((error = gIDEState.config[DISK].device->getError()))
 				    IO_IDE_ERR("%s\n", error);
 				gIDEState.config[DISK].bps = 2048;
 				gIDEState.config[DISK].lba = false;

@@ -758,6 +758,7 @@ ppc_write_effective_half_asm:
 	mov	[gCPU+pc_ofs], esi
 	mov	ebx, eax
 	and	ebx, 0xfff
+	xchg	dh, dl
 	cmp	ebx, 4095
 	jae	.overlap
 
@@ -767,7 +768,6 @@ ppc_write_effective_half_asm:
 	cmp	eax, [gMemorySize]
 	pop	edx
 	jae	.mmio
-	xchg	dh, dl
 	add	eax, [gMemory]
 	mov	[eax], dx
 	ret
@@ -827,6 +827,7 @@ ppc_write_effective_word_asm:
 	mov	[gCPU+pc_ofs], esi
 	mov	ebx, eax
 	and	ebx, 0xfff
+	bswap	edx
 	cmp	ebx, 4093
 	jae	.overlap
 
@@ -836,7 +837,6 @@ ppc_write_effective_word_asm:
 	cmp	eax, [gMemorySize]
 	pop	edx
 	jae	.mmio
-	bswap	edx
 	add	eax, [gMemory]
 	mov	[eax], edx
 	ret
@@ -925,6 +925,8 @@ ppc_write_effective_dword_asm:
 	mov	ebx, eax
 	and	ebx, 0xfff
 	cmp	ebx, 4089
+	bswap	edx
+	bswap	ecx
 	jae	.overlap
 
 	push	ecx
@@ -935,8 +937,6 @@ ppc_write_effective_dword_asm:
 	pop	edx
 	pop	ecx
 	jae	.mmio
-	bswap	edx
-	bswap	ecx
 	add	eax, [gMemory]
 	mov	[eax], ecx
 	mov	[eax+4], edx
@@ -1073,6 +1073,7 @@ ppc_read_effective_half_z_asm:
 .mmio:
 	mov	edx, 2
 	call	io_mem_read_glue
+	xchg	al, ah
 	movzx	edx, ax
 	ret
 .overlap:
@@ -1142,6 +1143,7 @@ ppc_read_effective_half_s_asm:
 .mmio:
 	mov	edx, 2
 	call	io_mem_read_glue
+	xchg	ah, al
 	movsx	edx, ax
 	ret
 .overlap:
@@ -1213,6 +1215,7 @@ ppc_read_effective_word_asm:
 	mov	edx, 4
 	call	io_mem_read_glue
 	mov	edx, eax
+	bswap	edx
 	ret
 .overlap:
 	push	eax
@@ -1311,6 +1314,8 @@ ppc_read_effective_dword_asm:
 	call	io_mem_read64_glue
 	mov	ecx, edx
 	mov	edx, eax
+	bswap	ecx
+	bswap	edx
 	ret
 .overlap:
 	push	eax

@@ -105,13 +105,13 @@ bool PCI_GCard::writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 	return true;
 }
 
-#define MAYBE_PPC_HALF_TO_BE(a) ppc_half_to_BE(a)
+/*#define MAYBE_PPC_HALF_TO_BE(a) ppc_half_to_BE(a)
 #define MAYBE_PPC_WORD_TO_BE(a) ppc_word_to_BE(a)
-#define MAYBE_PPC_DWORD_TO_BE(a) ppc_dword_to_BE(a)
+#define MAYBE_PPC_DWORD_TO_BE(a) ppc_dword_to_BE(a)*/
 
-/*#define MAYBE_PPC_HALF_TO_BE(a) a
-#define MAYBE_PPC_WORD_TO_BE(a) a
-#define MAYBE_PPC_DWORD_TO_BE(a) a*/
+#define MAYBE_PPC_HALF_TO_BE(a) (a)
+#define MAYBE_PPC_WORD_TO_BE(a) (a)
+#define MAYBE_PPC_DWORD_TO_BE(a) (a)
 
 void FASTCALL gcard_write_1(uint32 addr, uint32 data)
 {

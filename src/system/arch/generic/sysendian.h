@@ -24,71 +24,63 @@
 #include "system/types.h"
 #include "config.h"
 
+static inline FUNCTION_CONST uint32 ppc_bswap_word(uint32 data)
+{
+	return (data>>24)|((data>>8)&0xff00)|((data<<8)&0xff0000)|(data<<24);
+}
+
+static inline FUNCTION_CONST uint64 ppc_bswap_dword(uint64 data)
+{
+	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
+}
+
+static inline FUNCTION_CONST uint16 ppc_bswap_half(uint16 data)
+{
+	return (data<<8)|(data>>8);
+}
+
 #if HOST_ENDIANESS == HOST_ENDIANESS_LE
 
 /*
  *		Little-endian machine
  */
 
-#	define ppc_dword_from_LE(data)	(uint64)(data)
-#	define ppc_word_from_LE(data)	(uint32)(data)
-#	define ppc_half_from_LE(data)	(uint16)(data)
+#	define ppc_dword_to_BE(data)	(ppc_bswap_dword(data))
+#	define ppc_word_to_BE(data)	(ppc_bswap_word(data))
+#	define ppc_half_to_BE(data)	(ppc_bswap_half(data))
 
-#	define ppc_dword_to_LE(data)	(uint64)(data)
-#	define ppc_word_to_LE(data)	(uint32)(data)
-#	define ppc_half_to_LE(data)	(uint16)(data)
+#	define ppc_dword_to_LE(data)	((uint64)(data))
+#	define ppc_word_to_LE(data)	((uint32)(data))
+#	define ppc_half_to_LE(data)	((uint16)(data))
 
-#	define ppc_dword_from_BE ppc_dword_to_BE
-#	define ppc_word_from_BE ppc_word_to_BE
-#	define ppc_half_from_BE ppc_half_to_BE
+#	define ppc_dword_to_LE(data)	ppc_dword_from_LE(data)
+#	define ppc_word_to_LE(data)	ppc_word_from_LE(data)
+#	define ppc_half_to_LE(data)	ppc_half_from_LE(data)
 
-/* LE, but not on x86 */
-static inline __attribute__((const))uint32 ppc_word_to_BE(uint32 data)
-{
-	return (data>>24)|((data>>8)&0xff00)|((data<<8)&0xff0000)|(data<<24);
-}
-
-static inline __attribute__((const))uint64 ppc_dword_to_BE(uint64 data)
-{
-	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
-}
-
-static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
-{
-	return (data<<8)|(data>>8);
-}
+#	define ppc_dword_to_BE(data)	ppc_dword_from_BE(data)
+#	define ppc_word_to_BE(data)	ppc_word_from_BE(data)
+#	define ppc_half_to_BE(data)	ppc_half_from_BE(data)
 
 #elif HOST_ENDIANESS == HOST_ENDIANESS_BE
 
 /*
  *		Big-endian machine
  */
-#	define ppc_dword_from_BE(data)	(uint64)(data)
-#	define ppc_word_from_BE(data)	(uint32)(data)
-#	define ppc_half_from_BE(data)	(uint16)(data)
+#	define ppc_dword_to_BE(data)	((uint64)(data))
+#	define ppc_word_to_BE(data)	((uint32)(data))
+#	define ppc_half_to_BE(data)	((uint16)(data))
 
-#	define ppc_dword_to_BE(data)	(uint64)(data)
-#	define ppc_word_to_BE(data)	(uint32)(data)
-#	define ppc_half_to_BE(data)	(uint16)(data)
+#	define ppc_dword_to_LE(data)	(ppc_bswap_dword(data))
+#	define ppc_word_to_LE(data)	(ppc_bswap_word(data))
+#	define ppc_half_to_LE(data)	(ppc_bswap_half(data))
 
-#	define ppc_dword_from_LE ppc_dword_to_LE
-#	define ppc_word_from_LE ppc_word_to_LE
-#	define ppc_half_from_LE ppc_half_to_LE
+#	define ppc_dword_to_LE(data)	ppc_dword_from_LE(data)
+#	define ppc_word_to_LE(data)	ppc_word_from_LE(data)
+#	define ppc_half_to_LE(data)	ppc_half_from_LE(data)
 
-static inline __attribute__((const))uint32 ppc_word_to_LE(uint32 data)
-{
-	return (data>>24)|((data>>8)&0xff00)|((data<<8)&0xff0000)|(data<<24);
-}
-
-static inline __attribute__((const))uint64 ppc_dword_to_LE(uint64 data)
-{
-	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
-}
-
-static inline __attribute__((const))uint16 ppc_half_to_LE(uint16 data)
-{
-	return (data<<8)|(data>>8);
-}
+#	define ppc_dword_to_BE(data)	ppc_dword_from_BE(data)
+#	define ppc_word_to_BE(data)	ppc_word_from_BE(data)
+#	define ppc_half_to_BE(data)	ppc_half_from_BE(data)
 
 #else
 
@@ -99,4 +91,5 @@ static inline __attribute__((const))uint16 ppc_half_to_LE(uint16 data)
 #	error "What kind of a weird machine do you have? It's neither little- nor big-endian??? This is unsupported."
 
 #endif
+
 #endif

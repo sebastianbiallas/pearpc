@@ -54,7 +54,6 @@ void pic_write(uint32 addr, uint32 data, int size)
 	case 0x24:
 	case 0x14: {
 		// enable /disable
-		data = ppc_word_to_BE(data);
 		int o=0;
 		if (addr == 0x14) {
 			o = 32;
@@ -78,13 +77,11 @@ void pic_write(uint32 addr, uint32 data, int size)
 	case 0x18:
 		// ack irq
 		IO_PIC_TRACE("ack high\n");
-		data = ppc_word_to_BE(data);
 		PIC_pending_high &= ~data;
 		break;
 	case 0x28:
 		// ack irq
 		IO_PIC_TRACE("ack low\n");
-		data = ppc_word_to_BE(data);
 		PIC_pending_low &= ~data;
 		break;
 	case 0x38: 
@@ -112,25 +109,25 @@ void pic_read(uint32 addr, uint32 &data, int size)
 			r = PIC_enable_low;
 		}
 		IO_PIC_TRACE("enable / disable %08x\n", r);
-		data = ppc_word_to_BE(r);
+		data = r;
 		break;
 	}
 	case 0x10:
 		IO_PIC_TRACE("interrupt high? (pending_high is %08x)\n", PIC_pending_high);
-		data = ppc_word_to_BE(PIC_pending_high);
+		data = PIC_pending_high;
 		break;
 	case 0x1c:
 		IO_PIC_TRACE("level2\n");
-		data = ppc_word_to_BE(0);
+		data = 0;
 		break;
 	case 0x20:
 		IO_PIC_TRACE("interrupt low? (pending_low is %08x)\n", PIC_pending_low);
-		data = ppc_word_to_BE(PIC_pending_low);
+		data = PIC_pending_low;
 		break;
 	case 0x2c:
 		// level
 		IO_PIC_TRACE("level1 (%08x)\n", PIC_pending_level);
-		data = ppc_word_to_BE(PIC_pending_level);
+		data = PIC_pending_level;
 		break;
 	case 0x38:
 		IO_PIC_TRACE("sound\n");
