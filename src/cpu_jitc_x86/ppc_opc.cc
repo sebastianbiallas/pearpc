@@ -1243,6 +1243,7 @@ JITCFlow ppc_opc_gen_mtmsr()
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
+//	return flowContinue;
 	return flowEndBlockUnreachable;
 }
 /*
@@ -1570,10 +1571,11 @@ JITCFlow ppc_opc_gen_mtsr()
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
 	// sync
-	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
-	return flowEndBlockUnreachable;	
+//	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
+//	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+//	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
+//	return flowEndBlockUnreachable;	
+	return flowContinue;
 }
 /*
  *	mtsrin		Move to Segment Register Indirect
@@ -1609,10 +1611,11 @@ JITCFlow ppc_opc_gen_mtsrin()
 	asmALUMemReg(X86_MOV, modrm, x86_mem_sib(modrm, REG_NO, 4, b, (uint32)(&gCPU.sr[0])), s);
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
 	// sync
-	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
-	return flowEndBlockUnreachable;	
+//	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
+//	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+//	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
+//	return flowEndBlockUnreachable;	
+	return flowContinue;
 }
 
 /*
