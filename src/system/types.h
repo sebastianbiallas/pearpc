@@ -57,6 +57,9 @@ typedef signed long long sint64;
 #include <sys/types.h>
 
 typedef signed int	sint;
+#ifdef WIN32
+typedef unsigned int	uint;
+#endif
 
 typedef uint8		byte;
 
