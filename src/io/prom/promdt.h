@@ -103,6 +103,7 @@ public:
  *	This is the base class for instances of PromNodes.
  */
 class PromInstance: public Object {
+protected:
 	PromNode *mType;
 	PromInstanceHandle mHandle;
 public:

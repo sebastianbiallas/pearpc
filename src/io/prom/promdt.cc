@@ -440,8 +440,10 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 			}
 			f += (gDisplay->mClientChar.width - width)*bpx;
 		}
+		damageFrameBufferAll();
 		pa->args[7] = 0;
 	} else {
+		IO_PROM_ERR("%s: %s not implemented\n", mType->name, method);
 	}
 }
 
