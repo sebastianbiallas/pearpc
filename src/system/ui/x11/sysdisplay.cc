@@ -339,7 +339,10 @@ public:
 
 	void updateTitle() 
 	{
-		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseGrabbed ? "disables" : "enables");
+		String key;
+		int key_toggle_mouse_grab = gKeyboard->getKeyConfig().key_toggle_mouse_grab;
+		SystemKeyboard::convertKeycodeToString(key, key_toggle_mouse_grab);
+		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [%s %s mouse]", mTitle,key.contentChar(), (isMouseGrabbed() ? "disables" : "enables"));
 		XTextProperty name_prop;
 		char *mCurTitlep = mCurTitle;
 		XStringListToTextProperty(&mCurTitlep, 1, &name_prop);
