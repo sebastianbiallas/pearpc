@@ -459,6 +459,7 @@ void prom_service_interpret(prom_args *pa)
 //		gSinglestep = true;
 		break;
 	case 1644:
+	case 1972: // older BootX
 		// Init SLW
 		pa->args[1] = 0;
 		pa->args[2] = 0xdeadbee2;
