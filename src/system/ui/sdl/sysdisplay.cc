@@ -213,7 +213,8 @@ void SDLSystemDisplay::ToggleFullScreen()
 	SDL_BlitSurface(screen, NULL, backup, NULL);
 	SDL_BlitSurface(screen, NULL, backup2, NULL);
 	printm("Toggled FullScreen\n");
-       	if (SDL_VideoModeOK(screen->w, screen->h, 32, screen->flags ^ SDL_FULLSCREEN)) {
+       	if (SDL_VideoModeOK(screen->w, screen->h, 8*mClientChar.bytesPerPixel,
+	screen->flags ^ SDL_FULLSCREEN)) {
        		screen = SDL_SetVideoMode(screen->w, screen->h, 8*mClientChar.bytesPerPixel,
 			(screen->flags ^ SDL_FULLSCREEN)|SDL_HWSURFACE);
 	}
