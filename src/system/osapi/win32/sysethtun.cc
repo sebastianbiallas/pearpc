@@ -29,6 +29,8 @@
 #include <windows.h>
 #include <Winioctl.h>
 
+#undef FASTCALL
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
