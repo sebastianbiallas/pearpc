@@ -1055,7 +1055,7 @@ x86opc_insn x86_modfloat_group_insns[8][8] = {
 /* prefix DB */
 {
 {"fild", {{Md}}},
-{0},
+{"fisttp", {{Md}}},
 {"fist", {{Md}}},
 {"fistp", {{Md}}},
 {0},

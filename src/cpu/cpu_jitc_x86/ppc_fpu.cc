@@ -1218,7 +1218,9 @@ JITCFlow ppc_opc_gen_fctiwzx()
 	static uint16 cw = 0xfff;
 	
 	byte modrm[6];
-	asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&cw));
+	if (!gJITC.hostCPUCaps.sse3) {
+		asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&cw));
+	}
 	
 	jitcClobberClientRegisterForFloat(frB);
 	jitcInvalidateClientRegisterForFloat(frD);
@@ -1233,12 +1235,18 @@ JITCFlow ppc_opc_gen_fctiwzx()
 	}
 
 	JitcFloatReg b = jitcGetClientFloatRegisterUnmapped(frB);
-	asmFISTPMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frD]));
+	if (gJITC.hostCPUCaps.sse3) {
+		asmFISTTPMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frD]));
+	} else {
+		asmFISTPMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frD]));
+	}
 	gJITC.nativeFloatRegState[b] = rsUnused;
 	gJITC.clientFloatReg[frB] = JITC_FLOAT_REG_NONE;
 	gJITC.nativeFloatTOP--;
 	
-	asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw));
+	if (!gJITC.hostCPUCaps.sse3) {
+		asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw));
+	}
 	
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags

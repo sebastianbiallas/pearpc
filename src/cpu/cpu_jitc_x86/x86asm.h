@@ -353,6 +353,7 @@ void FASTCALL asmFSTPDoubleMem(byte *modrm, int len);
 void FASTCALL asmFSTDSTi(NativeFloatReg sti);
 void FASTCALL asmFSTDPSTi(NativeFloatReg sti);
 void FASTCALL asmFISTPMem(byte *modrm, int len);
+void FASTCALL asmFISTTPMem(byte *modrm, int len);
 
 void FASTCALL asmFLDCWMem(byte *modrm, int len);
 void FASTCALL asmFSTCWMem(byte *modrm, int len);

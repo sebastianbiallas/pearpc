@@ -1791,6 +1791,15 @@ void FASTCALL asmFISTPMem(byte *modrm, int len)
 	jitcEmit(instr, len+1);
 }
 
+void FASTCALL asmFISTTPMem(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xdb;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 1<<3;
+	jitcEmit(instr, len+1);
+}
+
 void FASTCALL asmFLDCWMem(byte *modrm, int len)
 {
 	byte instr[15];
