@@ -233,7 +233,7 @@ static int tun_open(enet_iface_t *is, char *intf_name, int *sigio_capable, byte 
 	}
 
 	/* set HW address */
-	memcpy(is->eth_addr, mac, sizeof mac);
+	memcpy(is->eth_addr, mac, 6);
 
 	/* finish... */
 	is->packet_pad = 0;
