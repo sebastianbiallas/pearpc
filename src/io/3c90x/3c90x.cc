@@ -48,6 +48,7 @@
 #endif
 
 #if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
+#elif defined(__APPLE__) && defined(__MACH__)
 #else
 
 #define MAX_PACKET_SIZE		16384
@@ -1929,7 +1930,17 @@ void _3c90x_init()
 {
 	if (gConfig->getConfigInt(_3C90X_KEY_INSTALLED)) {
 		IO_3C90X_ERR("network can't be used on your system "
-			"(Not supported on Windows e.g.?)\n");
+			"(Only supported on Linux right now)\n");
+	}
+}
+
+#elif defined(__APPLE__) && defined(__MACH__)
+
+void _3c90x_init()
+{
+	if (gConfig->getConfigInt(_3C90X_KEY_INSTALLED)) {
+		IO_3C90X_ERR("network can't be used on your system "
+			"(Only supported on Linux right now)\n");
 	}
 }
 

@@ -4,8 +4,8 @@ noinst_LIBRARIES = libtools.a
 
 libtools_a_SOURCES = atom.cc atom.h data.cc data.h debug.cc debug.h \
 endianess.cc endianess.h except.cc except.h \
-regex.c regex.h snprintf.cc snprintf.h \
-store.cc store.h str.cc str.h stream.cc stream.h strtools.cc strtools.h \
-configfile.cc configfile.h thread.cc thread.h cstream.h
+h snprintf.cc snprintf.h store.cc store.h str.cc str.h stream.cc \
+stream.h strtools.cc strtools.h configfile.cc configfile.h thread.cc \
+thread.h cstream.h
 
 INCLUDES = -I ..

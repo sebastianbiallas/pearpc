@@ -26,6 +26,7 @@
 #endif
 
 #if defined(WIN32) || defined(__WIN32__) || !defined(HAVE_ETHERTAP)
+#elif defined(__APPLE__) && defined(__MACH__)
 #else
 
 #include <sys/ioctl.h>
