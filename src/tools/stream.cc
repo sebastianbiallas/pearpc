@@ -1235,7 +1235,7 @@ uint CroppedFile::read(void *buf, uint size)
 		if (offset >= mCropStart+mCropSize) return 0;
 		if (offset+size >= mCropStart+mCropSize) size = mCropStart+mCropSize-offset;
 	}
-	ht_printf("CroppedFile::read 0x%08x bytes @ 0x%08qx\n", &size, &offset);
+//	ht_printf("CroppedFile::read 0x%08x bytes @ 0x%08qx\n", size, &offset);
 	return FileLayer::read(buf, size);
 }
 

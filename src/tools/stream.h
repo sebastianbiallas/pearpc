@@ -97,8 +97,6 @@ public:
 					StreamLayer(Stream *stream, bool own_stream);
 	virtual				~StreamLayer();
 	/* extends Stream */
-	virtual	uint			copyAllTo(Stream *stream);
-	virtual uint			copyTo(Stream *stream, uint count);
 	virtual IOAccessMode		getAccessMode() const;
 	virtual String &		getDesc(String &result) const;
 	virtual uint			read(void *buf, uint size);
@@ -282,8 +280,6 @@ public:
 					FileLayer(File *file, bool own_file);
 	virtual 			~FileLayer();
 	/* extends File */
-	virtual	uint			copyAllTo(Stream *stream);
-	virtual uint			copyTo(Stream *stream, uint count);
 	virtual void			del(uint size);
 	virtual void			extend(FileOfs newsize);
 	virtual IOAccessMode		getAccessMode() const;
