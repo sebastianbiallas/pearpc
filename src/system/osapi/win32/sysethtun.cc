@@ -45,19 +45,18 @@
 #define TAP_WIN32_MIN_MINOR 1
 
 #define printm(s...)	ht_printf("[TAP-WIN32]: "s)
-#define BUFFER_SIZE	65536
-#define READ_SIZE	16384
+#define MAX_PACKET_SIZE	16384
 #define ERRORMSG_SIZE	1024
 
 //simple function to translate an error code into a string
-static void GetErrorString(char *out, DWORD error) 
+static void getErrorString(char *out, int maxSize, DWORD error)
 {
 	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
     		  	NULL,
     			error,
     			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
     			(LPTSTR) out,
-    			ERRORMSG_SIZE,
+    			maxSize,
     			NULL);
 }
 //checks to see if a given NIC GUID is a TAP-WIN32 device
@@ -194,7 +193,7 @@ static int get_device_guid(char *name, int name_size, char *actual_name, int act
 class Win32EthTunDevice: public EthTunDevice {
 protected:
 	HANDLE		mFile;
-	unsigned char	mBuf[BUFFER_SIZE];
+	unsigned char	mBuf[MAX_PACKET_SIZE];
 	DWORD		mBuflen;
 	OVERLAPPED	mOverlapped;
 
@@ -202,13 +201,12 @@ protected:
 bool tap_set_status(ULONG status)
 {
 	DWORD len = 0;
-	bool ret;
-	ret = DeviceIoControl(mFile, TAP_IOCTL_SET_MEDIA_STATUS,
+	BOOL ret = DeviceIoControl(mFile, TAP_IOCTL_SET_MEDIA_STATUS,
 				&status, sizeof (status),
 				&status, sizeof (status), &len, NULL);
 	if (!ret) {
 		char errmsg[ERRORMSG_SIZE];
-		GetErrorString(errmsg, GetLastError());
+		getErrorString(errmsg, sizeof errmsg, GetLastError());
 		printm("Failed: %s\n", errmsg);
 	}
 	return ret;
@@ -261,7 +259,7 @@ int initDevice()
 	mFile = handle;
 	mOverlapped.Offset = 0;
 	mOverlapped.OffsetHigh = 0;
-	mOverlapped.hEvent = CreateEvent(NULL, TRUE, false, NULL);
+	mOverlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	
 	//check TAP driver version against our minimum supported version
 	{
@@ -285,7 +283,7 @@ int initDevice()
 
       			} else {
 				char errmsg[ERRORMSG_SIZE];
-				GetErrorString(errmsg, GetLastError());
+				getErrorString(errmsg, sizeof errmsg, GetLastError());
 				throw new MsgfException("Could not get driver version info: %s\n", errmsg);
 			}
 		}
@@ -334,11 +332,11 @@ virtual	uint recvPacket(void *buf, uint size)
 
 virtual	int waitRecvPacket()
 {
-	DWORD status;
+	BOOL status;
 	mOverlapped.Offset = 0;
 	mOverlapped.OffsetHigh = 0;
 	ResetEvent(mOverlapped.hEvent);
-	status = ReadFile(mFile, mBuf, READ_SIZE, &mBuflen, &mOverlapped);
+	status = ReadFile(mFile, mBuf, sizeof mBuf, &mBuflen, &mOverlapped);
 	if (!status) {
 		DWORD e = GetLastError();
 		if (e == ERROR_IO_PENDING) {
@@ -348,7 +346,7 @@ virtual	int waitRecvPacket()
 			}
 		} else {
 			char errmsg[ERRORMSG_SIZE];
-			GetErrorString(errmsg, e);
+			getErrorString(errmsg, sizeof errmsg, e);
 			printm("Bad read error: %s\n", errmsg);
 
 			return EIO;
@@ -365,7 +363,7 @@ virtual	uint sendPacket(void *buf, uint size)
 	ret = WriteFile(mFile, buf, size, &written, &wrov);
 	if (!ret) {
 		char errmsg[ERRORMSG_SIZE];
-		GetErrorString(errmsg, GetLastError());
+		getErrorString(errmsg, sizeof errmsg, GetLastError());
 		printm("Sending of %d bytes failed (%d bytes sent): %s\n", size, written, errmsg);
 	}
 	return written;
