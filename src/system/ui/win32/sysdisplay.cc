@@ -187,7 +187,7 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		mFullscreenChanged = true;
 		LeaveCriticalSection(&gDrawCS);
 		SetWindowLong(gHWNDMain, GWL_STYLE, WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_SYSMENU | WS_OVERLAPPED);
-		SetWindowPos(gHWNDMain, HWND_TOP, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED, 0, 0, 0, 0);
+		SetWindowPos(gHWNDMain, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 		SetWindowPos(gHWNDMain, HWND_TOPMOST, 0, 0, mWinChar.width, mWinChar.height, 0);
 		ShowWindow(gHWNDMain, SW_SHOWMAXIMIZED);
 		setMouseGrab(true);
@@ -234,7 +234,7 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		mHomeMouseY = mWinChar.height/2;
 		createBitmap();
 		SetWindowLong(gHWNDMain, GWL_STYLE, WS_VISIBLE | WS_SYSMENU | WS_CAPTION | WS_BORDER | WS_MINIMIZEBOX);
-		SetWindowPos(gHWNDMain, HWND_NOTOPMOST, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED, 0, 0, 0, 0);
+		SetWindowPos(gHWNDMain, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 		SetWindowPos(gHWNDMain, HWND_TOP, 0, 0,	mWinChar.width + GetSystemMetrics(SM_CXFIXEDFRAME) * 2,
 						mWinChar.height + gMenuHeight + GetSystemMetrics(SM_CYFIXEDFRAME) * 2 + GetSystemMetrics(SM_CYCAPTION),	0);
 		LeaveCriticalSection(&gDrawCS);
