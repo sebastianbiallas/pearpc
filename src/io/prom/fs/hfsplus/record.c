@@ -8,6 +8,7 @@
  * Copyright (C) 2000-2001 Klaus Halfmann <klaus.halfmann@t-online.de>
  * Original 1996-1998 Robert Leslie <rob@mars.org>
  * Additional work by  Brad Boyer (flar@pants.nu)  
+ * Additional work in 2004 by Stefan Weyergraf (stefan@weyergraf.de) for use in PearPC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +24,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: record.c,v 1.1 2004/05/05 22:46:09 seppel Exp $
+ * $Id: record.c,v 1.2 2004/05/11 16:11:12 steveman Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -1129,10 +1130,9 @@ static int record_delete_direct(record *r)
     {
 	if (record_find_parent(&parent, r))
 	    goto fail;
-	if (parent.record.u.folder.valence == 0)
-	    fprintf(stderr, "Deleting item from folder with 0 items !?\n");
-	else
-	{
+	if (parent.record.u.folder.valence == 0) {
+//	    fprintf(stderr, "Deleting item from folder with 0 items !?\n");
+	} else {
 	    parent.record.u.folder.valence --;
 	    parent.record.u.folder.content_mod_date = HFSPTIMEDIFF + time(NULL);
 	    // write back that folder ...
@@ -1258,9 +1258,10 @@ int record_insert(record* r)
     HFSP_SYNC_START(HFSP_WRITELOCK, bt);
 
     // Find out where to insert the record
-    if (record_find_key(bt, &r->key, &keyind, &nodeind))
-	HFSP_ERROR(EEXIST, 
-	hfsp_error = "File/Folder already exists");
+    if (record_find_key(bt, &r->key, &keyind, &nodeind)) {
+	hfsp_error = "File/Folder already exists";
+	HFSP_ERROR(EEXIST, hfsp_error);
+    }
 
     // Create memory image
     p = record_writekey  (p, &r->key);
@@ -1273,9 +1274,10 @@ int record_insert(record* r)
     len = p - buf;
     if (len > bt->max_rec_size) // Emergency bail out, sorry
     {
-	fprintf(stderr,"Unexpected Buffer overflow in record_insert %d > %d",
-		len, sizeof(bt->max_rec_size));
-	exit(-1);
+/*	fprintf(stderr,"Unexpected Buffer overflow in record_insert %d > %d",
+		len, sizeof(bt->max_rec_size));*/
+//	exit(-1);
+	goto fail;
     } 
     if (btree_insert_record(bt,nodeind,keyind,buf,len))
 	HFSP_ERROR(ENOSPC, "Unable to insert record into tree (volume full ?)");

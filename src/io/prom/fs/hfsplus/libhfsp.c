@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: libhfsp.c,v 1.1 2004/05/05 22:45:31 seppel Exp $
+ * $Id: libhfsp.c,v 1.2 2004/05/11 16:11:12 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -42,5 +42,3 @@ UInt32 sig(char c0, char c1, char c2, char c3)
     ((char*)&sig)[3] = c3;
     return sig;
 }
-
-

@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: block.c,v 1.1 2004/05/05 22:45:17 seppel Exp $
+ * $Id: block.c,v 1.2 2004/05/11 16:11:00 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -94,7 +94,7 @@ fail:
  */
 void b_showstats(const bcache *cache)
 {
-  fprintf(stderr, "BLOCK: CACHE vol 0x%lx \"%s\" hit/miss ratio = %.3f\n",
+//  fprintf(stderr, "BLOCK: CACHE vol 0x%lx \"%s\" hit/miss ratio = %.3f\n",
 	  (unsigned long) cache->vol, cache->vol->mdb.drVN,
 	  (float) cache->hits / (float) cache->misses);
 }
@@ -103,7 +103,7 @@ void b_showstats(const bcache *cache)
  * NAME:	block->dumpcache()
  * DESCRIPTION:	dump the cache tables for a volume
  */
-void b_dumpcache(const bcache *cache)
+/*void b_dumpcache(const bcache *cache)
 {
   const bucket *b;
   int i;
@@ -150,7 +150,7 @@ void b_dumpcache(const bcache *cache)
       if (seen)
 	fprintf(stderr, "\n");
     }
-}
+}*/
 # endif
 
 /*
@@ -399,7 +399,7 @@ int reuse(bcache *cache, bucket *b, unsigned long bnum)
 
 # ifdef DEBUG
   if (INUSE(b))
-    fprintf(stderr, "BLOCK: CACHE reusing bucket containing "
+	printf(stderr, "BLOCK: CACHE reusing bucket containing "
 	    "vol 0x%lx block %lu:%u\n",
 	    (unsigned long) cache->vol, b->bnum, b->count);
 # endif

@@ -2,7 +2,7 @@
 ==================
 
 version 0.2:
-	-
-	
+	- got rid of printfs in HFS and HFS+ code
+
 version 0.1:
 	- initial release

@@ -6,6 +6,7 @@
  * Copyright (C) 2000 Klaus Halfmann <klaus.halfmann@feri.de>
  * Original work by 1996-1998 Robert Leslie <rob@mars.org>
  * other work 2000 from Brad Boyer (flar@pants.nu)  
+ * Additional work in 2004 by Stefan Weyergraf (stefan@weyergraf.de) for use in PearPC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.c,v 1.1 2004/05/05 22:46:03 seppel Exp $
+ * $Id: volume.c,v 1.2 2004/05/11 16:11:12 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -516,7 +517,7 @@ int volume_open(volume* vol, const void *devicehandle, int partition, int rw)
 
     if (volume_read(vol, &backup, vol->maxblocks - 2))
 	/*return -1*/;	/* ignore lacking backup */
-    fprintf(stderr, "HFS+ has no backup volume header. skipping...\n");
+//    fprintf(stderr, "HFS+ has no backup volume header. skipping...\n");
 
     /* Now switch blksize from HFSP_BLOCKSZ (512) to value given in header
        and adjust depend values accordingly, after that a block always
