@@ -51,9 +51,9 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 	TIMECAPS tc;
 	uint64    wTimerRes;
 
-	if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR) 
-	{	
-	    // Error; application can't continue.
+	if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR) {
+		// Error; application can't continue.
+		return false;
 	}
 
 	wTimerRes = min(max(tc.wPeriodMin, TARGET_RESOLUTION), tc.wPeriodMax);
