@@ -31,6 +31,7 @@
 #include "io/ide/ide.h"
 #include "io/3c90x/3c90x.h"
 #include "io/rtl8139/rtl8139.h"
+#include "system/keyboard.h"
 #include "system/display.h"
 #include "prommem.h"
 #include "promdt.h"
@@ -483,10 +484,10 @@ uint32 PromInstanceKBD::read(uint32 buf, int length)
 {
 	char *tobuf = (char*)prom_ea_string(buf);
 	if (tobuf) {
-		DisplayEvent ev;
-		while (gDisplay->getEvent(ev)) {
-			if (ev.type == evKey && ev.keyEvent.pressed) {
-				*tobuf = ev.keyEvent.chr;
+		SystemEvent ev;
+		while (gKeyboard->getEvent(ev)) {
+			if (ev.type == sysevKey && ev.key.pressed) {
+				*tobuf = ev.key.chr;
 				return 1;
 			}
 		}

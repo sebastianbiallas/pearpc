@@ -39,6 +39,7 @@
 #include "tools/snprintf.h"
 #include "debug/tracers.h"
 #include "io/pic/pic.h"
+#include "system/keyboard.h"
 #include "system/sysclk.h"
 #include "cuda.h"
 
@@ -321,7 +322,7 @@ void cuda_receive_adb_packet()
 			if (devaddr == gCUDA.keybid) {
 				// LED stat
 				// 111b == all off
-				int ledstat = gDisplay->getKeybLEDs();
+				int ledstat = gKeyboard->getKeybLEDs();
 				int keyb = 0xff;
 				if (!(ledstat & KEYB_LED_NUM)) keyb &= ~0x80;
 				if (!(ledstat & KEYB_LED_SCROLL)) keyb &= ~0x40;
@@ -804,25 +805,26 @@ bool cuda_interrupt()
 	if (gCUDA.state == cuda_idle) {
 		if (!gCUDA.left /*&& !(gCUDA.rIFR & SR_INT)*/) {
 redo:
-			DisplayEvent ev;
-			if (gDisplay->getEvent(ev)) {
+			SystemEvent ev;
+			if (gKeyboard->getEvent(ev) /*|| gMouse->getEvent(ev)*/) {
 				switch (ev.type) {
-				case evKey: {
-					if (ev.keyEvent.keycode == KEY_F11) {
-						if (ev.keyEvent.pressed) gDisplay->composeKeyDialog();
+				case sysevKey: {
+					if (ev.key.keycode == KEY_F11) {
+					// FIXME: implement it
+//						if (ev.keyEvent.pressed) gKeyboard->composeKeyDialog();
 						goto redo;
 					}
 /*					if (ev.keyEvent.pressed && ev.keyEvent.keycode == KEY_F12) {
 						gSinglestep = true;
 					}*/
-					uint8 k = ev.keyEvent.keycode;
-					if (!ev.keyEvent.pressed) {
+					uint8 k = ev.key.keycode;
+					if (!ev.key.pressed) {
 						k |= 0x80;
 					}
 					cuda_send_packet(ADB_PACKET, 4, 0x40, 0x2c, k, 0xff);
 					return true;
 				}
-				case evMouse: {
+				case sysevMouse: {
 					int dx = ev.mouseEvent.relx; //* 256 / gDisplay->mClientChar.width;
 					int dy = ev.mouseEvent.rely; //* 256 / gDisplay->mClientChar.height;
 					if (dx<0) {

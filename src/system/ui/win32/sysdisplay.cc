@@ -39,10 +39,6 @@
 #undef FASTCALL
 #include "system/types.h"
 
-byte *gFrameBuffer = NULL;
-uint gFrameBufferScanLineLength;
-int gDamageAreaFirstAddr, gDamageAreaLastAddr;
-
 static HINSTANCE gHInst;
 static HWND gHWNDMain;
 static byte *winframebuffer = NULL;
@@ -127,7 +123,6 @@ public:
 
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
-		gFrameBufferScanLineLength = mClientChar.bytesPerPixel * mClientChar.width;
 		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
 		memset(gFrameBuffer, 0, mClientChar.width 
@@ -190,7 +185,6 @@ public:
 
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
-		gFrameBufferScanLineLength = mClientChar.bytesPerPixel * mClientChar.width;
 		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
 		memset(gFrameBuffer, 0, mClientChar.width 

@@ -41,6 +41,7 @@
 #include "tools/except.h"
 #include "tools/snprintf.h"
 #include "system/display.h"
+#include "system/keyboard.h"
 #include "system/sys.h"
 #include "configparser.h"
 
@@ -50,8 +51,6 @@
 #include "ppc_font.h"
 #include "ppc_img.h"
 #include "ppc_button_changecd.h"
-
-#include "system/sysfeatures.h"
 
 void changeCDFunc(void *p)
 {
@@ -326,6 +325,7 @@ int main(int argc, char *argv[])
 		 *	its config files.)
 		 */
 		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm);
+		gKeyboard = allocSystemKeyboard();
 		gcard_set_mode(gm);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);

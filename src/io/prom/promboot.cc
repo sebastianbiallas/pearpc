@@ -30,6 +30,7 @@
 #include "cpu_generic/ppc_mmu.h"
 #include "io/prom/fs/part.h"
 #include "io/ide/ide.h"
+#include "system/keyboard.h"
 #include "system/display.h"
 #include "tools/debug.h"
 #include "tools/except.h"
@@ -1011,12 +1012,12 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 			while (1) {
 				gDisplay->printf("\r\e[0K\rYour choice (ESC abort): %d", choice);
 	    			gDisplay->displayShow();
-				DisplayEvent ev;
+				SystemEvent ev;
 				do {
-					gDisplay->getSyncEvent(ev);
-				} while (ev.type != evKey || !ev.keyEvent.pressed);
+					gKeyboard->getSyncEvent(ev);
+				} while (ev.type != sysevKey || !ev.key.pressed);
 
-				uint keycode = ev.keyEvent.keycode;
+				uint keycode = ev.key.keycode;
 				if (keycode == KEY_DELETE) choice = 0; else
 				if (keycode == KEY_RETURN) break; else
 				if (keycode == KEY_ESCAPE) return false;

@@ -51,8 +51,6 @@
 
 #define BMP_MENU
 
-uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
-
 struct {
 	uint64 r_mask;
 	uint64 g_mask;
@@ -112,8 +110,6 @@ static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
 	}
 }
 
-
-byte *gFramebuffer = NULL;
 static byte *gBeOSFramebuffer = NULL;
 /* old value of framebuffer, after replacing with BBitmap::Bits() */
 /*

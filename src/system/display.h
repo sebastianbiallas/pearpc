@@ -2,7 +2,7 @@
  *	HT Editor
  *	display.h
  *
- *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 2003,2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,8 +18,8 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __DISPLAY_H__
-#define __DISPLAY_H__
+#ifndef __SYSTEM_DISPLAY_H__
+#define __SYSTEM_DISPLAY_H__
 
 #include "tools/data.h"
 #include "types.h"
@@ -35,8 +35,7 @@
 #define	GC_TRANSPARENT		'0'		// transparent
 
 extern byte *	gFrameBuffer;
-
-extern int gDamageAreaFirstAddr, gDamageAreaLastAddr;
+extern int 	gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 inline void damageFrameBuffer(int addr)
 {
@@ -93,32 +92,6 @@ struct BufferedChar {
 	vcp color;
 };
 
-enum DisplayEventType {
-	evNone = 0,
-	evKey = 1,
-	evMouse = 2,
-};
-
-struct DisplayEvent {
-	DisplayEventType type;
-	union {
-    		struct {
-			int x;
-		    	int y;
-			int relx;
-		    	int rely;
-			bool button1; // left mouse button
-			bool button2; // right mouse button
-			bool button3; // middle mouse button
-		} mouseEvent;
-		struct {
-			uint keycode;
-			bool pressed;
-			char chr;
-		} keyEvent;
-	};
-};
-
 class DisplayCharacteristics: public Object {
 public:
 	int width, height;
@@ -132,7 +105,7 @@ public:
 	int greenSize;
 	int blueShift;
 	int blueSize;
-	
+
 	inline DisplayCharacteristics & operator =(const DisplayCharacteristics &chr)
 	{
 		width = chr.width;
@@ -243,8 +216,6 @@ public:
 	virtual void	convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar) = 0;
 	
 	virtual bool	changeResolution(const DisplayCharacteristics &aChar) = 0;
-	virtual int	getKeybLEDs() = 0;
-	virtual void	setKeybLEDs(int leds) = 0;
 
 	/* VT */
 	bool	openVT(int width, int height, int dx, int dy, File &font);
@@ -256,10 +227,6 @@ public:
      	virtual void fillAllVT(vcp color, byte chr);
 	void	setAnsiColor(vcp color);
 
-	/* event handling */
-	virtual bool getEvent(DisplayEvent &ev)=0;
-	virtual void getSyncEvent(DisplayEvent &ev)=0;
-	virtual void queueEvent(DisplayEvent &ev)=0;
 	virtual	void startRedrawThread(int msec)=0;
 
 	/* ui */
@@ -267,7 +234,7 @@ public:
 	virtual	void finishMenu() = 0;
 		void drawMenu();
 		void clickMenu(int x, int y);
-		void composeKeyDialog();
+//		void composeKeyDialog();
 		bool getCatchMouseToggle();
 		void drawCircleFilled(int x, int y, int w, int h, int cx, int cy, int radius, RGBA fg, RGBA bg);
 		void drawBox(int x, int y, int w, int h, RGBA fg, RGBA bg);
@@ -287,120 +254,4 @@ public:
 extern SystemDisplay *gDisplay;
 SystemDisplay *allocSystemDisplay(const char *name, const DisplayCharacteristics &chr);
 
-#define KEY_a 0
-#define KEY_s 1
-#define KEY_d 2
-#define KEY_f 3
-#define KEY_h 4
-#define KEY_g 5
-#define KEY_z 6
-#define KEY_x 7
-#define KEY_c 8
-#define KEY_v 9
-
-#define KEY_b 11
-#define KEY_q 12
-#define KEY_w 13
-#define KEY_e 14
-#define KEY_r 15
-#define KEY_y 16
-#define KEY_t 17
-#define KEY_1 18
-#define KEY_2 19
-#define KEY_3 20
-#define KEY_4 21
-#define KEY_6 22
-#define KEY_5 23
-#define KEY_EQ 24
-#define KEY_9 25
-#define KEY_7 26
-#define KEY_MINUS 27
-#define KEY_8 28
-#define KEY_0 29
-#define KEY_BRACKET_R 30
-#define KEY_o 31
-#define KEY_u 32
-#define KEY_BRACKET_L 33
-#define KEY_i 34
-#define KEY_p 35
-#define KEY_RETURN 36
-#define KEY_l 37
-#define KEY_j 38
-#define KEY_APOSTROPHE 39
-#define KEY_k 40
-#define KEY_SEMICOLON 41
-#define KEY_BACKSLASH 42
-#define KEY_COMMA 43
-#define KEY_SLASH 44
-#define KEY_n 45
-#define KEY_m 46
-#define KEY_PERIOD 47
-#define KEY_TAB 48
-#define KEY_SPACE 49
-#define KEY_GRAVE 50
-#define KEY_DELETE 51
-
-#define KEY_ESCAPE 53
-#define KEY_CONTROL 54
-#define KEY_ALT 55
-#define KEY_SHIFT 56
-#define KEY_CAPS_LOCK 57
-#define KEY_ALTGR 58
-#define KEY_LEFT 59
-#define KEY_RIGHT 60
-#define KEY_DOWN 61
-#define KEY_UP 62
-
-#define KEY_KP_PERIOD 65
-#define KEY_KP_MULTIPLY 67
-#define KEY_KP_ADD 69
-#define KEY_NUM_LOCK 71
-#define KEY_KP_DIVIDE 75
-#define KEY_KP_ENTER 76
-#define KEY_KP_SUBTRACT 78
-#define KEY_KP_0 82
-#define KEY_KP_1 83
-#define KEY_KP_2 84
-#define KEY_KP_3 85
-#define KEY_KP_4 86
-#define KEY_KP_5 87
-#define KEY_KP_6 88
-#define KEY_KP_7 89
-
-#define KEY_KP_8 91
-#define KEY_KP_9 92
-
-#define KEY_F5 96
-#define KEY_F6 97
-#define KEY_F7 98
-#define KEY_F3 99
-#define KEY_F8 100
-#define KEY_F9 101
-
-#define KEY_F11 103
-
-#define KEY_F13 105
-
-#define KEY_SCROLL_LOCK 107
-
-#define KEY_F10 109
-
-#define KEY_F12 111
-
-#define KEY_PAUSE 113
-#define KEY_INSERT 114
-#define KEY_HOME 115
-#define KEY_PRIOR 116
-#define KEY_REMOVE 117
-
-#define KEY_F4 118
-#define KEY_END 119
-#define KEY_F2 120
-#define KEY_NEXT 121
-#define KEY_F1 122
-	
-//keycode 0x7b = Shift
-//keycode 0x7c = AltGr
-//keycode 0x7d = Control
-
-#endif /* __DISPLAY_H__ */
+#endif /* __SYSTEM_DISPLAY_H__ */

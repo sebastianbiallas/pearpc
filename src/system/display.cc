@@ -28,6 +28,9 @@
 #include "tools/snprintf.h"
 #include "gif.h"
 
+byte *	gFrameBuffer = NULL;
+int 	gDamageAreaFirstAddr, gDamageAreaLastAddr;
+
 #define IS_FGTRANS(c) (VC_GET_BASECOLOR(VCP_FOREGROUND((c)))==VC_TRANSPARENT)
 #define IS_BGTRANS(c) (VC_GET_BASECOLOR(VCP_BACKGROUND((c)))==VC_TRANSPARENT)
 
@@ -314,22 +317,6 @@ void SystemDisplay::fillRGBA(int x, int y, int w, int h, RGBA rgba)
 	}
 }
 
-static char *key_names[] = {
-"A","S","D","F","H","G","Z","X","C","V",
-NULL,"B","Q","W","E","R","Y","T","1","2",
-"3","4","6","5","=","9","7","-","8","0","]",
-"O","U","[","I","P","Return","L","J","'","K",
-";","\\",",","/","N","M",".","Tab","Space",
-"`", "Backspace",NULL,"Escape","Ctrl","Alt","Shift","Caps-Lock","Right-Alt","Left",
-"Right","Down","Up",NULL,NULL,"Keypad .",NULL,"Keypad *",NULL,"Keypad +",
-NULL,"Numlock",NULL,NULL,NULL,"Keypad /","Keypad Enter",NULL,"Keypad -",NULL,
-NULL,NULL,"Keypad 0","Keypad 1","Keypad 2","Keypad 3","Keypad 4","Keypad 5","Keypad 6","Keypad 7",
-NULL,"Keypad 8","Keypad 9",NULL,NULL,NULL,"F5","F6","F7","F3",
-"F8","F9",NULL,"F11",NULL,"F13",NULL,"Scrolllock",NULL,"F10",
-NULL,"F12",NULL,"Pause","Insert","Home","Pageup","Delete","F4","End",
-"F2","Pagedown","F1",
-};
-
 #include <math.h>
 void SystemDisplay::drawCircleFilled(int x, int y, int w, int h, int cx, int cy, int r, RGBA fg, RGBA bg)
 {
@@ -409,6 +396,7 @@ void SystemDisplay::clickMenu(int x, int y)
 	}
 }
 
+/*
 void SystemDisplay::composeKeyDialog()
 {
 	byte *oldframebuffer = (byte*)malloc(mClientChar.scanLineLength * mClientChar.height);
@@ -483,6 +471,7 @@ redo:
 	free(oldframebuffer);
 	damageFrameBufferAll();
 }
+*/
 
 bool SystemDisplay::getCatchMouseToggle()
 {

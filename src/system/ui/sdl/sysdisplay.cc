@@ -41,8 +41,6 @@
 
 #define printm(s...) ht_printf("[Display/SDL]: "s)
 
-byte *gFrameBuffer = NULL;
-int gDamageAreaFirstAddr, gDamageAreaLastAddr;
 static SDL_Surface *screen;
 static int msec;
 static Queue *mEventQueue;
