@@ -45,6 +45,7 @@ public:
 
 	void setKeybLEDs(int leds)
 	{
+#if 0
 		int r = getKeybLEDs() ^ leds;
 		SDLMod keyMods = SDL_GetModState();
 
@@ -64,6 +65,7 @@ public:
 			keyMods &= SDLK_SCROLLOCK;
 		*/
 		SDL_SetModState(keyMods);
+#endif
 	}
 
 	virtual bool handleEvent(const SystemEvent &ev)
