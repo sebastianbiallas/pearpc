@@ -68,6 +68,7 @@ static void escape_memset(uint32 *stack, uint32 client_pc)
 			return;
 		}
 		uint32 a = 4096 - (dest & 0xfff);
+		a = MIN(a, size);
 		memset(dst, c, a);
 		size -= a;
 		dest += a;
