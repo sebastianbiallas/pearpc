@@ -193,9 +193,11 @@ public:
 		}
 	}
 
+	/*
+	 *	must be called with gX11Mutex locked
+	 */
 	void reinitChar()
 	{
-		sys_lock_mutex(gX11Mutex);
 		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
 			mClientChar.height * mClientChar.bytesPerPixel);
 		memset(gFrameBuffer, 0, mClientChar.width *
@@ -230,7 +232,6 @@ public:
 				mXChar.width, mXChar.height,
 				mXChar.bytesPerPixel*8, 0);
 		}
-		sys_unlock_mutex(gX11Mutex);
 	}
 
 	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
@@ -274,14 +275,22 @@ public:
 
 	virtual bool changeResolution(const DisplayCharacteristics &aClientChar)
 	{
+		DisplayCharacteristics oldClientChar = mClientChar;
+		DisplayCharacteristics oldHostChar = mXChar;
+		DisplayCharacteristics newXChar;
+		
+		convertCharacteristicsToHost(newXChar, aClientChar);
+		sys_lock_mutex(gX11Mutex);
+		mXChar = newXChar;
 		mClientChar = aClientChar;
-		convertCharacteristicsToHost(mXChar, aClientChar);
 		if (bitsPerPixelToXBitmapPad(mXChar.bytesPerPixel*8) != mXChar.bytesPerPixel*8) {
 			fprintf(stderr, "bitsPerPixelToXBitmapPad(%d) failed\n", mXChar.bytesPerPixel*8);
+			mClientChar = oldClientChar;
+			mXChar = oldHostChar;
+			sys_unlock_mutex(gX11Mutex);
 			return false;
 		}
 
-		sys_lock_mutex(gX11Mutex);
 		XResizeWindow(gX11Display, gX11Window, mXChar.width, mXChar.height+mMenuHeight);
 
 		XSync(gX11Display, False);
@@ -289,22 +298,25 @@ public:
 		XWindowAttributes attr;
 		if (!XGetWindowAttributes(gX11Display, gX11Window, &attr)) {
 			fprintf(stderr, "Couldn't get X window size\n");
+			mClientChar = oldClientChar;
+			mXChar = oldHostChar;
 			XResizeWindow(gX11Display, gX11Window, mXChar.width, mXChar.height+mMenuHeight);
 			sys_unlock_mutex(gX11Mutex);
 			return false;
 		}
 
-		if (((int)attr.width < mXChar.width) || ((int)attr.height < mXChar.height+mMenuHeight)) {
+		if ((int)attr.width < mXChar.width || (int)attr.height < (mXChar.height+mMenuHeight)) {
 	    		fprintf(stderr, "Couldn't change X window size to %dx%d\n", mXChar.width, mXChar.height);
 	    		fprintf(stderr, "Reported new size: %dx(%d+%d)\n", attr.width, attr.height-mMenuHeight, mMenuHeight);
+			mClientChar = oldClientChar;
+			mXChar = oldHostChar;
 			XResizeWindow(gX11Display, gX11Window, mXChar.width, mXChar.height+mMenuHeight);
 			sys_unlock_mutex(gX11Mutex);
 			return false;
 		}
 
-		sys_unlock_mutex(gX11Mutex);
-
 		reinitChar();
+		sys_unlock_mutex(gX11Mutex);
 		fprintf(stderr, "Change resolution OK\n");
 		return true;
 	}
