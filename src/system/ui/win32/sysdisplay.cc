@@ -113,6 +113,7 @@ void Win32Display::convertCharacteristicsToHost(DisplayCharacteristics &aHostCha
 		HWND dw = GetDesktopWindow();
 		HDC ddc = GetDC(dw);
 		aHostChar.bytesPerPixel = (GetDeviceCaps(ddc, BITSPIXEL)+7)/8;
+		aHostChar.scanLineLength = aHostChar.bytesPerPixel * aHostChar.width;
 		ReleaseDC(dw, ddc);
 	}
 }
