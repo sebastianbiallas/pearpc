@@ -212,7 +212,7 @@ if test "x$OSAPI_DIR" = "xposix"; then
 		)
 	]
 	)
-	AC_DEFINE_UNQUOTED(SYSTIMER_SIGNAL, $syssignal, [Which signal to use for clock timer]),
+	AC_DEFINE_UNQUOTED(SYSTIMER_SIGNAL, $syssignal, [Which signal to use for clock timer])
 fi	
 
 AC_C_BIGENDIAN(
