@@ -421,6 +421,7 @@ void SystemDisplay::composeKeyDialog()
 {
 	return;
 	// Doesn't work since should get executed in the CPU thread
+#if 0
 	byte *oldframebuffer = (byte*)malloc(mClientChar.scanLineLength * mClientChar.height);
 	memcpy(oldframebuffer, gFrameBuffer, mClientChar.scanLineLength * mClientChar.height);
 
@@ -497,6 +498,7 @@ redo:
 	free(oldframebuffer);
 	if (regrabMouse) setMouseGrab(true);
 	damageFrameBufferAll();
+#endif
 }
 
 void SystemDisplay::outText(int x, int y, RGBA fg, RGBA bg, const char *text)

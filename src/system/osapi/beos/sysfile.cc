@@ -278,6 +278,11 @@ int sys_fseek(SYS_FILE *file, FileOfs newofs, int seekmode)
 	return r ? errno : 0;
 }
 
+void sys_flush(SYS_FILE *file)
+{
+	fflush((FILE *)file);
+}
+
 FileOfs	sys_ftell(SYS_FILE *file)
 {
 	fpos_t pos;
@@ -296,10 +301,18 @@ FileOfs	sys_ftell(SYS_FILE *file)
 void *sys_alloc_read_write_execute(int size)
 {
 #ifdef USE_AREAS
-	area_id id;
+	area_id id = -1;
 	void *addr;
 	size = ((size + PAGESIZE-1) & ~(PAGESIZE-1));
+	/* first try full lock, if it doesn't work, then no lock */
+	
 	id = create_area("PearPC rwx area", &addr, B_ANY_ADDRESS, size, B_NO_LOCK, B_READ_AREA|B_WRITE_AREA);
+	/*
+	if (id < B_OK) {
+		fprintf(stderr, "warning: create_area failed with FULL_LOCK\n");
+		id = create_area("PearPC rwx area", &addr, B_ANY_ADDRESS, size, B_NO_LOCK, B_READ_AREA|B_WRITE_AREA);
+	}
+	*/	
 	fprintf(stderr, "create_area(, , , %d, , ) = 0x%08lx\n", size, id);
 	if (id < B_OK)
 		return NULL;
@@ -323,10 +336,12 @@ void *sys_alloc_read_write_execute(int size)
 void sys_free_read_write_execute(void *p)
 {
 #ifdef USE_AREAS
+	fprintf(stderr, "sys_free_read_write_execute(%p)\n", p);
 	area_id id;
 	id = area_for(p);
 	if (id < B_OK)
 		return;
+	fprintf(stderr, "delete_area(%08lx)\n", id);
 	//delete_area(id);
 #endif
 }

@@ -30,36 +30,41 @@
 #include <Bitmap.h>
 #include <Cursor.h>
 #include <GraphicsDefs.h>
+#include <InterfaceDefs.h>
 #include <List.h>
 #include <Locker.h>
 #include <Message.h>
 #include <Screen.h>
 #include <View.h>
 #include <Window.h>
+#include <WindowScreen.h>
 
 #include "system/display.h"
 #include "system/types.h"
 #include "system/systhread.h"
 #include "system/sysexcept.h"
+#include "system/sysvaccel.h"
 #include "tools/data.h"
 #include "tools/snprintf.h"
-// for stopping the CPU
-#include "cpu_generic/ppc_cpu.h"
 
-#define DPRINTF(a...)
-//#define DPRINTF(a...) ht_printf(a)
+#include "sysbeos.h"
 
-#define BMP_MENU
+//#define DPRINTF(a...)
+#define DPRINTF(a...) ht_printf(a)
 
+//XXX:DEL uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
+
+/*XXX:DEL
 struct {
 	uint64 r_mask;
 	uint64 g_mask;
 	uint64 b_mask;
-} PACKED gPosixRGBMask;
+} PACKED gPosixRGBMask;*/
 
 //extern "C" void __attribute__((regparm (3))) posix_vaccel_15_to_15(uint32 pixel, byte *input, byte *output);
 //extern "C" void __attribute__((regparm (3))) posix_vaccel_15_to_32(uint32 pixel, byte *input, byte *output);
 
+#if 0 /* moved to sysbeos.cc */
 static uint8 beos_key_to_adb_key[] = {
 /* ESC F1-F12                                                                   PRTSCR SLOCK */
 0x35,    0x7a,0x78,0x63,0x76,0x60,0x61,0x62,0x64,0x65,0x6d,0x67,0x6f,           0xff,  0x6b,0x71,
@@ -76,7 +81,7 @@ static uint8 beos_key_to_adb_key[] = {
 
 
 };
-
+#endif
 
 static uint8 blank_cursor_data[] = {
 	0x10, /* pixels/side */
@@ -110,6 +115,7 @@ static void findMaskShiftAndSize(uint &shift, uint &size, uint bitmask)
 	}
 }
 
+
 static byte *gBeOSFramebuffer = NULL;
 /* old value of framebuffer, after replacing with BBitmap::Bits() */
 /*
@@ -123,214 +129,6 @@ static XImage *gMouseXImage;
 static Colormap gDefaultColormap;
 */
 static BCursor *gBlankCursor;
-static Queue *mEventQueue;
-static DisplayCharacteristics mBeChar;
-static int mLastMouseX, mLastMouseY;
-static int mCurMouseX, mCurMouseY;
-static int mResetMouseX, mResetMouseY;
-static int mHomeMouseX, mHomeMouseY;
-static bool mMouseButton[3];
-static bool mMouseEnabled;
-static char *mTitle;
-static char mCurTitle[200];
-static byte *mouseData;
-static byte *menuData;
-
-class BeOSSystemDisplay;
-
-class SDWindow : public BWindow {
-public:
-	SDWindow(BRect frame, const char *name);
-	~SDWindow();
-virtual bool	QuitRequested();
-};
-
-class SDView : public BView {
-public:
-	SDView(BeOSSystemDisplay *sd, BRect frame, const char *name);
-	~SDView();
-	
-virtual void	MessageReceived(BMessage *msg);
-virtual void	Draw(BRect updateRect);
-virtual void	MouseDown(BPoint where);
-virtual void	MouseUp(BPoint where);
-virtual void	MouseMoved(BPoint where, uint32 code, const BMessage *a_message);
-virtual void	KeyDown(const char *bytes, int32 numBytes);
-virtual void	KeyUp(const char *bytes, int32 numBytes);
-virtual void	Pulse();
-	
-	void	QueueMessage(BMessage *msg);
-	BMessage	*UnqueueMessage(bool sync);
-private:
-	BList	fMsgList;
-	BLocker	*fMsgListLock;
-	BeOSSystemDisplay	*fSystemDisplay;
-	BBitmap	*fFramebuffer;
-	sem_id	fMsgSem;
-};
-
-class BeOSSystemDisplay: public SystemDisplay
-{
-friend class SDView;
-	sys_thread redrawthread;
-	sys_mutex mutex;
-	BBitmap *fbBitmap;
-	BBitmap *fMenuBitmap;
-	SDView *view;
-	SDWindow *window;
-	
-	void dumpDisplayChar(const DisplayCharacteristics &chr);
-	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel);
-public:
-	BeOSSystemDisplay(const char *name, const DisplayCharacteristics &chr);
-	virtual ~BeOSSystemDisplay();
-	virtual	void finishMenu();
-	void updateTitle();
-	virtual	int toString(char *buf, int buflen) const;
-	void clientMouseEnable(bool enable);
-	virtual void getSyncEvent(DisplayEvent &ev);
-	virtual bool getEvent(DisplayEvent &ev);
-	virtual void displayShow();
-	void convertDisplayClientToServer(uint firstLine, uint lastLine);
-	virtual void queueEvent(DisplayEvent &ev);
-	static void *eventLoop(void *p);
-	virtual void startRedrawThread(int msec);
-};
-
-SDWindow::SDWindow(BRect frame, const char *name)
-	: BWindow(frame, name, B_TITLED_WINDOW, B_NOT_RESIZABLE|B_NOT_ZOOMABLE)
-{
-}
-
-SDWindow::~SDWindow()
-{
-}
-
-bool SDWindow::QuitRequested()
-{
-	SDView *view = dynamic_cast<SDView *>(FindView("framebuffer"));
-	if (view) {
-		BMessage *msg = new BMessage(B_QUIT_REQUESTED);
-		view->QueueMessage(msg);
-	}
-	return false;
-}
-
-SDView::SDView(BeOSSystemDisplay *sd, BRect frame, const char *name)
-	: BView(frame, name, B_FOLLOW_ALL_SIDES, B_PULSE_NEEDED|B_WILL_DRAW)
-{
-	fSystemDisplay = sd;
-	fFramebuffer = sd->fbBitmap;
-	fMsgList.MakeEmpty();
-	//SetViewColor(0,255,0);
-	SetViewColor(B_TRANSPARENT_32_BIT);
-	fMsgSem = create_sem(1, "PearPC MessageList sem");
-	// here we don't use the View's looper to lock the msg list,
-	// so the window thread and main thread aren't interleaved 
-	// just because they are playing with the msg list.
-	// much better on my dual :))
-	fMsgListLock = new BLocker("PearPC MessageList lock", true);
-}
-
-SDView::~SDView()
-{
-	delete_sem(fMsgSem);
-	delete fMsgListLock;
-}
-
-void SDView::MessageReceived(BMessage *msg)
-{
-	BMessage *event;
-	switch (msg->what) {
-	case B_UNMAPPED_KEY_DOWN:
-	case B_UNMAPPED_KEY_UP:
-		event = Window()->DetachCurrentMessage();
-		QueueMessage(event);
-		return;
-	}
-	BView::MessageReceived(msg);
-}
-
-void SDView::Draw(BRect updateRect)
-{
-	//fSystemDisplay->convertDisplayClientToServer();
-#ifdef BMP_MENU
-	BRect r(updateRect);
-	r.bottom = MIN(fSystemDisplay->mMenuHeight-1, r.bottom);
-	if (fSystemDisplay->fMenuBitmap && (r.top <= fSystemDisplay->mMenuHeight))
-		DrawBitmap(fSystemDisplay->fMenuBitmap, r, r);
-	BRect src(updateRect);
-	src.OffsetBySelf(0,-fSystemDisplay->mMenuHeight);
-	//src.top = MAX(0, src.top);
-	DrawBitmap(fFramebuffer, src, updateRect);
-#else
-	DrawBitmap(fFramebuffer, updateRect, updateRect);
-#endif
-	if (fSystemDisplay->mHWCursorVisible) {
-		//XPutImage(gXDisplay, gXWindow, gGC, gMouseXImage, 0, 0, 
-		//	mHWCursorX, mHWCursorY, 2, 2);
-	}
-}
-
-void SDView::MouseDown(BPoint where)
-{
-	BMessage *event = Window()->DetachCurrentMessage();
-	QueueMessage(event);
-}
-
-void SDView::MouseUp(BPoint where)
-{
-	BMessage *event = Window()->DetachCurrentMessage();
-	QueueMessage(event);
-}
-
-void SDView::MouseMoved(BPoint where, uint32 code, const BMessage *a_message)
-{
-	BMessage *event = Window()->DetachCurrentMessage();
-	QueueMessage(event);
-}
-
-void SDView::KeyDown(const char *bytes, int32 numBytes)
-{
-	BMessage *event = Window()->DetachCurrentMessage();
-	QueueMessage(event);
-}
-
-void SDView::KeyUp(const char *bytes, int32 numBytes)
-{
-	BMessage *event = Window()->DetachCurrentMessage();
-	QueueMessage(event);
-}
-
-void SDView::Pulse()
-{
-	BWindow *w = Window();
-	if (w && !w->IsHidden() && !w->IsMinimized())
-		fSystemDisplay->displayShow();
-	//Invalidate(Bounds()); /* cause a redraw */
-}
-
-void SDView::QueueMessage(BMessage *msg)
-{
-	fMsgListLock->Lock(); /* BList not threadsafe */
-	fMsgList.AddItem(msg, fMsgList.CountItems());
-	fMsgListLock->Unlock();
-	release_sem(fMsgSem);
-}
-
-BMessage *SDView::UnqueueMessage(bool sync)
-{
-	BMessage *msg;
-	acquire_sem_etc(fMsgSem, 1, sync?0:B_RELATIVE_TIMEOUT, 0LL);
-	//LockLooper();
-	fMsgListLock->Lock(); /* BList not threadsafe */
-	msg = (BMessage *)fMsgList.RemoveItem(0L);
-	//UnlockLooper();
-	fMsgListLock->Unlock();
-/*	if (msg)
-		msg->PrintToStream();*/
-	return msg;
-}
 
 
 
@@ -358,9 +156,10 @@ uint BeOSSystemDisplay::bitsPerPixelToXBitmapPad(uint bitsPerPixel)
 	}
 }
 
-BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacteristics &chr)
-	:SystemDisplay(chr)
+BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacteristics &aClientChar, int redraw_ms)
+	:SystemDisplay(aClientChar, redraw_ms)
 {
+	::printf("BeOSSystemDisplay::BeOSSystemDisplay()\n");
 	sys_create_mutex(&mutex);
 	mEventQueue = new Queue(true);
 	mMouseEnabled = false;
@@ -370,6 +169,10 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 	window = NULL;
 	gBlankCursor = new BCursor(blank_cursor_data);
 	gBeOSFramebuffer = NULL;
+	gFrameBuffer = NULL;
+	mTitle = strdup(name);
+	mClientChar = aClientChar;
+	convertCharacteristicsToHost(mBeChar, mClientChar);
 	
 	if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
 		ht_printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
@@ -430,7 +233,6 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 		exit(1);
 	}
 	mBeChar.width = fbBitmap->BytesPerRow() / mBeChar.bytesPerPixel;
-	mBeChar.indexed = false;
 	
 #if 0
 	fprintf(stderr, "BBitmap display characteristics:\n");
@@ -440,45 +242,39 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 #endif
 	
 	
-	uint bDepth = mBeChar.redSize + mBeChar.greenSize + mBeChar.blueSize;
 	// Maybe client and (X-)server display characeristics match
 	if (0 && memcmp(&mClientChar, &mBeChar, sizeof (mClientChar)) == 0) {
 		fprintf(stderr, "client and server display characteristics match!!\n");
-		gFramebuffer = (byte *)fbBitmap->Bits();
-	
-#if 0
-		gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-			XDepth, ZPixmap, 0, (char*)gFramebuffer,
-			mBeChar.width, mBeChar.height,
-			mBeChar.bytesPerPixel*8, 0);
-#endif
+		gFrameBuffer = (byte *)fbBitmap->Bits();
+		gBeOSFramebuffer = NULL;
 	} else {
 		// Otherwise we need a second framebuffer
 		gBeOSFramebuffer = (byte *)fbBitmap->Bits();
-		gFramebuffer = (byte*)malloc(mClientChar.width *
-			mClientChar.height * mClientChar.bytesPerPixel);
-		memset(gFramebuffer, 0, mClientChar.width *
-			mClientChar.height * mClientChar.bytesPerPixel);
-			
-		fprintf(stderr, "client and server display characteristics DONT match :-(\n");
+		gFrameBuffer = (byte*)malloc(mClientChar.width *
+					     mClientChar.height * mClientChar.bytesPerPixel);
+		memset(gFrameBuffer, 0, mClientChar.width *
+		       mClientChar.height * mClientChar.bytesPerPixel);
+		fprintf(stderr, "gFrameBuffer = %p\n", gFrameBuffer);
+		//fprintf(stderr, "client and server display characteristics DONT match :-(\n");
 	
 	}
 	
 #ifdef BMP_MENU
 	fbbounds.bottom += mMenuHeight;
 #endif
-	window = new SDWindow(frame, name);
+	
+	window = new SDWindow(frame, mTitle);
 	view = new SDView(this/*fbBitmap*/, fbbounds, "framebuffer");
 	window->AddChild(view);
 	view->MakeFocus(true);
 	//view->Invalidate(view->Bounds());
 	
+	window->SetPulseRate(redraw_ms*1000);
 	window->Show();
 	
-	mTitle = strdup(name);
-	updateTitle();
+	//updateTitle();
 	
-
+#if 0 /* XXX: remove */
 	switch (mClientChar.bytesPerPixel) {
 		case 1:
 			ht_printf("nyi: %s::%d", __FILE__, __LINE__);
@@ -495,7 +291,10 @@ BeOSSystemDisplay::BeOSSystemDisplay(const char *name, const DisplayCharacterist
 			gPosixRGBMask.b_mask = 0x000000ff000000ffULL;
 			break;
 	}
+#endif
 	menuData = NULL;
+	setExposed(true);
+	::printf("BeOSSystemDisplay::BeOSSystemDisplay() end\n");
 }
 
 BeOSSystemDisplay::~BeOSSystemDisplay()
@@ -510,8 +309,8 @@ BeOSSystemDisplay::~BeOSSystemDisplay()
 	free(mTitle);
 	free(mouseData);
 	if (gBeOSFramebuffer)
-		free(gFramebuffer);
-	gFramebuffer = NULL;
+		free(gFrameBuffer);
+	gFrameBuffer = NULL;
 	gBeOSFramebuffer = NULL;
 #ifdef BMP_MENU
 	//if (menuData) free(menuData);
@@ -538,7 +337,7 @@ void BeOSSystemDisplay::finishMenu()
 		memmove(menuData, gBeOSFramebuffer, mBeChar.width * mMenuHeight
 			* mBeChar.bytesPerPixel);
 	} else {
-		memmove(menuData, gFramebuffer, mBeChar.width * mMenuHeight
+		memmove(menuData, gFrameBuffer, mBeChar.width * mMenuHeight
 			* mBeChar.bytesPerPixel);
 	}
 	view->LockLooper();
@@ -557,15 +356,136 @@ void BeOSSystemDisplay::finishMenu()
 #endif
 }
 
+void BeOSSystemDisplay::convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
+{
+	BScreen bs;
+	aHostChar = aClientChar;
+	switch (bs.ColorSpace()) {
+	case B_RGB32:
+	case B_RGBA32:
+	case B_RGB24:
+		aHostChar.bytesPerPixel = 4;
+		break;
+	case B_RGB16:
+	case B_RGB15:
+	case B_RGBA15:
+		aHostChar.bytesPerPixel = 2;
+		break;
+	case B_CMAP8:
+	case B_GRAY8:
+		aHostChar.bytesPerPixel = 1;
+		break;
+	default:
+		exit(1);
+	}
+	aHostChar.scanLineLength = aHostChar.bytesPerPixel * bs.Frame().IntegerWidth();
+}
+
 bool BeOSSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacteristics)
 {
+	// reject resolutions bigger than desktop. 
+	// Not really necessary as BeOS isn't as broken as Windoze(tm).
+	BScreen bs;
+	BRect desktoprect(bs.Frame());
+	if (aCharacteristics.width > (desktoprect.Width() + 1)
+	|| aCharacteristics.height > (desktoprect.Height() + 1)) {
+		// protect user from himself
+		return false;
+	}
+	if (!view)
+		return false;
+
+	//return false;
+	if (!view->LockLooper())
+		return false;
+	mClientChar = aCharacteristics;
+
+	mHomeMouseX = mClientChar.width / 2;
+	mHomeMouseY = mClientChar.height / 2;
+
+	mBeChar.height = mClientChar.height;
+	mBeChar.width = mClientChar.width;
+	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
+		* mClientChar.height * mClientChar.bytesPerPixel);
+	memset(gFrameBuffer, 0, mClientChar.width 
+		* mClientChar.height * mClientChar.bytesPerPixel);
+	delete fbBitmap;
+	fbBitmap = NULL;
+	BRect fbbounds(0, 0, mClientChar.width - 1, mClientChar.height - 1);
+	color_space cs = B_RGB32;
+	mBeChar = mClientChar;
+	if (mClientChar.bytesPerPixel == 2) {
+		cs = B_RGB15;
+		mBeChar.redShift = 10;
+		mBeChar.redSize = 5;
+		mBeChar.greenShift = 5;
+		mBeChar.greenSize = 5;
+		mBeChar.blueShift = 0;
+		mBeChar.blueSize = 5;
+	} else {
+		mBeChar.bytesPerPixel = 4;
+		mBeChar.redShift = 16;
+		mBeChar.redSize = 8;
+		mBeChar.greenShift = 8;
+		mBeChar.greenSize = 8;
+		mBeChar.blueShift = 0;
+		mBeChar.blueSize = 8;
+	}
+	fbBitmap = new BBitmap(fbbounds, 0, cs);
+	if (fbBitmap->InitCheck()) {
+		fprintf(stderr, "BBitmap error 0x%08lx\n", fbBitmap->InitCheck());
+		exit(1);
+	}
+	gBeOSFramebuffer = (byte *)fbBitmap->Bits();
+	mBeChar.width = fbBitmap->BytesPerRow() / mBeChar.bytesPerPixel;
+	//dumpDisplayChar(mBeChar);
+	damageFrameBufferAll();
+#ifdef BMP_MENU
+	// WTF does this -1 come from ??
+	window->ResizeTo(mBeChar.width-1, mBeChar.height+mMenuHeight-1);
+#else
+	window->ResizeTo(mBeChar.width-1, mBeChar.height-1);
+#endif
+	BRect sf(bs.Frame());
+	window->MoveTo((sf.Width() - window->Bounds().Width()) / 2, (sf.Height() - window->Bounds().Height()) / 2);
+	
+	view->UnlockLooper();
+	
+	// XXX: test that!
+	return true;
+}
+
+void BeOSSystemDisplay::getHostCharacteristics(Container &modes)
+{
 	// FIXME: implement me
-	return false;
+}
+
+int BeOSSystemDisplay::getKeybLEDs()
+{
+	int r = 0;
+	uint32 mods = modifiers();
+	if (mods & B_CAPS_LOCK) r |= KEYB_LED_NUM;
+	if (mods & B_CAPS_LOCK) r |= KEYB_LED_CAPS;
+	if (mods & B_SCROLL_LOCK) r |= KEYB_LED_SCROLL;
+	return r;
+}
+
+void BeOSSystemDisplay::setKeybLEDs(int leds)
+{
+	uint32 mods = 0;
+	if (leds & KEYB_LED_NUM) mods |= B_CAPS_LOCK;
+	if (leds & KEYB_LED_CAPS) mods |= B_CAPS_LOCK;
+	if (leds & KEYB_LED_SCROLL) mods |= B_SCROLL_LOCK;
+	// XXX: warning: set_keyboard_locks() doesn't work correctly
+	set_keyboard_locks(mods);
 }
 
 void BeOSSystemDisplay::updateTitle() 
 {
-	ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseEnabled ? "disables" : "enables");
+	String key;
+	int key_toggle_mouse_grab = gKeyboard->getKeyConfig().key_toggle_mouse_grab;
+	SystemKeyboard::convertKeycodeToString(key, key_toggle_mouse_grab);
+	ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [%s %s mouse]", mTitle,key.contentChar(), (isMouseGrabbed() ? "disables" : "enables"));
 	window->Lock();
 	window->SetTitle(mCurTitle);
 	window->Unlock();
@@ -576,283 +496,28 @@ int BeOSSystemDisplay::toString(char *buf, int buflen) const
 	return snprintf(buf, buflen, "POSIX BeOS");
 }
 
-void BeOSSystemDisplay::clientMouseEnable(bool enable)
+void BeOSSystemDisplay::setMouseGrab(bool enable)
 {
-	mMouseEnabled = enable;
+	SystemDisplay::setMouseGrab(enable);
 	updateTitle();
+	if (!view->LockLooper())
+		return;
 	if (enable) {
 		mResetMouseX = mCurMouseX;
 		mResetMouseY = mCurMouseY;
+		view->SetViewCursor(gBlankCursor);
 		
-#if 0
-		static Cursor cursor;
-		static unsigned cursor_created = 0;
-		
-		static char shape_bits[16*16] = {0, };
-		static char mask_bits[16*16] = {0, };
-		
-		if (!cursor_created) {
-			Pixmap shape, mask;
-			XColor white, black;
-			shape = XCreatePixmapFromBitmapData(gXDisplay,
-					RootWindow(gXDisplay, DefaultScreen(gXDisplay)),
-					shape_bits, 16, 16, 1, 0, 1);
-			mask =  XCreatePixmapFromBitmapData(gXDisplay,
-					RootWindow(gXDisplay, DefaultScreen(gXDisplay)),
-					mask_bits, 16, 16, 1, 0, 1);
-			XParseColor(gXDisplay, gDefaultColormap, "black", &black);
-			XParseColor(gXDisplay, gDefaultColormap, "white", &white);
-			cursor = XCreatePixmapCursor(gXDisplay, shape, mask,
-					&white, &black, 1, 1);
-			cursor_created = 1;
-		}
-		
-		XDefineCursor(gXDisplay, gXWindow, cursor);
-		XWarpPointer(gXDisplay, gXWindow, gXWindow, 0, 0, 0, 0, mHomeMouseX, mHomeMouseY);
-#endif
-		be_app->Lock();
-		be_app->HideCursor();
-		be_app->Unlock();
-		/*view->LockLooper();
-		if (gBlankCursor)
-			view->SetViewCursor(gBlankCursor);
-		view->UnlockLooper();*/
+		BPoint p(mHomeMouseX, mHomeMouseY);
+		view->ConvertToScreen(&p);
+		set_mouse_position((int32)p.x, (int32)p.y);
 	} else {
-		//set_mouse_position(mResetMouseX, mResetMouseY);
-		be_app->Lock();
-		be_app->ShowCursor();
-		be_app->Unlock();
-		/*view->LockLooper();
 		view->SetViewCursor(B_CURSOR_SYSTEM_DEFAULT);
-		view->UnlockLooper();*/
+		
+		BPoint p(mResetMouseX, mResetMouseY);
+		view->ConvertToScreen(&p);
+		set_mouse_position((int32)p.x, (int32)p.y);
 	}
-//		mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
-}
-	
-void BeOSSystemDisplay::getSyncEvent(DisplayEvent &ev)
-{
-	int32 key;
-	int32 raw_char;
-
-	if (!window) return;
-	BMessage *event;
-	char buffer[4];
-	while (1) {
-		//view->LockLooper();
-		event = view->UnqueueMessage(true);
-		//view->UnlockLooper();
-		if (!event)
-			break;
-		switch (event->what) {
-/*		//taken care of by the window thread
-		case _UPDATE_:
-			displayShow();
-			break;
-*/
-		case B_QUIT_REQUESTED:
-			//event->PrintToStream();
-			ppc_stop();
-			break;
-		case B_KEY_UP:
-		case B_UNMAPPED_KEY_UP:
-			if (event->FindInt32("key", &key) < B_OK)
-				key = 0;
-			if (event->FindInt32("raw_char", &raw_char) < B_OK)
-				raw_char = 0;
-			if (!key || (key > 255)) break;
-			ev.keyEvent.keycode = beos_key_to_adb_key[key-1];
-			DPRINTF("keys[%d-1]=%d, 0x%x\n", key, beos_key_to_adb_key[key-1], beos_key_to_adb_key[key-1]);
-			if (ev.keyEvent.keycode == KEY_F12) break;
-			if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
-			ev.type = evKey;
-			ev.keyEvent.pressed = false;
-			/*XLookupString((XKeyEvent*)&event, buffer, sizeof buffer, &keysym, &compose);
-			ev.keyEvent.chr = buffer[0];*/
-			ev.keyEvent.chr = (char)raw_char;
-			delete event;
-			return;
-		case B_KEY_DOWN:
-		case B_UNMAPPED_KEY_DOWN:
-			if (event->FindInt32("key", &key) < B_OK)
-				key = 0;
-			if (event->FindInt32("raw_char", &raw_char) < B_OK)
-				raw_char = 0;
-			if (!key || (key > 255)) break;
-			ev.keyEvent.keycode = beos_key_to_adb_key[key-1];
-			DPRINTF("keys[%d-1]=%d, 0x%x\n", key, beos_key_to_adb_key[key-1], beos_key_to_adb_key[key-1]);
-			if ((ev.keyEvent.keycode == KEY_F12) && getCatchMouseToggle()) {
-				clientMouseEnable(!mMouseEnabled);
-				break;
-			}
-			if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
-			ev.type = evKey;
-			ev.keyEvent.pressed = true;
-			/*XLookupString((XKeyEvent*)&event, buffer, sizeof buffer, &keysym, &compose);
-			ev.keyEvent.chr = buffer[0];*/
-			ev.keyEvent.chr = (char)raw_char;
-			delete event;
-			return;
-		}
-		delete event;
-	}
-}
-
-bool BeOSSystemDisplay::getEvent(DisplayEvent &ev)
-{
-	if (!window) return false;
-	if (!mEventQueue->isEmpty()) {
-		Pointer *p = (Pointer *)mEventQueue->deQueue();
-		ev = *(DisplayEvent *)p->value;
-		free(p->value);
-		delete p;
-		return true;
-	}
-	BMessage *event;
-	char buffer[4];
-	BPoint where;
-	uint32 buttons;
-	uint32 modifiers;
-	int32 transit;
-	int32 key;
-	int32 raw_char;
-	while (1) {
-		//view->LockLooper();
-		event = view->UnqueueMessage(false);
-		//view->UnlockLooper();
-		if (!event)
-			break;
-		switch (event->what) {
-/*		//taken care of by the window thread
-		case _UPDATE_:
-			displayShow();
-			break;
-*/
-		case B_QUIT_REQUESTED:
-			//event->PrintToStream();
-			ppc_stop();
-			break;
-		case B_KEY_UP:
-		case B_UNMAPPED_KEY_UP:
-			if (event->FindInt32("key", &key) < B_OK)
-				key = 0;
-			if (event->FindInt32("raw_char", &raw_char) < B_OK)
-				raw_char = 0;
-			if (!key || (key > 255)) break;
-			ev.keyEvent.keycode = beos_key_to_adb_key[key-1];
-			DPRINTF("keys[%d-1]=%d, 0x%x\n", key, beos_key_to_adb_key[key-1], beos_key_to_adb_key[key-1]);
-			if (ev.keyEvent.keycode == KEY_F12) break;
-			if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
-			ev.type = evKey;
-			ev.keyEvent.pressed = false;
-			/*XLookupString((XKeyEvent*)&event, buffer, sizeof buffer, &keysym, &compose);
-			ev.keyEvent.chr = buffer[0];*/
-			ev.keyEvent.chr = (char)raw_char;
-			delete event;
-			return true;
-		case B_KEY_DOWN:
-		case B_UNMAPPED_KEY_DOWN:
-			if (event->FindInt32("key", &key) < B_OK)
-				key = 0;
-			if (event->FindInt32("raw_char", &raw_char) < B_OK)
-				raw_char = 0;
-			if (!key || (key > 255)) break;
-			ev.keyEvent.keycode = beos_key_to_adb_key[key-1];
-			DPRINTF("keys[%d-1]=%d, 0x%x\n", key, beos_key_to_adb_key[key-1], beos_key_to_adb_key[key-1]);
-			if (ev.keyEvent.keycode == KEY_F12 && mCurMouseX != -1) {
-				clientMouseEnable(!mMouseEnabled);
-				break;
-			}
-			if ((ev.keyEvent.keycode & 0xff) == 0xff) break;
-			ev.type = evKey;
-			ev.keyEvent.pressed = true;
-			/*XLookupString((XKeyEvent*)&event, buffer, sizeof buffer, &keysym, &compose);
-			ev.keyEvent.chr = buffer[0];*/
-			ev.keyEvent.chr = (char)raw_char;
-			delete event;
-			return true;
-		case B_MOUSE_DOWN:
-			if (!mMouseEnabled) break;
-			if (event->FindPoint("where", &where) >= B_OK) {
-				mCurMouseX = ev.mouseEvent.x = (int)where.x;
-				mCurMouseY = ev.mouseEvent.y = (int)where.y;
-			}
-			if (event->FindInt32("buttons", (int32 *)&buttons) < B_OK)
-				buttons = 0;
-			ev.type = evMouse;
-			ev.mouseEvent.button1 = (buttons & B_PRIMARY_MOUSE_BUTTON) != 0;
-			ev.mouseEvent.button2 = (buttons & B_SECONDARY_MOUSE_BUTTON) != 0;
-			ev.mouseEvent.button3 = (buttons & B_TERTIARY_MOUSE_BUTTON) != 0;
-			ev.mouseEvent.x = mCurMouseX;
-			ev.mouseEvent.y = mCurMouseY;
-			ev.mouseEvent.relx = 0;
-			ev.mouseEvent.rely = 0;
-			delete event;
-			return true;
-		case B_MOUSE_UP: 
-			if (event->FindPoint("where", &where) >= B_OK) {
-				mCurMouseX = ev.mouseEvent.x = (int)where.x;
-				mCurMouseY = ev.mouseEvent.y = (int)where.y;
-			}
-			if (event->FindInt32("buttons", (int32 *)&buttons) < B_OK)
-				buttons = 0;
-			if (!mMouseEnabled) {
-				if (mCurMouseY < mMenuHeight) {
-					
-					clickMenu(mCurMouseX, mCurMouseY);
-					
-				}
-			} else {
-				ev.type = evMouse;
-				ev.mouseEvent.button1 = (buttons & B_PRIMARY_MOUSE_BUTTON) != 0;
-				ev.mouseEvent.button2 = (buttons & B_SECONDARY_MOUSE_BUTTON) != 0;
-				ev.mouseEvent.button3 = (buttons & B_TERTIARY_MOUSE_BUTTON) != 0;
-				ev.mouseEvent.x = mCurMouseX;
-				ev.mouseEvent.y = mCurMouseY;
-				ev.mouseEvent.relx = 0;
-				ev.mouseEvent.rely = 0;
-				delete event;
-				return true;
-			}
-			break;
-		case B_MOUSE_MOVED:
-			if (event->FindPoint("where", &where) < B_OK)
-				where = BPoint(0,0);
-			if (event->FindInt32("buttons", (int32 *)&buttons) < B_OK)
-				buttons = 0;
-			if (event->FindInt32("be:transit", &transit) < B_OK)
-				transit = B_INSIDE_VIEW;
-			mCurMouseX = ev.mouseEvent.x = (int)where.x;
-			mCurMouseY = ev.mouseEvent.y = (int)where.y;
-			if (mCurMouseX == mHomeMouseX && mCurMouseY == mHomeMouseY) break;
-			if (!mMouseEnabled) break;
-			mLastMouseX = mCurMouseX;
-			mLastMouseY = mCurMouseY;
-			if (mLastMouseX == -1) break;
-			ev.type = evMouse;
-			ev.mouseEvent.button1 = (buttons & B_PRIMARY_MOUSE_BUTTON) != 0;
-			ev.mouseEvent.button2 = (buttons & B_SECONDARY_MOUSE_BUTTON) != 0;
-			ev.mouseEvent.button3 = (buttons & B_TERTIARY_MOUSE_BUTTON) != 0;
-			ev.mouseEvent.relx = mCurMouseX - mHomeMouseX;
-			ev.mouseEvent.rely = mCurMouseY - mHomeMouseY;
-			//XWarpPointer(gXDisplay, gXWindow, gXWindow, 0, 0, 0, 0, mHomeMouseX, mHomeMouseY);
-			if (transit == B_EXITED_VIEW) // == LeaveNotify
-				mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
-			
-			delete event;
-			return true;
-#if 0
-		case EnterNotify:
-			mLastMouseX = mCurMouseX = ((XEnterWindowEvent *)&event)->x;
-			mLastMouseY = mCurMouseY = ((XEnterWindowEvent *)&event)->y;
-				break;
-		case LeaveNotify:
-			mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
-			break;
-#endif
-		}
-		delete event;
-	}
-	return false;
+	view->UnlockLooper();
 }
 
 void BeOSSystemDisplay::displayShow()
@@ -862,6 +527,7 @@ void BeOSSystemDisplay::displayShow()
 	// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
 	// We can't use mutexes in gcard for speed reasons. So we'll
 	// try to minimize the probability of loosing the race.
+	if (!isExposed()) return;
 	if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
 	        return;
 	}
@@ -881,8 +547,9 @@ void BeOSSystemDisplay::displayShow()
 	if (lastDamagedLine >= mClientChar.height) {
 		lastDamagedLine = mClientChar.height-1;
 	}
-	convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
-	
+	//convertDisplayClientToServer(firstDamagedLine, lastDamagedLine);
+	// wtf, doesn't seem to work...
+	sys_convert_display(mClientChar, mBeChar, gFrameBuffer, gBeOSFramebuffer, firstDamagedLine, lastDamagedLine);
 	view->LockLooper();
 	
 	//view->Invalidate(view->Bounds());
@@ -918,7 +585,7 @@ void BeOSSystemDisplay::displayShow()
 void BeOSSystemDisplay::convertDisplayClientToServer(uint firstLine, uint lastLine)
 {
 	if (!gBeOSFramebuffer) return;	// great! nothing to do.
-	byte *buf = gFramebuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
+	byte *buf = gFrameBuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
 	byte *bbuf = gBeOSFramebuffer + mBeChar.bytesPerPixel * mBeChar.width * firstLine;
 /*	if ((mClientChar.bytesPerPixel == 2) && (mBeChar.bytesPerPixel == 2)) {
 		posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);
@@ -969,27 +636,25 @@ void BeOSSystemDisplay::convertDisplayClientToServer(uint firstLine, uint lastLi
 	}
 }
 
+#if 0
 void BeOSSystemDisplay::queueEvent(DisplayEvent &ev)
 {
 	DisplayEvent *e = (DisplayEvent *)malloc(sizeof (DisplayEvent));
 	*e = ev;
 	mEventQueue->enQueue(new Pointer(e));
 }
-
-void *BeOSSystemDisplay::eventLoop(void *p)
-{
-}
+#endif
 
 void BeOSSystemDisplay::startRedrawThread(int msec)
 {
+::printf("startRedrawTh\n");
 	window->Lock();
 	window->SetPulseRate(msec*1000);
 	window->Unlock();
 }
 
-SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr)
+SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
 {
-	if (gDisplay) return gDisplay;
-	return new BeOSSystemDisplay(title, chr);
+	if (gDisplay) return NULL;
+	return new BeOSSystemDisplay(title, chr, redraw_ms);
 }
-

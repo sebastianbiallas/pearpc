@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <OS.h>
 #include "system/systhread.h"
+#include <stdio.h>
 
 struct sys_beos_mutex {
 	thread_id thread;
@@ -56,7 +57,7 @@ int sys_create_semaphore(sys_semaphore *s)
 	bs->sem = create_sem(0, "a PearPC sem.sem");
 	if (bs->sem < B_OK)
 		return bs->sem;
-	bs->mutex = create_sem(0, "a PearPC sem.mutex");
+	bs->mutex = create_sem(1, "a PearPC sem.mutex");
 	if (bs->mutex < B_OK)
 		return bs->mutex;
 	*s = bs;
@@ -146,7 +147,16 @@ void sys_signal_all_semaphore(sys_semaphore s)
 
 void sys_wait_semaphore(sys_semaphore s)
 {
+	release_sem(((sys_beos_semaphore *)s)->mutex);
 	acquire_sem(((sys_beos_semaphore *)s)->sem);
+	acquire_sem(((sys_beos_semaphore *)s)->mutex);
+}
+
+void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
+{
+	release_sem(((sys_beos_semaphore *)s)->mutex);
+	acquire_sem_etc(((sys_beos_semaphore *)s)->sem, 1, B_RELATIVE_TIMEOUT, (bigtime_t)ms*1000);
+	acquire_sem(((sys_beos_semaphore *)s)->mutex);
 }
 
 void sys_lock_semaphore(sys_semaphore s)
