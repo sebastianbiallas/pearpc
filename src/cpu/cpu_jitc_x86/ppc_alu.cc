@@ -2343,8 +2343,10 @@ JITCFlow ppc_opc_gen_srawix()
 	int rS, rA;
 	uint32 SH;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, SH);
-	if (!(gJITC.current_opc & PPC_OPC_Rc)) {
-		jitcClobberFlags();
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcClobberCarry();
+	} else {
+		jitcClobberCarryAndFlags();
 	}
 	NativeReg a = REG_NO;
 	if (SH) {
