@@ -353,12 +353,13 @@ int main(int argc, char *argv[])
 		}
 
 		initUI(APPNAME" "APPVERSION, gm, msec, keyConfig);
-		if (fullscreen) gDisplay->setFullscreenMode(true);
 
 		io_init();
 
 		gcard_init_host_modes();
 		gcard_set_mode(gm);
+
+		if (fullscreen) gDisplay->setFullscreenMode(true);
 
 		MemMapFile font(ppc_font, sizeof ppc_font);
 		// FIXME: ..
