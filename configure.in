@@ -134,7 +134,7 @@ generic*)
 ;;	
 esac
 
-case "$ac_cv_target" in
+case "$target" in
 i?86*)
 	AC_MSG_RESULT([*** x86 target system])
 	ARCH_DIR=x86
