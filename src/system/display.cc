@@ -105,14 +105,6 @@ static RGBA _16toRGBA[16] = {
 SystemDisplay::SystemDisplay(const DisplayCharacteristics &aCharacteristics)
 {
 	mClientChar = aCharacteristics;
-	if (mClientChar.indexed) {
-		for (int i=0; i<16; i++) {
-			setColor(i, _16toRGBA[i]);
-		}
-		for (int i=16; i<256; i++) {
-			setColor(i, MK_RGB(0xff, 0xff, 0xff));
-		}
-	}
 	mHWCursorX = 0;
 	mHWCursorY = 0;
 	mHWCursorVisible = false;
@@ -204,8 +196,8 @@ void SystemDisplay::drawChar(int x, int y, vcp color, byte chr)
 		fg &= 0xf;
 		fg += 8;
 	}
-	RGBA bg2 = mClientChar.indexed ? bg : _16toRGBA[bg];
-	RGBA fg2 = mClientChar.indexed ? fg : _16toRGBA[fg];
+	RGBA bg2 = _16toRGBA[bg];
+	RGBA fg2 = _16toRGBA[fg];
 	((Font*)mFont)->drawFixedChar2(this, x, y, mVTDX, mVTDY, chr, fg2, bg2);
 }
 
@@ -233,8 +225,8 @@ void SystemDisplay::fillVT(int x, int y, int w, int h, vcp color, byte chr)
 				fg &= 0xf;
 				fg += 8;
 			}
-			RGBA bg2 = mClientChar.indexed ? bg : _16toRGBA[bg];
-			RGBA fg2 = mClientChar.indexed ? fg : _16toRGBA[fg];
+			RGBA bg2 = _16toRGBA[bg];
+			RGBA fg2 = _16toRGBA[fg];
 			((Font*)mFont)->drawFixedChar2(this, ix, iy, mVTDX, mVTDY, b->rawchar, fg2, bg2);
 			b++;
 		}

@@ -123,8 +123,6 @@ struct DisplayEvent {
 struct DisplayCharacteristics {
 	int width, height;
 	uint bytesPerPixel;	// may only be 1, 2 or 4
-	
-	bool indexed;
 
 	uint redShift;
 	uint redSize;
