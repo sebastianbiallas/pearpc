@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: medium.h,v 1.1 2004/05/05 22:45:19 seppel Exp $
+ * $Id: medium.h,v 1.2 2004/05/16 22:44:05 steveman Exp $
  */
 
 /*
@@ -36,7 +36,7 @@
 int m_zeroddr(hfsvol *);
 
 int m_zeropm(hfsvol *, unsigned int);
-int m_findpmentry(hfsvol *, const char *, Partition *, unsigned long *);
+int m_findpmentry(hfsvol *, const char *, ApplePartition *, unsigned long *);
 int m_mkpart(hfsvol *, const char *, const char *, unsigned long);
 
 int m_zerobb(hfsvol *);

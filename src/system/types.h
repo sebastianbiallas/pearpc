@@ -22,6 +22,12 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
+#ifdef MIN
+#undef MIN
+#endif
+#ifdef MAX
+#undef MAX
+#endif
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -43,10 +49,15 @@
  */
 
 // >> FIXME: only works on x86
+#ifdef __BEOS__
+/* included everywhere else anyway, and colides... */
+#include <SupportDefs.h>
+#else
 typedef unsigned char	uint8;
 typedef unsigned short	uint16;
 typedef unsigned int	uint32;
 typedef unsigned long long uint64;
+#endif /* __BEOS__ */
 
 typedef signed char	sint8;
 typedef signed short	sint16;

@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: medium.c,v 1.1 2004/05/05 22:45:18 seppel Exp $
+ * $Id: medium.c,v 1.2 2004/05/16 22:44:05 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -73,7 +73,7 @@ int m_zeroddr(hfsvol *vol)
  */
 int m_zeropm(hfsvol *vol, unsigned int maxparts)
 {
-  Partition map;
+  ApplePartition map;
   unsigned int i;
 
   ASSERT(vol->pnum == 0 && vol->vlen != 0);
@@ -153,7 +153,7 @@ fail:
  * DESCRIPTION:	locate a partition map entry
  */
 int m_findpmentry(hfsvol *vol, const char *type,
-		  Partition *map, unsigned long *start)
+		  ApplePartition *map, unsigned long *start)
 {
   unsigned long bnum;
   int found = 0;
@@ -211,7 +211,7 @@ fail:
 int m_mkpart(hfsvol *vol,
 	     const char *name, const char *type, unsigned long len)
 {
-  Partition map;
+  ApplePartition map;
   unsigned int nparts, maxparts;
   unsigned long bnum, start, remain;
   int found;

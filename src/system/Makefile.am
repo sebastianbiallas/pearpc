@@ -1,5 +1,9 @@
 AUTOMAKE_OPTIONS = foreign
 
+if USE_SYSTEM_BEOS
+THE_SYSTEM_DIR=beos
+endif
+
 if USE_SYSTEM_POSIX
 THE_SYSTEM_DIR=posix
 endif
@@ -14,6 +18,6 @@ sysexcept.cc sysexcept.h sys.cc sys.h types.h file.cc file.h \
 vt100.cc vt100.h font.cc font.h gif.cc gif.h systhread.h
 
 SUBDIRS = $(THE_SYSTEM_DIR) gui
-EXTRA_SUBDIRS = posix win32
+EXTRA_SUBDIRS = beos posix win32
 
 INCLUDES = -I ..

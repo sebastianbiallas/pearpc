@@ -1,5 +1,9 @@
 AUTOMAKE_OPTIONS = foreign
 
+if USE_GUI_BEOS
+THE_GUI_DIR=beos
+endif
+
 if USE_GUI_QT
 THE_GUI_DIR=qt
 endif
@@ -19,6 +23,6 @@ endif
 EXTRA_DIST = gui.h
 
 SUBDIRS = $(THE_GUI_DIR)
-EXTRA_SUBDIRS = qt gtk win32 nogui
+EXTRA_SUBDIRS = beos qt gtk win32 nogui
 
 INCLUDES = -I ../..

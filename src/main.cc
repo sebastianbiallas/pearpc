@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 		io_init_config();
 		cpu_init_config();
 		debugger_init_config();
-		
+
 		try {
 			LocalFile *config;
 			config = new LocalFile(argv[1]);

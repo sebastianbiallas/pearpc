@@ -31,7 +31,7 @@
 #include "ppc_tools.h"
 
 byte *gMemory = NULL;
-uint gMemorySize;
+uint32 gMemorySize;
 
 #undef TLB
 

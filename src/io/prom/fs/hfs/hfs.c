@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hfs.c,v 1.2 2004/05/11 15:00:19 seppel Exp $
+ * $Id: hfs.c,v 1.3 2004/05/16 22:44:05 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -1557,7 +1557,7 @@ int hfs_nparts(const void *devicehandle)
 {
   hfsvol vol;
   int nparts, found;
-  Partition map;
+  ApplePartition map;
   unsigned long bnum = 0;
 
   v_init(&vol, HFS_OPT_NOCACHE);

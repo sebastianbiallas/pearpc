@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.c,v 1.2 2004/05/09 21:59:51 steveman Exp $
+ * $Id: volume.c,v 1.3 2004/05/16 22:44:05 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -230,7 +230,7 @@ int v_same(hfsvol *vol, const char *path)
  */
 int v_geometry(hfsvol *vol, int pnum)
 {
-  Partition map;
+  ApplePartition map;
   unsigned long bnum = 0;
   int found;
 

@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: low.c,v 1.1 2004/05/05 22:45:01 seppel Exp $
+ * $Id: low.c,v 1.2 2004/05/16 22:44:05 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -107,7 +107,7 @@ fail:
  * NAME:	low->getpmentry()
  * DESCRIPTION:	read a partition map entry
  */
-int l_getpmentry(hfsvol *vol, Partition *map, unsigned long bnum)
+int l_getpmentry(hfsvol *vol, ApplePartition *map, unsigned long bnum)
 {
   block b;
   const byte *ptr = b;
@@ -160,7 +160,7 @@ fail:
  * NAME:	low->putpmentry()
  * DESCRIPTION:	write a partition map entry
  */
-int l_putpmentry(hfsvol *vol, const Partition *map, unsigned long bnum)
+int l_putpmentry(hfsvol *vol, const ApplePartition *map, unsigned long bnum)
 {
   block b;
   byte *ptr = b;

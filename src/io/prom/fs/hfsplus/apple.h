@@ -23,7 +23,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: apple.h,v 1.2 2004/05/11 16:11:12 steveman Exp $
+ * $Id: apple.h,v 1.3 2004/05/16 22:44:06 steveman Exp $
  */
 
 #define APPLE_H
@@ -62,7 +62,7 @@ typedef struct {
 	UInt32 pmBootCksum;	/* boot code checksum */
 	char pmProcessor[ 16];	/* processor type */
 	UInt16 pmPad[ 188];	/* reserved, sums up with the rest to 512 */
-} Partition;
+} ApplePartition;
 
 /* A point, normally used by Quickdraw, 
  * but found in Finderinformation, too 

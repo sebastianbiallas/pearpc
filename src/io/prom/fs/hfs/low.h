@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: low.h,v 1.1 2004/05/05 22:45:04 seppel Exp $
+ * $Id: low.h,v 1.2 2004/05/16 22:44:05 steveman Exp $
  */
 
 # define HFS_DDR_SIGWORD	0x4552
@@ -34,8 +34,8 @@
 int l_getddr(hfsvol *, Block0 *);
 int l_putddr(hfsvol *, const Block0 *);
 
-int l_getpmentry(hfsvol *, Partition *, unsigned long);
-int l_putpmentry(hfsvol *, const Partition *, unsigned long);
+int l_getpmentry(hfsvol *, ApplePartition *, unsigned long);
+int l_putpmentry(hfsvol *, const ApplePartition *, unsigned long);
 
 int l_getbb(hfsvol *, BootBlkHdr *, byte *);
 int l_putbb(hfsvol *, const BootBlkHdr *, const byte *);

@@ -74,11 +74,11 @@ static int parse_gpr(struct eval_scalar *i, char *s)
 
 static int parse_fpr(struct eval_scalar *i, char *s)
 {
+	int r = 0;
 	if (tolower(*s) != 'f') return 0;
 	s++;
 	if (tolower(*s) != 'r') return 0;
 	s++;
-	int r = 0;
 	do {
 		int c = char2int(*s, 10);
 		if (c == -1) return 0;

@@ -10,6 +10,7 @@ version 0.2 (in progress):
 	  improvements
 	- HFS+ embedded in HFS should work now (untested though)
 	- FPU: multiply-add-type instructions now working correctly
+	- tools/regex.h dos2unixed
 
 version 0.1:
 	- initial release

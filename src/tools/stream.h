@@ -178,7 +178,7 @@ public:
 #define GETX_INT64X(st, dstr)		GETX_INT64(st, dstr)
 #define GETX_STRING(st, dstr)		(st).getString(dstr)
 #define GETX_LSTRING(st, size, dstr)	(st).getLenString(size, dstr)
-#define GETX_OBJECT(st, d, dstr)	(st).getObject((Object*)((void*)d), dstr)
+#define GETX_OBJECT(st, d, dstr)	(st).getObject((Object*&)((void*&)d), dstr)
 
 #define GET_BINARY(st, d, size)		GETX_BINARY(st, d, size, #d)
 #define GET_BOOL(st, d)			d=GETX_BOOL(st, #d)

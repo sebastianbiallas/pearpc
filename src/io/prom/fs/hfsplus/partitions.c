@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: partitions.c,v 1.1 2004/05/05 22:45:54 seppel Exp $
+ * $Id: partitions.c,v 1.2 2004/05/16 22:44:06 steveman Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -55,7 +55,7 @@ static int splitCharArray( char **source, char *dest, int length) {
   return 0;
 }
 
-int partition_fillstruct( Partition *p, char *buf) {
+int partition_fillstruct( ApplePartition *p, char *buf) {
   p->pmSig	    = bswabU16_inc( buf);
   p->pmSigPad	    = bswabU16_inc( buf);
   p->pmMapBlkCnt    = bswabU32_inc( buf);
@@ -81,8 +81,8 @@ int partition_fillstruct( Partition *p, char *buf) {
  * hasi: we'd better use qsort instead of reinventing the wheel ....*/
 void partition_sort( partition_map *map) {
   
-  Partition **partitions = map->partitions;
-  Partition *min;
+  ApplePartition **partitions = map->partitions;
+  ApplePartition *min;
   int i, j, numparts= map->numparts;
 
   for( i= 0; i < numparts; i++) {
@@ -103,7 +103,7 @@ void partition_sort( partition_map *map) {
  */
 int partition_getPartitionMap( partition_map *map, void *fd) {
   char buf[ HFSP_BLOCKSZ];
-  Partition first; /* we use that to get the number of partitions in the map */
+  ApplePartition first; /* we use that to get the number of partitions in the map */
   int i, numparts;
 
   if( hfsp_os_seek( &fd, 1, HFSP_BLOCKSZ_BITS)!= 1)
@@ -123,11 +123,11 @@ int partition_getPartitionMap( partition_map *map, void *fd) {
 
   /* set the number of partitions and allocate memory */
   map->numparts   = numparts = first.pmMapBlkCnt;
-  map->parray	  = ( Partition *)malloc( numparts* sizeof( Partition));
-  map->partitions = ( Partition **)malloc( numparts* sizeof( void *));
+  map->parray	  = ( ApplePartition *)malloc( numparts* sizeof( ApplePartition));
+  map->partitions = ( ApplePartition **)malloc( numparts* sizeof( void *));
 
   /* copy the first partition info to map */
-  memcpy( map->parray, &first, sizeof( Partition));
+  memcpy( map->parray, &first, sizeof( ApplePartition));
   map->partitions[ 0]= map->parray;
 
   for( i= 1; i < numparts; i++) {
@@ -159,7 +159,7 @@ int partition_getPartitionMap( partition_map *map, void *fd) {
 UInt32 partition_getStartBlock( partition_map *map, const char *type, int num) {
   
   int	    i, startblock   = 0;
-  Partition **partitions    = map->partitions;
+  ApplePartition **partitions    = map->partitions;
 
   for( i= 0; i< map->numparts && num> 0; i++) {
     if( !strcmp( partitions[ i]->pmPartType, type)) {

@@ -21,7 +21,7 @@ AC_ARG_ENABLE(debug,
 AC_ARG_ENABLE(cpu,
 	[  --enable-cpu            choose cpu (generic or jitc_x86) [default=generic]],,enable_cpu="generic")
 AC_ARG_ENABLE(gui,
-	[  --enable-gui            choose gui (nogui, qt, or win32) [default=nogui]],,enable_gui="nogui")
+	[  --enable-gui            choose gui (nogui, beos, qt, or win32) [default=nogui]],,enable_gui="nogui")
 
 if test "x$enable_cpu" = "xno"; then
 	AC_MSG_ERROR([Scherzkeks.])
@@ -96,6 +96,12 @@ cygwin*)
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
 	NASM_OPTS="--prefix _ -f gnuwin32"
 ;;
+beos*)
+	SYSTEM_DIR=beos
+	echo "*** BEOS, building native BeOS version (no pthread)" 1>&2
+        PPC_LDFLAGS="-lbe -lgame"
+	FLAGS_ALL="$FLAGS_ALL -Wno-multichar"
+;;
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
 	SYSTEM_DIR=posix
@@ -124,6 +130,7 @@ AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
 PPC_CFLAGS="$PPC_CFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
 PPC_CXXFLAGS="$PPC_CXXFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
 
+AM_CONDITIONAL(USE_SYSTEM_BEOS, test x$SYSTEM_DIR = xbeos)
 AM_CONDITIONAL(USE_SYSTEM_POSIX, test x$SYSTEM_DIR = xposix)
 AM_CONDITIONAL(USE_SYSTEM_WIN32, test x$SYSTEM_DIR = xwin32)
 
@@ -235,6 +242,8 @@ dnl	ac_qtdir_errmsg="not found in current PATH. Maybe QT development environment
 ;;
 gtk*)
 ;;
+beos*)
+;;
 win32*)
 ;;
 *)
@@ -245,6 +254,7 @@ esac
 
 AM_CONDITIONAL(USE_GUI_QT, test x$GUI_DIR = xqt)
 AM_CONDITIONAL(USE_GUI_GTK, test x$GUI_DIR = xgtk)
+AM_CONDITIONAL(USE_GUI_BEOS, test x$GUI_DIR = xbeos)
 AM_CONDITIONAL(USE_GUI_WIN32, test x$GUI_DIR = xwin32)
 AM_CONDITIONAL(USE_GUI_NOGUI, test x$GUI_DIR = xnogui)
 
@@ -313,8 +323,10 @@ src/system/Makefile
 src/system/gui/Makefile
 src/system/gui/qt/Makefile
 src/system/gui/gtk/Makefile
+src/system/gui/beos/Makefile
 src/system/gui/win32/Makefile
 src/system/gui/nogui/Makefile
+src/system/beos/Makefile
 src/system/posix/Makefile
 src/system/win32/Makefile
 src/tools/Makefile

@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: apple.h,v 1.1 2004/05/05 22:45:13 seppel Exp $
+ * $Id: apple.h,v 1.2 2004/05/16 22:44:05 steveman Exp $
  */
 
 typedef signed char	Char;
@@ -65,7 +65,7 @@ typedef struct {
   LongInt	pmBootCksum;	/* boot code checksum */
   Char		pmProcessor[17];/* processor type */
   APPLEInteger	pmPad[188];	/* reserved */
-} Partition;
+} ApplePartition;
 
 typedef struct {
   APPLEInteger	bbID;		/* boot blocks signature */

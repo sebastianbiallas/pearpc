@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: partitions.h,v 1.1 2004/05/05 22:45:54 seppel Exp $
+ * $Id: partitions.h,v 1.2 2004/05/16 22:44:06 steveman Exp $
  */
 
 #ifndef APPLE_H
@@ -28,8 +28,8 @@
 
 typedef struct {
 	int numparts;		/* number of partitions found */
-	Partition *parray;	/* only used for mem mngmnt */
-	Partition **partitions;	/* partition descriptions */
+	ApplePartition *parray;	/* only used for mem mngmnt */
+	ApplePartition **partitions;	/* partition descriptions */
 } partition_map;
 
 /*
