@@ -1030,9 +1030,8 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 			if (hiedge) {
 				// Z means lo edge of mgmtDir
 				bool Z = (w4.PhysMgmt & PM_mgmtDir) && !(data & PM_mgmtDir);
-				bool mgmtData = data & PM_mgmtData;
 				IO_3C90X_TRACE("hi-edge, Z=%d, data=%d, dir=%d\n",
-					Z ? 1 : 0, mgmtData ? 1 : 0,
+					Z ? 1 : 0, (data & PM_mgmtData) ? 1 : 0,
 					(data & PM_mgmtDir) ? 1 : 0);
 				if (Z) {
 					// check if the 5 frames have been sent
@@ -1082,12 +1081,15 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 					mMIIWrittenBits = 0;
 				} else if (data & PM_mgmtDir) {
 					// write
+					bool mgmtData = data & PM_mgmtData;
+					IO_3C90X_TRACE("Write cycle mgmtData=%d\n", mgmtData ? 1 : 0);
 					mMIIWriteWord <<= 1;
 					mMIIWriteWord |= mgmtData ? 1 : 0;
 					mMIIWrittenBits++;
 				} else {
 					// read
 					bool mgmtData = mMIIReadWord & 0x80000000;
+					IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
 					if (mgmtData) {
 						w4.PhysMgmt = (w4.PhysMgmt & (~PM_mgmtDir)) | 1;
 					} else {
