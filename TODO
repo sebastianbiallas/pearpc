@@ -1,14 +1,18 @@
+- why do 2.6 Linux-kernels not display console?
+- OpenBSD doesn't start. why?
+- NetBSD doesn't start. why?
+- MOL doesn't start in Mandrake? (testing needed)
 - network: "scripts" directory configurable
-- intercept focus change and send key-release events
-- intercept close window. ask if user really wants to terminate the session
-- jitc config
-- 2.6 kernel console?
-- jmpFixup / Resolve(here) crash?
-- mol?
-- openbsd pci bla
-- dma and who uses it
-- PVR testing
-- adapt startup logo (name is now PearPC, not PPC)
-- locked CDs can't be changed. GUI should reflect this.
-- don't complain if ide image file is not available at startup
-- create specialized example config files for Mandrake, Darwin, Mac OS X
+- usability: intercept focus change and send key-release events.
+- usability: intercept close window. ask if user really wants to terminate the session.
+- gfx: adapt startup logo (name is now PearPC, not PPC)
+- configuration: jitc entries
+- documentation: dma and who uses it.
+- jitc_x86: jmpFixup / Resolve(here) crash?
+- PVR testing. understand numbering.
+- create specialized example config files for Mandrake, Darwin, Mac OS X.
+- configuration: possibility to configure HDs read-only.
+- usability: locked CDs can't be changed. GUI should reflect this.
+- usability: don't complain if CD is not available at startup. (CDs are _removable_ media)
+- usability: try to eject CD if "Change CD" is clicked
+- usability: make Win32 CDROM drives work
