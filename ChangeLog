@@ -6,6 +6,10 @@ version 0.4pre (not yet released):
 	- config: "ppc_start_fullscreen" for starting in fullscreen mode
 	- POSIX: allow bridging of tun device
 	- use FISTTP instruction on SSE3 aware processors
+	- merged native_cd branch from Alexander Stockinger
+	- endianess fixes
+	- warn that the generic CPU is slow
+	- better detection of HFS+ volumes
 
 version 0.3.1 (released 5. September 2004):
 	- JITC_X86: increased translation cache size
