@@ -195,7 +195,8 @@ public: // until we know better
 	int mCurMouseX, mCurMouseY;
 	int mResetMouseX, mResetMouseY;
 	int mHomeMouseX, mHomeMouseY;
-
+	bool mFullscreen;
+	
 	static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
 	{
 		if (toBits > fromBits) {
@@ -214,14 +215,15 @@ public:
 	virtual 	~SystemDisplay();
 
 	virtual void	displayShow() = 0;
-	
+
 	/*
 	 *	Note: this function might do different things when in / not in fullscreen
 	 *	mode.
 	 */
 	virtual void	convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar) = 0;
-	
+
 	virtual bool	changeResolution(const DisplayCharacteristics &aChar) = 0;
+	virtual bool	setFullscreenMode(bool fullscreen);
 
 	/* VT */
 	bool	openVT(int width, int height, int dx, int dy, File &font);
