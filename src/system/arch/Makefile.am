@@ -9,7 +9,7 @@ THE_ARCH_DIR=x86
 endif
 
 noinst_LIBRARIES = libsystemarch.a
-libsystemarch_a_SOURCES = sysfeatures.h
+libsystemarch_a_SOURCES = sysfeatures.h sysendian.h
 
 SUBDIRS = $(THE_ARCH_DIR)
 EXTRA_SUBDIRS = generic x86
