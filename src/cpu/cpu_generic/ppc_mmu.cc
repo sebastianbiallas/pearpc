@@ -437,7 +437,7 @@ int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
 		result = ppc_word_from_BE(*((uint32*)(gMemory+addr)));
 		return PPC_MMU_OK;
 	}
-	int ret = io_mem_read(addr, result, 4);;
+	int ret = io_mem_read(addr, result, 4);
 	result = ppc_bswap_word(result);
 	return ret;
 }
