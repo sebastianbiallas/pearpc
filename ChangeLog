@@ -7,7 +7,8 @@ version 0.3 (not yet released):
 		- display functions moved to src/system/ui directory
 		- src/system/arch created
 		- system/posix,win32 and beos moved to system/osapi/
-		- host keyboard support separated from SystemDisplay (x11 + SDL adapted)
+		- host keyboard support separated from SystemDisplay (x11 working)
+		- host mouse support separated from SystemDisplay (x11 working)
 	- experimental SDL support
 	- architecture-specific video acceleration functions (x86)
 	- configure-system: choose "jitc_x86" on x86s when no --enable-cpu given
