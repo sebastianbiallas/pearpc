@@ -21,6 +21,7 @@
 
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+#include <sys/time.h>
 
 #include <csignal>
 #include <cstdlib>
@@ -275,7 +276,7 @@ static void *X11eventLoop(void *p)
 				next_redraw_clk = clk + redraw_interval_clk - d;
 				gDisplay->displayShow();
 			}
-			timeval tm;
+			struct timeval tm;
 			fd_set zerofds;
 			fd_set xfds;
 
