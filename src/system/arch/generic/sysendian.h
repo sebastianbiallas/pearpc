@@ -29,37 +29,10 @@
 /*
  *		Little-endian machine
  */
-// FIXME: configure this, default to no
-#	undef HOST_IS_X86
 
 #	define ppc_dword_from_BE ppc_dword_to_BE
 #	define ppc_word_from_BE ppc_word_to_BE
 #	define ppc_half_from_BE ppc_half_to_BE
-
-#	ifdef HOST_IS_X86
-
-static inline __attribute__((const)) uint32 ppc_word_to_BE(uint32 data)
-{
-	asm (
-		"bswap %0": "=r" (data) : "0" (data)
-	);
-	return data;
-}
-
-static inline __attribute__((const)) uint16 ppc_half_to_BE(uint16 data) 
-{
-	asm (
-		"xchgb %b0,%h0": "=q" (data): "0" (data)
-	);
-	return data;
-}
-
-static inline __attribute__((const)) uint64 ppc_dword_to_BE(uint64 data)
-{
-	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
-}
-
-#	else
 
 /* LE, but not on x86 */
 static inline __attribute__((const))uint32 ppc_word_to_BE(uint32 data)
@@ -77,8 +50,6 @@ static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
 	return (data<<8)|(data>>8);
 }
 
-#	endif
-
 #elif HOST_ENDIANESS == HOST_ENDIANESS_BE
 
 /*
@@ -91,6 +62,25 @@ static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
 #	define ppc_dword_to_BE(data)	(uint64)(data)
 #	define ppc_word_to_BE(data)	(uint32)(data)
 #	define ppc_half_to_BE(data)	(uint16)(data)
+
+#	define ppc_dword_from_LE ppc_dword_to_LE
+#	define ppc_word_from_LE ppc_word_to_LE
+#	define ppc_half_from_LE ppc_half_to_LE
+
+static inline __attribute__((const))uint32 ppc_word_to_LE(uint32 data)
+{
+	return (data>>24)|((data>>8)&0xff00)|((data<<8)&0xff0000)|(data<<24);
+}
+
+static inline __attribute__((const))uint64 ppc_dword_to_LE(uint64 data)
+{
+	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
+}
+
+static inline __attribute__((const))uint16 ppc_half_to_LE(uint16 data)
+{
+	return (data<<8)|(data>>8);
+}
 
 #else
 
