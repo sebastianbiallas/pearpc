@@ -110,7 +110,7 @@ virtual int execIFConfigScript(const char *arg)
 {
 //sleep(1000000);
 	int pid = fork();
-	printf("fork = %d, 0x%08lx\n", pid, errno);
+	printf("fork = %d, 0x%08x\n", pid, errno);
 	if (pid == 0) {
 		const char *progname;
 		if (strcmp(arg, "up") == 0) {
