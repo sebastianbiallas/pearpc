@@ -1,14 +1,15 @@
 release plan:
 
-    - test 
-	darwin 6.02:            ok
-	darwin 7.01:		ok
-	mac os x 10.3:		finder crash
-	mandrake linux 9.1:	installer crash
-    - gtk/qt configure
-    - no msvc6
-    - source reorganize?
-    - sf account
+    - homepage finish
+    - homepage upload
+    - build:
+	make dist dist2
+	./configure --enable-cpu=jitc_x86 --enable-gui=win32    
+	make clean && make
+	mv ./ppc.exe ./ppc-win32-generic-cpu.exe
+	./configure --enable-gui=win32    
+	make clean && make
+	mv ./ppc.exe ./ppc-win32-jitc.exe
 ==============================
 - intercept focus change and send key-release events
 - jitc config
