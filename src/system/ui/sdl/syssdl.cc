@@ -429,7 +429,7 @@ void doneUI()
 		SDL_Event event;
 		event.type = SDL_QUIT;
 		SDL_PushEvent(&event);
-		SDL_WaitThread(SDLeventLoopThread, NULL);
+		while (eventThreadAlive) SDL_Delay(10); // FIXME: UGLY!
 	}
 	SDL_Quit();
 }
