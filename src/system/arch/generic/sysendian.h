@@ -30,6 +30,14 @@
  *		Little-endian machine
  */
 
+#	define ppc_dword_from_LE(data)	(uint64)(data)
+#	define ppc_word_from_LE(data)	(uint32)(data)
+#	define ppc_half_from_LE(data)	(uint16)(data)
+
+#	define ppc_dword_to_LE(data)	(uint64)(data)
+#	define ppc_word_to_LE(data)	(uint32)(data)
+#	define ppc_half_to_LE(data)	(uint16)(data)
+
 #	define ppc_dword_from_BE ppc_dword_to_BE
 #	define ppc_word_from_BE ppc_word_to_BE
 #	define ppc_half_from_BE ppc_half_to_BE
