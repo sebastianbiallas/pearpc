@@ -26,7 +26,7 @@
 #include <cstring>
 
 // for stopping the CPU
-#include "cpu_generic/ppc_cpu.h"
+#include "cpu/cpu.h"
 
 #undef FASTCALL
 
@@ -186,7 +186,7 @@ static void eventLoop(void *pvoid)
 		DispatchMessage(&msg);
 	}
 
-	ppc_stop();
+	ppc_cpu_stop();
 
 	_endthread();
 }

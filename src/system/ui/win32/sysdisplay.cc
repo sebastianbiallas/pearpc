@@ -28,6 +28,8 @@
 #include "tools/snprintf.h"
 #include "configparser.h"
 
+#undef FASTCALL
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <windowsx.h>
