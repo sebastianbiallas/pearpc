@@ -186,6 +186,8 @@ static void eventLoop(void *pvoid)
 		DispatchMessage(&msg);
 	}
 
+	KillTimer(gHWNDMain, 0);
+
 	ppc_cpu_stop();
 
 	_endthread();
@@ -366,9 +368,7 @@ void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms,
 
 void doneUI()
 {
-/*	FIXME: races
 	delete gDisplay;
 	delete gMouse;
 	delete gKeyboard;
-*/
 }
