@@ -21,19 +21,43 @@
 #ifndef __PPC_TOOLS_H__
 #define __PPC_TOOLS_H__
 
+#include "config.h"		// we need config.h
 #include "system/types.h"
 
-#define HOST_IS_LE
-#define HOST_IS_X86
+#if HOST_ENDIANESS == LE
 
+/*
+ *		Little-endian machine
+ */
+// FIXME: configure this
+#	define HOST_IS_X86
 
-#ifdef HOST_IS_LE
+#	ifndef HOST_IS_X86
+
+#		error "Your machine if little-endian but not an x86. you cant use jitc_x86 on this machine."
+
+#	endif
+
+#elif HOST_ENDIANESS == BE
+
+/*
+ *		Big-endian machine
+ */
+#	error "Your machine is big-endian. The CPU that you have configured (JITC_X86) only works on little-endian Intel/AMD x86 architectures."
+
+#else
+
+/*
+ *		Weird-endian machine
+ *	HOST_ENDIANESS is neither little- nor big-endian?
+ */
+#	error "What kind of a weird machine do you have? It's neither little- nor big-endian??? This is unsupported."
+
+#endif
 
 #define ppc_dword_from_BE ppc_dword_to_BE
 #define ppc_word_from_BE ppc_word_to_BE
 #define ppc_half_from_BE ppc_half_to_BE
-
-#ifdef HOST_IS_X86
 
 static inline __attribute__((const)) uint32 ppc_word_to_BE(uint32 data)
 {
@@ -56,43 +80,6 @@ static inline __attribute__((const)) uint64 ppc_dword_to_BE(uint64 data)
 	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
 }
 
-
-#else
-
-static inline __attribute__((const))uint32 ppc_word_to_BE(uint32 data)
-{
-	return (data>>24)|((data>>8)&0xff00)|((data<<8)&0xff0000)|(data<<24);
-}
-
-static inline __attribute__((const))uint64 ppc_dword_to_BE(uint64 data)
-{
-	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
-}
-
-static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
-{
-	return (data<<8)|(data>>8);
-}
-
-#endif
-#else
-
-bla
-
-#endif
-
-#ifndef HOST_IS_X86
-static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
-{
-	if ((a+b) < a) {
-		return true;
-	}
-	if ((a+b+c) < c) {
-		return true;
-	}
-	return false;
-}
-#else
 static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
 {
 	register uint8 t;
@@ -106,7 +93,20 @@ static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32
 	);
 	return t;
 }
-#endif
+/*
+equivalent C-construction:
+static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
+{
+	if ((a+b) < a) {
+		return true;
+	}
+	if ((a+b+c) < c) {
+		return true;
+	}
+	return false;
+}
+*/
+
 static inline __attribute__((const)) uint32 ppc_word_rotl(uint32 data, int n)
 {
 	n &= 0x1f;

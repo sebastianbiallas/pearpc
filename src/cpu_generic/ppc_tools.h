@@ -21,28 +21,26 @@
 #ifndef __PPC_TOOLS_H__
 #define __PPC_TOOLS_H__
 
+#include "config.h"		// we need config.h
 #include "system/types.h"
 
-#if defined(__ppc__) || defined(__powerpc__)
-#undef HOST_IS_LE
-#undef HOST_IS_X86
-#else
-#define HOST_IS_LE
-#define HOST_IS_X86
-#endif
+#if HOST_ENDIANESS == LE
 
-#ifdef HOST_IS_LE
+/*
+ *		Little-endian machine
+ */
+// FIXME: configure this
+#	define HOST_IS_X86
 
-#define ppc_dword_from_BE ppc_dword_to_BE
-#define ppc_word_from_BE ppc_word_to_BE
-#define ppc_half_from_BE ppc_half_to_BE
+#	define ppc_dword_from_BE ppc_dword_to_BE
+#	define ppc_word_from_BE ppc_word_to_BE
+#	define ppc_half_from_BE ppc_half_to_BE
 
-#ifdef HOST_IS_X86
+#	ifdef HOST_IS_X86
 
 static inline __attribute__((const)) uint32 ppc_word_to_BE(uint32 data)
 {
 	asm (
-		//"bswapl %0": "=r" (data) : "0" (data)
 		"bswap %0": "=r" (data) : "0" (data)
 	);
 	return data;
@@ -61,7 +59,7 @@ static inline __attribute__((const)) uint64 ppc_dword_to_BE(uint64 data)
 	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
 }
 
-#else
+#	else
 
 /* LE, but not on x86 */
 static inline __attribute__((const))uint32 ppc_word_to_BE(uint32 data)
@@ -79,33 +77,32 @@ static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
 	return (data<<8)|(data>>8);
 }
 
-#endif
+#	endif
+
+#elif HOST_ENDIANESS == BE
+
+/*
+ *		Big-endian machine
+ */
+#	define ppc_dword_from_BE(data)	(uint64)(data)
+#	define ppc_word_from_BE(data)	(uint32)(data)
+#	define ppc_half_from_BE(data)	(uint16)(data)
+
+#	define ppc_dword_to_BE(data)	(uint64)(data)
+#	define ppc_word_to_BE(data)	(uint32)(data)
+#	define ppc_half_to_BE(data)	(uint16)(data)
 
 #else
 
-/* BE arch, no problems */
-#define ppc_dword_from_BE(data)	(uint64)(data)
-#define ppc_word_from_BE(data)	(uint32)(data)
-#define ppc_half_from_BE(data)	(uint16)(data)
-
-#define ppc_dword_to_BE(data)	(uint64)(data)
-#define ppc_word_to_BE(data)	(uint32)(data)
-#define ppc_half_to_BE(data)	(uint16)(data)
+/*
+ *		Weird-endian machine
+ *	HOST_ENDIANESS is neither little- nor big-endian?
+ */
+#	error "What kind of a weird machine do you have? It's neither little- nor big-endian??? This is unsupported."
 
 #endif
 
-#ifndef HOST_IS_X86
-static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
-{
-	if ((a+b) < a) {
-		return true;
-	}
-	if ((a+b+c) < c) {
-		return true;
-	}
-	return false;
-}
-#else
+#ifdef HOST_IS_X86
 static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
 {
 	register uint8 t;
@@ -119,7 +116,19 @@ static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32
 	);
 	return t;
 }
+#else
+static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
+{
+	if ((a+b) < a) {
+		return true;
+	}
+	if ((a+b+c) < c) {
+		return true;
+	}
+	return false;
+}
 #endif
+
 static inline __attribute__((const)) uint32 ppc_word_rotl(uint32 data, int n)
 {
 	n &= 0x1f;

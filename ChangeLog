@@ -20,6 +20,7 @@ version 0.2 (in progress):
 	- added RealTek-8139 network card driver by Eric Estabrooks
 	- configure support for mingw and darwin
 	- bnstr() is evil and has been banned. fixes: can't parse pci_3c90x_mac
+	- endianess auto-detect using configure (big-endian hosts still not working correctly)
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

@@ -67,6 +67,14 @@ AM_CONFIG_HEADER(config.h)
 dnl Check OS specifica
 
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
+AC_C_BIGENDIAN(
+	AC_DEFINE(HOST_ENDIANESS, BE, [Which host endianess/byte-order?]),
+ 	AC_DEFINE(HOST_ENDIANESS, LE, [Which host endianess/byte-order?]),
+	[
+	AC_MSG_WARN([couldn't determine host endianess/byte-order. assuming your machine is little-endian.])
+	AC_DEFINE(HOST_ENDIANESS, LE, [Which host endianess/byte-order?])
+	]
+)
 
 NASM_OPTS="-f elf"
 
@@ -159,8 +167,16 @@ AC_PROG_MAKE_SET
 AC_PROG_CPP
 AC_PROG_CC
 AC_PROG_CXX
-AC_PROG_YACC
+
+dnl To ensure backward compatibility, Automake's `AM_PROG_LEX' invokes
+dnl (indirectly) this macro twice, which will cause an annoying but
+dnl benign "`AC_PROG_LEX' invoked multiple times" warning.  Future
+dnl versions of Automake will fix this issue; meanwhile, just ignore
+dnl this message.
+dnl --- GNU Autoconf (version 2.58, 18 March 2004)
 AM_PROG_LEX
+
+AC_PROG_YACC
 AC_PATH_PROG(AR, ar)
 AC_PATH_PROG(AR, gar)
 
