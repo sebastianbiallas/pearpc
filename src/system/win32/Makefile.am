@@ -3,8 +3,9 @@ AUTOMAKE_OPTIONS = foreign
 SUFFIXES = .asm .o
 
 noinst_LIBRARIES = libssystem.a
-libssystem_a_SOURCES = sysclipboard.cc sysdisplay.cc sysfile.cc systhread.cc \
-sysethtun.cc sysinit.cc systimer.cc vaccel.asm types.h tap_constants.h
+
+libssystem_a_SOURCES = sysclipboard.cc sysfile.cc systhread.cc \
+sysethtun.cc systimer.cc sysinit.cc vaccel.asm types.h tap_constants.h
 
 INCLUDES = -I ../..
 

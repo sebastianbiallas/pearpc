@@ -1,16 +1,10 @@
 AUTOMAKE_OPTIONS = foreign
 
-#SUFFIXES = .asm .o
-
 noinst_LIBRARIES = libssystem.a
-libssystem_a_SOURCES = sysclipboard.cc sysdisplay.cc sysfile.cc \
+libssystem_a_SOURCES = sysclipboard.cc sysfile.cc \
 sysethtun.cc sysinit.cc systhread.cc types.h
-#vaccel.asm
 
 INCLUDES = -I ../..
-
-.asm.o:
-	nasm -O2 @NASM_OPTS@ -o $@ -- $<
 
 sysethtun.cc:
 	ln -s ../posix/$@ $@

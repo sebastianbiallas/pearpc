@@ -42,7 +42,7 @@
 #define TAP_WIN32_MIN_MAJOR 7
 #define TAP_WIN32_MIN_MINOR 1
 
-#define printm(s...) printf("[TAP-WIN32]: "s)
+#define printm(s...)	ht_printf("[TAP-WIN32]: "s)
 #define BUFFER_SIZE	65536
 #define READ_SIZE	16384
 #define ERRORMSG_SIZE	1024
