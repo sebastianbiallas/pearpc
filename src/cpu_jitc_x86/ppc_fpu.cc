@@ -264,22 +264,20 @@ inline void ppc_fpu_add_quadro(ppc_quadro &res, ppc_quadro &a, ppc_quadro &b)
 		res.type = ppc_fpr_NaN;
 		break;
 	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_zero):
-		res.e = a.e;
-		// fall-thru
 	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_norm): 
 	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_Inf): 
 	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_zero):
+		res.e = a.e;
 		res.s = a.s;
 		res.m0 = a.m0;
 		res.m1 = a.m1;
 		res.type = a.type;
 		break;
 	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_norm):
-		res.e = b.e;
-		// fall-thru
 	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_NaN): 
 	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_NaN): 
 	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_NaN):
+		res.e = b.e;
 		res.s = b.s;
 		res.m0 = b.m0;
 		res.m1 = b.m1;
@@ -491,8 +489,11 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	ppc_double &s)
 {
 	ppc_quadro p;
+	ht_printf("m1 = %d * %016qx * 2^%d\n", m1.s, &m1.m, m1.e);
+	ht_printf("m2 = %d * %016qx * 2^%d\n", m1.s, &m1.m, m1.e);
 	// create product with 106 significant bits
 	ppc_fpu_mul_quadro(p, m1, m2, 106);
+	ht_printf("m1*m2 = %d * %016qx%016qx * 2^%d\n", p.s, &p.m0, &p.m1, p.e);
 	// convert s into ppc_quadro
 	ppc_quadro q;
 	q.e = s.e;
@@ -503,10 +504,12 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	// .. with 106 significant bits
 	ppc_fpu_quadro_mshl(q, 106-56);
 	q.e -= 106-56;
+	ht_printf("q = %d * %016qx%016qx * 2^%d\n", q.s, &q.m0, &q.m1, q.e);
 	// now we must add p, q.
 	ppc_quadro x;
 	ppc_fpu_add_quadro(x, p, q);
 	// x = [107]
+	ht_printf("x = %d * %016qx%016qx * 2^%d\n", x.s, &x.m0, &x.m1, x.e);
 	res.type = x.type;
 	res.s = x.s;
 	res.e = x.e;
