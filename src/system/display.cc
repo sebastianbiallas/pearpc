@@ -132,6 +132,7 @@ SystemDisplay::SystemDisplay(const DisplayCharacteristics &aClientChr, int redra
 	mMouseGrabbed = false;
 	
 	mFullscreenChanged = false;
+	mFullscreen = false;
 }
 
 SystemDisplay::~SystemDisplay()
