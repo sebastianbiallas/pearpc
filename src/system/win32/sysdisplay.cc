@@ -309,7 +309,7 @@ public:
 		SetWindowText(gHWNDMain, mCurTitle);
 	}
 
-	void clientMouseEnable(bool enable)
+	void setClientMouseGrab(bool enable)
 	{
 		mMouseEnabled = enable;
 		updateTitle();
@@ -675,7 +675,7 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		// or if it is only a repeated event
 		if (!(lParam & (1<<30))) {
 			if ((wParam == VK_F12) && gDisplay->getCatchMouseToggle()) {
-				((Win32Display*)gDisplay)->clientMouseEnable(!mMouseEnabled);
+				((Win32Display*)gDisplay)->setClientMouseGrab(!mMouseEnabled);
 			} else {
 				int scancode = HIWORD(lParam) & 0x01FF;
 				DisplayEvent *ev = (DisplayEvent *)malloc(sizeof (DisplayEvent));
@@ -741,10 +741,17 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_SYSDEADCHAR:
 		break;
 
+	case WM_ACTIVATE:
+		if (wParam == WA_INACTIVE)
+			if (mMouseEnabled) ((Win32Display*)gDisplay)->setClientMouseGrab(false);
+		break;
 	case WM_LBUTTONUP:
 		if (!mMouseEnabled) {
 			if (HIWORD(lParam) < gMenuHeight) {
 				gDisplay->clickMenu(LOWORD(lParam), HIWORD(lParam));
+			} else {
+				((Win32Display*)gDisplay)->setClientMouseGrab(true);
+				break;
 			}
 		}
 		// fall throu
