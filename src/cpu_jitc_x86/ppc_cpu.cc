@@ -53,11 +53,11 @@ uint64 gStartHostCPUTicks;
 
 uint64 ppc_get_cpu_ideal_timebase()
 {
-	uint64 ticks = sys_get_cpu_ticks();
+	uint64 ticks = sys_get_hiresclk_ticks();
 //	if (ticks < gElapsedHostCPUTicks) {
 //		FIXME: overflow		
 //	}
-	uint64 ticks_per_sec = sys_get_cpu_ticks_per_second();
+	uint64 ticks_per_sec = sys_get_hiresclk_ticks_per_second();
 	return (ticks - gStartHostCPUTicks) * gClientTimeBaseFrequency / ticks_per_sec;
 }
 
