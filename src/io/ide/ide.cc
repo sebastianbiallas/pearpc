@@ -1351,7 +1351,7 @@ void receive_atapi_packet()
 //			IO_IDE_TRACE("data <- %04x\n", data);
 			switch (gIDEState.state[gIDEState.drive].current_command) {
 			case IDE_COMMAND_WRITE_SECTOR: 
-				*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]) = data;
+				*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]) = ppc_word_to_LE(data);
 				gIDEState.state[gIDEState.drive].sectorpos += 2;
 				if (gIDEState.state[gIDEState.drive].sectorpos == 512) {
 					if (gIDEState.state[gIDEState.drive].mode == IDE_TRANSFER_MODE_WRITE) {
@@ -1384,7 +1384,7 @@ void receive_atapi_packet()
 				if (gIDEState.state[gIDEState.drive].sectorpos >= IDE_ATAPI_PACKET_SIZE) {
 					IO_IDE_ERR("sectorpos >= PACKET_SIZE\n");
 				}
-				*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]) = data;
+				*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]) = ppc_word_to_LE(data);
 				gIDEState.state[gIDEState.drive].sectorpos += 2;
 				if (gIDEState.state[gIDEState.drive].sectorpos >= IDE_ATAPI_PACKET_SIZE) {
 					// ATAPI packet received
@@ -1741,7 +1741,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 		case IDE_COMMAND_READ_SECTOR: 
 		case IDE_COMMAND_IDENT:
 		case IDE_COMMAND_IDENT_ATAPI:
-			data = *((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]);
+			data = ppc_word_from_LE(*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]));
 			gIDEState.state[gIDEState.drive].sectorpos += 2;
 //			IO_IDE_TRACE("data: %04x\n", data);
 			if (gIDEState.state[gIDEState.drive].sectorpos == 512) {
@@ -1810,7 +1810,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 					IO_IDE_ERR("unknown atapi state\n");
 				}
 			}
-			data = *((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]);
+			data = ppc_word_from_LE(*((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]));
 			gIDEState.state[gIDEState.drive].sectorpos += 2;
 //			IO_IDE_TRACE("data: %04x\n", data);
 			gIDEState.state[gIDEState.drive].drqpos += 2;
