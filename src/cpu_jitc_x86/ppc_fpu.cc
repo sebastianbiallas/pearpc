@@ -979,9 +979,9 @@ void ppc_opc_fmaddx()
 	ppc_fpu_mul_add(D, A, C, B);
 //	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-/*	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.000001 && fabs(d) > 0.000001) {
+	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.000001 && fabs(d) > 0.000001) {
 		PPC_FPU_ERR("b0rken: fmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
-	}*/
+	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmadd.\n");
