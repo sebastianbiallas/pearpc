@@ -58,7 +58,7 @@ static void GetErrorString(char *out, DWORD error)
     			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
     			(LPTSTR) out,
     			ERRORMSG_SIZE,
-    			NULL );
+    			NULL);
 }
 //checks to see if a given NIC GUID is a TAP-WIN32 device
 static bool is_tap_win32_dev(const char *guid)
@@ -95,7 +95,7 @@ static bool is_tap_win32_dev(const char *guid)
 			return false;
 		}
 	
-		snprintf (unit_string, sizeof(unit_string), "%s\\%s", ADAPTER_KEY, enum_name);
+		ht_snprintf(unit_string, sizeof(unit_string), "%s\\%s", ADAPTER_KEY, enum_name);
 
 		status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, unit_string, 0, KEY_READ, &unit_key);
 
@@ -109,21 +109,20 @@ static bool is_tap_win32_dev(const char *guid)
 				len = sizeof (net_cfg_instance_id);
 				status = RegQueryValueEx(unit_key, net_cfg_instance_id_string, NULL, &data_type, (BYTE *)net_cfg_instance_id,	&len);
 
-				if (status == ERROR_SUCCESS && data_type == REG_SZ)
-				{
-					if ((!strcmp (component_id, "tap") || !strcmp (component_id, "tapdev"))
-						&& !strcmp (net_cfg_instance_id, guid))	{
-						RegCloseKey (unit_key);
-						RegCloseKey (netcard_key);
+				if (status == ERROR_SUCCESS && data_type == REG_SZ) {
+					if (!strncmp(component_id, "tap", 3)
+						&& !strcmp(net_cfg_instance_id, guid))	{
+						RegCloseKey(unit_key);
+						RegCloseKey(netcard_key);
 						return true;
 					}
 				}
 			}
-			RegCloseKey (unit_key);
+			RegCloseKey(unit_key);
 		}
 		++i;
 	}
-	RegCloseKey (netcard_key);
+	RegCloseKey(netcard_key);
 	return false;
 }
 
@@ -134,17 +133,16 @@ static int get_device_guid(char *name, int name_size, char *actual_name, int act
 	HKEY control_net_key;
 	DWORD len;
 	int i = 0;
-	int stop = 0;
+	bool stop = false;
 
-	status = RegOpenKeyEx( HKEY_LOCAL_MACHINE, NETWORK_CONNECTIONS_KEY,	0, KEY_READ, &control_net_key);
+	status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, NETWORK_CONNECTIONS_KEY, 0, KEY_READ, &control_net_key);
 
 	if (status != ERROR_SUCCESS) {
 		printm("Error opening registry key: %s", NETWORK_CONNECTIONS_KEY);
 		return 1;
 	}
 
-	while (!stop)
-	{
+	while (!stop) {
 		char enum_name[256];
 		char connection_string[256];
 		HKEY connection_key;
@@ -162,9 +160,9 @@ static int get_device_guid(char *name, int name_size, char *actual_name, int act
 			return 1;
 		}
 
-		snprintf(connection_string, sizeof(connection_string),"%s\\%s\\Connection", NETWORK_CONNECTIONS_KEY, enum_name);
+		ht_snprintf(connection_string, sizeof(connection_string), "%s\\%s\\Connection", NETWORK_CONNECTIONS_KEY, enum_name);
 		status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, connection_string, 0, KEY_READ, &connection_key);
-		
+
 		if (status == ERROR_SUCCESS) {
 			len = sizeof (name_data);
 			status = RegQueryValueEx(connection_key, name_string, NULL, &name_type, (BYTE *)name_data, &len);
@@ -173,21 +171,21 @@ static int get_device_guid(char *name, int name_size, char *actual_name, int act
 				printm("Error opening registry key: %s\\%s\\%s", NETWORK_CONNECTIONS_KEY, connection_string, name_string);
 			        return 1;
 			} else {
-				if (is_tap_win32_dev (enum_name)) {
+				if (is_tap_win32_dev(enum_name)) {
 					printm("Found TAP device named '%s'\n", name_data);
-					snprintf(name, name_size, "%s", enum_name);
+					ht_snprintf(name, name_size, "%s", enum_name);
 					if (actual_name)
-						snprintf(actual_name, actual_name_size, "%s", name_data);
-					stop = 1;
+						ht_snprintf(actual_name, actual_name_size, "%s", name_data);
+					stop = true;
 				}
 			}
-			RegCloseKey (connection_key);
+			RegCloseKey(connection_key);
 		}
 		++i;
 	}
-	RegCloseKey (control_net_key);
+	RegCloseKey(control_net_key);
 
-	if (stop == 0)
+	if (!stop)
 		return 1;
 
 	return 0; 
@@ -208,7 +206,7 @@ bool tap_set_status(ULONG status)
 	ret = DeviceIoControl(mFile, TAP_IOCTL_SET_MEDIA_STATUS,
 				&status, sizeof (status),
 				&status, sizeof (status), &len, NULL);
-	if (!ret){
+	if (!ret) {
 		char errmsg[ERRORMSG_SIZE];
 		GetErrorString(errmsg, GetLastError());
 		printm("Failed: %s\n", errmsg);
@@ -241,8 +239,8 @@ int initDevice()
 		throw new MsgException("Could not locate any installed TAP-WIN32 devices.");
 	}
 
-	 //Open Windows TAP-Win32 adapter
-	 ht_snprintf(device_path, sizeof device_path, "%s%s%s",
+	//Open Windows TAP-Win32 adapter
+	ht_snprintf(device_path, sizeof device_path, "%s%s%s",
 		  USERMODEDEVICEDIR,
 		  device_guid,
 		  TAPSUFFIX);
@@ -270,16 +268,16 @@ int initDevice()
     		ULONG info[3];
     		ULONG len;
     		info[0] = info[1] = info[2] = 0;
-    		if (DeviceIoControl (handle, TAP_IOCTL_GET_VERSION, 
-    			&info, sizeof (info), 
-    			&info, sizeof (info), &len, NULL)) {
+    		if (DeviceIoControl(handle, TAP_IOCTL_GET_VERSION, 
+	    			&info, sizeof (info), 
+	    			&info, sizeof (info), &len, NULL)) {
 			printm("Driver Version %d.%d\n",
 	     			(int) info[0],
 	     			(int) info[1]);
       		} else {
-      			if (DeviceIoControl (handle, OLD_TAP_IOCTL_GET_VERSION, 
-    			&info, sizeof (info), 
-    			&info, sizeof (info), &len, NULL)) {
+      			if (DeviceIoControl(handle, OLD_TAP_IOCTL_GET_VERSION, 
+	    			&info, sizeof (info), 
+	    			&info, sizeof (info), &len, NULL)) {
 			printm("Driver Version %d.%d %s.\n",
 	     			(int) info[0],
 	     			(int) info[1],
@@ -291,7 +289,7 @@ int initDevice()
 				throw new MsgfException("Could not get driver version info: %s\n", errmsg);
 			}
 		}
-    		if ( !(info[0] > TAP_WIN32_MIN_MAJOR || (info[0] == TAP_WIN32_MIN_MAJOR && info[1] >= TAP_WIN32_MIN_MINOR)) ) {
+    		if (!(info[0] > TAP_WIN32_MIN_MAJOR || (info[0] == TAP_WIN32_MIN_MAJOR && info[1] >= TAP_WIN32_MIN_MINOR))) {
       			throw new MsgfException("ERROR:  This version of PearPC requires a TAP-Win32 driver that is at least version %d.%d\n"
       						"Please install an updated version from http://prdownloads.sourceforge.net/openvpn/openvpn-2.0_beta2-install.exe\n",
 			   			TAP_WIN32_MIN_MAJOR,
