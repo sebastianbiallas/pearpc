@@ -31,6 +31,7 @@ public:
 };
 
 void macio_init();
+void macio_done();
 void macio_init_config();
 
 #endif

@@ -46,12 +46,13 @@
 
 #include "syswin.h"
 
-HWND gHWNDMain;
+HWND gHWNDMain = NULL;
 CRITICAL_SECTION gDrawCS;
 int gMenuHeight; 
 BITMAPINFO gMenuBitmapInfo;
 byte *menuData;
 
+static HANDLE eventThread = INVALID_HANDLE_VALUE;
 static HINSTANCE gHInst;
 
 static byte scancode_to_ascii[] = {
@@ -140,6 +141,10 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
  */
 static void eventLoop(void *pvoid) 
 {
+	DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
+		GetCurrentProcess(), &eventThread, 0, FALSE,
+		DUPLICATE_SAME_ACCESS);
+
 	Win32Display *display = (Win32Display *)pvoid;
 
 	gMenuHeight = display->mMenuHeight;
@@ -189,6 +194,8 @@ static void eventLoop(void *pvoid)
 	KillTimer(gHWNDMain, 0);
 
 	ppc_cpu_stop();
+	
+	gHWNDMain = NULL;
 
 	_endthread();
 }
@@ -356,7 +363,7 @@ void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms,
 	gDisplay = allocSystemDisplay(title, chr, redraw_ms);
 	gMouse = allocSystemMouse();
 	gKeyboard = allocSystemKeyboard();
-	if(!gKeyboard->setKeyConfig(keyConfig)) {
+	if (!gKeyboard->setKeyConfig(keyConfig)) {
 		ht_printf("no keyConfig, or is empty");
 		exit(1);
 	}
@@ -368,6 +375,14 @@ void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms,
 
 void doneUI()
 {
+	if (eventThread != INVALID_HANDLE_VALUE) {
+		if (gHWNDMain != NULL) {
+			if (PostMessage(gHWNDMain, WM_DESTROY, 0, 0)) {
+				WaitForSingleObject(eventThread, INFINITE);
+			}
+		}
+		CloseHandle(eventThread);
+	}
 	delete gDisplay;
 	delete gMouse;
 	delete gKeyboard;

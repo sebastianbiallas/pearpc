@@ -201,7 +201,7 @@ protected:
 //sets the media status of the TAP device (cable connected or not)
 bool tap_set_status(ULONG status)
 {
-	unsigned long len = 0;
+	DWORD len = 0;
 	bool ret;
 	ret = DeviceIoControl(mFile, TAP_IOCTL_SET_MEDIA_STATUS,
 				&status, sizeof (status),
@@ -298,7 +298,7 @@ int initDevice()
   	}
   	
   	//connect our virtual cat5 cable to the TAP device
-	if (!tap_set_status(true)) {
+	if (!tap_set_status(TRUE)) {
 		if (CloseHandle(handle) != 1) {
 			printm("Error closing handle.\n");
 		}

@@ -25,6 +25,7 @@
 extern bool rtl8139_installed;
 
 void rtl8139_init();
+void rtl8139_done();
 void rtl8139_init_config();
 
 #endif

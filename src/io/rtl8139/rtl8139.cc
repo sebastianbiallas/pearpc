@@ -797,6 +797,10 @@ void rtl8139_init()
 	}
 }
 
+void rtl8139_done()
+{
+}
+
 void rtl8139_init_config()
 {
 	gConfig->acceptConfigEntryIntDef(RTL8139_KEY_INSTALLED, 0);

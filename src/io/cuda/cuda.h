@@ -31,6 +31,7 @@ void cuda_read(uint32 addr, uint32 &data, int size);
 bool cuda_interrupt();
 
 void cuda_init();
+void cuda_done();
 void cuda_init_config();
 
 bool cuda_prom_get_key(uint32 &key);

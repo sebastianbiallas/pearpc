@@ -36,6 +36,7 @@
 #include <cstdarg>
 #include <ctime>
 
+#include "cpu/cpu.h"
 #include "tools/snprintf.h"
 #include "debug/tracers.h"
 #include "io/pic/pic.h"
@@ -418,7 +419,8 @@ static void cuda_receive_cuda_packet()
 		break;
 	}
 	case CUDA_RESET_SYSTEM: {
-		IO_CUDA_ERR("reset!\n");
+		IO_CUDA_WARN("reset!\n");
+		ppc_cpu_stop();
 		break;
 	}
 	case CUDA_FILE_SERVER_FLAG: {
@@ -442,7 +444,8 @@ static void cuda_receive_cuda_packet()
 		break;
 	}
 	case CUDA_POWERDOWN: {
-		IO_CUDA_ERR("power down!\n");
+		IO_CUDA_WARN("power down!\n");
+		ppc_cpu_stop();
 		break;
 	}
 	default:
@@ -977,6 +980,12 @@ void cuda_init()
 
 	sys_thread cudaEventLoopThread;
 	sys_create_thread(&cudaEventLoopThread, 0, cudaEventLoop, NULL);
+}
+
+void cuda_done()
+{
+	sys_destroy_mutex(gCUDAMutex);
+	sys_destroy_semaphore(gCUDA.idle_sem);
 }
 
 void cuda_init_config()

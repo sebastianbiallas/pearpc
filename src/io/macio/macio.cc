@@ -206,6 +206,10 @@ void macio_init()
 	gPCI_Devices->insert(new PCI_MacIO());
 }
 
+void macio_done()
+{
+}
+
 void macio_init_config()
 {
 }

@@ -69,6 +69,14 @@ void io_init()
 	nvram_init();
 }
 
+void io_done()
+{
+	pci_done();
+	cuda_done();
+	pic_done();
+	nvram_done();
+}
+
 void io_init_config()
 {
 	pci_init_config();

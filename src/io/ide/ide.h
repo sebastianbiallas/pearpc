@@ -71,6 +71,7 @@ struct IDEConfig {
 IDEConfig *ide_get_config(int disk);
 
 void ide_init();
+void ide_done();
 void ide_init_config();
 
 #endif

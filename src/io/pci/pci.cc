@@ -545,6 +545,18 @@ void pci_init()
 	usb_init();
 }
 
+void pci_done()
+{
+	usb_done();
+	rtl8139_done();
+	_3c90x_done();
+	macio_done();
+	ide_done();
+	gcard_done();
+
+	delete gPCI_Devices;
+}
+
 void pci_init_config()
 {
 	gcard_init_config();

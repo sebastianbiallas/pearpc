@@ -107,6 +107,7 @@ bool pci_write_device(uint32 addr, uint32 data, int size);
 bool pci_read_device(uint32 addr, uint32 &data, int size);
 
 void pci_init();
+void pci_done();
 void pci_init_config();
 
 #endif

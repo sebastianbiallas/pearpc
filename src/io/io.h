@@ -159,6 +159,7 @@ static inline int io_mem_read64(uint32 addr, uint64 &data)
 }
 
 void io_init();
+void io_done();
 void io_init_config();
 
 #endif

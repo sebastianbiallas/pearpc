@@ -625,8 +625,8 @@ ppc_heartbeat_ext_rel_asm:
 	mov	eax, exception_error
 	jmp	jitc_error
 .stop:
-	mov	eax, stop
-	jmp	jitc_error
+	add	esp, 4
+	jmp	ppc_stop_jitc_asm
 	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -657,9 +657,9 @@ ppc_heartbeat_ext_asm:
 	mov	eax, exception_error
 	jmp	jitc_error
 .stop:
-	mov	eax, stop
-	jmp	jitc_error
-stop: db 'Stopped',10,0
+	add	esp, 4
+	jmp	ppc_stop_jitc_asm
+
 exception_error: db	'Unknown exception signaled?!',10,0
 
 
@@ -734,17 +734,27 @@ align 16
 ;;	IN: eax new client pc (effective address)
 ;;
 ppc_start_jitc_asm:
+	push	ebx
+	push	ebp
+	push	esi
+	push	edi
 	mov	esi, eax
 	and	esi, 0xfff
 	mov	[gCPU+start_pc_ofs], esi
 	fldcw	[ppc_start_fpu_cw]
-;	fstcw	[gCPU+temp]
-;	pusha
-;	movzx	eax, word [gCPU+temp]
-;	fwait
-;	call	jitc_error_program
-;	popa
 	jmp	ppc_new_pc_asm
+
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;	call per JMP
+;;
+ppc_stop_jitc_asm:
+	pop	edi
+	pop	esi
+	pop	ebp
+	pop	ebx
+	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

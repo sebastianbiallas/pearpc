@@ -210,6 +210,11 @@ void pic_init()
 	sys_create_mutex(&PIC_mutex);
 }
 
+void pic_done()
+{
+	sys_destroy_mutex(PIC_mutex);
+}
+
 void pic_init_config()
 {
 }

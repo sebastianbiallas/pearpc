@@ -2,19 +2,21 @@
 ==================
 
 version 0.3 (not yet released):
+	- clean up everything on exit
 	- (experimental) idle sleep for the JITC CPU
 	- asynchronous keyboard and mouse events
 	- implemented IDE Flush
 	- Win32: implemented fullscreen mode proposed by Matt Jobson
-	- short cuts are configurable
+	- short cut keys are configurable
 	- correct clock/timing (Win32 + Posix) by Keith Rothman, Kimball Thurston and Stefan Weyergraf
 	- SDL support
+	- SDL: implemented fullscreen mode
 	- source tree reorganisation
 		- display functions moved to src/system/ui directory
 		- src/system/arch created
 		- system/posix,win32 and beos moved to system/osapi/
-		- host keyboard support separated from SystemDisplay (x11 working)
-		- host mouse support separated from SystemDisplay (x11 working)
+		- host keyboard support separated from SystemDisplay
+		- host mouse support separated from SystemDisplay
 	- architecture-specific video acceleration functions (x86)
 	- configure-system: choose "jitc_x86" on x86s when no --enable-cpu given
 	- JITC: srawix, subfcx, divwx, divuwx, mulhwx, mulwx implemented

@@ -2260,6 +2260,11 @@ void ide_init()
 	}
 }
 
+void ide_done()
+{
+	delete gIDEState.config[0].device;
+	delete gIDEState.config[1].device;
+}
 
 void ide_init_config()
 {

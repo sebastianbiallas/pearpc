@@ -117,7 +117,6 @@ void ppc_cpu_run()
 		ht_printf("Unable to create timer\n");
 		exit(1);
 	}
-
 	ppc_start_jitc_asm(gCPU.pc);
 }
 

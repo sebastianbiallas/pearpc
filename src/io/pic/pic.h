@@ -35,9 +35,9 @@
 
 #define IO_PIC_IRQ_ETHERNET0	5
 #define IO_PIC_IRQ_ETHERNET1	7
-#define IO_PIC_IRQ_GCARD	0x17
 #define IO_PIC_IRQ_CUDA		18
 #define IO_PIC_IRQ_NMI_XMON	20
+#define IO_PIC_IRQ_GCARD	23
 #define IO_PIC_IRQ_IDE0		26
 #define IO_PIC_IRQ_USB		28
 
@@ -46,9 +46,9 @@ void pic_read(uint32 addr, uint32 &data, int size);
 
 void pic_raise_interrupt(int intr);
 void pic_cancel_interrupt(int intr);
-extern "C" bool pic_check_interrupt();
 
 void pic_init();
+void pic_done();
 void pic_init_config();
 
 

@@ -23,6 +23,7 @@
 
 extern bool _3c90x_installed;
 void _3c90x_init();
+void _3c90x_done();
 void _3c90x_init_config();
 
 #endif

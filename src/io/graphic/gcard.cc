@@ -402,6 +402,9 @@ void gcard_init()
 	gPCI_Devices->insert(new PCI_GCard());
 }
 
+void gcard_done()
+{
+}
 
 void gcard_init_config()
 {

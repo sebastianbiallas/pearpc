@@ -431,6 +431,10 @@ void usb_init()
 	}
 }
 
+void usb_done()
+{
+}
+
 void usb_init_config()
 {
 	gConfig->acceptConfigEntryIntDef(USB_KEY_INSTALLED, 0);

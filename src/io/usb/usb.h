@@ -22,6 +22,7 @@
 #define __IO_USB_H__
 
 void usb_init();
+void usb_done();
 void usb_init_config();
 
 #endif

@@ -415,7 +415,9 @@ int main(int argc, char *argv[])
 		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
 
 		ppc_cpu_run();
-		delete gDisplay;		
+
+		io_done();
+
 	} catch (std::exception *e) {
 		ht_printf("main() caught exception: %s\n", e->what());
 		return 1;
@@ -428,6 +430,7 @@ int main(int argc, char *argv[])
 		ht_printf("main() caught exception: %y\n", &res);
 		return 1;
 	}
+
 	doneUI();
 	doneOSAPI();
 	doneData();
