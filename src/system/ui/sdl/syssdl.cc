@@ -376,7 +376,7 @@ static void *SDLeventLoop(void *p)
 	gSDLVideoExposePending = false;
 	SDL_RedrawTimerID = SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
 
-	sd->setFullscreen(sd->mFullscreen);
+	sd->setFullscreenMode(sd->mFullscreen);
 
 	SDL_Event event;
 	do {
