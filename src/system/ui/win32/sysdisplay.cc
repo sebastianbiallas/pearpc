@@ -269,6 +269,7 @@ void Win32Display::updateTitle()
 
 void Win32Display::setMouseGrab(bool enable)
 {
+	if (mMouseGrabbed == enable) return;
 	SystemDisplay::setMouseGrab(enable);
 	updateTitle();
 	if (enable) {
