@@ -299,7 +299,6 @@ public:
 	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 	{
 		sys_lock_mutex(mutex);
-		aHostChar = aClientChar;
 		int screen_num = DefaultScreen(mXDisplay);
 
 		XVisualInfo info_tmpl;
@@ -322,7 +321,7 @@ public:
 		// generate X characteristics from visual info
 		aHostChar = aClientChar;
 		if (ninfo) {
-			mXChar.bytesPerPixel = bitsPerPixelToXBitmapPad(info->depth) >> 3;
+			aHostChar.bytesPerPixel = bitsPerPixelToXBitmapPad(info->depth) >> 3;
 			findMaskShiftAndSize(aHostChar.redShift, aHostChar.redSize, info->red_mask);
 			findMaskShiftAndSize(aHostChar.greenShift, aHostChar.greenSize, info->green_mask);
 			findMaskShiftAndSize(aHostChar.blueShift, aHostChar.blueSize, info->blue_mask);
@@ -334,7 +333,7 @@ public:
 		XFree(info);
 		sys_unlock_mutex(mutex);
 	}
-	
+
 	virtual bool changeResolution(const DisplayCharacteristics &aClientChar)
 	{
 		mClientChar = aClientChar;
