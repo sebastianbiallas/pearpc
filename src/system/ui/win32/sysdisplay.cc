@@ -166,7 +166,7 @@ public:
 	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 	{
 	}
-	
+
 	virtual bool changeResolution(const DisplayCharacteristics &aHostChar)
 	{
 		/*

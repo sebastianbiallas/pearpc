@@ -24,7 +24,6 @@
 #define __SYSTEM_SYSFEATURES_H__
 
 /*	We've got the following features:
- *	PPC_HIRES_CLOCK_FEATURE			see sysclk.h
  *	PPC_VIDEO_CONVERT_ACCEL_FEATURE		see sysvaccel.h
  */
 
@@ -35,10 +34,6 @@
 
 #include "arch/sysfeatures.h"
 //#include "osapi/sysfeatures.h"
-
-#ifndef PPC_HIRES_CLOCK_FEATURE
-#	error "PPC_HIRES_CLOCK_FEATURE undefined"
-#endif
 
 #ifndef PPC_VIDEO_CONVERT_ACCEL_FEATURE
 #	error "PPC_VIDEO_CONVERT_ACCEL_FEATURE undefined"

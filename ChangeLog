@@ -4,7 +4,10 @@
 version 0.3 (not yet released):
 	- correct clock/timing (Win32 + Posix) by Keith Rothman, Kimball Thurston and Stefan Weyergraf
 	- source tree reorganisation
+		- display functions moved to src/system/ui directory
+		- src/system/arch created
 	- experimental SDL support
+	- configure-system: choose "jitc_x86" on x86s when no --enable-cpu given
 
 version 0.2 (released 15.June 2004):
 	- JITC: all crXX implemented

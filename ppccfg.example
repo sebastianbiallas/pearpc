@@ -3,7 +3,7 @@
 ##
 ## Start Resolution
 ##
-## (client that use video.x can change the resolution at runtime,
+## (clients that use video.x can change the resolution at runtime,
 ##  so this would be used only for starting up)
 ##
 ##	format:  "(width)x(height)x(depth)"
