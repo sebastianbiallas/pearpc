@@ -166,7 +166,6 @@ SDLSystemDisplay::SDLSystemDisplay(const char *name, int xres, int yres, const D
 	screen = SDL_SetVideoMode(mClientChar.width, mClientChar.height,
 		8*mClientChar.bytesPerPixel, SDL_HWSURFACE);
 	gFrameBuffer = (byte*)screen->pixels;
-	gFrameBufferScanLineLength = screen->pitch;
 	if (SDL_MUSTLOCK(screen))
 		SDL_LockSurface(screen);
 	SDL_ShowCursor(SDL_DISABLE);
@@ -219,7 +218,6 @@ void SDLSystemDisplay::ToggleFullScreen()
 	}
 
 	gFrameBuffer = (byte*)screen->pixels;
-	gFrameBufferScanLineLength = screen->pitch;
 
 	// *later: we decide which to use
 	if (screen->flags&SDL_HWSURFACE) {
@@ -479,7 +477,6 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 	}
 
 	gFrameBuffer = (byte*)screen->pixels;
-	gFrameBufferScanLineLength = screen->pitch;
 
 	if (SDL_MUSTLOCK(screen)) {
 		SDL_LockSurface(screen);

@@ -65,7 +65,6 @@ public:
 	static	void *	eventLoop(void *p);
 	virtual	void	finishMenu();
 	virtual	bool	getEvent(DisplayEvent &ev);
-	virtual	void	getFrameBufferInfo(DisplayFrameBufferInfo &fbi);
 	virtual	int	getKeybLEDs();
 	virtual	void	getSyncEvent(DisplayEvent &ev);
 		void	putpixel(uint32 x, uint32 y, uint32 data);
