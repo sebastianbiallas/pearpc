@@ -573,7 +573,7 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		// This tests if the key is really pressed
 		// or if it is only a repeated event
 		if (!(lParam & (1<<30))) {
-			if ((wParam == VK_F12) && getCatchMouseToggle()) {
+			if ((wParam == VK_F12) && gDisplay->getCatchMouseToggle()) {
 				((Win32Display*)gDisplay)->clientMouseEnable(!mMouseEnabled);
 			} else {
 				int scancode = HIWORD(lParam) & 0x01FF;
