@@ -219,16 +219,18 @@ void prom_service_setprop(prom_args *pa)
 	String name;
 	prom_get_string(name, pa->args[1]);
 	uint32 buf = pa->args[2];
-	String bufbuf;
-	if (buf) {
-		prom_get_string(bufbuf, buf);
-	}
+	String value;
 	uint32 len = pa->args[3];
-	String value(bufbuf.content(), len);
+	uint32 phys;
+	if (buf && len && ppc_prom_effective_to_physical(phys, buf)) {
+		byte *p = (byte *)malloc(len);
+		if (ppc_dma_read(p, phys, len)) {
+			value.assign(p, len);
+		}
+		free(p);		
+	}
 	PromNode *p = handleToPackage(phandle);	
-	String value2 = value;
-	value2.escape("");
-	IO_PROM_TRACE("setprop(%x=='%s', '%y', '%y', %y, %d)\n", phandle, p->name, &name, &value, &value2, len);
+	IO_PROM_TRACE("setprop(%x=='%s', '%y', '%y', %d)\n", phandle, p->name, &name, &value, len);
 /*	if (phandle == 0xdeadbee1) {
 		pa->args[4] = len;
 //		gSinglestep = true;
