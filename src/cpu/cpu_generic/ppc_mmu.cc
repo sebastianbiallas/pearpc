@@ -1496,7 +1496,6 @@ void ppc_opc_stfiwx()
 	}
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(gCPU.current_opc, frS, rA, rB);
-	SINGLESTEP("stfiwx correct?");
 	ppc_write_effective_word((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], (uint32)gCPU.fpr[frS]) != PPC_MMU_FATAL;
 }
 /*

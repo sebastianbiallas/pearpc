@@ -2405,13 +2405,16 @@ void ppc_opc_stfiwx()
 	}
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(gCPU.current_opc, frS, rA, rB);
-	SINGLESTEP("stfiwx correct?");
 	ppc_write_effective_word((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], (uint32)gCPU.fpr[frS]) != PPC_MMU_FATAL;
 }
 JITCFlow ppc_opc_gen_stfiwx()
 {
 	ppc_opc_gen_check_fpu();
-	PPC_MMU_ERR("stfiwx?\n");
+	int rA, frS, rB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, frS, rA, rB);
+	jitcFloatRegisterClobberAll();
+	ppc_opc_gen_helper_stx(PPC_GPR(rA), PPC_GPR(rB), PPC_FPR_L(frS));
+	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowEndBlock;
 }
 /*
