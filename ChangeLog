@@ -22,7 +22,7 @@ version 0.2 (in progress):
 		- Anders F.Bjoerklund's Mac OS X patches (1,ppc,X11,darwintun)
 		- Roman Bogorodskiy's FreeBSD patch
 		- AMD64 portability fixes (mainly void* <-> int conversions)
-		- Windows Networking support by John Kelley using TAP-WIN32 driver
+		- Windows Networking support by John Kelley using TAP-WIN32 driver R2
 	- many, many configure-system fixes
 		- support for FreeBSD, BeOS, MinGW and Darwin
 		- endianess auto-detect v2 (but big-endian hosts still not working correctly)
