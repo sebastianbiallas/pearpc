@@ -340,6 +340,15 @@ public:
 		return false;
 	}
 
+	virtual int  getKeybLEDs()
+	{
+		return 0;
+	}
+
+	virtual void setKeybLEDs(int leds)
+	{
+	}
+
 	void updateTitle() 
 	{
 		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [F12 %s mouse]", mTitle, mMouseEnabled ? "disables" : "enables");

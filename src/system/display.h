@@ -147,6 +147,10 @@ typedef uint32 RGBA;
 #define RGB_B(rgb) ((rgb>>16) & 0xff)
 #define MK_RGB(r, g, b) ((r) | ((g)<<8) | ((b)<<16))
 
+#define KEYB_LED_NUM 1
+#define KEYB_LED_CAPS 2
+#define KEYB_LED_SCROLL 3
+
 class SystemDisplay: public Object
 {
 protected:
@@ -190,6 +194,8 @@ public:
 
 	virtual void displayShow() = 0;
 	virtual bool changeResolution(const DisplayCharacteristics &aCharacteristics) = 0;
+	virtual int  getKeybLEDs() = 0;
+	virtual void setKeybLEDs(int leds) = 0;
 
 	/* VT */
 	bool	openVT(int width, int height, int dx, int dy, File &font);

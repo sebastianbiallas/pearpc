@@ -249,6 +249,8 @@ void cuda_receive_adb_packet()
 		case 2:
 			if (devaddr == gCUDA.keybid) {
 				// LED stat
+	ht_printf("ADB_PACKET %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
+	ht_printf("devaddr %x reg %x cmd %s\n", devaddr, reg, (cmd==ADB_WRITEREG)?"write":"read");
 				cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
 			} else if (devaddr == gCUDA.mouseid) {
 //				gSinglestep = true;
@@ -318,7 +320,12 @@ void cuda_receive_adb_packet()
 			if (devaddr == gCUDA.keybid) {
 				// LED stat
 				// 111b == all off
-				cuda_send_packet(ADB_PACKET, 2, ADB_RET_OK, 0, 0x7);
+				int ledstat = gDisplay->getKeybLEDs();
+				int keyb = 0xff;
+				if (!(ledstat & KEYB_LED_NUM)) keyb &= ~0x80;
+				if (!(ledstat & KEYB_LED_SCROLL)) keyb &= ~0x40;
+				if (!(ledstat & KEYB_LED_CAPS)) keyb &= ~0x20;
+				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, 0xff, keyb);
 			} else if (devaddr == gCUDA.mouseid) {
 //				gSinglestep = true;
 				IO_CUDA_WARN("read reg 2 of mouse unsupported.\n");

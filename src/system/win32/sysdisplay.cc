@@ -193,6 +193,33 @@ public:
 		return true;
 	}
 
+	virtual int  getKeybLEDs()
+	{
+		int r = 0;
+		if (GetAsyncKeyState(VK_NUMLOCK) & 1) r |= KEYB_LED_NUM;
+		if (GetAsyncKeyState(VK_CAPITAL) & 1) r |= KEYB_LED_CAPS;
+		if (GetAsyncKeyState(VK_SCROLL) & 1) r |= KEYB_LED_SCROLL;
+		return r;
+	}
+
+	virtual void setKeybLEDs(int leds)
+	{
+		int r = getKeybLEDs() ^ leds;
+		if (r & KEYB_LED_NUM) {
+			keybd_event(VK_NUMLOCK, MapVirtualKey(VK_NUMLOCK, 0), KEYEVENTF_EXTENDEDKEY, 0);
+			keybd_event(VK_NUMLOCK, MapVirtualKey(VK_NUMLOCK, 0), KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+		}
+		if (r & KEYB_LED_CAPS) {
+			keybd_event(VK_CAPITAL, MapVirtualKey(VK_CAPITAL, 0), KEYEVENTF_EXTENDEDKEY, 0);
+			keybd_event(VK_CAPITAL, MapVirtualKey(VK_CAPITAL, 0), KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+		}
+		if (r & KEYB_LED_SCROLL) {
+			keybd_event(VK_SCROLL, MapVirtualKey(VK_SCROLL, 0), KEYEVENTF_EXTENDEDKEY, 0);
+			keybd_event(VK_SCROLL, MapVirtualKey(VK_SCROLL, 0), KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+		}
+	}
+
+
 	virtual	int toString(char *buf, int buflen) const
 	{
 		return snprintf(buf, buflen, "Win32");
@@ -415,7 +442,7 @@ public:
 		lastDamagedLine = damageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
 		// Overflow may happen, because of the hack used above
 		// and others, that set lastAddr = 0xfffffff0
-		if (lastDamagedLine >= mClientChar.height) {
+		if (lastDamagedLine >= (uint)mClientChar.height) {
 			lastDamagedLine = mClientChar.height-1;
 		}
 
