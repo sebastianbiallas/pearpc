@@ -1,5 +1,6 @@
 - network: "scripts" directory configurable
 - intercept focus change and send key-release events
+- intercept close window. ask if user really wants to terminate the session
 - jitc config
 - 2.6 kernel console?
 - jmpFixup / Resolve(here) crash?
@@ -7,3 +8,4 @@
 - openbsd pci bla
 - dma and who uses it
 - PVR testing
+- adapt startup logo (name is now PearPC, not PPC)
