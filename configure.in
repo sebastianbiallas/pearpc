@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT(src/system/types.h)
 
 PACKAGE=pearpc
-VERSION=0.2cvs
+VERSION=0.3pre
 
 dnl Check the system.
 AC_CANONICAL_SYSTEM
@@ -20,15 +20,11 @@ AC_ARG_ENABLE(debug,
 	[  --enable-debug          make a debug build [default=yes]],,enable_debug="yes")
 AC_ARG_ENABLE(cpu,
 	[  --enable-cpu            choose cpu (generic or jitc_x86) [default=generic]],,enable_cpu="generic")
-AC_ARG_ENABLE(gui,
-	[  --enable-gui            choose gui (nogui, beos, qt, or win32) [default=nogui]],,enable_gui="nogui")
+AC_ARG_ENABLE(ui,
+	[  --enable-ui             choose ui (beos, gtk, qt, sdl, win32, or x11) [system-specific defaults]],,enable_ui="no")
 
 if test "x$enable_cpu" = "xno"; then
-	AC_MSG_ERROR([Scherzkeks.])
-fi
-
-if test "x$enable_gui" = "xno"; then
-	enable_gui="nogui"
+	AC_MSG_ERROR([A computer without a CPU doesn't work so well.])
 fi
 
 PPC_CFLAGS="-Wundef -Wall -fsigned-char"
@@ -68,26 +64,28 @@ dnl Check OS specifica
 
 NASM_OPTS="-f elf"
 
-AC_PATH_X
-AC_PATH_XTRA
-
-dnl LIBS="$LIBS $X_EXTRA_LIBS"
-
 case "$target_os" in
 linux*) 
 	SYSTEM_DIR=posix
-	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread + X11.])
+	if test "x$enable_ui" = "xno"; then
+		enable_ui="x11"
+	fi	
+	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread.])
 	PPC_LDADD="$PPC_LDADD -lpthread -lrt"
-	NEED_X11=yes
 ;;
 *freebsd*) 
 	SYSTEM_DIR=posix
-	AC_MSG_RESULT([*** FREEBSD, building native FreeBSD version. we need pthread + X11.])
+	if test "x$enable_ui" = "xno"; then
+		enable_ui="x11"
+	fi	
+	AC_MSG_RESULT([*** FREEBSD, building native FreeBSD version. we need pthread.])
 	PPC_LDFLAGS="$PPC_LDFLAGS -pthread"
-	NEED_X11=yes
 ;;
 cygwin*)
 	SYSTEM_DIR=win32
+	if test "x$enable_ui" = "xno"; then
+		enable_ui="win32"
+	fi	
 	AC_MSG_RESULT([*** CYGWIN, building native Win32 version (without cygwin.dll)])
 	PPC_CFLAGS="$PPC_CFLAGS -mno-cygwin"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -mno-cygwin"
@@ -96,17 +94,25 @@ cygwin*)
 ;;
 mingw32*)
         SYSTEM_DIR=win32
+        if test "x$enable_ui" = "xno"; then
+		enable_ui="win32"
+	fi
 	AC_MSG_RESULT([*** MinGW, building native Win32 version])
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
         NASM_OPTS="--prefix _ -f win32"
 ;;
 darwin*)
 	SYSTEM_DIR=posix
+	if test "x$enable_ui" = "xno"; then
+		enable_ui="x11"
+	fi
 	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
-	NEED_X11=yes
 ;;
 beos*)
 	SYSTEM_DIR=beos
+	if test "x$enable_ui" = "xno"; then
+		enable_ui="beos"
+	fi
 	AC_MSG_RESULT([*** BEOS, building native BeOS version])
         PPC_LDFLAGS="-lbe -lgame"
 	PPC_CFLAGS="$PPC_CFLAGS -Wno-multichar"
@@ -115,13 +121,15 @@ beos*)
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
 	SYSTEM_DIR=posix
-	AC_MSG_WARN([*** assuming POSIX OS, we need pthread + X11])
+	AC_MSG_WARN([*** assuming POSIX OS, we need pthread])
 	PPC_LDADD="$PPC_LDADD -lpthread"
-	NEED_X11=yes
 ;;	
 esac
 
-AC_DEFINE_UNQUOTED(SYSTEM_TYPES_HDR, "system/$SYSTEM_DIR/types.h", [Location of system/$SYSTEM_DIR/types.h])
+ARCH_DIR=generic
+
+AC_DEFINE_UNQUOTED(SYSTEM_SPECIFIC_TYPES_HDR, "system/$SYSTEM_DIR/types.h", [Location of system/$SYSTEM_DIR/types.h])
+AC_DEFINE_UNQUOTED(SYSTEM_ARCH_SPECIFIC_SYSFEATURES_HDR, "system/arch/$ARCH_DIR/sysfeatures.h", [Location of system/arch/$ARCH_DIR/sysfeatures.h])
 
 case "$enable_cpu" in
 jitc_x86*)
@@ -131,9 +139,7 @@ generic*)
 	CPU_DIR="cpu_generic"
 ;;	
 *)
-	AC_MSG_WARN([configure: warning: $enable_cpu: unknown cpu, using generic...])
-	CPU_DIR="cpu_generic"
-	enable_cpu="generic"
+	AC_MSG_ERROR([Invalid parameter to --enable-cpu: '$enable_cpu'. Run './configure --help' for a list of valid parameters.])
 ;;	
 esac
 
@@ -204,8 +210,14 @@ if test "x$AR" = "x"; then
 	AC_MSG_ERROR([*** 'ar' and 'gar' missing, please install one of them or fix your \$PATH ***])
 fi
 
-dnl Check for required functions in -lX11
-if test "x$NEED_X11" = "xyes"; then
+dnl Checks for libraries.
+
+UI_DIR="$enable_ui"
+case "$enable_ui" in
+x11)
+	AC_PATH_X
+	AC_PATH_XTRA
+
 	AC_CHECK_LIB(X11, XOpenDisplay,
 		[
 			AC_SUBST(X_CFLAGS)
@@ -215,15 +227,8 @@ if test "x$NEED_X11" = "xyes"; then
 		AC_MSG_ERROR([Could not find XOpenDisplay in -lX11.]),
 		$X_LIBS
 	)
-fi
-
-dnl Checks for libraries.
-
-GUI_DIR="$enable_gui"
-case "$enable_gui" in
-nogui*)
 ;;
-qt*)
+qt)
 	dnl Check for QTDIR environment variable.
 	AC_MSG_CHECKING([whether QTDIR environment variable is set])
 	if test "x$QTDIR" = "x"; then
@@ -278,7 +283,7 @@ qt*)
 				QT_CFLAGS=""
 				QT_LIBS=""
 				QT_LDFLAGS=""
-				AC_MSG_ERROR([*** QT version 3.0.0 is required for QT gui.  Upgrade or try a different --enable-gui option.])
+				AC_MSG_ERROR([*** QT version 3.0.0 is required for QT gui.  Upgrade or try a different --enable-ui option.])
 			])
 			CFLAGS="$ac_save_CFLAGS"
 			LIBS="$ac_save_LIBS"
@@ -293,28 +298,78 @@ dnl	ac_qtdir_errmsg="not found in current PATH. Maybe QT development environment
 	PPC_LDADD="$PPC_LDADD $QT_LIBS"
 	PPC_LDFLAGS="$PPC_LDFLAGS $QT_LDFLAGS"
 ;;
-gtk*)
+gtk)
 ;;
-beos*)
+beos)
 ;;
-win32*)
+sdl)
+	SDL_LIBS="-lSDLmain -lSDL"
+	
+	dnl Checks for SDL libraries.
+	AC_CACHE_CHECK([for SDL libraries],
+	  ac_sdllib, [
+	  for X in /usr/local /usr /; do
+	    if test "x$ac_sdllib" = "x"; then
+	      if test -f $X/lib/libSDL.a -a -f $X/lib/libSDLmain.a; then
+	        ac_sdllib=$X
+	        SDL_LDFLAGS=-L$X/lib
+	      fi
+	    fi
+	  done
+	])
+	if test "x$ac_sdllib" = "x"; then
+	  AC_MSG_ERROR([SDL libraries not found.])
+	fi
+	
+	dnl Checks for SDL includes.
+	AC_CACHE_CHECK([for SDL includes],
+	  ac_sdlinc, [
+	  for X in /usr/local /usr /; do
+	    if test "x$ac_sdlinc" = "x"; then
+	      if test -f $X/include/SDL/SDL.h; then
+	        ac_sdlinc=$X
+	        SDL_INCS=$X/include
+	      fi
+	    fi
+	  done
+	])
+	if test "x$ac_sdlinc" = "x"; then
+	  AC_MSG_ERROR([SDL includes not found.])
+	fi
+
+	if test "x$target_os" = "xcygwin" -o "x$target_os" = "xmingw32"; then
+		SDL_LIBS="-lmingw32 $SDL_LIBS"
+	fi
+	
+	dnl Add SDL_LDFLAGS to the real LDFLAGs so AC_CHECK_LIB works so we get HAVE_LIBSDL defined
+	LDFLAGS="$LDFLAGS $SDL_LDFLAGS"
+	AC_CHECK_LIB(SDL, SDL_Init)
+	PPC_CFLAGS="$PPC_CFLAGS -I$SDL_INCS"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -I$SDL_INCS"
+	PPC_LDADD="$PPC_LDADD $SDL_LIBS"
+	PPC_LDFLAGS="$PPC_LDFLAGS $SDL_LDFLAGS"
+;;
+win32)
+;;
+x11)
 ;;
 *)
-	AC_MSG_WARN([*** unknown gui: $enable_gui])
-	GUI_DIR="nogui"
+	AC_MSG_ERROR([Invalid parameter to --enable-ui: '$enable_ui'. Run './configure --help' for a list of valid parameters.])
 ;;
 esac
 
-AM_CONDITIONAL(USE_GUI_QT, test x$GUI_DIR = xqt)
-AM_CONDITIONAL(USE_GUI_GTK, test x$GUI_DIR = xgtk)
-AM_CONDITIONAL(USE_GUI_BEOS, test x$GUI_DIR = xbeos)
-AM_CONDITIONAL(USE_GUI_WIN32, test x$GUI_DIR = xwin32)
-AM_CONDITIONAL(USE_GUI_NOGUI, test x$GUI_DIR = xnogui)
+AM_CONDITIONAL(USE_UI_QT, test x$UI_DIR = xqt)
+AM_CONDITIONAL(USE_UI_GTK, test x$UI_DIR = xgtk)
+AM_CONDITIONAL(USE_UI_BEOS, test x$UI_DIR = xbeos)
+AM_CONDITIONAL(USE_UI_SDL, test x$UI_DIR = xsdl)
+AM_CONDITIONAL(USE_UI_WIN32, test x$UI_DIR = xwin32)
+AM_CONDITIONAL(USE_UI_X11, test x$UI_DIR = xx11)
 
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
 AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_HEADERS([asm/types.h])
 
 case "$target_os" in
 linux*)
@@ -341,7 +396,6 @@ beos*)
 dnl BSD, Darwin, OSX don't need any header
 esac
 
-
 dnl AC_CONFIG_HEADER(config.h)
 
 CFLAGS="$PPC_CFLAGS"
@@ -350,7 +404,7 @@ CXXFLAGS="$PPC_CXXFLAGS"
 dnl Makefile vars.
 AC_SUBST(CPU_DIR)
 AC_SUBST(SYSTEM_DIR)
-AC_SUBST(GUI_DIR)
+AC_SUBST(UI_DIR)
 AC_SUBST(NASM_OPTS)
 AC_SUBST(CFLAGS)
 AC_SUBST(CXXFLAGS)
@@ -392,12 +446,13 @@ src/io/macio/Makefile
 src/io/nvram/Makefile
 src/io/usb/Makefile
 src/system/Makefile
-src/system/gui/Makefile
-src/system/gui/qt/Makefile
-src/system/gui/gtk/Makefile
-src/system/gui/beos/Makefile
-src/system/gui/win32/Makefile
-src/system/gui/nogui/Makefile
+src/system/ui/Makefile
+src/system/ui/qt/Makefile
+src/system/ui/gtk/Makefile
+src/system/ui/beos/Makefile
+src/system/ui/sdl/Makefile
+src/system/ui/win32/Makefile
+src/system/ui/x11/Makefile
 src/system/beos/Makefile
 src/system/posix/Makefile
 src/system/win32/Makefile
@@ -412,7 +467,7 @@ AC_MSG_RESULT([Configuration summary])
 AC_MSG_RESULT([=====================])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([cpu:                                 $enable_cpu])
-AC_MSG_RESULT([gui:                                 $enable_gui])
+AC_MSG_RESULT([ui:                                  $enable_ui])
 AC_MSG_RESULT([enable debug:                        $enable_debug])
 AC_MSG_RESULT([enable profiling:                    $enable_profiling])
 AC_MSG_RESULT([make release build:                  $enable_release])
