@@ -34,6 +34,7 @@
 #include "system/types.h"
 
 #include "tools/data.h"
+#include "tools/debug.h"
 #include "tools/snprintf.h"
 
 //#include "io/graphic/gcard.h"
@@ -202,10 +203,20 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 
         DisplayCharacteristics chr;
 	convertCharacteristicsToHost(chr, aCharacteristics);
-	uint bitsPerPixel = chr.redSize + chr.greenSize + chr.blueSize;
+	uint bitsPerPixel;
+	switch (chr.bytesPerPixel) {
+	case 2:
+		bitsPerPixel = 15;
+		break;
+	case 4:
+		bitsPerPixel = 32;
+		break;
+	default:
+		ASSERT(0);
+		break;
+	}
 
-	if (!SDL_VideoModeOK(chr.width, chr.height,
-	bitsPerPixel, SDL_HWSURFACE))
+	if (!SDL_VideoModeOK(chr.width, chr.height, bitsPerPixel, SDL_HWSURFACE))
 		return false;
 
 	mSDLChar = chr;
