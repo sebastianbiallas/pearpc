@@ -35,5 +35,8 @@ typedef signed long long sint64;
 // <<
 
 typedef unsigned int	uint;
+typedef signed int	sint;
+
+typedef uint8		byte;
 
 #endif
