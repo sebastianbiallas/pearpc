@@ -2028,8 +2028,8 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 					IO_IDE_ERR("unknown atapi state\n");
 				}
 			}
-			data = ((uint16)gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++])<<8;
-			data |= gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos++];
+			data = *((uint16 *)&gIDEState.state[gIDEState.drive].sector[gIDEState.state[gIDEState.drive].sectorpos]);
+			gIDEState.state[gIDEState.drive].sectorpos += 2;
 //			IO_IDE_TRACE("data: %04x\n", data);
 			gIDEState.state[gIDEState.drive].drqpos += 2;
 			if (gIDEState.state[gIDEState.drive].drqpos >= gIDEState.config[gIDEState.drive].cdrom.atapi.drq_bytes) {
