@@ -4,7 +4,8 @@ EXTRA_DIST	= TODO ChangeLog README COPYING AUTHORS ppccfg.example video.x
 SUBDIRS		= src scripts
 
 dist2: distdir
-	$(AMTAR) chof - $(distdir) | BZIP2=$(BZIP2_ENV) bzip2 -c >$(distdir).tar.bz2
-	$(am__remove_distdir)
+	-chmod -R a+r $(distdir)
+	BZIP2=$(BZIP2_ENV) $(TAR) chojf $(distdir).tar.bz2 $(distdir)
+	-rm -rf $(distdir)
 
 dist-all2: dist2
