@@ -349,6 +349,7 @@ int initDevice()
 	if ((mFD = ::open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
 		throw new MsgException("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded?");
 	}
+	return 0;
 }
 
 int shutdownDevice()
