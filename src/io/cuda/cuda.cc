@@ -479,11 +479,12 @@ static void cuda_update_T1()
 		gCUDA.rT1CH = T1 >> 8;
 		gCUDA.rIFR &= ~T1_INT;
 		//
-		uint64 tmp = gCUDA.T1_end - clk;
+//		uint64 tmp = gCUDA.T1_end - clk;
 //		IO_CUDA_WARN("T1 running, T1 now %04x, T1_end-clk=%08qx\n", (uint32)T1, &tmp);
 	} else {
 		uint64 ticks_per_sec = 1000ULL * sys_get_cpu_ticks_per_second();
-		uint64 full_T1_interval_ticks = 0x10000 * ticks_per_sec / VIA_TIMER_FREQ_DIV_HZ_TIMES_1000;
+		uint64 T1_latch = (gCUDA.rT1LH << 8) | gCUDA.rT1LL;
+		uint64 full_T1_interval_ticks = (T1_latch+1) * ticks_per_sec / VIA_TIMER_FREQ_DIV_HZ_TIMES_1000;
 		uint64 T1_end = clk + full_T1_interval_ticks - (clk - gCUDA.T1_end) % full_T1_interval_ticks;
 		gCUDA.T1_end = T1_end;
 		uint64 T1 = (gCUDA.T1_end - clk) * VIA_TIMER_FREQ_DIV_HZ_TIMES_1000 / ticks_per_sec;
@@ -491,8 +492,8 @@ static void cuda_update_T1()
 		gCUDA.rT1CH = T1 >> 8;
 		gCUDA.rIFR |= T1_INT;
 		//
-		uint64 tmp = gCUDA.T1_end - clk;
-//		IO_CUDA_WARN("T1 overflowed, setting interrupt flag, T1 set to %04x, T1_end-clk=%08qx\n", (uint32)T1, &tmp);
+//		uint64 tmp = gCUDA.T1_end - clk;
+//		IO_CUDA_WARN("T1 overflowed, setting interrupt flag, T1 set to %04x, T1_end-clk=%08qx, T1_latch = %04x\n", (uint32)T1, &tmp, T1_latch);
 	}
 }
 
@@ -507,7 +508,7 @@ static void cuda_start_T1()
 		   static_cast<double>(T1) * 1.27655 / 1000000.0);*/
 	gCUDA.T1_end = clk + T1 * ticks_per_sec / VIA_TIMER_FREQ_DIV_HZ_TIMES_1000;
 	gCUDA.rIFR &= ~T1_INT;
-	IO_CUDA_WARN("T1 restarted, T1 = %08x\n", T1);
+	IO_CUDA_TRACE("T1 restarted, T1 = %08x\n", T1);
 }
 
 void cuda_write(uint32 addr, uint32 data, int size)
