@@ -26,14 +26,21 @@
 #include "system/types.h"
 #include "tools/snprintf.h"
 
-//#define DEBUG_THIS
+//#define DEBUG_VERBOSE
 
-#ifdef DEBUG_THIS
+#ifdef DEBUG_VERBOSE
 #define PPC_BTH_TRACE(msg...) ht_printf("[BEOS/THREAD] "msg)
 #else
 #define PPC_BTH_TRACE(msg...)
 #endif
 
+#ifdef DEBUG_ASSERTS
+#define ASSERT_SEM(s) assert_sem(s)
+#define ASSERT_THREAD(t) assert_thread(t)
+#else
+#define ASSERT_SEM(s)
+#define ASSERT_THREAD(t)
+#endif
 
 struct sys_beos_mutex {
 	thread_id thread;
@@ -44,6 +51,28 @@ struct sys_beos_semaphore {
 	sem_id sem;
 	sem_id mutex;
 };
+
+void assert_sem(sem_id s)
+{
+	int32 cookie = 0;
+	sem_info si;
+	while (get_next_sem_info(0, &cookie, &si) == B_OK) {
+		if (si.sem == s)
+			return; /* it belongs to the team, ok */
+	}
+	debugger("trying to use a sem we don't own!!!");
+}
+
+void assert_thread(thread_id t)
+{
+	int32 cookie = 0;
+	thread_info ti;
+	while (get_next_thread_info(0, &cookie, &ti) == B_OK) {
+		if (ti.thread == t)
+			return; /* it belongs to the team, ok */
+	}
+	debugger("trying to use a thread we don't own!!!");
+}
 
 int sys_create_mutex(sys_mutex *m)
 {
@@ -104,6 +133,7 @@ void sys_destroy_mutex(sys_mutex m)
 {
 	sys_beos_mutex *bm = (sys_beos_mutex *)m;
 	PPC_BTH_TRACE("%s(%p {T:%d, S:%d})\n", __FUNCTION__, m, bm->thread, bm->sem);
+	ASSERT_SEM(bm->sem);
 	delete_sem(bm->sem);
 	free(m);
 }
@@ -112,7 +142,9 @@ void sys_destroy_semaphore(sys_semaphore s)
 {
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d})\n", __FUNCTION__, s, bs->sem, bs->mutex);
+	ASSERT_SEM(bs->sem);
 	delete_sem(bs->sem);
+	ASSERT_SEM(bs->mutex);
 	delete_sem(bs->mutex);
 	free(s);
 }
@@ -122,6 +154,7 @@ void sys_destroy_thread(sys_thread t)
 	status_t err;
 	thread_id th = (thread_id)t;
 	PPC_BTH_TRACE("%s(T:%d)\n", __FUNCTION__, th);
+	ASSERT_THREAD(th);
 	//kill_thread(th); // just to make sure
 	//wait_for_thread(th, &err);
 }
@@ -133,6 +166,7 @@ int sys_lock_mutex(sys_mutex m)
 	PPC_BTH_TRACE("%s(%p {T:%d, S:%d})\n", __FUNCTION__, m, bm->thread, bm->sem);
 	if (bm->thread == find_thread(NULL))
 		return B_OK;
+	ASSERT_SEM(bm->sem);
 	err = acquire_sem(bm->sem);
 	if (err)
 		return err;
@@ -147,6 +181,7 @@ int sys_trylock_mutex(sys_mutex m)
 	PPC_BTH_TRACE("%s(%p {T:%d, S:%d})\n", __FUNCTION__, m, bm->thread, bm->sem);
 	if (bm->thread == find_thread(NULL))
 		return B_OK;
+	ASSERT_SEM(bm->sem);
 	err = acquire_sem_etc(bm->sem, 1, B_RELATIVE_TIMEOUT, 0LL);
 	if (err)
 		return err;
@@ -159,6 +194,7 @@ void sys_unlock_mutex(sys_mutex m)
 	sys_beos_mutex *bm = (sys_beos_mutex *)m;
 	PPC_BTH_TRACE("%s(%p {T:%d, S:%d})\n", __FUNCTION__, m, bm->thread, bm->sem);
 	bm->thread = 0;
+	ASSERT_SEM(bm->sem);
 	release_sem(bm->sem);
 }
 
@@ -166,6 +202,7 @@ void sys_signal_semaphore(sys_semaphore s)
 {
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d})\n", __FUNCTION__, s, bs->sem, bs->mutex);
+	ASSERT_SEM(bs->sem);
 	release_sem(bs->sem);
 }
 
@@ -174,6 +211,7 @@ void sys_signal_all_semaphore(sys_semaphore s)
 	int32 count;
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d})\n", __FUNCTION__, s, bs->sem, bs->mutex);
+	ASSERT_SEM(bs->sem);
 	// XXX that's not safe! that should be a kernel atomic op!
 	if (get_sem_count(bs->sem, &count) < B_OK)
 		return;
@@ -184,6 +222,8 @@ void sys_wait_semaphore(sys_semaphore s)
 {
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d})\n", __FUNCTION__, s, bs->sem, bs->mutex);
+	ASSERT_SEM(bs->mutex);
+	ASSERT_SEM(bs->sem);
 	release_sem(bs->mutex);
 	acquire_sem(bs->sem);
 	acquire_sem(bs->mutex);
@@ -193,6 +233,8 @@ void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
 {
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d}, %dms)\n", __FUNCTION__, s, bs->sem, bs->mutex, ms);
+	ASSERT_SEM(bs->mutex);
+	ASSERT_SEM(bs->sem);
 	release_sem(bs->mutex);
 	acquire_sem_etc(bs->sem, 1, B_RELATIVE_TIMEOUT, (bigtime_t)ms*1000);
 	acquire_sem(bs->mutex);
@@ -202,6 +244,7 @@ void sys_lock_semaphore(sys_semaphore s)
 {
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d})\n", __FUNCTION__, s, bs->sem, bs->mutex);
+	ASSERT_SEM(bs->mutex);
 	acquire_sem(bs->mutex);
 }
 
@@ -209,6 +252,7 @@ void sys_unlock_semaphore(sys_semaphore s)
 {
 	sys_beos_semaphore *bs = (sys_beos_semaphore *)s;
 	PPC_BTH_TRACE("%s(%p {S:%d, M:%d})\n", __FUNCTION__, s, bs->sem, bs->mutex);
+	ASSERT_SEM(bs->mutex);
 	release_sem(bs->mutex);
 }
 
@@ -226,6 +270,7 @@ void *sys_join_thread(sys_thread t)
 	void *ret = NULL;
 	thread_id th = (thread_id)t;
 	PPC_BTH_TRACE("%s(%d)\n", __FUNCTION__, th);
+	ASSERT_THREAD(th);
 	//kill_thread(th); // just to make sure
 	wait_for_thread(th, (status_t *)&ret);
 	return ret;
