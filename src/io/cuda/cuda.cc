@@ -203,9 +203,9 @@ struct cuda_control {
 	int	pos;
 	uint8	data[100];
 
-	int	keybid;
+	int	keybaddr;
 	int	keybhandler;
-	int	mouseid;
+	int	mouseaddr;
 	int	mousehandler;
 
 	sys_semaphore idle_sem;
@@ -223,6 +223,11 @@ static void cuda_send_packet(uint8 type, int nb, ...)
 		uint8 b = va_arg(va, int);
 		gCUDA.data[i+1] = b;
 	}
+	IO_CUDA_TRACE3("send: ");
+	for (int i=0; i<nb+1; i++) {
+		IO_CUDA_TRACE3("%02x ", gCUDA.data[i]);
+	}
+	IO_CUDA_TRACE3("\n");
 	va_end(va);
 	gCUDA.pos = 0;
 	gCUDA.left = nb+1;
@@ -234,7 +239,12 @@ static void cuda_send_packet(uint8 type, int nb, ...)
 
 static void cuda_receive_adb_packet()
 {
-	IO_CUDA_TRACE3("ADB_PACKET %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
+	IO_CUDA_TRACE3("===========================================\n");
+	IO_CUDA_TRACE3("ADB_PACKET ");// %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
+	for (int i=1; i<gCUDA.pos; i++) {
+		IO_CUDA_TRACE3("%02x ", gCUDA.data[i]);
+	}
+	IO_CUDA_TRACE3("\n");
 //	gSinglestep = true;
 	IO_CUDA_TRACE2("ADB_PACKET ");
 	if (gCUDA.data[1] == ADB_BUSRESET) {
@@ -256,12 +266,10 @@ static void cuda_receive_adb_packet()
 	case ADB_WRITEREG:
 		switch (reg) {
 		case 2:
-			if (devaddr == gCUDA.keybid) {
+			if (devaddr == gCUDA.keybaddr) {
 				// LED stat
-	ht_printf("ADB_PACKET %02x %02x %02x %02x %02x\n", gCUDA.data[1], gCUDA.data[2], gCUDA.data[3], gCUDA.data[4], gCUDA.data[5]);
-	ht_printf("devaddr %x reg %x cmd %s\n", devaddr, reg, (cmd==ADB_WRITEREG)?"write":"read");
 				cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
-			} else if (devaddr == gCUDA.mouseid) {
+			} else if (devaddr == gCUDA.mouseaddr) {
 //				gSinglestep = true;
 				cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
 			} else {
@@ -269,7 +277,7 @@ static void cuda_receive_adb_packet()
 			}
 			break;
 		case 3:
-			if (devaddr == gCUDA.keybid) {
+			if (devaddr == gCUDA.keybaddr) {
 				switch (gCUDA.data[3]) {
 				case ADB_CMD_SELF_TEST:
 					cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
@@ -277,16 +285,16 @@ static void cuda_receive_adb_packet()
 				case ADB_CMD_CHANGE_ID:
 				case ADB_CMD_CHANGE_ID_AND_ACT:
 				case ADB_CMD_CHANGE_ID_AND_ENABLE:
-					gCUDA.keybid = gCUDA.data[2] & 0xf;
+					gCUDA.keybaddr = gCUDA.data[2] & 0xf;
 					cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
 					break;
 				default:
-					gCUDA.keybid = gCUDA.data[2] & 0xf;
+					gCUDA.keybaddr = gCUDA.data[2] & 0xf;
 					gCUDA.keybhandler = gCUDA.data[3];
 					cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
 					break;
 				}
-			} else if (devaddr == gCUDA.mouseid) {
+			} else if (devaddr == gCUDA.mouseaddr) {
 				switch (gCUDA.data[3]) {
 				case ADB_CMD_SELF_TEST:
 					cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
@@ -294,12 +302,12 @@ static void cuda_receive_adb_packet()
 				case ADB_CMD_CHANGE_ID:
 				case ADB_CMD_CHANGE_ID_AND_ACT:
 				case ADB_CMD_CHANGE_ID_AND_ENABLE:
-					gCUDA.mouseid = gCUDA.data[2] & 0xf;
+					gCUDA.mouseaddr = gCUDA.data[2] & 0xf;
 					cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
 					break;
 				default:
-					gCUDA.mouseid = gCUDA.data[2] & 0xf;
-//					gCUDA.mousehandler = gCUDA.data[3];
+					gCUDA.mouseaddr = gCUDA.data[2] & 0xf;
+					gCUDA.mousehandler = gCUDA.data[3];
 					cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
 					break;
 				}
@@ -314,10 +322,10 @@ static void cuda_receive_adb_packet()
 	case ADB_READREG: {
 		switch (reg) {
 		case 1:
-			if (devaddr == gCUDA.keybid) {
+			if (devaddr == gCUDA.keybaddr) {
 				IO_CUDA_WARN("keyb reg1\n");
 				cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
-			} else if (devaddr == gCUDA.mouseid) {
+			} else if (devaddr == gCUDA.mouseaddr) {
 //				gSinglestep = true;
 				IO_CUDA_WARN("read reg 1 of mouse unsupported.\n");
 				cuda_send_packet(ADB_PACKET, 1, ADB_RET_OK);
@@ -326,7 +334,7 @@ static void cuda_receive_adb_packet()
 			}
 			break;		
 		case 2:
-			if (devaddr == gCUDA.keybid) {
+			if (devaddr == gCUDA.keybaddr) {
 				// LED stat
 				// 111b == all off
 				int ledstat = gKeyboard->getKeybLEDs();
@@ -335,7 +343,7 @@ static void cuda_receive_adb_packet()
 				if (!(ledstat & KEYB_LED_SCROLL)) keyb &= ~0x40;
 				if (!(ledstat & KEYB_LED_CAPS)) keyb &= ~0x20;
 				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, 0xff, keyb);
-			} else if (devaddr == gCUDA.mouseid) {
+			} else if (devaddr == gCUDA.mouseaddr) {
 //				gSinglestep = true;
 				IO_CUDA_WARN("read reg 2 of mouse unsupported.\n");
 			} else {
@@ -343,10 +351,12 @@ static void cuda_receive_adb_packet()
 			}
 			break;
 		case 3:
-			if (devaddr == gCUDA.keybid) {
-				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, gCUDA.keybhandler, gCUDA.keybid);
-			} else if (devaddr == gCUDA.mouseid) {
-				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, gCUDA.mousehandler, gCUDA.mouseid);
+			if (devaddr == gCUDA.keybaddr) {
+//				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, gCUDA.keybaddr, gCUDA.keybhandler);
+				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, gCUDA.keybhandler, gCUDA.keybaddr);
+			} else if (devaddr == gCUDA.mouseaddr) {
+//				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, gCUDA.mouseaddr, gCUDA.mousehandler);
+				cuda_send_packet(ADB_PACKET, 3, ADB_RET_OK, gCUDA.mousehandler, gCUDA.mouseaddr);
 			} else {
 				cuda_send_packet(ADB_PACKET, 1, ADB_RET_NOTPRESENT);
 			}
@@ -553,7 +563,9 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				ack = true;
 			}
 		}
-		if ((gCUDA.state == cuda_reading) && ack) {
+		if ((gCUDA.state == cuda_reading) && ack && (gCUDA.rACR & SR_OUT) 
+		&& !(!(gCUDA.rB & TIP) && (data & TIP))) {
+			// don't ask...
 			gCUDA.data[gCUDA.pos] = gCUDA.rSR;
 			IO_CUDA_TRACE2(";; %d:%x\n", gCUDA.pos, gCUDA.rSR);
 			gCUDA.pos++;
@@ -578,6 +590,7 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				gCUDA.pos = 1;
 				data |= TREQ;
 				gCUDA.data[0] = gCUDA.rSR;
+				IO_CUDA_TRACE2(";; %d:%x\n", gCUDA.pos, gCUDA.rSR);
 			} else {
 				if (gCUDA.left) {
 					gCUDA.state = cuda_writing;
@@ -757,7 +770,7 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		if (gCUDA.state == cuda_writing) {
 			if (gCUDA.left) {
 				data = gCUDA.data[gCUDA.pos];
-//				IO_CUDA_TRACE2("::%d:%02x from %08x\n", gCUDA.pos, data, gCPU.pc);
+				IO_CUDA_TRACE2("::%d:%02x\n", gCUDA.pos, data);
 				gCUDA.pos++;
 				gCUDA.left--;
 			}
@@ -943,9 +956,9 @@ void cuda_init()
 {
 	memset(&gCUDA, 0, sizeof gCUDA);
 	gCUDA.state = cuda_idle;
-	gCUDA.keybid = ADB_KEYBOARD;
+	gCUDA.keybaddr = ADB_KEYBOARD;
 	gCUDA.keybhandler = 1;
-	gCUDA.mouseid = ADB_MOUSE;
+	gCUDA.mouseaddr = ADB_MOUSE;
 	gCUDA.mousehandler = 2;
 	gCUDA.T1_end = 0;
 	gCUDA.rT1LL = 0xff;
