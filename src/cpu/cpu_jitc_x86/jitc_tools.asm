@@ -396,7 +396,7 @@ ppc_set_msr_asm:
 	push	eax
 	call	cpu_doze
 	pop	eax
-	mov	ecx, eax
+	mov	ecx, [gCPU+msr]
 	and	eax, ~(1<<18)
 	jmp	.power_back
 
