@@ -35,14 +35,14 @@
 JITC gJITC;
 
 
-TranslationCacheFragment *jitcAllocFragment();
+static TranslationCacheFragment *jitcAllocFragment();
 
 /*
  *	Intern
  *	Called whenever a new fragment is needed
  *	returns true if a new fragment was really necessary
  */
-bool FASTCALL jitcEmitNextFragment()
+static bool FASTCALL jitcEmitNextFragment()
 {
 	// save old
 	TranslationCacheFragment *tcf_old = gJITC.currentPage->tcf_current;
@@ -50,13 +50,19 @@ bool FASTCALL jitcEmitNextFragment()
 	// alloc new
 	gJITC.currentPage->tcf_current = jitcAllocFragment();
 	gJITC.currentPage->tcf_current->prev = tcf_old;
-	gJITC.currentPage->tcp = gJITC.currentPage->tcf_current->base;
-	gJITC.currentPage->bytesLeft = FRAGMENT_SIZE;	
-	// hardcoded JMP from old to new fragment
-	// FIXME: use 0xeb if possible
-	tcp_old[0] = 0xe9;
-	*((uint32 *)&tcp_old[1]) = gJITC.currentPage->tcp - (tcp_old+5);
-	return true;
+	if (((uint)(gJITC.currentPage->tcf_current->base - gJITC.currentPage->tcp)) < 20) {
+		// next Fragment directly follows
+		gJITC.currentPage->bytesLeft += FRAGMENT_SIZE;
+		return false;
+	} else {
+		gJITC.currentPage->tcp = gJITC.currentPage->tcf_current->base;
+		gJITC.currentPage->bytesLeft = FRAGMENT_SIZE;
+		// hardcoded JMP from old to new fragment
+		// FIXME: use 0xeb if possible
+		tcp_old[0] = 0xe9;
+		*((uint32 *)&tcp_old[1]) = gJITC.currentPage->tcp - (tcp_old+5);
+		return true;
+	}
 }
 
 /*
@@ -257,7 +263,7 @@ static void FASTCALL jitcDestroyAndTouchClientPage(ClientPage *cp)
 /*
  *	Removes and returns fragment from top of freeFragmentsList
  */
-TranslationCacheFragment *jitcGetFragment()
+static TranslationCacheFragment *jitcGetFragment()
 {
 	TranslationCacheFragment *tcf = gJITC.freeFragmentsList;
 	gJITC.freeFragmentsList = tcf->prev;
@@ -269,7 +275,7 @@ TranslationCacheFragment *jitcGetFragment()
  *	Returns free fragment
  *	May destroy a page to make new free fragments
  */
-TranslationCacheFragment *jitcAllocFragment()
+static TranslationCacheFragment *jitcAllocFragment()
 {
 	if (!gJITC.freeFragmentsList) {
 		/*
@@ -307,6 +313,11 @@ ClientPage FASTCALL *jitcCreateClientPage(uint32 baseaddr)
 	} else {
 		cp = gJITC.LRUpage;
 		jitcDestroyAndTouchClientPage(cp);
+		// destroy some more
+		if (gJITC.LRUpage) jitcDestroyAndTouchClientPage(gJITC.LRUpage);
+		if (gJITC.LRUpage) jitcDestroyAndTouchClientPage(gJITC.LRUpage);
+		if (gJITC.LRUpage) jitcDestroyAndTouchClientPage(gJITC.LRUpage);
+		if (gJITC.LRUpage) jitcDestroyAndTouchClientPage(gJITC.LRUpage);
 	}
 	jitcMapClientPage(baseaddr, cp);
 	return cp;
