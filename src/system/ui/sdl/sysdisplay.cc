@@ -41,47 +41,10 @@
 //#define DPRINTF(a...)
 #define DPRINTF(a...) ht_printf("[Display/SDL]: "a)
 
-sys_mutex	gSDLMutex;
-SDL_Surface *	gSDLScreen;
-
-bool handleSDLEvent(const SDL_Event &event)
-{
-	switch (event.type) {
-	// not sure if this is important...
-	case SDL_VIDEOEXPOSE:
-		if(SDL_MUSTLOCK(gSDLScreen))
-			SDL_UnlockSurface(gSDLScreen);
-		if(SDL_MUSTLOCK(gSDLScreen))
-			SDL_LockSurface(gSDLScreen);
-		damageFrameBufferAll();
-		gDisplay->displayShow();
-		return true;
-	case SDL_QUIT: // should we trap this and send power key?
-		DPRINTF("SDL_QUIT\n");
-		SDL_WM_GrabInput(SDL_GRAB_OFF);
-		exit(0);
-		return true;
-	}
-	return false;
-}
+#include "syssdl.h"
 
 /*static char *mTitle;
 static char mCurTitle[200];*/
-
-static void *redrawThread(void *p)
-{
-	int msec = *((int *)p);
-
-	while (1) {
-		if (gSDLScreen->flags & SDL_HWSURFACE) {
-			SDL_Delay(1000);
-		} else {
-			gDisplay->displayShow();
-			SDL_Delay(msec);
-		}
-	}
-	return NULL;
-}
 
 class SDLSystemDisplay: public SystemDisplay {
 protected:
@@ -113,8 +76,8 @@ void dumpDisplayChar(const DisplayCharacteristics &chr)
 
 public:
 
-SDLSystemDisplay(const char *name, int xres, int yres, const DisplayCharacteristics &chr)
-		:SystemDisplay(chr)
+SDLSystemDisplay(const char *name, int xres, int yres, const DisplayCharacteristics &chr, int redraw_ms)
+		:SystemDisplay(chr, redraw_ms)
 {
 	sys_create_mutex(&gSDLMutex);
 	mClientChar.width = xres;
@@ -228,17 +191,6 @@ void *eventLoop(void *p)
 	return NULL;
 }
 
-void startRedrawThread(int msec)
-{
-	// decide whether we need a redraw thread or not
-	char sdl_driver[16];
-	SDL_VideoDriverName(sdl_driver, 15);
-	DPRINTF("Using driver: %s\n", sdl_driver);
-	if (strncmp(sdl_driver, "dga", 3) != 0) {
-		sys_create_thread(&redrawthread, 0, redrawThread, &msec);
-	}
-}
-
 void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 {
 	aHostChar = aClientChar;
@@ -278,8 +230,8 @@ bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 
 };
 
-SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr)
+SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
 {
 	DPRINTF("Making new window %d x %d\n", chr.width, chr.height);
-	return new SDLSystemDisplay(title, chr.width, chr.height, chr);
+	return new SDLSystemDisplay(title, chr.width, chr.height, chr, redraw_ms);
 }

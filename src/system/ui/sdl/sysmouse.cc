@@ -1,8 +1,9 @@
-/*
- *	HT Editor
- *	sdlcommon.h
+/* 
+ *	PearPC
+ *	mouse.cc - mouse access functions for SDL
  *
- *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 1999-2004 Stefan Weyergraf (stefan@weyergraf.de)
+ *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,12 +19,25 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __SDLCOMMON_H__
-#define __SDLCOMMON_H__
+#include <cstdlib>
 
-extern sys_mutex	gSDLMutex;
-extern SDL_Surface *	gSDLScreen;
+#include "system/systhread.h"
+#include "syssdl.h"
 
-bool handleSDLEvent(const SDL_Event &event);
+#include "system/display.h"
+#include "system/mouse.h"
 
-#endif
+class SDLSystemMouse: public SystemMouse {
+public:
+
+	virtual bool handleEvent(const SystemEvent &ev)
+	{
+		return SystemMouse::handleEvent(ev);
+	}
+};
+
+SystemMouse *allocSystemMouse()
+{
+	if (gMouse) return NULL;
+	return new SDLSystemMouse();
+}
