@@ -100,9 +100,6 @@ void sys_convert_display(
 	byte *src = (byte*)aSrcBuf + aSrcChar.bytesPerPixel * aSrcChar.width * firstLine;
 	byte *dest = (byte*)aDestBuf + aDestChar.bytesPerPixel * aDestChar.width * firstLine;
 	uint32 pixel = (lastLine-firstLine+1) * aSrcChar.width;
-#ifdef __WIN32__
-	genericConvertDisplay(aSrcChar, aDestChar, aSrcBuf, aDestBuf, firstLine, lastLine);
-#else
 	if (aSrcChar.bytesPerPixel == 2 && aDestChar.bytesPerPixel == 2) {
 		if (aDestChar.redSize == 5 && aDestChar.greenSize == 6 && aDestChar.blueSize == 5) {
 			x86_convert_2be555_to_2le565(pixel, src, dest);
@@ -118,5 +115,4 @@ void sys_convert_display(
 	} else {
 		genericConvertDisplay(aSrcChar, aDestChar, aSrcBuf, aDestBuf, firstLine, lastLine);
 	}
-#endif
 }

@@ -8,4 +8,4 @@ libsarch_a_SOURCES = sysfeatures.h sysvaccel.cc vaccel.asm sysendian.h
 INCLUDES = -I ../../..
 
 .asm.o:
-	nasm -O99 @NASM_OPTS@ -o $@ -- $<
+	nasm -O2 @NASM_OPTS@ -o $@ -- $<
