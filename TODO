@@ -10,3 +10,5 @@
 - PVR testing
 - adapt startup logo (name is now PearPC, not PPC)
 - locked CDs can't be changed. GUI should reflect this.
+- don't complain if ide image file is not available at startup
+- create specialized example config files for Mandrake, Darwin, Mac OS X

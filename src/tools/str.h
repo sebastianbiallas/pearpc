@@ -56,6 +56,7 @@ public:
 
 		void		append(const String &s);
 	inline	char &		at(int aIndex) const;
+	inline	bool		chop();
 		void		clear();
 	virtual	Object *	clone() const;
 	virtual	int		compareChar(char c1, char c2) const;
@@ -151,6 +152,19 @@ inline char &String::at(int aIndex) const
 {
 //	if ((uint)aIndex >= (uint)mLength) throw new MsgException("index out of bounds");
 	return (char &)mContent[aIndex];
+}
+
+/**
+ *	Removes the last character of the string if string length is non-zero.
+ */
+inline bool String::chop()
+{
+	if (mLength) {
+		crop(mLength-1);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 /**

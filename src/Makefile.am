@@ -22,10 +22,9 @@ io/graphic/libgraphic.a io/prom/libprom.a io/prom/fs/libfs.a \
 io/prom/fs/hfs/libhfs.a io/prom/fs/hfsplus/libhfsplus.a \
 io/pic/libpic.a io/pci/libpci.a io/macio/libmacio.a io/nvram/libnvram.a \
 io/cuda/libcuda.a io/3c90x/lib3c90x.a io/usb/libusb.a tools/libtools.a \
-@PPC_LDFLAGS@
+@PPC_LDADD@
 
-ppc_LDFLAGS	= 
-ppc_LIBS	= @PPC_LIBS@
+ppc_LDFLAGS	= @PPC_LDFLAGS@
 
 ppc_SOURCES	= main.cc info.h ppc_img.c ppc_img.h \
 ppc_font.c ppc_font.h ppc_button_changecd.c ppc_button_changecd.h \

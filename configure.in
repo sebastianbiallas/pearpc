@@ -31,25 +31,33 @@ if test "x$enable_gui" = "xno"; then
 	enable_gui="nogui"
 fi
 
-FLAGS_ALL="-Wall -fsigned-char"
+PPC_CFLAGS="-Wall -fsigned-char"
+PPC_CXXFLAGS="-Wall -fsigned-char"
+PPC_LDADD=""
+PPC_LDFLAGS=""
 
 if test "x$enable_release" = "xyes"; then
-	FLAGS_ALL="$FLAGS_ALL -O2"
+	PPC_CFLAGS="$CFLAGS $PPC_CFLAGS -O2"
+	PPC_CXXFLAGS="$CXXFLAGS $PPC_CXXFLAGS -O2"
 else
-	FLAGS_ALL="$FLAGS_ALL -O0"
+	PPC_CFLAGS="$PPC_CFLAGS -O0"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -O0"
 fi
 
 if test "x$enable_fpo" = "xyes"; then
-	FLAGS_ALL="$FLAGS_ALL -fomit-frame-pointer"
+	PPC_CFLAGS="$PPC_CFLAGS -fomit-frame-pointer"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -fomit-frame-pointer"
 fi
 
 if test "x$enable_profiling" = "xyes"; then
 dnl	profiling implies debug
-	FLAGS_ALL="$FLAGS_ALL -pg -g"
+	PPC_CFLAGS="$PPC_CFLAGS -pg -g"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -pg -g"
 	enable_debug = "yes"
 else
 	if test "x$enable_debug" = "xyes"; then
-		FLAGS_ALL="$FLAGS_ALL -g"
+		PPC_CFLAGS="$PPC_CFLAGS -g"
+		PPC_CXXFLAGS="$PPC_CXXFLAGS -g"
 	fi
 fi
 
@@ -65,42 +73,42 @@ NASM_OPTS="-f elf"
 AC_PATH_X
 AC_PATH_XTRA
 
-CFLAGS="$CFLAGS $X_CFLAGS"
-CXXFLAGS="$CXXFLAGS $X_CFLAGS"
-LIBS="$LIBS $X_LIBS"
-LDFLAGS="$LDFLAGS $LIBS $X_PRE_LIBS"
-
 dnl Check for required functions in -lX11
 AC_CHECK_LIB(X11, XOpenDisplay,
-       LIBS="$LIBS -lX11",
-       AC_MSG_ERROR([Could not find XOpenDisplay in -lX11.])
+       [
+       PPC_LDADD="$PPC_LDADD -lX11"
+       PPC_LDFLAGS="$PPC_LDFLAGS $X_LIBS"
+       ],
+       AC_MSG_ERROR([Could not find XOpenDisplay in -lX11.]),
+       $X_LIBS
 )
 
-LIBS="$LIBS $X_EXTRA_LIBS"
+dnl LIBS="$LIBS $X_EXTRA_LIBS"
 
 case "$target_os" in
 linux*) 
 	SYSTEM_DIR=posix
 	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread.])
-	PPC_LDFLAGS="$LDFLAGS -lpthread"
+	PPC_LDADD="$PPC_LDADD -lpthread"
 ;;
 *freebsd*) 
 	SYSTEM_DIR=posix
 	AC_MSG_RESULT([*** FREEBSD, building native FreeBSD version. we need pthread.])
-	PPC_LDFLAGS="$LDFLAGS -pthread"
+	PPC_LDFLAGS="$PPC_LDFLAGS -pthread"
 ;;
 cygwin*)
 	SYSTEM_DIR=win32
 	AC_MSG_RESULT([*** CYGWIN, building native Win32 version (no cygwin.dll)])
-	FLAGS_ALL="$FLAGS_ALL -mno-cygwin"
-        PPC_LDFLAGS="-lgdi32 -lcomdlg32"
+	PPC_CFLAGS="$PPC_CFLAGS -mno-cygwin"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -mno-cygwin"
+        PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
 	NASM_OPTS="--prefix _ -f gnuwin32"
 ;;
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
 	SYSTEM_DIR=posix
 	AC_MSG_WARN([*** assuming POSIX OS, we need pthread])
-	PPC_LDFLAGS="$LDFLAGS -lpthread"
+	PPC_LDADD="$PPC_LDADD -lpthread"
 ;;	
 esac
 
@@ -120,13 +128,10 @@ esac
 AM_CONDITIONAL(USE_CPU_GENERIC, test x$CPU_DIR = xcpu_generic)
 AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
 
-FLAGS_ALL="$FLAGS_ALL -D_FILE_OFFSET_BITS=64 -pipe";
-
-CXXFLAGS="$CXXFLAGS $FLAGS_ALL"
-CFLAGS="$CFLAGS $FLAGS_ALL"
+PPC_CFLAGS="$PPC_CFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
+PPC_CXXFLAGS="$PPC_CXXFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
 
 AM_CONDITIONAL(USE_SYSTEM_POSIX, test x$SYSTEM_DIR = xposix)
-AM_CONDITIONAL(USE_SYSTEM_DJGPP, test x$SYSTEM_DIR = xdjgpp)
 AM_CONDITIONAL(USE_SYSTEM_WIN32, test x$SYSTEM_DIR = xwin32)
 
 dnl Checks for programs.
@@ -188,6 +193,9 @@ qt*)
 	fi
 	AC_SUBST(ac_thread)
 
+	CFLAGS="$CFLAGS -I$QTDIR/include"
+	LIBS="-L$QTDIR/lib -L/usr/X11R6/lib"
+
 	AC_CACHE_CHECK([for Qt library version >= 3.1.1],
 	  ac_qtlib_version, [
 	  AC_TRY_LINK([#include "qglobal.h"], [
@@ -198,8 +206,8 @@ qt*)
 	    [
 	      ac_qtlib_version="yes"
 	      QT_CFLAGS="$CFLAGS"
-	      QT_LIBS="$LIBS"
-	      QT_LDFLAGS="-l$ac_qtlib"
+	      QT_LIBS="-l$ac_qtlib"
+	      QT_LDFLAGS="$LIBS"
 	    ], [
 	      QT_CFLAGS=""
 	      QT_LIBS=""
@@ -210,12 +218,12 @@ qt*)
 	])
 
 	AC_SUBST(QT_CFLAGS)
-	AC_SUBST(QT_LIBS)
-	AC_SUBST(QT_LDFLAGS)
 
 	dnl A common error message:
-	ac_qtdir_errmsg="not found in current PATH. Maybe QT development environment isn't available (qt3-devel)."
-	
+dnl	ac_qtdir_errmsg="not found in current PATH. Maybe QT development environment isn't available (qt3-devel)."
+
+	PPC_LDADD="$PPC_LDADD $QT_LIBS"
+	PPC_LDFLAGS="$PPC_LDFLAGS $QT_LDFLAGS"
 ;;
 gtk*)
 ;;
@@ -227,12 +235,10 @@ win32*)
 ;;
 esac
 
-
 AM_CONDITIONAL(USE_GUI_QT, test x$GUI_DIR = xqt)
 AM_CONDITIONAL(USE_GUI_GTK, test x$GUI_DIR = xgtk)
 AM_CONDITIONAL(USE_GUI_WIN32, test x$GUI_DIR = xwin32)
 AM_CONDITIONAL(USE_GUI_NOGUI, test x$GUI_DIR = xnogui)
-
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -249,12 +255,14 @@ AC_CHECK_HEADERS(asm/types.h sys/socket.h linux/netlink.h, AC_DEFINE(HAVE_ETHERT
 dnl AC_CONFIG_HEADER(config.h)
 
 dnl Makefile vars.
-PPC_LDFLAGS="$PPC_LIBS $PPC_LDFLAGS"
 AC_SUBST(CPU_DIR)
 AC_SUBST(SYSTEM_DIR)
 AC_SUBST(GUI_DIR)
-AC_SUBST(PPC_LDFLAGS)
 AC_SUBST(NASM_OPTS)
+AC_SUBST(PPC_CFLAGS)
+AC_SUBST(PPC_CXXFLAGS)
+AC_SUBST(PPC_LDADD)
+AC_SUBST(PPC_LDFLAGS)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -310,7 +318,10 @@ AC_MSG_RESULT([cpu:                                 $enable_cpu])
 AC_MSG_RESULT([gui:                                 $enable_gui])
 AC_MSG_RESULT([enable debug:                        $enable_debug])
 AC_MSG_RESULT([enable profiling:                    $enable_profiling])
-AC_MSG_RESULT([make an optimized build:             $enable_release])
+AC_MSG_RESULT([make release build:                  $enable_release])
 AC_MSG_RESULT([omit frame pointer:                  $enable_fpo])
-AC_MSG_RESULT([final C/C++ compiler flags:          $FLAGS_ALL])
+AC_MSG_RESULT([final C compiler flags:              $PPC_CFLAGS])
+AC_MSG_RESULT([final C++ compiler flags:            $PPC_CXXFLAGS])
+AC_MSG_RESULT([final linker flags:                  $PPC_LDFLAGS])
+AC_MSG_RESULT([final linker add:                    $PPC_LDADD])
 AC_MSG_RESULT([=====================])
