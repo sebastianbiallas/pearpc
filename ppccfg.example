@@ -28,6 +28,16 @@ ppc_start_resolution = "800x600x15"
 redraw_interval_msec = 40
 
 ##
+## Key codes
+##
+
+key_compose = "F11"
+key_change_cd_0 = "none"
+key_toggle_mouse_grab = "F12"
+key_toggle_full_screen = "Alt+Return"
+
+
+##
 ## Loader 
 ##
 

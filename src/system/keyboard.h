@@ -144,18 +144,28 @@
 //keycode 0x7c = AltGr
 //keycode 0x7d = Control
 
-/*
+
 #define KEYB_LED_NUM	1
 #define KEYB_LED_CAPS	2
 #define KEYB_LED_SCROLL 3
-*/
+
+#define KEYCODE_CTRL    0x100
+#define KEYCODE_LALT	0x200
+#define KEYCODE_RALT	0x400
+#define KEYCODE_SHIFT	0x800
 
 /* system-dependent (implementation in ui / $MYUI / *.cc) */
 class SystemKeyboard: public SystemDevice {
+	int mShift;
+	int mLAlt;
+	int mRAlt;
+	int mCtrl;
 public:
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
 	virtual bool	handleEvent(const SystemEvent &ev);
+	static	bool	convertKeycodeToString(String &result, int keycode);
+	static	bool	convertStringToKeycode(int &keycode, const String &s);
 };
 
 SystemKeyboard *allocSystemKeyboard();

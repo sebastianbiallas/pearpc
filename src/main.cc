@@ -232,6 +232,12 @@ int main(int argc, char *argv[])
 		gConfig->acceptConfigEntryIntDef("memory_size", 128*1024*1024);
 		gConfig->acceptConfigEntryIntDef("page_table_pa", 0x00300000);
 		gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 200);
+		gConfig->acceptConfigEntryStringDef("key_compose_dialog", "F11");
+		gConfig->acceptConfigEntryStringDef("key_change_cd_0", "none");
+		gConfig->acceptConfigEntryStringDef("key_change_cd_1", "none");
+		gConfig->acceptConfigEntryStringDef("key_toggle_mouse_grab", "F12");
+		gConfig->acceptConfigEntryStringDef("key_toggle_full_screen", "Alt+Return");
+
 		prom_init_config();
 		io_init_config();
 		cpu_init_config();
@@ -274,7 +280,29 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
-
+		String key_compose_dialog_string;
+		String key_toggle_mouse_grab_string;
+		String key_toggle_full_screen_string;
+		int key_compose_dialog;
+		int key_toggle_mouse_grab;
+		int key_toggle_full_screen;
+		gConfig->getConfigString("key_compose_dialog", key_compose_dialog_string);		
+		gConfig->getConfigString("key_toggle_mouse_grab", key_toggle_mouse_grab_string);
+		gConfig->getConfigString("key_toggle_full_screen", key_toggle_full_screen_string);
+		if (!SystemKeyboard::convertStringToKeycode(key_compose_dialog, key_compose_dialog_string)) {
+			ht_printf("%s: invalid '%s'\n", argv[1], "key_compose_dialog");
+			exit(1);
+		}
+		if (!SystemKeyboard::convertStringToKeycode(key_toggle_mouse_grab, key_toggle_mouse_grab_string)) {
+			ht_printf("%s: invalid '%s'\n", argv[1], "key_toggle_mouse_grab");
+			exit(1);
+		}
+		if (!SystemKeyboard::convertStringToKeycode(key_toggle_full_screen, key_toggle_full_screen_string)) {
+			ht_printf("%s: invalid '%s'\n", argv[1], "key_toggle_full_screen");
+			exit(1);
+		}
+		
+		
 		gcard_init_modes();
 		
 		String chr;
@@ -305,6 +333,7 @@ int main(int argc, char *argv[])
 		}
 		gcard_add_characteristic(gm);
 
+
 		/*
 		 *	begin hardware init
 		 */
@@ -317,6 +346,7 @@ int main(int argc, char *argv[])
 			ht_printf("cpu_init failed! Out of memory?\n");
 			exit(1);
 		}
+		
 		gDisplay = allocSystemDisplay(APPNAME" "APPVERSION, gm, msec);
 		gMouse = allocSystemMouse();
 		gKeyboard = allocSystemKeyboard();
