@@ -699,6 +699,7 @@ PromInstance *PromNodeDisk::createInstance(const String &param)
 		}
 		PartitionEntry *pe = (PartitionEntry*)((*pm->getPartitions())[partNumber]);
 		char *f = file.contentChar();
+		file.translate("\\", "/");
 		int flen = file.length();
 		if (!pe || !pe->mInstantiateFileSystem) {
 			IO_PROM_WARN("can't instantiate file system\n");
