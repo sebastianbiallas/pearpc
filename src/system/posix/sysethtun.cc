@@ -27,93 +27,71 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#if defined(HAVE_ETHERTAP) && !(defined(__APPLE__) && defined(__MACH__))
-
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <asm/types.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <linux/netlink.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-#include <cerrno>
+#include <asm/types.h>
+#include <sys/wait.h>
 
 #include "system/sysethtun.h"
 #include "tools/snprintf.h"
 
-#define perrorm(s)	{ printf("tun: %s: %d (%s)\n", s, errno, strerror(errno)); }
-#define printm(s...)	{ printf(s); }
 
-/************************************************************************/
-/*	Misc								*/
-/************************************************************************/
-/*
-static int check_netdev(char *ifname)
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "tools/except.h"
+#include "system/sysethtun.h"
+
+/**
+ *	Unix ethernet tunnel devices should work using a file descriptor
+ */
+class UnixEthTunDevice: public EthTunDevice {
+protected:
+	int	mFD;
+public:
+
+UnixEthTunDevice()
 {
-	struct ifreq	ifr;
-	int 		fd;
-	int		ret=-1;
-
-	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		return -1;
-
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-	if (ioctl(fd, SIOCGIFFLAGS, &ifr ) < 0) {
-		perrorm("SIOCGIFFLAGS");
-		goto out;
-	}
-	if (!(ifr.ifr_flags & IFF_RUNNING)) {
-		printm("---> The network interface '%s' is not configured!\n", ifname);
-		goto out;
-	}
-	if ((ifr.ifr_flags & IFF_NOARP )) {
-		printm("WARNING: Turning on ARP for device '%s'.\n", ifname);
-		ifr.ifr_flags &= ~IFF_NOARP;
-		if (ioctl( fd, SIOCSIFFLAGS, &ifr ) < 0) {
-			perrorm("SIOCSIFFLAGS");
-			goto out;
-		}
-	}
-	ret = 0;
- out:
-	close(fd);
-	return ret;
-}*/
-
-static void common_iface_open(enet_iface_t *is, char *drv_str, char *intf_name, int fd)
-{
-	ht_snprintf(is->drv_name, sizeof(is->drv_name), "%s-<%s>", drv_str, intf_name);
-	strncpy(is->iface_name, intf_name, sizeof(is->iface_name)-1);
-	is->iface_name[sizeof(is->iface_name)-1] = 0;
-	is->fd = fd;
+	// super-class constructor MUST set mFD!!!
+	// this is yet another case where C++ constructors suck
+	// (ohh lovely Borland Pascal, where are you?)
 }
-/*
-static void generic_close(enet_iface_t *is)
-{
-	close(is->fd);
-	is->fd = -1;
-}
-*/
-/************************************************************************/
-/*	TUN/TAP Packet Driver						*/
-/************************************************************************/
 
-int exec_ifconfig(const char *intf_name, const char *arg)
+virtual	uint recvPacket(void *buf, uint size)
+{
+	ssize_t e = ::read(mFD, buf, size);
+	if (e < 0) return 0;
+	return e;
+}
+
+virtual	int waitRecvPacket()
+{
+	fd_set rfds;
+	fd_set zerofds;
+	FD_ZERO(&rfds);
+	FD_ZERO(&zerofds);
+	FD_SET(mFD, &rfds);
+
+	int e = select(mFD+1, &rfds, &zerofds, &zerofds, NULL);
+	if (e < 0) return errno;
+	return 0;
+}
+
+virtual	uint sendPacket(void *buf, uint size)
+{
+	ssize_t e = ::write(mFD, buf, size);
+	if (e < 0) return 0;
+	return e;
+}
+
+}; // end of UnixEthTunDevice
+
+// FIXME: How shall we configure networking??? This thing can only be a temporary solution
+static int execIFConfigScript(const char *arg)
 {
 	int pid = fork();
 	if (pid == 0) {
@@ -144,82 +122,71 @@ int exec_ifconfig(const char *intf_name, const char *arg)
 	return 1;
 }
 
-static int tun_open(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac)
-{
-	struct ifreq ifr;
-	int fd;
+#if defined(HAVE_LINUX_TUN)
+/*
+ *	This is how it's done in Linux
+ */
 
-	/* allocate tun/tap device */ 
-	if ((fd = open("/dev/net/tun", O_RDWR)) < 0) {
-		perrorm("Failed to open /dev/net/tun");
-		return 1;
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+class LinuxEthTunDevice: public UnixEthTunDevice {
+public:
+LinuxEthTunDevice(const char *netif_name)
+: UnixEthTunDevice()
+{
+	/* allocate tun device */ 
+	if ((mFD = ::open("/dev/net/tun", O_RDWR)) < 0) {
+		throw new MsgException("Failed to open /dev/net/tun");
 	}
-	memset(&ifr, 0, sizeof(ifr));
+
+	struct ifreq ifr;
+	::memset(&ifr, 0, sizeof(ifr));
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
-	strncpy(ifr.ifr_name, intf_name, IFNAMSIZ);
-	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
-		perrorm("TUNSETIFF");
-		goto out;
+	if (::strlen(netif_name)+1 > IFNAMSIZ) {
+		throw new MsgfException("Interface name too long (%d > %d bytes)"
+			" in '%s'\n", ::strlen(netif_name)+1, IFNAMSIZ, netif_name);
+	}
+
+	::strncpy(ifr.ifr_name, netif_name, IFNAMSIZ);
+	if (::ioctl(mFD, TUNSETIFF, &ifr) < 0) {
+		::close(mFD);
+		throw new MsgException("TUNSETIFF failed.");
 	}
 
 	/* don't checksum */
-	ioctl(fd, TUNSETNOCSUM, 1);
+	ioctl(mFD, TUNSETNOCSUM, 1);
 
 	/* Configure device */
-//	script_exec(get_filename_res(TUNSETUP_RES), intf_name, "up");
-	if (exec_ifconfig(intf_name, "up")) {
-		printm("exec ifconfig\n");
-		goto out;
+	if (execIFConfigScript("up")) {
+		::close(mFD);
+		throw new MsgException("error executing ifconfig.");
 	}
-
-	/* set HW address */
-	memcpy(is->eth_addr, mac, 6);
-
-	/* finish... */
-	is->packet_pad = 0;
-	*sigio_capable = 1;
-	common_iface_open(is, "tun", intf_name, fd);
-	return 0;
-
-out:
-	close(fd);
-	return 1;
 }
 
-static int tun_wait_receive(enet_iface_t *is)
+virtual	uint getWriteFramePrefix()
 {
-	fd_set rfds;
-	fd_set zerofds;
-	FD_ZERO(&rfds);
-	FD_ZERO(&zerofds);
-	FD_SET(is->fd, &rfds);
-
-	int e = select(is->fd+1, &rfds, &zerofds, &zerofds, NULL);
-	if (e < 0) return errno;
 	return 0;
 }
 
-static void tun_close(enet_iface_t *is)
-{
-//	script_exec( get_filename_res(TUNSETUP_RES), is->iface_name, "down" );
-	exec_ifconfig(is->iface_name, "down");
+}; // end of LinuxEthTunDevice
 
-	close(is->fd);
-	is->fd = -1;
+EthTunDevice *createEthernetTunnel()
+{
+	return new LinuxEthTunDevice("ppc" /* FIXME: hardcoding */);
 }
 
-packet_driver_t g_sys_ethtun_pd = {
-	name:			"tun",
-	open: 			tun_open,
-	close:			tun_close,
-	wait_receive:		tun_wait_receive
-};
-
-#elif defined(__APPLE__) && defined(__MACH__)
-
+#elif (defined(__APPLE__) && defined(__MACH__))
 /*
-	Interaction with Mac OS X "tun" device driver
+	Interaction with Darin/Mac OS X "tun" device driver
 
 	See http://chrisp.de/en/projects/tunnel.html,
 	for source code and binaries of tunnel.kext :
@@ -227,94 +194,42 @@ packet_driver_t g_sys_ethtun_pd = {
 	kextload /System/Library/Extensions/tunnel.kext
 */
 
-#include <errno.h>
-#include <stdio.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-
-#include "system/sysethtun.h"
-#include "tools/snprintf.h"
 
 #define DEFAULT_DEVICE "/dev/tun0"
 
-#define perrorm(s)	{ printf("tun: %s: %d (%s)\n", s, errno, strerror(errno)); }
-
-static int tun_open(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac)
+class DarwinEthTunDevice: public UnixEthTunDevice {
+public:
+DarwinEthTunDevice()
+: UnixEthTunDevice()
 {
-	int fd;
-
 	/* allocate tun device */ 
-	if ((fd = open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
-		perrorm("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded ?");
-		return 1;
+	if ((mFD = ::open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
+		throw new MsgException("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded?");
 	}
-
-	/* set driver name */
-	char *drv_str = "tun";
-	ht_snprintf(is->drv_name, sizeof(is->drv_name), "%s-<%s>", drv_str, intf_name);
-	
-	/* set interface name */
-	strncpy(is->iface_name, intf_name, sizeof(is->iface_name)-1);
-	is->iface_name[sizeof(is->iface_name)-1] = '\0';
-
-	/* set the MAC address */
-	memcpy(is->eth_addr, mac, 6);
-
-	/* finish... */
-	is->packet_pad = 14;
-	*sigio_capable = 1;
-
-	is->fd = fd;
-
-	return 0;
 }
 
-static void tun_close(enet_iface_t *is)
+virtual	uint getWriteFramePrefix()
 {
-	close(is->fd);
-	is->fd = -1;
+	// Please document this! Why is it 14?
+	return 14;
 }
 
-static int tun_wait_receive(enet_iface_t *is)
+}; // end of DarwinEthTunDevice
+
+EthTunDevice *createEthernetTunnel()
 {
-	fd_set rfds;
-	fd_set zerofds;
-	FD_ZERO(&rfds);
-	FD_ZERO(&zerofds);
-	FD_SET(is->fd, &rfds);
-
-	int e = select(is->fd+1, &rfds, &zerofds, &zerofds, NULL);
-	if (e < 0)
-		return errno;
-	else
-		return 0;
+	return new DarwinEthTunDevice();
 }
-
-packet_driver_t g_sys_ethtun_pd = {
-	name:			"tun",
-	open: 			tun_open,
-	close:			tun_close,
-	wait_receive:		tun_wait_receive
-};
 
 #else
 /*
  *	System provides no ethernet tunnel
  */
 
-#include <errno.h>
-
-#include "system/sysethtun.h"
-
-static int pdnull_open(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac)
+EthTunDevice *createEthernetTunnel()
 {
-	return ENOSYS;
+	throw new MsgException("Your system has no support for ethernet tunnels.");
 }
-
-packet_driver_t g_sys_ethtun_pd = {
-	name:			"null",
-	open: 			pdnull_open,
-};
 
 #endif

@@ -309,7 +309,9 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([asm/types.h])
-AC_CHECK_HEADERS(linux/netlink.h, AC_DEFINE(HAVE_ETHERTAP, 1, [Have TUN/TAP headers?]),,
+
+dnl Have Linux TUN?
+AC_CHECK_HEADERS(linux/netlink.h, AC_DEFINE(HAVE_LINUX_TUN, 1, [Have TUN/TAP headers?]),,
      [[
      #if HAVE_ASM_TYPES_H
      # include <asm/types.h>

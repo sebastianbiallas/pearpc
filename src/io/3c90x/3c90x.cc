@@ -7,6 +7,7 @@
  *	[1] 3c90xc.pdf
  *	[2] Linux Kernel 2.4.22 (drivers/net/3c59x.c)
  *
+ *	Copyright (C) 2004 John Kelley (pearpc@kelley.ca)
  *	Copyright (C) 2003 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
@@ -564,13 +565,14 @@ protected:
 	bool		mDnStalled;
 	byte		mRxPacket[MAX_PACKET_SIZE];
 	uint		mRxPacketSize;
-	enet_iface_t	mENetIf;
+	EthTunDevice *	mEthTun;
 	sys_mutex	mLock;
 	uint16		mMIIRegs[8];
 	uint32		mMIIReadWord;
 	uint64		mMIIWriteWord;
 	uint		mMIIWrittenBits;
 	uint16		mLastHiClkPhysMgmt;
+	byte		mMAC[6];
 
 void PCIReset()
 {
@@ -626,9 +628,9 @@ void totalReset()
 	w5.TxStartThresh = 8188;
 	// EEPROM config (FIXME: endianess)
 	memset(mEEPROM, 0, sizeof mEEPROM);
-	mEEPROM[EEPROM_NodeAddress0] =		(mENetIf.eth_addr[0]<<8) | mENetIf.eth_addr[1];
-	mEEPROM[EEPROM_NodeAddress1] =		(mENetIf.eth_addr[2]<<8) | mENetIf.eth_addr[3];
-	mEEPROM[EEPROM_NodeAddress2] =		(mENetIf.eth_addr[4]<<8) | mENetIf.eth_addr[5];
+	mEEPROM[EEPROM_NodeAddress0] =		(mMAC[0]<<8) | mMAC[1];
+	mEEPROM[EEPROM_NodeAddress1] =		(mMAC[2]<<8) | mMAC[3];
+	mEEPROM[EEPROM_NodeAddress2] =		(mMAC[4]<<8) | mMAC[5];
 	mEEPROM[EEPROM_DeviceID] =		0x9200;
 	mEEPROM[EEPROM_ManifacturerID] =	0x6d50;
 	mEEPROM[EEPROM_PCIParam] =		0x2940;
@@ -1333,8 +1335,9 @@ void txDPD0(DPD0 *dpd)
 	byte pbuf[MAX_PACKET_SIZE];
 	byte *p = pbuf;
 	// some packet drivers need padding
-	memset(p, 0, mENetIf.packet_pad);
-	p += mENetIf.packet_pad;
+	uint framePrefix = mEthTun->getWriteFramePrefix();
+	memset(p, 0, framePrefix);
+	p += framePrefix;
 	//
 	uint i = 0;
 	// assemble packet from fragments (up to 63 fragments)
@@ -1409,15 +1412,15 @@ void txDPD0(DPD0 *dpd)
 
 	IO_3C90X_TRACE("tx(%d):\n", psize);
 	dumpMem(pbuf, psize);
-	errno = 0;
-	uint w = write(mENetIf.fd, pbuf, psize);
-	if (w<0) {
-		IO_3C90X_TRACE("ENetIf: ARGH! write error in packet driver: %d (%s)\n", errno, strerror(errno));
-	}
-	if (w != psize) {
-		IO_3C90X_TRACE("ENetIf: ARGH. only %d of %d bytes written by packet driver...\n", w, psize);
+	uint w = mEthTun->sendPacket(pbuf, psize);
+	if (w) {
+		if (w == psize) {
+			IO_3C90X_TRACE("EthTun: %d bytes sent.\n", psize);
+		} else {
+			IO_3C90X_TRACE("EthTun: ARGH! send error: only %d of %d bytes sent\n", w, psize);
+		}
 	} else {
-		IO_3C90X_TRACE("ENetIf: %d bytes written by packet driver...\n", w);
+		IO_3C90X_TRACE("EthTun: ARGH! send error in packet driver.\n");
 	}
 	// indications
 	mRegisters.DmaCtrl |= DC_dnComplete;
@@ -1676,18 +1679,20 @@ inline uint32 swapData(uint32 data, uint size)
 }
 
 public:
-_3c90x_NIC(enet_iface_t &aENetIf)
+_3c90x_NIC(EthTunDevice *aEthTun, const byte *mac)
 : PCI_Device("3c90x Network interface card", 0x1, 0xc)
 {
 	int e;
 	if ((e = sys_create_mutex(&mLock))) throw IOException(e);
-	mENetIf = aENetIf;
+	mEthTun = aEthTun;
+	memcpy(mMAC, mac, 6);
 	PCIReset();
 	totalReset();
 }
 
 virtual ~_3c90x_NIC()
 {
+	delete mEthTun;
 	sys_destroy_mutex(mLock);
 }
 
@@ -1876,28 +1881,32 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 void handleRxQueue()
 {
 	while (1) {
-		if (g_sys_ethtun_pd.wait_receive(&mENetIf) == 0) {
-			sys_lock_mutex(mLock);
+		while (mEthTun->waitRecvPacket() != 0) {
+			// don't block the system in case of (repeated) error(s)
+			sys_suspend();
+		}
+		sys_lock_mutex(mLock);
+		if (mRxPacketSize) {
+			IO_3C90X_TRACE("Argh. old packet not yet uploaded. waiting some more...\n");
+		} else {
+			mRxPacketSize = mEthTun->recvPacket(mRxPacket, sizeof mRxPacket);
 			if (mRxPacketSize) {
-				IO_3C90X_TRACE("Argh. old packet not yet uploaded. waiting some more...\n");
-			} else {
-				mRxPacketSize = read(mENetIf.fd, mRxPacket, sizeof mRxPacket);
 				indicate(IS_rxComplete);
 				maybeRaiseIntr();
 				acknowledge(IS_rxComplete);
 				if (!passesRxFilter(mRxPacket, mRxPacketSize)) {
-					IO_3C90X_TRACE("EnetIf: %d bytes read (not passing the filter)!!\n", mRxPacketSize);
+					IO_3C90X_TRACE("EthTun: %d bytes received. But they don't pass the filter.\n", mRxPacketSize);
 					mRxPacketSize = 0;
 				} else {
-					IO_3C90X_TRACE("EnetIf: %d bytes read (passing the filter) !!\n", mRxPacketSize);
+					IO_3C90X_TRACE("EthTun: %d bytes received.\n", mRxPacketSize);
 				}
+			}  else {
+				// don't block the system in case of (repeated) error(s)
+				sys_suspend();
 			}
-		        checkUpWork();
-			sys_unlock_mutex(mLock);
-		} else {
-			// don't waste our timeslice
-			sys_suspend();
 		}
+	        checkUpWork();
+		sys_unlock_mutex(mLock);
 	}
 }
 
@@ -1947,16 +1956,13 @@ void _3c90x_init()
 			}
 			memcpy(mac, cfgmac, sizeof mac);
 		}
-		int sigio_capable;
-		enet_iface_t enetif;
-		int e = g_sys_ethtun_pd.open(&enetif, "ppc", &sigio_capable, mac);
-		if (e == ENOSYS) {
-			IO_3C90X_ERR("Networking can't (yet) be used on your system.\n");
-		} else if (e) {
-			IO_3C90X_ERR("Open enetif failed: %s\n", strerror(e));
+		EthTunDevice *ethTun = createEthernetTunnel();
+		if (!ethTun) {
+			IO_3C90X_ERR("Couldn't create ethernet tunnel\n");
 			exit(1);
 		}
-		printf("creating 3com 3c90x NIC emulation with eth_addr = ");
+#if 0
+		printf("Creating 3com 3c90x NIC emulation with eth_addr = ");
 		for (uint i=0; i<6; i++) {
 			if (i<5) {
 				printf("%02x:", mac[i]);
@@ -1965,7 +1971,8 @@ void _3c90x_init()
 			}
 		}
 		printf("\n");
-		_3c90x_NIC *MyNIC = new _3c90x_NIC(enetif);
+#endif
+		_3c90x_NIC *MyNIC = new _3c90x_NIC(ethTun, mac);
 		gPCI_Devices->insert(MyNIC);
 		sys_thread rxthread;
 		sys_create_thread(&rxthread, 0, _3c90xHandleRxQueue, MyNIC);

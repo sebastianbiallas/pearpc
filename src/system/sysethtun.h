@@ -2,8 +2,9 @@
  *	PearPC
  *	sysethtun.h
  *
- *	code taken from Mac-on-Linux 0.9.68:
- *	Copyright (C) 1999-2002 Samuel Rydh (samuel@ibrium.se)
+ *	Abstraction for ethernet tunnel devices
+ *
+ *	Copyright (C) 2003,2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -24,29 +25,71 @@
 
 #include "system/types.h"
 
-typedef struct {
-	struct packet_driver *pd;
+// FIXME: reentrancy, threading specs
 
-	int		fd;
-	int		packet_pad;		/* #bytes before the eth packet */
+class PacketDevice {
+public:
+	/**
+	 *	Read a packet from the device into a buffer
+	 *
+	 *	@param buf pointer to a buffer containing the packet data
+	 *	@param size size of the buffer
+	 *	@returns number of bytes received and written into buf
+	 */
+	virtual	uint	recvPacket(void *buf, uint size) = 0;
 
-	byte		eth_addr[6];
-	char		drv_name[26];
-	char		iface_name[16];
-} enet_iface_t;
+	/**
+	 *	Wait for a packet to be received
+	 *
+	 *	This function blocks the calling thread until a packet is received
+	 *	or an error occurs. It should do this in a manner that consumes
+	 *	little to low CPU time.
+	 *	If the function succeeds the next call to recvPacket() is
+	 *	"very likely" to succeed as well.
+	 *
+	 *	@returns 0 on success, non-zero in case of error (the result is
+	 *	an errno. Ie. you can use it in strerror())
+	 */
+	virtual	int	waitRecvPacket() = 0;
 
-typedef struct packet_driver {
-	char		*name;
+	/**
+	 *	Write a packet from a buffer into the device
+	 *
+	 *	@param buf pointer to a buffer containing the packet data
+	 *	@param size size of the buffer
+	 *	@returns number of bytes sent and written into buf
+	 */
+	virtual	uint	sendPacket(void *buf, uint size) = 0;
+};
 
-	int		(*open)			(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac);
-	void		(*close)		(enet_iface_t *is);
-	int		(*wait_receive)		(enet_iface_t *is);
-/*	int		(*add_multicast)	(enet_iface_t *is, char *addr);
-	int		(*del_multicast)	(enet_iface_t *is, char *addr);
-	int		(*load_save_state)	(enet_iface_t *is, enet_iface_t *load_is, int index, int loading);*/
-} packet_driver_t;
+/**
+ *	An ethernet tunnel is a virtual ethernet line connecting the operating
+ *	system's networking stack with some other piece of software (as opposed
+ *	to a physical ethernet cable, connecting two pieces of hardware).
+ *
+ *	This class represents one end-point of the tunnel, the aforementioned
+ *	"piece of software". Both sides should be configured to have their own
+ *	separate network addresses (e.g. MAC and IP addresses).
+ *
+ *	The packets sent and received are ethernet specific Ethernet-II
+ *	frames with IEEE 802.3 MAC addresses, prefixed by a specific number of
+ *	bytes (for use by the networking stack).
+ */
+class EthTunDevice: public PacketDevice {
+public:
+	/**
+	 *	Get driver-specific ethernet write frame prefix.
+	 *
+	 *	When writing packets, a specific number of bytes in the packet
+	 *	buffer must be dedicated to the system's networking stack. The
+	 *	actual ethernet frame follows after this area.
+	 *
+	 *	@returns number of bytes in write frame prefix
+	 */
+	virtual	uint	getWriteFramePrefix() = 0;
+};
 
 /* system-dependent (implementation in $MYSYSTEM/ *.cc) */
-extern packet_driver_t g_sys_ethtun_pd;
+extern EthTunDevice *createEthernetTunnel();
 
 #endif /* __SYSETHTUN_H__ */
