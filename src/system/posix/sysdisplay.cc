@@ -611,8 +611,8 @@ public:
 	inline void convertDisplayClientToServer(uint firstLine, uint lastLine)
 	{
 		if (!gXframebuffer) return;	// great! nothing to do.
-		byte *buf = gFramebuffer + mClientChar.bytesPerPixel * gDisplay->mClientChar.width * firstLine;
-		byte *xbuf = gXframebuffer + mClientChar.bytesPerPixel * gDisplay->mClientChar.width * firstLine;
+		byte *buf = gFramebuffer + mClientChar.bytesPerPixel * mClientChar.width * firstLine;
+		byte *xbuf = gXframebuffer + mXChar.bytesPerPixel * mXChar.width * firstLine;
 /*		if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 2)) {
 			posix_vaccel_15_to_15(mClientChar.height*mClientChar.width, buf, xbuf);
 		} else if ((mClientChar.bytesPerPixel == 2) && (mXChar.bytesPerPixel == 4)) {
