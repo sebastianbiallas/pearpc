@@ -127,17 +127,21 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		convertCharacteristicsToHost(mWinChar, mClientChar);
 
 		DEVMODE dm;
-		dm.dmBitsPerPel = (mWin.bytesPerPixel == 2) ? 15 : 32;
-		dm.dmPelsWidth = mWin.width;
-		dm.dmPelsHeight = mWin.height;
-		dm.dmDisplayFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-		dm.dmDisplayFrequency = mWin.vsyncFrequency;
+		dm.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+		dm.dmBitsPerPel = (mWinChar.bytesPerPixel == 2) ? 15 : 32;
+		dm.dmPelsWidth = mWinChar.width;
+		dm.dmPelsHeight = mWinChar.height;
+		dm.dmDisplayFrequency = mWinChar.vsyncFrequency;
 		if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
 			ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
 			return true;
 		} else {
-			if (mWin.bytesPerPixel == 2) {
+			if (mWinChar.bytesPerPixel == 2) {
 				dm.dmBitsPerPel = 16;
+			} else {
+				mWinChar = oldhost;
+				mClientChar = oldclient;
+				return false;
 			}
 			if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
 				ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
@@ -155,8 +159,8 @@ bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 		HWND dw = GetDesktopWindow();
 		RECT desktoprect;
 		GetWindowRect(dw, &desktoprect);
-		if (aHostChar.width > (desktoprect.right-desktoprect.left)
-		|| aHostChar.height > (desktoprect.bottom-desktoprect.top)) {
+		if (aClientChar.width > (desktoprect.right-desktoprect.left)
+		|| aClientChar.height > (desktoprect.bottom-desktoprect.top)) {
 				// protect user from himself
 				return false;
 		}		
