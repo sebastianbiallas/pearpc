@@ -45,7 +45,6 @@ void createForeignInt(void *buf, int i, int size, Endianess to_endianess);
 void createForeignInt64(void *buf, uint64 i, int size, Endianess to_endianess);
 int createHostInt(const void *buf, int size, Endianess from_endianess);
 uint64 createHostInt64(const void *buf, int size, Endianess from_endianess);
-void createHostStruct(void *buf, const uint8 *table, Endianess from_endianess);
 void createHostStructx(void *buf, uint bufsize, const uint8 *table, Endianess from_endianess);
 
 #ifdef __cplusplus

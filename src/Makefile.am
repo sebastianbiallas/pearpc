@@ -23,9 +23,7 @@ io/prom/fs/hfs/libhfs.a io/prom/fs/hfsplus/libhfsplus.a \
 io/pic/libpic.a io/pci/libpci.a io/macio/libmacio.a io/nvram/libnvram.a \
 io/cuda/libcuda.a io/3c90x/lib3c90x.a io/usb/libusb.a tools/libtools.a \
 @PPC_LDFLAGS@
-# -L/usr/qt/3/lib -lqt \
-#-lgtk -lgdk -lgmodule -lglib -ldl -lXi -lXext -lX11 -lm
-#ppc_LDFLAGS	= @PPC_LDFLAGS@ @QT_LDFLAGS@ @QT_LIBS@
+
 ppc_LDFLAGS	= 
 ppc_LIBS	= @PPC_LIBS@
 

@@ -141,10 +141,6 @@ extern "C" uint64 createHostInt64(const void *buf, int size, Endianess from_endi
 	return q;
 }
 
-extern "C" void createHostStruct(void *buf, const uint8 *table, Endianess from_endianess)
-{
-}
-
 extern "C" void createHostStructx(void *buf, uint bufsize, const uint8 *table, Endianess from_endianess)
 {
 	uint8 *buf2 = (uint8*)buf;
