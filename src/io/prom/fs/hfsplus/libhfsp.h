@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: libhfsp.h,v 1.1 2004/05/05 22:45:32 seppel Exp $
+ * $Id: libhfsp.h,v 1.2 2004/10/31 20:18:09 seppel Exp $
  */
 
 #ifndef APPLE_H
@@ -90,7 +90,7 @@ extern const char *hfsp_error;
 
     
 /** helper function to create those Apple 4 byte Signatures */
-extern inline UInt32 sig(char c0, char c1, char c2, char c3)
+static inline UInt32 sig(char c0, char c1, char c2, char c3)
 {
     UInt32 sig;
     ((char*)&sig)[0] = c0;

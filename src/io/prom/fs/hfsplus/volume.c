@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.c,v 1.3 2004/08/25 15:08:09 seppel Exp $
+ * $Id: volume.c,v 1.4 2004/10/31 20:18:09 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -607,14 +607,6 @@ void volume_create_extents_tree(volume* vol)
     }
   fail:
     vol->extents = NULL;    
-}
-
-/* accessor for entends btree, is created on demand */
-/* inline */ btree* volume_get_extents_tree(volume* vol) 
-{
-    if (!vol->extents)
-	volume_create_extents_tree(vol);
-    return vol->extents;
 }
 
 /* return new Id for files/folder and check for overflow.

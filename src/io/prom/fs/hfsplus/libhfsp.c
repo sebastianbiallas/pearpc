@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: libhfsp.c,v 1.2 2004/05/11 16:11:12 steveman Exp $
+ * $Id: libhfsp.c,v 1.3 2004/10/31 20:18:09 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -31,14 +31,3 @@
 # include "libhfsp.h"
 
 const char *hfsp_error = "no error";       /* static error string */   
-
-/** helper function to create those Apple 4 byte Signatures */
-UInt32 sig(char c0, char c1, char c2, char c3)
-{
-    UInt32 sig;
-    ((char*)&sig)[0] = c0;
-    ((char*)&sig)[1] = c1;
-    ((char*)&sig)[2] = c2;
-    ((char*)&sig)[3] = c3;
-    return sig;
-}

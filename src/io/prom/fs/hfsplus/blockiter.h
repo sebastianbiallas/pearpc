@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: blockiter.h,v 1.1 2004/05/05 22:45:50 seppel Exp $
+ * $Id: blockiter.h,v 1.2 2004/10/31 20:18:09 seppel Exp $
  */
 
 /*  Structure of the blockiterator */
@@ -52,7 +52,7 @@ extern int blockiter_next(blockiter *b);
 extern int blockiter_skip(blockiter *b, UInt32 skip);
 
 /* return current block */
-extern inline UInt32 blockiter_curr(blockiter *b)
+static inline UInt32 blockiter_curr(blockiter *b)
 {
     return b->e->start_block + b->block;
 }

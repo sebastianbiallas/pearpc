@@ -21,7 +21,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: blockiter.c,v 1.1 2004/05/05 22:45:50 seppel Exp $
+ * $Id: blockiter.c,v 1.2 2004/10/31 20:18:09 seppel Exp $
  */
 
 # ifdef HAVE_CONFIG_H
@@ -143,8 +143,3 @@ int blockiter_skip(blockiter *b, UInt32 skip)
     return -1;
 }
 
-/* return current block */
-UInt32 blockiter_curr(blockiter *b) /* inline */
-{
-    return b->e->start_block + b->block;
-}

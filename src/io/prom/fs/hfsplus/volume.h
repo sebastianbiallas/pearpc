@@ -18,7 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: volume.h,v 1.1 2004/05/05 22:46:03 seppel Exp $
+ * $Id: volume.h,v 1.2 2004/10/31 20:18:09 seppel Exp $
  */
 
 /* Open the device, read and verify the volume header
@@ -75,7 +75,7 @@ void volume_initfork(volume* vol, hfsp_fork_raw* f, UInt16 fork_type);
 extern void volume_create_extents_tree(volume* vol);
 
 /* accessor for entends btree, is created on demand */
-extern inline btree* volume_get_extents_tree(volume* vol) 
+static inline btree* volume_get_extents_tree(volume* vol) 
 {
     if (!vol->extents)
 	volume_create_extents_tree(vol);
