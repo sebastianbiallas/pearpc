@@ -176,34 +176,16 @@ static bool handleSDLEvent(const SDL_Event &event)
 		exit(0);
 		return true;
 	case SDL_KEYUP:
-		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.scancode];
+		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.sym];
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = false;
-		ev.key.chr = event.key.keysym.unicode;
 		return gKeyboard->handleEvent(ev);
 	case SDL_KEYDOWN:
-		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.scancode];
-//		if (event.key.keysym.mod & KMOD_SHIFT){
-/*			if (event.key.keysym.sym == SDLK_F9) {
-				if(SDL_WM_GrabInput(SDL_GRAB_QUERY) == SDL_GRAB_OFF) {
-					SDL_WM_GrabInput(SDL_GRAB_ON);
-					DPRINTF("Grab on!\n");
-					break;;
-				}
-				SDL_WM_GrabInput(SDL_GRAB_OFF);
-				DPRINTF("Grab off!\n");
-				break;
-			}*/
-//			if (event.key.keysym.sym == SDLK_F12) 
-//				ToggleFullScreen();
-//		}
-//		if(event.key.keysym.sym == SDLK_F1) { changeCDFunc(); }                                
+		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.sym];
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = true;
-		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.scancode];
-		ev.key.chr = event.key.keysym.unicode;
 		return gKeyboard->handleEvent(ev);
 	case SDL_MOUSEBUTTONDOWN:
 		ev.type = sysevMouse;

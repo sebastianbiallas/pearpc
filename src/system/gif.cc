@@ -250,4 +250,6 @@ void Gif::draw(SystemDisplay *display, int x, int y)
 		ht_printf("unknown bytes per pixel in gif.cc\n");
 		exit(1);
 	}
+	damageFrameBuffer(y * display->mClientChar.width*2 + x*2);
+	damageFrameBuffer((y+mHeight) * display->mClientChar.width*2 + (x+mWidth) * 2);
 }
