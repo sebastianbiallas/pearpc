@@ -367,7 +367,7 @@ bool waitforchar(const char *&str, char b)
 	return true;
 }
 
-static bool bnstr2bin(uint64 &u64, const char *&str, int base)
+static bool bnstr2int(const char *&str, uint64 &u64, int base)
 {
 	u64 = 0;
 	uint64 ubase = base;
@@ -390,11 +390,10 @@ bool parseIntStr(const char *&str, uint64 &u64, int defaultbase)
 		str += 2;
 		base = 16;
 	}
-	return bnstr2bin(u64, str, base);
+	return bnstr2int(str, u64, base);
 }
 
 /* hex/string functions */
-
 int hexdigit(char a)
 {
 	if ((a>='0') && (a<='9')) {
