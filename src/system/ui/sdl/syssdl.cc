@@ -40,7 +40,7 @@
 SDL_Surface *	gSDLScreen;
 static bool	gSDLVideoExposePending = false;
 
-static uint8 sdl_key_to_adb_key[256];
+static uint8 sdl_key_to_adb_key[512];
 
 static struct {
 	SDLKey sdlkey;
@@ -150,7 +150,7 @@ static void createSDLToADBKeytable()
 {
 	memset(sdl_key_to_adb_key, 0xff, sizeof sdl_key_to_adb_key);
 	for (uint i=0; i < (sizeof sdladbkeys / sizeof sdladbkeys[0]); i++) {
-		if (sdladbkeys[i].sdlkey > 256) {
+		if (sdladbkeys[i].sdlkey > sizeof sdl_key_to_adb_key) {
 			ht_printf("%d > 256 for key %d\n", sdladbkeys[i].sdlkey, sdladbkeys[i].adbkey);
 		}
 		sdl_key_to_adb_key[sdladbkeys[i].sdlkey] = sdladbkeys[i].adbkey;
