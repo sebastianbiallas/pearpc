@@ -949,6 +949,17 @@ static void ppc_opc_gen_ternary_floatop(X86FloatArithOp op, X86FloatArithOp rop,
 
 #define JITC
  
+static void FASTCALL ppc_opc_gen_update_cr1_output_err(const char *err)
+{
+	PPC_FPU_ERR("%s\n", err);
+}
+
+static void ppc_opc_gen_update_cr1(const char *err)
+{
+	asmALURegImm(X86_MOV, EAX, (uint32)err);
+	asmCALL((NativeAddress)ppc_opc_gen_update_cr1_output_err);
+}
+
 /*
  *	fabsx		Floating Absolute Value
  *	.484
@@ -989,7 +1000,7 @@ JITCFlow ppc_opc_gen_fabsx()
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fabs.\n");
+		ppc_opc_gen_update_cr1("fabs.\n");
 	}	
 	return flowContinue;
 }
@@ -1024,7 +1035,7 @@ JITCFlow ppc_opc_gen_faddx()
 	ppc_opc_gen_binary_floatop(X86_FADD, X86_FADD, frD, frA, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fadd.\n");
+		ppc_opc_gen_update_cr1("fadd.\n");
 	}
 	return flowContinue;
 #else
@@ -1173,7 +1184,7 @@ JITCFlow ppc_opc_gen_fctiwx()
 	
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fctiw.\n");
+		ppc_opc_gen_update_cr1("fctiw.\n");
 	}
 	return flowContinue;
 }
@@ -1231,7 +1242,7 @@ JITCFlow ppc_opc_gen_fctiwzx()
 	
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fctiwz.\n");
+		ppc_opc_gen_update_cr1("fctiwz.\n");
 	}
 	return flowContinue;
 }
@@ -1276,7 +1287,7 @@ JITCFlow ppc_opc_gen_fdivx()
 	ppc_opc_gen_binary_floatop(X86_FDIV, X86_FDIVR, frD, frA, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fdiv.\n");
+		ppc_opc_gen_update_cr1("fdiv.\n");
 	}
 	return flowContinue;
 #endif
@@ -1341,7 +1352,7 @@ JITCFlow ppc_opc_gen_fmaddx()
 	ppc_opc_gen_ternary_floatop(X86_FADD, X86_FADD, false, frD, frA, frC, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fmadd.\n");
+		ppc_opc_gen_update_cr1("fmadd.\n");
 	}
 	return flowContinue;
 }
@@ -1414,7 +1425,7 @@ JITCFlow ppc_opc_gen_fmrx()
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fabs.\n");
+		ppc_opc_gen_update_cr1("fabs.\n");
 	}	
 	return flowContinue;
 }
@@ -1445,7 +1456,7 @@ JITCFlow ppc_opc_gen_fmsubx()
 	ppc_opc_gen_ternary_floatop(X86_FSUB, X86_FSUBR, false, frD, frA, frC, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fmsub.\n");
+		ppc_opc_gen_update_cr1("fmsub.\n");
 	}
 	return flowContinue;
 }
@@ -1492,7 +1503,6 @@ void ppc_opc_fmulx()
 	}
 	ppc_fpu_mul(D, A, C);
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
-//	*((double*)&gCPU.fpr[frD]) = *((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])));
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmul.\n");
@@ -1507,7 +1517,7 @@ JITCFlow ppc_opc_gen_fmulx()
 	ppc_opc_gen_binary_floatop(X86_FMUL, X86_FMUL, frD, frA, frC);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fmul.\n");
+		ppc_opc_gen_update_cr1("fmul.\n");
 	}
 	return flowContinue;
 #else
@@ -1584,7 +1594,7 @@ JITCFlow ppc_opc_gen_fnabsx()
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fnabs.\n");
+		ppc_opc_gen_update_cr1("fnabs.\n");
 	}	
 	return flowContinue;
 }
@@ -1628,7 +1638,7 @@ JITCFlow ppc_opc_gen_fnegx()
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fneg.\n");
+		ppc_opc_gen_update_cr1("fneg.\n");
 	}	
 	return flowContinue;
 }
@@ -1659,7 +1669,7 @@ JITCFlow ppc_opc_gen_fnmaddx()
 	ppc_opc_gen_ternary_floatop(X86_FADD, X86_FADD, true, frD, frA, frC, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fnmadd.\n");
+		ppc_opc_gen_update_cr1("fnmadd.\n");
 	}
 	return flowContinue;
 }
@@ -1716,7 +1726,7 @@ JITCFlow ppc_opc_gen_fnmsubx()
 	ppc_opc_gen_ternary_floatop(X86_FSUBR, X86_FSUB, false, frD, frA, frC, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fnmsub.\n");
+		ppc_opc_gen_update_cr1("fnmsub.\n");
 	}
 	return flowContinue;
 }
@@ -1826,7 +1836,7 @@ JITCFlow ppc_opc_gen_frsqrtex()
 	gJITC.nativeFloatTOP--;
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("frsqrte.\n");
+		ppc_opc_gen_update_cr1("frsqrte.\n");
 	}
 	return flowContinue;
 }
@@ -1882,7 +1892,7 @@ JITCFlow ppc_opc_gen_fsqrtx()
 	ppc_opc_gen_unary_floatop(FSQRT, frD, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fsqrt.\n");
+		ppc_opc_gen_update_cr1("fsqrt.\n");
 	}
 	return flowContinue;
 }
@@ -1940,7 +1950,7 @@ JITCFlow ppc_opc_gen_fsubx()
 	ppc_opc_gen_binary_floatop(X86_FSUB, X86_FSUBR, frD, frA, frB);
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
-		PPC_FPU_ERR("fsub.\n");
+		ppc_opc_gen_update_cr1("fsub.\n");
 	}
 	return flowContinue;
 #else

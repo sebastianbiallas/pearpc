@@ -57,12 +57,20 @@ void x86GetCaps(X86CPUCaps &caps)
 	ppc_cpuid_asm(1, &id2);
 	caps.cmov = id2.features & (1<<15);
 	caps.mmx = id2.features & (1<<23);
-	caps._3dnow = id2.features & (1<<31);
-	caps._3dnow2 = id2.features & (1<<30);
 	caps.sse = id2.features & (1<<25);
 	caps.sse2 = id2.features & (1<<26);
 	caps.sse3 = id2.features2 & (1<<0);
-
+	
+	ppc_cpuid_asm(0x80000000, &id);
+	if (id.level >= 0x80000001) {
+		// processor supports extended functions
+		// now test for 3dnow
+		ppc_cpuid_asm(0x80000001, &id2);
+		
+		caps._3dnow = id2.features & (1<<31);
+		caps._3dnow2 = id2.features & (1<<30);
+	}
+	
 	ht_printf("%s%s%s%s%s%s%s\n",
 		caps.cmov?" CMOV":"",
 		caps.mmx?" MMX":"",
