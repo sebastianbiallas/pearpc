@@ -62,7 +62,7 @@ NASM_OPTS="-f elf"
 
 case "$target_os" in
 linux*) 
-	SYSTEM_DIR=posix
+	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="x11"
 	fi	
@@ -70,7 +70,7 @@ linux*)
 	PPC_LDADD="$PPC_LDADD -lpthread -lrt"
 ;;
 *freebsd*) 
-	SYSTEM_DIR=posix
+	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="x11"
 	fi	
@@ -78,7 +78,7 @@ linux*)
 	PPC_LDFLAGS="$PPC_LDFLAGS -pthread"
 ;;
 cygwin*)
-	SYSTEM_DIR=win32
+	OSAPI_DIR=win32
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="win32"
 	fi	
@@ -89,7 +89,7 @@ cygwin*)
 	NASM_OPTS="--prefix _ -f gnuwin32"
 ;;
 mingw32*)
-        SYSTEM_DIR=win32
+        OSAPI_DIR=win32
         if test "x$enable_ui" = "xno"; then
 		enable_ui="win32"
 	fi
@@ -98,14 +98,14 @@ mingw32*)
         NASM_OPTS="--prefix _ -f win32"
 ;;
 darwin*)
-	SYSTEM_DIR=posix
+	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="x11"
 	fi
 	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
 ;;
 beos*)
-	SYSTEM_DIR=beos
+	OSAPI_DIR=beos
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="beos"
 	fi
@@ -116,7 +116,7 @@ beos*)
 ;;
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
-	SYSTEM_DIR=posix
+	OSAPI_DIR=posix
 	AC_MSG_WARN([*** assuming POSIX OS, we need pthread])
 	PPC_LDADD="$PPC_LDADD -lpthread"
 ;;	
@@ -150,18 +150,18 @@ i?86*)
 ;;
 esac
 
-AC_DEFINE_UNQUOTED(SYSTEM_SPECIFIC_TYPES_HDR, "system/$SYSTEM_DIR/types.h", [Location of system/$SYSTEM_DIR/types.h])
+AC_DEFINE_UNQUOTED(SYSTEM_OSAPI_SPECIFIC_TYPES_HDR, "system/osapi/$OSAPI_DIR/types.h", [Location of system/osapi/$OSAPI_DIR/types.h])
 AC_DEFINE_UNQUOTED(SYSTEM_ARCH_SPECIFIC_SYSFEATURES_HDR, "system/arch/$ARCH_DIR/sysfeatures.h", [Location of system/arch/$ARCH_DIR/sysfeatures.h])
-
-AM_CONDITIONAL(USE_CPU_GENERIC, test x$CPU_DIR = xcpu_generic)
-AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
 
 PPC_CFLAGS="$PPC_CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -pipe";
 PPC_CXXFLAGS="$PPC_CXXFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -pipe";
 
-AM_CONDITIONAL(USE_SYSTEM_BEOS, test x$SYSTEM_DIR = xbeos)
-AM_CONDITIONAL(USE_SYSTEM_POSIX, test x$SYSTEM_DIR = xposix)
-AM_CONDITIONAL(USE_SYSTEM_WIN32, test x$SYSTEM_DIR = xwin32)
+AM_CONDITIONAL(USE_OSAPI_BEOS, test x$OSAPI_DIR = xbeos)
+AM_CONDITIONAL(USE_OSAPI_POSIX, test x$OSAPI_DIR = xposix)
+AM_CONDITIONAL(USE_OSAPI_WIN32, test x$OSAPI_DIR = xwin32)
+
+AM_CONDITIONAL(USE_CPU_GENERIC, test x$CPU_DIR = xcpu_generic)
+AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
 
 dnl Checks for programs.
 AC_PROG_RANLIB
@@ -426,7 +426,7 @@ dnl Makefile vars.
 AC_SUBST(ARCH_DIR)
 AC_SUBST(CPU_DIR)
 AC_SUBST(UI_DIR)
-AC_SUBST(SYSTEM_DIR)
+AC_SUBST(OSAPI_DIR)
 AC_SUBST(NASM_OPTS)
 AC_SUBST(CFLAGS)
 AC_SUBST(CXXFLAGS)
@@ -454,16 +454,16 @@ src/cpu_jitc_x86/Makefile
 src/debug/Makefile
 src/io/Makefile
 src/io/3c90x/Makefile
-src/io/rtl8139/Makefile
-src/io/graphic/Makefile
 src/io/ide/Makefile
+src/io/graphic/Makefile
+src/io/rtl8139/Makefile
 src/io/prom/Makefile
 src/io/prom/fs/Makefile
 src/io/prom/fs/hfs/Makefile
 src/io/prom/fs/hfsplus/Makefile
-src/io/pic/Makefile
-src/io/pci/Makefile
 src/io/cuda/Makefile
+src/io/pci/Makefile
+src/io/pic/Makefile
 src/io/macio/Makefile
 src/io/nvram/Makefile
 src/io/usb/Makefile
@@ -471,28 +471,30 @@ src/system/Makefile
 src/system/arch/Makefile
 src/system/arch/x86/Makefile
 src/system/arch/generic/Makefile
+src/system/osapi/Makefile
+src/system/osapi/beos/Makefile
+src/system/osapi/posix/Makefile
+src/system/osapi/win32/Makefile
 src/system/ui/Makefile
-src/system/ui/qt/Makefile
-src/system/ui/gtk/Makefile
 src/system/ui/beos/Makefile
+src/system/ui/gtk/Makefile
+src/system/ui/qt/Makefile
 src/system/ui/sdl/Makefile
 src/system/ui/win32/Makefile
 src/system/ui/x11/Makefile
-src/system/beos/Makefile
-src/system/posix/Makefile
-src/system/win32/Makefile
 src/tools/Makefile
 ])
 
 AC_MSG_RESULT([])
 AC_MSG_RESULT([$0 successful.])
 AC_MSG_RESULT([])
-AC_MSG_RESULT([=====================])
-AC_MSG_RESULT([Configuration summary])
-AC_MSG_RESULT([=====================])
+AC_MSG_RESULT([=========================])
+AC_MSG_RESULT([  Configuration summary])
+AC_MSG_RESULT([=========================])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([cpu emulation method:                $CPU_DIR])
 AC_MSG_RESULT([compiled for architecture:           $ARCH_DIR])
+AC_MSG_RESULT([compiled for OS-API:                 $OSAPI_DIR])
 AC_MSG_RESULT([compiled for UI system:              $UI_DIR])
 AC_MSG_RESULT([enable debug:                        $enable_debug])
 AC_MSG_RESULT([enable profiling:                    $enable_profiling])
@@ -502,4 +504,4 @@ AC_MSG_RESULT([final C compiler flags:              $PPC_CFLAGS])
 AC_MSG_RESULT([final C++ compiler flags:            $PPC_CXXFLAGS])
 AC_MSG_RESULT([final linker flags:                  $PPC_LDFLAGS])
 AC_MSG_RESULT([final linker add:                    $PPC_LDADD])
-AC_MSG_RESULT([=====================])
+AC_MSG_RESULT([================================================================================])
