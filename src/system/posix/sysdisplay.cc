@@ -108,10 +108,14 @@ static int mResetMouseX, mResetMouseY;
 static int mHomeMouseX, mHomeMouseY;
 static bool mMouseButton[3];
 static bool mMouseEnabled;
+static bool mVisible;
+static bool mMapped;
 static char *mTitle;
 static char mCurTitle[200];
 static byte *mouseData;
 static byte *menuData;
+
+
 class X11SystemDisplay: public SystemDisplay
 {
 	sys_thread redrawthread;
@@ -172,6 +176,9 @@ public:
 		mHomeMouseX = mClientChar.width / 2;
 		mHomeMouseY = mClientChar.height / 2;
 
+		mMapped = true;
+		mVisible = true;
+		
 		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
 		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
 
@@ -230,7 +237,8 @@ public:
 		XSelectInput(gXDisplay, gXWindow, 
 			ExposureMask | KeyPressMask | KeyReleaseMask 
 			| ButtonPressMask | ButtonReleaseMask | PointerMotionMask
-			| EnterWindowMask | LeaveWindowMask);
+			| EnterWindowMask | LeaveWindowMask | StructureNotifyMask
+			| VisibilityChangeMask);
 
 		XGCValues values;
 		gWhiteGC = XCreateGC(gXDisplay, gXWindow, 0, &values);
@@ -391,7 +399,8 @@ public:
 			XWindowEvent(gXDisplay, gXWindow, 
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
 			| ButtonReleaseMask | PointerMotionMask
-			| EnterWindowMask | LeaveWindowMask, &event);
+			| EnterWindowMask | LeaveWindowMask | StructureNotifyMask
+			| VisibilityChangeMask, &event);
 			sys_unlock_mutex(mutex);
 			switch (event.type) {
 			case GraphicsExpose:
@@ -425,6 +434,15 @@ public:
 				ev.keyEvent.chr = buffer[0];
 				sys_unlock_mutex(mutex);
 				return;
+			case MapNotify:
+				mMapped = true;
+				break;
+			case UnmapNotify:
+				mMapped = false;
+				break;
+			case VisibilityNotify:
+				mVisible = (event.xvisibility.state != VisibilityFullyObscured);
+				break;
 			}
 		}
 	}
@@ -447,7 +465,8 @@ public:
 		while (XCheckWindowEvent(gXDisplay, gXWindow, 
 			KeyPressMask | KeyReleaseMask | ExposureMask | ButtonPressMask 
 			| ButtonReleaseMask | PointerMotionMask 
-			| EnterWindowMask | LeaveWindowMask, &event)) {
+			| EnterWindowMask | LeaveWindowMask  | StructureNotifyMask
+			| VisibilityChangeMask, &event)) {
 
 			switch (event.type) {
 			case Expose: 
@@ -557,6 +576,15 @@ public:
 				break;
 			case LeaveNotify:
 				mLastMouseX = mCurMouseX = mLastMouseY = mCurMouseY = -1;
+				break;
+			case MapNotify:
+				mMapped = true;
+				break;
+			case UnmapNotify:
+				mMapped = false;
+				break;
+			case VisibilityNotify:
+				mVisible = (event.xvisibility.state != VisibilityFullyObscured);
 				break;
 			}
 		}
@@ -676,11 +704,20 @@ public:
 	static void *redrawThread(void *p)
 	{
 		int msec = *((int *)p);
+		
 		while (1) {
 			timespec ts;
 			ts.tv_sec = 0;
 			ts.tv_nsec = msec*1000*1000;
-			gDisplay->displayShow();
+			
+			// Safe not to lock for this test, if we catch the 
+			// values mid-update, we'll just reevaluate them the
+			// next time through the loop
+			if (mMapped && mVisible)
+			{
+				gDisplay->displayShow();
+			}
+			
 			nanosleep(&ts, NULL);
 		}
 		return NULL;
