@@ -27,6 +27,8 @@ version 0.2 (in progress):
 		- autoconf-2.13 endianess detection work-around
 		- now using -Wundef and -Woverloaded-virtual compiler switches
 	- networking code abstraction (win32,darwin untested, send patches)
+	- preliminary man-page added
+	- fdisk and single partition images support by Anders F.Bjoerklund
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

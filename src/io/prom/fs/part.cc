@@ -196,6 +196,18 @@ PartitionEntry *PartitionMap::addPartition(int partnum, const char *name, const 
 	return e;
 }
 
+/***/
+struct FDiskInstantiateBootFilePrivData {
+	FileOfs mStart;
+	FileOfs mLen;
+};
+
+static File *FDiskInstantiateBootFile(File *aDevice, void *priv)
+{
+	FDiskInstantiateBootFilePrivData *p = (FDiskInstantiateBootFilePrivData*)priv;
+	return new CroppedFile(aDevice, true, p->mStart, p->mLen);
+}
+
 /*
  *
  */
@@ -210,31 +222,94 @@ PartitionMapFDisk::PartitionMapFDisk(File *aDevice, uint aDeviceBlocksize)
 	aDevice->seek(0);
 	if (aDevice->read(buffer, blocksize) != blocksize) throw new Exception();
 
+	IO_PROM_FS_TRACE("# boot head sect cyl. type head sect cyl. start size\n"); 
+//	IO_PROM_FS_TRACE("1  12   12   12   12   12   12   12   12  1234  1234\n"); 
+
 	for (int partition = 1; partition <= 4; partition++, fdisk_part++) {
 		createHostStructx(fdisk_part, sizeof *fdisk_part, FDiskPartition_struct, little_endian);
-		
+
+		IO_PROM_FS_TRACE("%d  %02x   %02x   %02x   %02x   %02x   %02x   %02x   %02x  %04lx  %04lx\n",
+			partition,
+			fdisk_part->boot_ind,
+			fdisk_part->head, fdisk_part->sector, fdisk_part->cyl,
+			fdisk_part->sys_ind,
+			fdisk_part->end_head, fdisk_part->end_sector, fdisk_part->end_cyl,
+			fdisk_part->start, fdisk_part->size);
+			
 		// FIXME: add extended partition support here
-		
+	
 		char *type;
 		switch (fdisk_part->sys_ind) {
+		
+		case 0x00:
+			type = NULL;
+			break;
+		case LINUX_PARTITION:
 		case LINUX_NATIVE:
 			type = "Linux";
 			break;
+		case LINUX_SWAP:
+			type = "swap";
+			break;
 		default:
+			IO_PROM_FS_TRACE("Found unknown partition type: %02x\n",fdisk_part->sys_ind);
 			type = "unknown";
 			break;
 		}
 		
 		char name[20];
 		ht_snprintf(name, sizeof name, "partition %d", partition);
-		
-		addPartition(partition, name, type, 
-			fdisk_part->start * blocksize, 
-			fdisk_part->size * blocksize);
+
+		if (type != NULL) {
+			PartitionEntry *partEnt = addPartition(partition, name, type, 
+				fdisk_part->start * blocksize, 
+				fdisk_part->size * blocksize);
+
+			if (fdisk_part->boot_ind & ACTIVE_FLAG)
+			{
+				partEnt->mBootMethod = BM_chrp;
+				
+				FDiskInstantiateBootFilePrivData *priv =
+					(FDiskInstantiateBootFilePrivData*)
+					malloc(sizeof (FDiskInstantiateBootFilePrivData));
+				priv->mStart = fdisk_part->start * blocksize;
+				priv->mLen = fdisk_part->size * blocksize;
+
+				partEnt->mInstantiateBootFile = FDiskInstantiateBootFile;
+				partEnt->mInstantiateBootFilePrivData = priv;
+				partEnt->mInstantiateFileSystem = NULL;
+			}
+		}
 	}
 }
 
 void PartitionMapFDisk::getType(String &result)
+{
+	result = "fdisk";
+}
+
+PartitionMapFDiskSingle::PartitionMapFDiskSingle(File *aDevice, uint aDeviceBlocksize, const char *type)
+	:PartitionMap(aDevice, aDeviceBlocksize)
+{
+	uint64 offset = 0;
+	uint64 length = aDevice->getSize();
+
+	PartitionEntry *partEnt = addPartition(1, "unknown", type, offset, length);
+
+	FDiskInstantiateBootFilePrivData *priv =
+		(FDiskInstantiateBootFilePrivData*)
+		malloc(sizeof (FDiskInstantiateBootFilePrivData));
+	priv->mStart = offset;
+	priv->mLen = length;
+
+	partEnt->mBootMethod = BM_chrp;
+	partEnt->mInstantiateBootFile = FDiskInstantiateBootFile;
+	partEnt->mInstantiateBootFilePrivData = priv;
+	partEnt->mInstantiateFileSystem = NULL;
+
+}
+
+void PartitionMapFDiskSingle::getType(String &result)
 {
 	result = "fdisk";
 }
@@ -326,19 +401,43 @@ void PartitionMapApple::getType(String &result)
 	result = "apple";
 }
 
+PartitionMapAppleSingle::PartitionMapAppleSingle(File *aDevice, uint aDeviceBlocksize, const char *type)
+	:PartitionMap(aDevice, aDeviceBlocksize)
+{
+	uint64 offset = 0;
+	uint64 length = aDevice->getSize();
+
+	PartitionEntry *partEnt = addPartition(1, "unknown", type, offset, length);
+
+	if (tryBootHFS(aDevice, aDeviceBlocksize, offset, partEnt))
+		;
+	else if (tryBootHFSPlus(aDevice, aDeviceBlocksize, offset, partEnt))
+		;
+}
+
+void PartitionMapAppleSingle::getType(String &result)
+{
+	result = "apple";
+}
+
 /*
  *
  */
 PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 {
 	byte buffer[IDE_MAX_BLOCK_SIZE];
+	byte signature[2];
 	uint blocksize = aDeviceBlocksize;
 	if (blocksize <= 1) blocksize = 512;
 	aDevice->seek(0);
 	if (aDevice->read(buffer, blocksize) != blocksize) {
+		IO_PROM_FS_TRACE("device read failed while probing partitions\n");
 		return new PartitionMap(aDevice, aDeviceBlocksize);
 	}
+	// look for partition maps
 	if (blocksize >= 2 && buffer[0] == 0x45 && buffer[1] == 0x52) {
+		IO_PROM_FS_TRACE("this looks like a Apple partition map to me...\n");
+	
 		try {
 			return new PartitionMapApple(aDevice, aDeviceBlocksize);
 		} catch (Exception *e) {
@@ -348,6 +447,8 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 		}
 	}
 	if (blocksize >= 512 && buffer[510] == 0x55 && buffer[511] == 0xaa) {
+		IO_PROM_FS_TRACE("this looks like a FDisk partition map to me...\n");
+	
 		try {
 			return new PartitionMapFDisk(aDevice, aDeviceBlocksize);
 		} catch (Exception *e) {
@@ -356,5 +457,47 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 			delete e;
 		}
 	}
+	// look for raw partitions
+	aDevice->seek(0x400);
+	if (aDevice->read(signature, 2) == 2) {
+		if (signature[0] == 0x42 && signature[1] == 0x44) {
+			IO_PROM_FS_TRACE("this looks like a single HFS partition to me...\n");
+	
+			try {
+			return new PartitionMapAppleSingle(aDevice, aDeviceBlocksize, "Apple_HFS");
+			} catch (Exception *e) {
+				String s;
+				IO_PROM_FS_TRACE("exception probing HFS partition: %y\n", &e->reason(s));
+				delete e;
+			}
+		}
+		if (signature[0] == 0x48 && (signature[1] == 0x2b || signature[2] == 0x58)) {
+			IO_PROM_FS_TRACE("this looks like a single HFS+ partition to me...\n");
+
+			try {
+			return new PartitionMapAppleSingle(aDevice, aDeviceBlocksize, "Apple_HFS");
+			} catch (Exception *e) {
+				String s;
+				IO_PROM_FS_TRACE("exception probing HFS+ partition: %y\n", &e->reason(s));
+				delete e;
+			}
+		}
+	}
+	aDevice->seek(0x438);
+	if (aDevice->read(signature, 2) == 2) {
+		if (signature[0] == 0x53 && signature[1] == 0xef) {
+			IO_PROM_FS_TRACE("this looks like a single ext2 partition to me...\n");
+	
+			try {
+			return new PartitionMapFDiskSingle(aDevice, aDeviceBlocksize, "ext2");
+			} catch (Exception *e) {
+				String s;
+				IO_PROM_FS_TRACE("exception probing ext2 partition: %y\n", &e->reason(s));
+				delete e;
+			}
+		}
+	}
+	
+	IO_PROM_FS_TRACE("probe found no partitions in %d bytes block\n",blocksize);
 	return new PartitionMap(aDevice, aDeviceBlocksize);
 }

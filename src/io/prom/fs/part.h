@@ -77,9 +77,21 @@ public:
 	virtual void	getType(String &result);
 };
 
+class PartitionMapFDiskSingle: public PartitionMap {
+public:
+			PartitionMapFDiskSingle(File *aDevice, uint aDeviceBlocksize, const char *type);
+	virtual void	getType(String &result);
+};
+
 class PartitionMapApple: public PartitionMap {
 public:
 			PartitionMapApple(File *aDevice, uint aDeviceBlocksize);
+	virtual void	getType(String &result);
+};
+
+class PartitionMapAppleSingle: public PartitionMap {
+public:
+			PartitionMapAppleSingle(File *aDevice, uint aDeviceBlocksize, const char *type);
 	virtual void	getType(String &result);
 };
 
