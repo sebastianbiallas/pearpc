@@ -317,6 +317,11 @@ static bool handleSDLEvent(const SDL_Event &event)
 		if (event.active.state & SDL_APPACTIVE) {
 			gDisplay->setExposed(event.active.gain);
 		}
+		if (event.active.state & SDL_APPINPUTFOCUS) {
+			if (!event.active.gain) {
+				gDisplay->setMouseGrab(false);			
+			}
+		}
 		return true;
 	case SDL_QUIT:
 		gDisplay->setMouseGrab(false);
