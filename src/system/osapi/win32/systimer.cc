@@ -120,14 +120,15 @@ uint64 sys_get_hiresclk_ticks()
 	uint64 counter;
 	static uint64 lastCounter = 0;
 	static uint64 counterBase = 0;
+	// FIXME: make a mutex around here
 	QueryPerformanceCounter((_LARGE_INTEGER *)&counter);
 	if (counter < lastCounter) {
 		// overflow
-		// FIXME: we loose some ticks here every 47 days
 		counterBase += lastCounter;
 	}
 	lastCounter = counter;
-	return counter + counterBase;
+	return counter; // + counterBase;
+	// FIXME: mutex until here
 }
 
 uint64 sys_get_hiresclk_ticks_per_second()
