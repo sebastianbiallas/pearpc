@@ -701,12 +701,12 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		data = gCUDA.rDIRA;
 		return;
 	case T1CL:
-		IO_CUDA_WARN("T1CL->\n");
+		IO_CUDA_TRACE("T1CL->\n");
 		cuda_update_T1();
 		data = gCUDA.rT1CL;
 		return;
 	case T1CH: {
-		IO_CUDA_WARN("T1CH->\n");
+		IO_CUDA_TRACE("T1CH->\n");
 		cuda_update_T1();
 //		uint64 clk = sys_get_cpu_ticks();
 //		IO_CUDA_WARN("read %08x: T1 = %04x clk = %08qx, T1_end = %08qx\n",
