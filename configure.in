@@ -73,16 +73,6 @@ NASM_OPTS="-f elf"
 AC_PATH_X
 AC_PATH_XTRA
 
-dnl Check for required functions in -lX11
-AC_CHECK_LIB(X11, XOpenDisplay,
-       [
-       PPC_LDADD="$PPC_LDADD -lX11"
-       PPC_LDFLAGS="$PPC_LDFLAGS $X_LIBS"
-       ],
-       AC_MSG_ERROR([Could not find XOpenDisplay in -lX11.]),
-       $X_LIBS
-)
-
 dnl LIBS="$LIBS $X_EXTRA_LIBS"
 
 case "$target_os" in
@@ -90,11 +80,13 @@ linux*)
 	SYSTEM_DIR=posix
 	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread.])
 	PPC_LDADD="$PPC_LDADD -lpthread"
+	NEED_X11=yes
 ;;
 *freebsd*) 
 	SYSTEM_DIR=posix
 	AC_MSG_RESULT([*** FREEBSD, building native FreeBSD version. we need pthread.])
 	PPC_LDFLAGS="$PPC_LDFLAGS -pthread"
+	NEED_X11=yes
 ;;
 cygwin*)
 	SYSTEM_DIR=win32
@@ -109,6 +101,7 @@ cygwin*)
 	SYSTEM_DIR=posix
 	AC_MSG_WARN([*** assuming POSIX OS, we need pthread])
 	PPC_LDADD="$PPC_LDADD -lpthread"
+	NEED_X11=yes
 ;;	
 esac
 
@@ -157,7 +150,20 @@ if test "x$AR" = "x"; then
 	AC_MSG_ERROR([*** 'ar' and 'gar' missing, please install one of them or fix your \$PATH ***])
 fi
 
+dnl Check for required functions in -lX11
+if test "xNEED_X11" = "xyes"; then
+	AC_CHECK_LIB(X11, XOpenDisplay,
+	[
+		PPC_LDADD="$PPC_LDADD -lX11"
+		PPC_LDFLAGS="$PPC_LDFLAGS $X_LIBS"
+		],
+		AC_MSG_ERROR([Could not find XOpenDisplay in -lX11.]),
+		$X_LIBS
+	)
+fi
+
 dnl Checks for libraries.
+
 GUI_DIR="$enable_gui"
 case "$enable_gui" in
 nogui*)
