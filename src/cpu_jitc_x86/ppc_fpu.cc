@@ -29,6 +29,17 @@
 // .121
 #define PPC_FPR_TYPE2(a,b) (((a)<<8)|(b))
 
+const char *ppc_fpu_get_fpr_type(ppc_fpr_type t)
+{
+	switch (t) {
+	case ppc_fpr_norm: return "norm";
+	case ppc_fpr_zero: return "zero";
+	case ppc_fpr_NaN: return "NaN";
+	case ppc_fpr_Inf: return "Inf";
+	default: return "???";
+	}
+}
+
 inline void ppc_fpu_add(ppc_double &res, ppc_double &a, ppc_double &b)
 {
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
@@ -136,6 +147,11 @@ inline void ppc_fpu_add(ppc_double &res, ppc_double &a, ppc_double &b)
 
 inline void ppc_fpu_quadro_mshr(ppc_quadro &q, int exp)
 {
+	if (exp >= 64) {
+		q.m1 = q.m0;
+		q.m0 = 0;
+		exp -= 64;
+	}
 	uint64 t = q.m0 & ((1ULL<<exp)-1);
 	q.m0 >>= exp;
 	q.m1 >>= exp;
@@ -144,6 +160,11 @@ inline void ppc_fpu_quadro_mshr(ppc_quadro &q, int exp)
 
 inline void ppc_fpu_quadro_mshl(ppc_quadro &q, int exp)
 {
+	if (exp >= 64) {
+		q.m0 = q.m1;
+		q.m1 = 0;
+		exp -= 64;
+	}
 	uint64 t = (q.m1 >> (64-exp)) & ((1ULL<<exp)-1);
 	q.m0 <<= exp;
 	q.m1 <<= exp;
@@ -175,11 +196,11 @@ inline void ppc_fpu_sub_quadro_m(ppc_quadro &res, const ppc_quadro &a, const ppc
 // res has 107 significant bits. a, b have 106 significant bits each.
 inline void ppc_fpu_add_quadro(ppc_quadro &res, ppc_quadro &a, ppc_quadro &b)
 {
+	// treat as 107 bit mantissa
 	if (a.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(a, 1);
 	if (b.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(b, 1);
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
 	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_norm): {
-		// treat as 107 bit mantissa
 		// a.m = b.m = [107]
 		int diff = a.e - b.e;
 		if (diff < 0) {
@@ -250,11 +271,11 @@ inline void ppc_fpu_add_quadro(ppc_quadro &res, ppc_quadro &a, ppc_quadro &b)
 					ppc_fpu_sub_quadro_m(res, a, b);
 				}
 				diff = ppc_fpu_normalize_quadro(res) - (128-107);
-				int X_prime = res.m1&1;
-				res.m1 &= ~1;
+				int X_prime = res.m1 & 1;
+				res.m1 &= 0xfffffffffffffffeULL;
 				ppc_fpu_quadro_mshl(res, diff);
 				res.e -= diff;
-				res.m1 = (res.m1 & 0xfffffffffffffffeULL) | X_prime;
+				res.m1 |= X_prime;
 			}
 			// res = [107]
 		}
@@ -357,7 +378,7 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 		if (res.m & (1ULL << 57)) {
 			res.m >>= 2;
 			res.e += 2;
-		} if (res.m & (1ULL << 56)) {
+		} else if (res.m & (1ULL << 56)) {
 			res.m >>= 1;
 			res.e++;
 		}
@@ -396,7 +417,7 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 }
 
 // 'res' has 'prec' significant bits on return, a + b have 56 significant bits each
-// for 111 >= prec >= 0
+// for 111 >= prec >= 64
 inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, int prec)
 {
 	res.s = a.s ^ b.s;
@@ -405,13 +426,13 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 		res.type = ppc_fpr_norm;
 		res.e = a.e + b.e;
 //		printf("new exp: %d\n", res.e);
-//		ht_printf("MUL:\na.m: %qb\nb.m: %qb\n", &a.m, &b.m);
+//		ht_printf("MUL:\na.m: %016qx\nb.m: %016qx\n", &a.m, &b.m);
 		uint64 fH, fM1, fM2, fL;
 		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [63,64]
 		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [55,56]
 		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [55,56]
 		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [47,48]
-//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+//		ht_printf("fH: %016qx fM1: %016qx fM2: %016qx fL: %016qx\n", &fH, &fM1, &fM2, &fL);
 
 		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
 		uint64 rL, rH;
@@ -423,8 +444,6 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 		ppc_fpu_add_uint64_carry(rL, (split & 0xffffffff) << 32, carry); // rL = [63,64]
 		rH += carry;					// rH = [0 .. 2^48]
 		rH += split >> 32;				// rH = [0:48], where 46, 47 or 48 set
-		// res.m0 = [0   0  .. 0  | rH_48 rH_47 .. rH_0 | rL_63 rL_62 .. rL_55]
-		// log.bit   127  62 .. 58 | 57    56    .. 9    | 8     7        0
 
 		// res.m0 = [0    0   .. 0   | rH_48 rH_47 .. rH_0 | rL_63 rL_62 .. rL_0]
 		//          [-----------------------------------------------------------]
@@ -435,13 +454,15 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 		res.m1 = rL;
 		// res.m0|res.m1 = [111,112,113]
 
-//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+//		ht_printf("res = %016qx%016qx\n", &res.m0, &res.m1);
 		if (res.m0 & (1ULL << 48)) {
 			ppc_fpu_quadro_mshr(res, 2+(111-prec));
-			res.e += 2+(111-prec);
+			res.e += 2;
 		} else if (res.m0 & (1ULL << 47)) {
 			ppc_fpu_quadro_mshr(res, 1+(111-prec));
-			res.e += 1+(111-prec);
+			res.e += 1;
+		} else {
+			ppc_fpu_quadro_mshr(res, 111-prec);
 		}
 		// res.m0|res.m1 = [prec]
 		break;
@@ -477,17 +498,6 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 	}
 }
 
-const char *ppc_fpu_get_fpr_type(ppc_fpr_type t)
-{
-	switch (t) {
-	case ppc_fpr_norm: return "norm";
-	case ppc_fpr_zero: return "zero";
-	case ppc_fpr_NaN: return "NaN";
-	case ppc_fpr_Inf: return "Inf";
-	default: return "???";
-	}
-}
-
 // calculate one of these:
 // + m1 * m2 + s
 // + m1 * m2 - s
@@ -501,17 +511,17 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	ppc_double &s)
 {
 	ppc_quadro p;
-	ht_printf("m1 = %d * %016qx * 2^%d, %s\n", m1.s, &m1.m, m1.e,
+/*	ht_printf("m1 = %d * %016qx * 2^%d, %s\n", m1.s, &m1.m, m1.e,
 		ppc_fpu_get_fpr_type(m1.type));
 	ht_printf("m2 = %d * %016qx * 2^%d, %s\n", m2.s, &m2.m, m2.e,
-		ppc_fpu_get_fpr_type(m2.type));
+		ppc_fpu_get_fpr_type(m2.type));*/
 	// create product with 106 significant bits
 	ppc_fpu_mul_quadro(p, m1, m2, 106);
-	ht_printf("m1*m2 = %d * %016qx%016qx * 2^%d, %s\n", p.s, &p.m0, &p.m1, p.e,
-		ppc_fpu_get_fpr_type(p.type));
+/*	ht_printf("p = %d * %016qx%016qx * 2^%d, %s\n", p.s, &p.m0, &p.m1, p.e,
+		ppc_fpu_get_fpr_type(p.type));*/
 	// convert s into ppc_quadro
-	ht_printf("s = %d * %016qx * 2^%d %s\n", s.s, &s.m, s.e,
-		ppc_fpu_get_fpr_type(s.type));
+/*	ht_printf("s = %d * %016qx * 2^%d %s\n", s.s, &s.m, s.e,
+		ppc_fpu_get_fpr_type(s.type));*/
 	ppc_quadro q;
 	q.e = s.e;
 	q.s = s.s;
@@ -520,14 +530,14 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	q.m1 = s.m;
 	// .. with 106 significant bits
 	ppc_fpu_quadro_mshl(q, 106-56);
-	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, &q.m0, &q.m1, q.e,
-		ppc_fpu_get_fpr_type(q.type));
+/*	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, &q.m0, &q.m1, q.e,
+		ppc_fpu_get_fpr_type(q.type));*/
 	// now we must add p, q.
 	ppc_quadro x;
 	ppc_fpu_add_quadro(x, p, q);
 	// x = [107]
-	ht_printf("x = %d * %016qx%016qx * 2^%d %s\n", x.s, &x.m0, &x.m1, x.e,
-		ppc_fpu_get_fpr_type(x.type));
+/*	ht_printf("x = %d * %016qx%016qx * 2^%d %s\n", x.s, &x.m0, &x.m1, x.e,
+		ppc_fpu_get_fpr_type(x.type));*/
 	res.type = x.type;
 	res.s = x.s;
 	res.e = x.e;
@@ -536,8 +546,8 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 		res.m |= (x.m1 >> (64-12)) << 1;	// 12 bits from m1
 		res.m |= x.m1 & 1;			// X' bit from m1
 	}
-	ht_printf("res = %d * %016qx * 2^%d %s\n", res.s, &res.m, res.e,
-		ppc_fpu_get_fpr_type(res.type));
+/*	ht_printf("res = %d * %016qx * 2^%d %s\n", res.s, &res.m, res.e,
+		ppc_fpu_get_fpr_type(res.type));*/
 }
 
 inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
@@ -1000,7 +1010,7 @@ void ppc_opc_fmaddx()
 	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.000001 && fabs(d) > 0.000001) {
-		PPC_FPU_ERR("b0rken: fmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
+		PPC_FPU_WARN("b0rken: fmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
 	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
@@ -1097,7 +1107,7 @@ void ppc_opc_fmsubx()
 	double d = (*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))-(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.001 && fabs(d) > 0.000001) {
-		PPC_FPU_ERR("b0rken: fmsubx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
+		PPC_FPU_WARN("b0rken: fmsubx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
 	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
@@ -1304,7 +1314,7 @@ void ppc_opc_fnmaddx()
 	double d = -(*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))+(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.001 && fabs(d) > 0.000001) {
-		PPC_FPU_ERR("b0rken: fnmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
+		PPC_FPU_WARN("b0rken: fnmaddx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
 	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
@@ -1371,7 +1381,7 @@ void ppc_opc_fnmsubx()
 	double d = -(*((double*)(&gCPU.fpr[frA]))*(*((double*)(&gCPU.fpr[frC])))-(*((double*)(&gCPU.fpr[frB]))));
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (fabs(*((double*)(&gCPU.fpr[frD])) / d - 1.0) > 0.001 && fabs(d) > 0.000001) {
-		PPC_FPU_ERR("b0rken: fnmsubx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
+		PPC_FPU_WARN("b0rken: fnmsubx(%qx, %qx  %qx): got %qx, must be %qx", &a, &b, &c, &gCPU.fpr[frD], (uint64 *)&d);
 	}
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
