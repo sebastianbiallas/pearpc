@@ -488,9 +488,21 @@ void drive_ident()
 		id[49] = (1<<9)|(1<<8);  // LBA & DMA
 		id[51] = 0x200; // pio time
 		id[52] = 0x200; // dma time
+// from Linux kernel's hdreg.h:
+//	unsigned short	field_valid;	
+
+/* (word 53)
+ *  2:	ultra_ok	word  88
+ *  1:	eide_ok		words 64-70
+ *  0:	cur_ok		words 54-58
+ */
+
+// see also: static int config_drive_for_dma (ide_drive_t *drive) in ide-dma.c
+
 /*		id[53] = 0; // DMA Hack <----- (DMA on) ------------------------
 		id[53] = 2; // DMA Hack <----- (DMA off) -----------------------*/
 		id[53] = 2; // fieldValidity: Multi DMA fields valid
+
 		id[54] = gIDEState.config[gIDEState.drive].hd.cyl;
 		id[55] = gIDEState.config[gIDEState.drive].hd.heads;
 		id[56] = gIDEState.config[gIDEState.drive].hd.spt;
