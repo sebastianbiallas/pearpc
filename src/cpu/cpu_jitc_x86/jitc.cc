@@ -353,10 +353,11 @@ extern uint64 gJITCRunTicksStart;
 
 NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32 ofs)
 {
+/*
 	gJITCRunTicks += jitcDebugGetTicks() - gJITCRunTicksStart;
 	uint64 jitcCompileStartTicks = jitcDebugGetTicks();
+*/
 	jitcDebugLogAdd("=== jitcNewEntrypoint: %08x Beginning jitc ===\n", baseaddr+ofs);
-	
 	gJITC.currentPage = cp;
 	
 	jitcEmitAlign(gJITC.hostCPUCaps.loop_align);
@@ -408,8 +409,10 @@ NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32
 		}
 		gJITC.pc += 4;
 	}
+/*
 	gJITCRunTicksStart = jitcDebugGetTicks();
 	gJITCCompileTicks += jitcDebugGetTicks() - jitcCompileStartTicks;	
+*/
 	return entry;
 }
 
