@@ -182,6 +182,7 @@ void pic_raise_interrupt(int intr)
 		IO_PIC_TRACE("/signal int: %d\n", intr);
 	}
 	sys_unlock_mutex(PIC_mutex);
+	cpu_wakeup();
 }
 
 void pic_cancel_interrupt(int intr)

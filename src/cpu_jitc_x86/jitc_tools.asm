@@ -104,6 +104,7 @@ extern jitc_error_msr_unsupported_bits
 extern ppc_effective_to_physical_code
 extern pic_check_interrupt
 extern ppc_display_jitc_stats
+extern cpu_doze
 
 global ppc_isi_exception_asm, ppc_dsi_exception_asm
 global ppc_sc_exception_asm, ppc_no_fpu_exception_asm
@@ -364,7 +365,9 @@ ppc_set_msr_asm:
 	ret
 	
 .power:
-	;;call	doze
+	push	eax
+	call	cpu_doze
+	pop	eax
 	and	eax, ~(1<<18)
 	jmp	.power_back
 	

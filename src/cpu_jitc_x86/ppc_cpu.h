@@ -521,6 +521,8 @@ extern "C" void ppc_cpu_atomic_raise_dec_exception();
 extern "C" void ppc_cpu_atomic_raise_ext_exception();
 extern "C" void ppc_cpu_atomic_cancel_ext_exception();
 
+void cpu_wakeup();
+
 bool cpu_init();
 void cpu_init_config();
 

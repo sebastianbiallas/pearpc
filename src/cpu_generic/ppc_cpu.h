@@ -518,6 +518,7 @@ extern "C" void ppc_cpu_atomic_cancel_ext_exception();
 bool cpu_init();
 void cpu_init_config();
 
+void cpu_wakeup();
 
 #define SINGLESTEP(info...)	ppc_set_singlestep_v(true, __FILE__, __LINE__, info)
 extern uint32 gBreakpoint;

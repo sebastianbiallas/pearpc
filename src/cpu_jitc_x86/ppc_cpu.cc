@@ -70,10 +70,24 @@ uint64 ppc_get_cpu_timebase()
 }
 
 sys_timer gDECtimer;
+sys_semaphore gCPUDozeSem;
+
+extern "C" void cpu_doze()
+{
+	sys_lock_semaphore(gCPUDozeSem);
+	if (!gCPU.exception_pending) sys_wait_semaphore(gCPUDozeSem);	
+	sys_unlock_semaphore(gCPUDozeSem);
+}
+
+void cpu_wakeup()
+{
+	sys_signal_semaphore(gCPUDozeSem);	
+}
 
 static void decTimerCB(sys_timer t)
 {
 	ppc_cpu_atomic_raise_dec_exception();
+	cpu_wakeup();
 }
 
 void ppc_run()
@@ -105,6 +119,7 @@ void ppc_run()
 
 	ppc_start_jitc_asm(gCPU.pc);
 }
+
 
 void ppc_stop()
 {
@@ -143,6 +158,8 @@ bool cpu_init()
 	}
 	
 	gCPU.x87cw = 0x37f;
+
+	sys_create_semaphore(&gCPUDozeSem);
 
 	return jitc_init(2048, 16*1024*1024);
 }
