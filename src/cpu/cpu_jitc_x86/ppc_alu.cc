@@ -596,8 +596,37 @@ void ppc_opc_andcx()
 }
 JITCFlow ppc_opc_gen_andcx()
 {
-	ppc_opc_gen_interpret(ppc_opc_andcx);
-	return flowEndBlock;
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcClobberCarry();
+	} else {
+		jitcClobberCarryAndFlags();
+	}
+	if (rA == rS) {
+		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
+		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
+		NativeReg tmp = jitcAllocRegister();
+		asmALURegReg(X86_MOV, tmp, b);
+		asmALUReg(X86_NOT, tmp);
+		asmALURegReg(X86_AND, a, tmp);
+	} else if (rA == rB) {
+		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
+		NativeReg s = jitcGetClientRegister(PPC_GPR(rS));
+		asmALUReg(X86_NOT, a);
+		asmALURegReg(X86_AND, a, s);
+	} else {
+		NativeReg s = jitcGetClientRegister(PPC_GPR(rS));
+		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
+		NativeReg a = jitcMapClientRegisterDirty(PPC_GPR(rA));
+		asmALURegReg(X86_MOV, a, b);
+		asmALUReg(X86_NOT, a);
+		asmALURegReg(X86_AND, a, s);
+	}
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcMapFlagsDirty();
+	}
+	return flowContinue;
 }
 /*
  *	andi.		AND Immediate
@@ -1859,8 +1888,37 @@ void ppc_opc_orcx()
 }
 JITCFlow ppc_opc_gen_orcx()
 {
-	ppc_opc_gen_interpret(ppc_opc_orcx);
-	return flowEndBlock;
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcClobberCarry();
+	} else {
+		jitcClobberCarryAndFlags();
+	}
+	if (rA == rS) {
+		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
+		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
+		NativeReg tmp = jitcAllocRegister();
+		asmALURegReg(X86_MOV, tmp, b);
+		asmALUReg(X86_NOT, tmp);
+		asmALURegReg(X86_OR, a, tmp);
+	} else if (rA == rB) {
+		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
+		NativeReg s = jitcGetClientRegister(PPC_GPR(rS));
+		asmALUReg(X86_NOT, a);
+		asmALURegReg(X86_OR, a, s);
+	} else {
+		NativeReg s = jitcGetClientRegister(PPC_GPR(rS));
+		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
+		NativeReg a = jitcMapClientRegisterDirty(PPC_GPR(rA));
+		asmALURegReg(X86_MOV, a, b);
+		asmALUReg(X86_NOT, a);
+		asmALURegReg(X86_OR, a, s);
+	}
+	if (gJITC.current_opc & PPC_OPC_Rc) {
+		jitcMapFlagsDirty();
+	}
+	return flowContinue;
 }
 /*
  *	ori		OR Immediate
