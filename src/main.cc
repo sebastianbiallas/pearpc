@@ -233,6 +233,7 @@ int main(int argc, char *argv[])
 	try {
 		gConfig = new ConfigParser();
 		gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
+		gConfig->acceptConfigEntryIntDef("ppc_start_full_screen", 0);
 		gConfig->acceptConfigEntryIntDef("memory_size", 128*1024*1024);
 		gConfig->acceptConfigEntryIntDef("page_table_pa", 0x00300000);
 		gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 20);
@@ -309,7 +310,9 @@ int main(int argc, char *argv[])
 		
 		String chr;
 		DisplayCharacteristics gm;
+		bool fullscreen;
 		gConfig->getConfigString("ppc_start_resolution", chr);
+		fullscreen = gConfig->getConfigInt("ppc_start_full_screen");
 		if (!displayCharacteristicsFromString(gm, chr)) {
 			ht_printf("%s: invalid '%s'\n", argv[1], "ppc_start_resolution");
 			exit(1);
@@ -350,6 +353,7 @@ int main(int argc, char *argv[])
 		}
 
 		initUI(APPNAME" "APPVERSION, gm, msec, keyConfig);
+		if (fullscreen) gDisplay->setFullscreenMode(true);
 
 		io_init();
 

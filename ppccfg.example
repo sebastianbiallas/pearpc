@@ -17,11 +17,18 @@
 ppc_start_resolution = "800x600x15"
 
 ##
+## Set this to non-zero for turning on fullscreen mode on startup.
+##
+
+ppc_start_full_screen = 0
+
+##
 ## Redraw interval (in ms)
 ## must be between 10 and 500
 ##
-## If you set this higher, PearPC will spend less time doing redraws (and so run faster)
-## but feel less responsive. You should adjust this to your computer speed and personal
+## If you set this higher, PearPC will spend less time doing redraws 
+## (and so run faster) but feel less responsive. You should adjust 
+## this to your computer speed and personal
 ## preference.
 ##
 

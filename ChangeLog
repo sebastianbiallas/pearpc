@@ -3,6 +3,7 @@
 
 version 0.4pre (not yet released):
 	- CPU: stfiwx implemented
+	- config: "ppc_start_fullscreen" for starting in fullscreen mode
 
 version 0.3.1 (released 5. September 2004):
 	- JITC_X86: increased translation cache size
