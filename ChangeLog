@@ -32,7 +32,7 @@ version 0.2 (in progress):
 		- endianess auto-detect v2 (but big-endian hosts still not working correctly)
 		- autoconf-2.13 endianess detection work-around
 		- now using -Wundef and -Woverloaded-virtual compiler switches
-	- networking code abstraction (win32,darwin untested, send patches)
+	- networking code abstraction
 	- preliminary man-page added
 	- fdisk and single partition images support by Anders F.Bjoerklund
 	- 3c90x now correctly detected by Mac OS X (if driver is loaded)
