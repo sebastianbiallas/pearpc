@@ -318,8 +318,8 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 		}
 		ev.type = sysevMouse;
 		ev.mouse.button1 = wParam & MK_LBUTTON;
-		ev.mouse.button2 = wParam & MK_MBUTTON;
-		ev.mouse.button3 = wParam & MK_RBUTTON;
+		ev.mouse.button2 = wParam & MK_RBUTTON;
+		ev.mouse.button3 = wParam & MK_MBUTTON;
 		ev.mouse.relx = gDisplay->mCurMouseX - gDisplay->mHomeMouseX;
 		ev.mouse.rely = gDisplay->mCurMouseY - gDisplay->mHomeMouseY;
 
