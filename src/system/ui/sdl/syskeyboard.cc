@@ -24,10 +24,6 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_keysym.h>
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/keysym.h>
-
 #include "system/display.h"
 #include "system/keyboard.h"
 #include "system/systhread.h"
