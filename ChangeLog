@@ -15,7 +15,7 @@ version 0.3 (not yet released):
 	- experimental SDL support
 	- architecture-specific video acceleration functions (x86)
 	- configure-system: choose "jitc_x86" on x86s when no --enable-cpu given
-	- JITC: srawix, subfcx implemented
+	- JITC: srawix, subfcx, divwx, divuwx, mulhwx, mulwx implemented
 	- JITC: align entrypoints
 
 version 0.2 (released 15.June 2004):

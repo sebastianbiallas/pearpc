@@ -322,7 +322,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 		break;
 	}
 	case WM_SIZE:
-		gDisplay->setExposed(wParam == SIZE_MINIMIZED);
+		gDisplay->setExposed(wParam != SIZE_MINIMIZED);
 		break;
 	case WM_COMMAND:
 		MainWndProc_OnCommand(hwnd, (int)(LOWORD(wParam)), (HWND)lParam, (UINT)HIWORD(wParam));
