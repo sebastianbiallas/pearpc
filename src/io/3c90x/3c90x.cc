@@ -126,6 +126,28 @@ enum DmaCtrlBits {
 };
 
 /*
+ *	MII Registers
+ */
+/*enum MIIControlBits {
+	MIIC_collision =	1<<7,
+	MIIC_fullDuplex =	1<<8,
+	MIIC_restartNegote =	1<<9,
+	MIIC_collision =	1<<7,
+	rest missing
+};*/
+
+struct MIIRegisters {
+	uint16 control PACKED;
+	uint16 status PACKED;
+	uint16 id0 PACKED;
+	uint16 id1 PACKED;
+	uint16 advert PACKED;
+	uint16 linkPartner PACKED;
+	uint16 expansion PACKED;
+	uint16 nextPage PACKED;
+};
+
+/*
  *	Registers
  */
 struct RegWindow {
@@ -313,6 +335,12 @@ struct RegWindow3 {
 /*
  *	Window 4
  */
+enum W4_PhysMgmtBits {
+	PM_mgmtClk	= 1<<0,
+	PM_mgmtData	= 1<<1,
+	PM_mgmtDir	= 1<<2
+};
+
 struct RegWindow4 {
 	uint16	r0 PACKED;
 	uint16	r1 PACKED;
@@ -539,6 +567,10 @@ protected:
 	uint		mRxPacketSize;
 	enet_iface_t	mENetIf;
 	sys_mutex	mLock;
+	uint16		mMIIRegs[8];
+	uint32		mMIIReadWord;
+	uint64		mMIIWriteWord;
+	uint		mMIIWrittenBits;
 
 void PCIReset()
 {
@@ -578,8 +610,6 @@ void totalReset()
 	RegWindow3 &w3 = (RegWindow3&)mWindows[3];
 	RegWindow5 &w5 = (RegWindow5&)mWindows[5];
 
-	mIORegSize[0] = 128;
-	mIORegType[0] = PCI_ADDRESS_SPACE_IO;
 	// internals
 	mEEPROMWritable = false;
 	memset(&mWindows, 0, sizeof mWindows);
@@ -619,6 +649,15 @@ void totalReset()
 	mEEPROM[EEPROM_PCIParam2] =		0xffb7;
 	mEEPROM[EEPROM_PCIParam3] =		0xb7b7;
 	mEEPROM[EEPROM_Checksum] =		0;
+
+	// MII
+	memset(mMIIRegs, 0, sizeof mMIIRegs);
+	MIIRegisters &miiregs = *(MIIRegisters*)mMIIRegs;
+	miiregs.status = (1<<13) | (1<<2) | (1<<5) | (1<<3);
+	miiregs.linkPartner = 1<<7;
+	mMIIReadWord = 0;
+	mMIIWriteWord = 0;
+	mMIIWrittenBits = 0;
 
 	// Register follow-ups
 	w3.MediaOptions = mEEPROM[EEPROM_MediaOptions];
@@ -688,10 +727,29 @@ void readRegWindow(uint window, uint32 port, uint32 &data, uint size)
 	case 4: {
 		RegWindow4 &w4 = (RegWindow4&)mWindows[4];
 		data = 0;
-		memcpy(&data, &mWindows[4].b[port], size);
-		if ((port == 0xc) && (size == 1)) {
+		switch (port) {
+		case 8: {
+			// MII-interface
+			if (size != 2) {
+				IO_3C90X_WARN("alignment.4.8.read\n");
+				SINGLESTEP("");
+			}
+			data = w4.PhysMgmt;
+			IO_3C90X_TRACE("read PhysMgmt = %04x (mgmtData = %d)\n",
+				w4.PhysMgmt, (w4.PhysMgmt & PM_mgmtDir) ? 1 : 0);
+			break;
+		}
+		case 0xc: {
+			if (size != 1) {
+				IO_3C90X_WARN("alignment.4.c.read\n");
+				SINGLESTEP("");
+			}
 			// reading clears
 			w4.BadSSD = 0;
+			break;
+		}
+		default:
+			memcpy(&data, &mWindows[4].b[port], size);
 		}
 		break;
 	}
@@ -962,11 +1020,82 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 			break;
 		}
 		case 8: {
+			// MII-interface
 			if (size != 2) {
 				IO_3C90X_WARN("alignment.4.8\n");
 				SINGLESTEP("");
 			}
 			IO_3C90X_TRACE("PhysMgmt = %04x, old = %04x\n", data, w4.PhysMgmt);
+			bool hiedge = !(w4.PhysMgmt & PM_mgmtClk) && (data & PM_mgmtClk);
+			if (hiedge) {
+				// Z means lo edge of mgmtDir
+				bool Z = (w4.PhysMgmt & PM_mgmtDir) && !(data & PM_mgmtDir);
+				bool mgmtData = data & PM_mgmtData;
+				IO_3C90X_TRACE("hi-edge, Z=%d, data=%d, dir=%d\n",
+					Z ? 1 : 0, mgmtData ? 1 : 0,
+					(data & PM_mgmtDir) ? 1 : 0);
+				if (Z) {
+					// check if the 5 frames have been sent
+					if ((mMIIWriteWord >> (mMIIWrittenBits-34)) & 0x3ffffffffULL == 0x3fffffffdULL) {
+						uint PHYaddr = (mMIIWriteWord >> 5) & 0x1f;
+						uint REGaddr = mMIIWriteWord & 0x1f;
+						IO_3C90X_TRACE("prefixed Z-cycle, PHY=%d, REG=%d\n", PHYaddr, REGaddr);
+						if ((PHYaddr == 0x18 /* hardcoded address [1] p.196 */)
+						&& (REGaddr < 0x10)) {
+							switch ( (mMIIWriteWord >> 10) & 3) {
+							case 1: {
+								// Opcode Write
+								IO_3C90X_TRACE("Opcode Write\n");
+								if (mMIIWrittenBits == 64) {
+									uint32 value = mMIIWriteWord & 0xffff;
+									IO_3C90X_TRACE("Writing 0x%04x to register (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
+									mMIIRegs[REGaddr] = value;
+								} else {
+									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
+								}
+								mMIIWriteWord = 0;
+								break;
+							}
+							case 2: {
+								// Opcode Read
+								IO_3C90X_TRACE("Opcode Read\n");
+								if (mMIIWrittenBits == 32+2+2+5+5) {
+									// msb gets sent first and is zero to indicated success
+									mMIIReadWord = mMIIRegs[REGaddr] << 15;
+									IO_3C90X_TRACE("Read 0x%04x from register\n", mMIIRegs[REGaddr]);
+								} else {
+									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
+								}
+								mMIIWriteWord = 0;
+								break;
+							}
+							default:
+								// error
+								IO_3C90X_TRACE("Invalid opcode %d\n", (mMIIWriteWord >> 10) & 3);
+								mMIIReadWord = 0xffffffff;
+							}
+						} else {
+							// error
+							mMIIReadWord = 0xffffffff;
+						}
+					}
+					mMIIWrittenBits = 0;
+				} else if (data & PM_mgmtDir) {
+					// write
+					mMIIWriteWord <<= 1;
+					mMIIWriteWord |= mgmtData ? 1 : 0;
+					mMIIWrittenBits++;
+				} else {
+					// read
+					bool mgmtData = mMIIReadWord & 0x80000000;
+					if (mgmtData) {
+						w4.PhysMgmt = (w4.PhysMgmt & (~PM_mgmtDir)) | 1;
+					} else {
+						w4.PhysMgmt = w4.PhysMgmt & (~PM_mgmtDir);
+					}
+					mMIIReadWord <<= 1;
+				}
+			}
 			w4.PhysMgmt = data;
 			break;
 		}
