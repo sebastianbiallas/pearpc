@@ -17,9 +17,9 @@ AC_ARG_ENABLE(fpo,
 AC_ARG_ENABLE(profiling,
 	[  --enable-profiling      make a profile build [default=no]],,enable_profiling="no")
 AC_ARG_ENABLE(cpu,
-	[  --enable-cpu            choose cpu (generic or jitc_x86) (generic [default=generic]],,enable_cpu="generic")
+	[  --enable-cpu            choose cpu (generic or jitc_x86) [default=generic]],,enable_cpu="generic")
 AC_ARG_ENABLE(gui,
-	[  --enable-gui            choose gui (nogui, qt, gtk or win32) (generic [default=nogui]],,enable_gui="nogui")
+	[  --enable-gui            choose gui (nogui, qt, or win32) [default=nogui]],,enable_gui="nogui")
 
 if test "x$enable_cpu" = "xno"; then
 	AC_MSG_ERROR([Scherzkeks.])

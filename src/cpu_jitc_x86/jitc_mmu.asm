@@ -742,14 +742,14 @@ ppc_write_effective_half_asm:
 	call	ppc_effective_to_physical_data_write
 	pop	ebx
 	pop	edx
-	add	ebx, [gMemory]
-	add	eax, [gMemory]
 	cmp	ebx, [gMemorySize]
 	jae	.f
+	add	ebx, [gMemory]
 	mov	[ebx], dh
 	.f:
 	cmp	eax, [gMemorySize]
 	jae	.g
+	add	eax, [gMemory]
 	mov	[eax], dl
 	.g
 	ret
@@ -801,9 +801,9 @@ ppc_write_effective_word_asm:
 	and	ebp, 0xfff
 	neg	ebp
 	add	ebp, 4096
-	add	ebx, [gMemory]
 	cmp	ebx, [gMemorySize]
 	jae	.dslk
+	add	ebx, [gMemory]
 	.loop1:
 		rol	edx, 8
 		mov	[ebx], dl
@@ -814,9 +814,9 @@ ppc_write_effective_word_asm:
 	mov	ebp, eax
 	and	eax, 0xfffff000
 	and	ebp, 0x00000fff
-	add	eax, [gMemory]
-	cmp	ebx, [gMemorySize]
+	cmp	eax, [gMemorySize]
 	jae	.dslk5
+	add	eax, [gMemory]
 	.loop2:
 		rol	edx, 8
 		mov	[eax], dl
@@ -878,11 +878,11 @@ ppc_write_effective_dword_asm:
 	and	ebp, 0xfff
 	neg	ebp
 	add	ebp, 4096
-	add	ebx, [gMemory]
 	bswap	ecx
 	bswap	edx
 	cmp	ebx, [gMemorySize]
 	jae	.fjfjjfjf
+	add	ebx, [gMemory]
 	.loop1:
 		mov	[ebx], cl
 		shrd	ecx, edx, 8
@@ -894,9 +894,9 @@ ppc_write_effective_dword_asm:
 	mov	ebp, eax
 	and	eax, 0xfffff000
 	and	ebp, 0x00000fff
-	add	eax, [gMemory]
 	cmp	eax, [gMemorySize]
 	jae	.fjfjjfjffffffffffffffffffffjjjfffffffffffffffffjfjfjfjjfjfjfjf
+	add	eax, [gMemory]
 	.loop2:
 		mov	[eax], cl
 		shrd	ecx, edx, 8
@@ -986,6 +986,7 @@ ppc_read_effective_half_z_asm:
 .loop2:
 	mov	dl, [eax]
 	ret
+
 .mmio1:
 	pusha
 	mov	edx, 1
