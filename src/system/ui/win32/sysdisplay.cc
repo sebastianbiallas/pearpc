@@ -109,53 +109,81 @@ void Win32Display::getHostCharacteristics(Container &modes)
 void Win32Display::convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar)
 {
 	aHostChar = aClientChar;
-	HWND dw = GetDesktopWindow();
-	HDC ddc = GetDC(dw);
-	aHostChar.bytesPerPixel = (GetDeviceCaps(ddc, BITSPIXEL)+7)/8;
-	ReleaseDC(dw, ddc);
+	if (!mFullscreen) {
+		HWND dw = GetDesktopWindow();
+		HDC ddc = GetDC(dw);
+		aHostChar.bytesPerPixel = (GetDeviceCaps(ddc, BITSPIXEL)+7)/8;
+		ReleaseDC(dw, ddc);
+	}
 }
 
-bool Win32Display::changeResolution(const DisplayCharacteristics &aHostChar)
+bool Win32Display::changeResolution(const DisplayCharacteristics &aClientChar)
 {
-	/*
-	 * get size of desktop first
-	 * (windows doesn't allow windows greater than the desktop)
-	 */
-	HWND dw = GetDesktopWindow();
-	RECT desktoprect;
-	GetWindowRect(dw, &desktoprect);
-	if (aHostChar.width > (desktoprect.right-desktoprect.left)
-	|| aHostChar.height > (desktoprect.bottom-desktoprect.top)) {
-		// protect user from himself
-		return false;
-	}		
+	if (mFullscreen) {
+		EnterCriticalSection(&gDrawCS);
+		DisplayCharacteristics oldhost = mWinChar;
+		DisplayCharacteristics oldclient = mClientChar;
+		mClientChar = aClientChar;
+		convertCharacteristicsToHost(mWinChar, mClientChar);
 
-	EnterCriticalSection(&gDrawCS);
-	mClientChar = aHostChar;
-	convertCharacteristicsToHost(mWinChar, mClientChar);
+		DEVMODE dm;
+		dm.dmBitsPerPel = (mWin.bytesPerPixel == 2) ? 15 : 32;
+		dm.dmPelsWidth = mWin.width;
+		dm.dmPelsHeight = mWin.height;
+		dm.dmDisplayFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+		dm.dmDisplayFrequency = mWin.vsyncFrequency;
+		if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
+			ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
+			return true;
+		} else {
+			if (mWin.bytesPerPixel == 2) {
+				dm.dmBitsPerPel = 16;
+			}
+			if (ChangeDisplaySettings(&dm, CDS_TEST) == DISP_CHANGE_SUCCESSFUL) {
+				ChangeDisplaySettings(&dm, CDS_FULLSCREEN);
+			} else {
+				mWinChar = oldhost;
+				mClientChar = oldclient;
+				return false;
+			}
+		}
+	} else {
+		/*
+		 * get size of desktop first
+		 * (windows doesn't allow windows greater than the desktop)
+		 */
+		HWND dw = GetDesktopWindow();
+		RECT desktoprect;
+		GetWindowRect(dw, &desktoprect);
+		if (aHostChar.width > (desktoprect.right-desktoprect.left)
+		|| aHostChar.height > (desktoprect.bottom-desktoprect.top)) {
+				// protect user from himself
+				return false;
+		}		
+		EnterCriticalSection(&gDrawCS);
+		mClientChar = aClientChar;
+		convertCharacteristicsToHost(mWinChar, mClientChar);
+		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
+			* mClientChar.height * mClientChar.bytesPerPixel);
+		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
+			* mWinChar.height * mWinChar.bytesPerPixel);
+		memset(gFrameBuffer, 0, mClientChar.width 
+			* mClientChar.height * mClientChar.bytesPerPixel);
+		mHomeMouseX = mWinChar.width/2;
+		mHomeMouseY = mWinChar.height/2;
+		createBitmap();
+		LeaveCriticalSection(&gDrawCS);
 
-	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
-		* mClientChar.height * mClientChar.bytesPerPixel);
-	winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
-		* mWinChar.height * mWinChar.bytesPerPixel);
-	memset(gFrameBuffer, 0, mClientChar.width 
-		* mClientChar.height * mClientChar.bytesPerPixel);
-
-	mHomeMouseX = mWinChar.width/2;
-	mHomeMouseY = mWinChar.height/2;
-	createBitmap();
-	LeaveCriticalSection(&gDrawCS);
-
-	RECT rect;
-	RECT rect2;
-	GetWindowRect(gHWNDMain, &rect);
-	GetWindowRect(gHWNDMain, &rect2);
-	rect.right = rect.left+mWinChar.width;
-	rect.bottom = rect.top+mWinChar.height+gMenuHeight;
-	AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
-		| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
-	MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, TRUE);
-
+		RECT rect;
+		RECT rect2;
+		GetWindowRect(gHWNDMain, &rect);
+		GetWindowRect(gHWNDMain, &rect2);
+		rect.right = rect.left+mWinChar.width;
+		rect.bottom = rect.top+mWinChar.height+gMenuHeight;
+		AdjustWindowRect(&rect, WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
+			| WS_CAPTION | WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
+		MoveWindow(gHWNDMain, rect2.left, rect2.top, rect.right-rect.left, rect.bottom-rect.top, TRUE);
+	}
 	damageFrameBufferAll();
 	return true;
 }
