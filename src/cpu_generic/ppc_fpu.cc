@@ -323,7 +323,7 @@ inline void ppc_fpu_add_uint64_carry(uint64 &a, uint64 b, uint64 &carry)
 }
 
 // 'res' has 56 significant bits on return, a + b have 56 significant bits each
-inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
+inline void ppc_fpu_mul(ppc_double &res, const ppc_double &a, const ppc_double &b)
 {
 	res.s = a.s ^ b.s;
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
@@ -535,7 +535,7 @@ inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 		ppc_fpu_get_fpr_type(res.type));*/
 }
 
-inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
+inline void ppc_fpu_div(ppc_double &res, const ppc_double &a, const ppc_double &b)
 {
 	res.s = a.s ^ b.s;
 	switch (PPC_FPR_TYPE2(a.type, b.type)) {
