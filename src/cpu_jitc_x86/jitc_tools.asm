@@ -283,13 +283,24 @@ ppc_set_msr_asm:
 	test	eax, (1<<18)	; MSR_POW
 	jnz	.power
 .power_back:
-	mov	[gCPU+msr], eax
-;	call	ppc_mmu_tlb_invalidate_all_asm
+		;; Do this first so the invalidate can clobber eax and
+		;; we won't care
+ 	mov	[gCPU+msr], eax
+		;; See if the privilege level is changing (MSR_PR) to
+		;; non-privileged, in which case we need to inval the tlb
+	test	eax, (1<<14)
+	jnz	.msr_pr_change
+.msr_pr_change_back:
 	ret
+	
 .power:
 	;;call	doze
 	and	eax, ~(1<<18)
 	jmp	.power_back
+	
+.msr_pr_change:
+	call ppc_mmu_tlb_invalidate_all_asm
+	jmp .msr_pr_change_back
 
 .singlestep:
 	mov	eax, singlestep_error

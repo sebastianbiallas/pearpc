@@ -1100,7 +1100,6 @@ JITCFlow ppc_opc_gen_mtmsr()
 	jitcFlushRegister();
 	jitcGetClientRegister(PPC_GPR(rS), NATIVE_REG | EAX);
 	asmCALL((NativeAddress)ppc_set_msr_asm);
-	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm); // mtmsr may change MSR_PR
 	asmALURegImm(X86_MOV, EAX, gJITC.pc+4);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmJMP((NativeAddress)ppc_new_pc_rel_asm);
@@ -1477,7 +1476,6 @@ JITCFlow ppc_opc_gen_rfi()
 	jitcFlushRegister();
 	jitcGetClientRegister(PPC_SRR1, NATIVE_REG | EAX);
 	asmCALL((NativeAddress)ppc_set_msr_asm);
-	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm); // rfi may change MSR_PR
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)(&gCPU.srr[0])));
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
@@ -1583,7 +1581,7 @@ JITCFlow ppc_opc_gen_tlbie()
 {
 	ppc_opc_gen_check_privilege();
 	int rS, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
 	jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
