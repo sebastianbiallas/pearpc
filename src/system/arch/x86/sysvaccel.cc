@@ -1,6 +1,6 @@
 /* 
  *	HT Editor
- *	vaccel.cc
+ *	sysvaccel.cc
  *
  *	Copyright (C) 2004 Stefan Weyergraf (stefan@weyergraf.de)
  *
