@@ -741,15 +741,28 @@ ppc_write_effective_half_asm:
 	pop	ebx
 	pop	edx
 	cmp	ebx, [gMemorySize]
-	jae	.f
+	jae	.overlapped_mmio_1
 	add	ebx, [gMemory]
 	mov	[ebx], dh
-	.f:
+	.overlapped_mmio_1_back:
 	cmp	eax, [gMemorySize]
-	jae	.g
+	jae	.overlapped_mmio_2
 	add	eax, [gMemory]
 	mov	[eax], dl
-	.g
+	ret
+
+.overlapped_mmio_1:
+	pusha
+	movzx	edx, dh
+	mov	eax, ebx
+	mov	ecx, 1
+	call	io_mem_write_glue
+	popa
+	jmp	.overlapped_mmio_1_back
+.overlapped_mmio_2:
+	movzx	edx, dl
+	mov	ecx, 1
+	call	io_mem_write_glue
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -822,6 +835,7 @@ ppc_write_effective_word_asm:
 		dec	ebp
 	jnz	.loop2
 	ret
+
 .overlapped_mmio_1:
 	.overlapped_mmio_1_loop:
 		rol	edx, 8
@@ -831,7 +845,6 @@ ppc_write_effective_word_asm:
 		mov	ecx, 1
 		call	io_mem_write_glue
 		popa
-		mov	[ebx], dl
 		inc	ebx
 		dec	ebp
 	jnz	.overlapped_mmio_1_loop
@@ -844,7 +857,6 @@ ppc_write_effective_word_asm:
 		mov	ecx, 1
 		call	io_mem_write_glue
 		popa
-		mov	[eax], dl
 		inc	eax
 		dec	ebp
 	jnz	.overlapped_mmio_2_loop
@@ -1022,8 +1034,8 @@ ppc_read_effective_half_z_asm:
 	cmp	eax, [gMemorySize]
 	jae	.mmio1
 	add	eax, [gMemory]
-.loop1:
 	mov	dh, [eax]
+.loop1:
 	pop	eax
 	push	edx
 	inc	eax
@@ -1042,7 +1054,7 @@ ppc_read_effective_half_z_asm:
 	call	io_mem_read_glue
 	mov	[gCPU+temp2], al
 	popa
-	mov	eax, gCPU+temp2
+	mov	dh, [gCPU+temp2]
 	jmp	.loop1
 .mmio2:
 	push	edx
@@ -1090,8 +1102,8 @@ ppc_read_effective_half_s_asm:
 	cmp	eax, [gMemorySize]
 	jae	.mmio1
 	add	eax, [gMemory]
-.loop1:
 	mov	ch, [eax]
+.loop1:
 	pop	eax
 	push	ecx
 	inc	eax
@@ -1111,7 +1123,7 @@ ppc_read_effective_half_s_asm:
 	call	io_mem_read_glue
 	mov	[gCPU+temp2], al
 	popa
-	mov	eax, gCPU+temp2
+	mov	ch, [gCPU+temp2]
 	jmp	.loop1
 .mmio2:
 	push	ecx
