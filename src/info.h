@@ -23,6 +23,9 @@
 
 #define APPNAME "PearPC"
 #define APPVERSION "0.3pre"
+// this will show up in the win32 version resource:
+#define APPVERSION_IN_NUMBERS 0,0,3,0
+
 #define EMULATOR_MODEL "PowerPC ("APPNAME" "APPVERSION")"
 #define COPYRIGHT "(c) 2003, 2004 Sebastian Biallas <sb@biallas.net>"
 

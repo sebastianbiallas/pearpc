@@ -1,0 +1,50 @@
+#include "info.h"
+#include "resources.h"
+
+#if 1
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION APPVERSION_IN_NUMBERS
+ PRODUCTVERSION APPVERSION_IN_NUMBERS
+ FILEFLAGSMASK 0x3fL
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040704b0"
+        BEGIN
+            VALUE "Comments", "\0"
+            VALUE "CompanyName", "\0"
+            VALUE "FileDescription", APPNAME"\0"
+            VALUE "FileVersion", APPVERSION"\0"
+            VALUE "InternalName", APPNAME"\0"
+            VALUE "LegalCopyright", COPYRIGHT"\0"
+            VALUE "LegalTrademarks", "\0"
+            VALUE "OriginalFilename", "ppc.exe\0"
+            VALUE "PrivateBuild", "\0"
+            VALUE "ProductName", APPNAME"\0"
+            VALUE "ProductVersion", APPVERSION"\0"
+            VALUE "SpecialBuild", "\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x407, 1200
+    END
+END
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_PEAR_PC                 ICON    DISCARDABLE     "ppc.ico"

@@ -45,6 +45,7 @@
 #include "tools/snprintf.h"
 
 #include "syswin.h"
+#include "resources.h"
 
 HWND gHWNDMain = NULL;
 CRITICAL_SECTION gDrawCS;
@@ -158,7 +159,7 @@ static void eventLoop(void *pvoid)
 	wc.lpszClassName = "ClassClass";
 	wc.lpszMenuName = 0;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hIcon = LoadIcon(gHInst, MAKEINTRESOURCE(IDI_PEAR_PC));
 	RegisterClass(&wc);
 
 	RECT rect;
