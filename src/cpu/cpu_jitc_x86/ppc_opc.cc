@@ -41,22 +41,31 @@ static void readDEC()
 //	PPC_OPC_WARN("read  dec=%08x\n", gCPU.dec);
 }
 
-static void writeDEC()
+static void FASTCALL writeDEC(uint32 newdec)
 {
-//	PPC_OPC_WARN("write dec=%08x\n", gCPU.dec);
-	uint64 q = 1000000000ULL*gCPU.dec / gClientTimeBaseFrequency;
+//	PPC_OPC_WARN("write dec=%08x\n", newdec);
+	if (!(gCPU.dec & 0x80000000) && (newdec & 0x80000000)) {
+		gCPU.dec = newdec;
+		sys_set_timer(gDECtimer, 0, 0, false);
+ 	} else {
+		gCPU.dec = newdec;
+		/*
+		 *	1000000000ULL and gCPU.dec are both smaller than 2^32
+		 *	so this expression can't overflow
+		 */
+		uint64 q = 1000000000ULL*gCPU.dec / gClientTimeBaseFrequency;
 
-	// FIXME: Occasionally, ppc seems to generate very large dec values
-	// as a result of a memory overwrite or something else. Let's handle
-	// that until we figure out why.
-	if (q > 20 * 1000 * 1000) {
-		PPC_OPC_WARN("write dec > 20 millisec := %ld (%llu)\n", gCPU.dec, q);
-		q = 10 * 1000 * 1000;
-		sys_set_timer(gDECtimer, 0, q, false);
-	} else {
-		sys_set_timer(gDECtimer, 0, q, false);
+		// FIXME: Occasionally, ppc seems to generate very large dec values
+		// as a result of a memory overwrite or something else. Let's handle
+		// that until we figure out why.
+		if (q > 20 * 1000 * 1000) {
+			PPC_OPC_WARN("write dec > 20 millisec := %ld (%llu)\n", gCPU.dec, q);
+			q = 10 * 1000 * 1000;
+			sys_set_timer(gDECtimer, 0, q, false);
+		} else {
+			sys_set_timer(gDECtimer, 0, q, false);
+		}
 	}
-
 	gDECwriteValue = gCPU.dec;
 	gDECwriteITB = ppc_get_cpu_ideal_timebase();
 }
@@ -1301,8 +1310,7 @@ void ppc_opc_mtspr()
 /*		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
 		case 19: gCPU.gpr[rD] = gCPU.dar; return;*/
 		case 22: {
-			gCPU.dec = gCPU.gpr[rS];
-			writeDEC();
+			writeDEC(gCPU.gpr[rS]);
 			return;
 		}
 		case 25: 
@@ -1460,7 +1468,7 @@ JITCFlow ppc_opc_gen_mtspr()
 	case 0:
 		switch (spr1) {
 		case 22: {
-			move_reg(PPC_DEC, PPC_GPR(rS));
+			jitcGetClientRegister(PPC_GPR(rS), NATIVE_REG | EAX);
 			jitcClobberAll();
 			asmCALL((NativeAddress)writeDEC);
 			return flowContinue;

@@ -50,17 +50,19 @@ uint64 gJITCRunTicks;
 uint64 gJITCRunTicksStart;
 
 uint64 gClientClockFrequency;
+uint64 gClientBusFrequency;
 uint64 gClientTimeBaseFrequency;
 uint64 gStartHostCLKTicks;
+int gHostClockScale;
 
 uint64 ppc_get_cpu_ideal_timebase()
 {
 	uint64 ticks = sys_get_hiresclk_ticks();
-//	if (ticks < gElapsedHostCLKTicks) {
-//		FIXME: overflow		
-//	}
-	uint64 ticks_per_sec = sys_get_hiresclk_ticks_per_second();
-	return (ticks - gStartHostCLKTicks) * gClientTimeBaseFrequency / ticks_per_sec;
+	if (gHostClockScale < 0) {
+		return (ticks - gStartHostCLKTicks) >> (-gHostClockScale);
+	} else {
+		return (ticks - gStartHostCLKTicks) << gHostClockScale;
+	}
 }
 
 uint64 ppc_get_cpu_timebase()
@@ -100,11 +102,7 @@ void ppc_cpu_run()
 	gJITCRunTicksStart = jitcDebugGetTicks();
 	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
 	jitcDebugInit();
-	gStartHostCLKTicks = sys_get_hiresclk_ticks();
-	gClientClockFrequency = PPC_CLOCK_FREQUENCY;
-	gClientTimeBaseFrequency = PPC_TIMEBASE_FREQUENCY;
-
-/*	uint64 q = sys_get_cpu_ticks_per_second();
+/*
 	PPC_CPU_WARN("clock ticks / second = %08qx\n", q);
 	q = sys_get_cpu_ticks();
 	PPC_CPU_WARN("ticks = %08qx\n", q);
@@ -137,17 +135,17 @@ void ppc_cpu_stop()
 
 uint64	ppc_get_clock_frequency(int cpu)
 {
-	return PPC_CLOCK_FREQUENCY;
+	return gClientClockFrequency;
 }
 
 uint64	ppc_get_bus_frequency(int cpu)
 {
-	return PPC_BUS_FREQUENCY;
+	return gClientBusFrequency;
 }
 
 uint64	ppc_get_timebase_frequency(int cpu)
 {
-	return PPC_TIMEBASE_FREQUENCY;
+	return gClientTimeBaseFrequency;
 }
 
 
@@ -221,6 +219,21 @@ bool ppc_cpu_init()
 	gCPU.x87cw = 0x37f;
 
 	sys_create_semaphore(&gCPUDozeSem);
+
+	gStartHostCLKTicks = sys_get_hiresclk_ticks();
+	uint64 q = sys_get_hiresclk_ticks_per_second();
+	gHostClockScale = 0;
+	while (q < PPC_TIMEBASE_FREQUENCY) {
+		gHostClockScale++;
+		q <<= 1;
+	}
+	while (q > (PPC_TIMEBASE_FREQUENCY*2)) {
+		gHostClockScale--;
+		q >>= 1;
+	}
+	gClientTimeBaseFrequency = q;
+	gClientBusFrequency = gClientTimeBaseFrequency * 4;
+	gClientClockFrequency = gClientBusFrequency * 5;
 
 	return jitc_init(2048, 16*1024*1024);
 }

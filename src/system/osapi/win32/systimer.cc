@@ -117,16 +117,22 @@ uint64 sys_get_timer_resolution(sys_timer t)
 
 uint64 sys_get_hiresclk_ticks()
 {
-	uint64 test;
-	QueryPerformanceCounter((_LARGE_INTEGER *)&test);
-//	__asm__ __volatile__ ("rdtsc": "=A" (test));
-	return test;
+	uint64 counter;
+	static uint64 lastCounter = 0;
+	static uint64 counterBase = 0;
+	QueryPerformanceCounter((_LARGE_INTEGER *)&counter);
+	if (counter < lastCounter) {
+		// overflow
+		// FIXME: we loose some ticks here every 47 days
+		counterBase += lastCounter;
+	}
+	lastCounter = counter;
+	return counter + counterBase;
 }
 
 uint64 sys_get_hiresclk_ticks_per_second()
 {
-	uint64 test;
-	QueryPerformanceFrequency((_LARGE_INTEGER *)&test);
-	return test;
-//	return 1000000000ULL;
+	uint64 frq;
+	QueryPerformanceFrequency((_LARGE_INTEGER *)&frq);
+	return frq;
 }
