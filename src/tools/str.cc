@@ -587,7 +587,10 @@ int String::toArray(byte *buf, int buflen) const
 bool String::toInt32(uint32 &u32, int defaultbase) const
 {
 	const char *b = (const char*)mContent;
-	return bnstr(b, u32, defaultbase);
+	uint64 u64;
+	if (!parseIntStr(b, u64, defaultbase)) return false;
+	u32 = u64;
+	return true;
 }
 
 /**
@@ -596,7 +599,7 @@ bool String::toInt32(uint32 &u32, int defaultbase) const
 bool String::toInt64(uint64 &u64, int defaultbase) const
 {
 	const char *b = (const char*)mContent;
-	return bnstr(b, u64, defaultbase);
+	return parseIntStr(b, u64, defaultbase);
 }
 
 int String::toString(char *buf, int buflen) const

@@ -290,7 +290,7 @@ uint64 ObjectStreamText::getInt(uint size, const char *desc)
 	*s=0; s=str;
 	uint64 a;
 	const char *s2 = s;
-	if (!bnstr(s2, a, 10)) setSyntaxError();
+	if (!parseIntStr(s2, a, 10)) setSyntaxError();
 	return a;
 }
 

@@ -757,8 +757,8 @@ void rtl8139_init()
 			const char *macstr = macstr_.contentChar();
 			byte cfgmac[6];
 			for (uint i=0; i<6; i++) {
-				uint32 v;
-				if (!bnstr(macstr, v, 16) || (v>255) || ((*macstr != ':') && (i!=5))) {
+				uint64 v;
+				if (!parseIntStr(macstr, v, 16) || (v>255) || ((*macstr != ':') && (i!=5))) {
 					IO_RTL8139_ERR("error in config key %s:"
 					"expected format: XX:XX:XX:XX:XX:XX, "
 					"where X stands for any digit or the "

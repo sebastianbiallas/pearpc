@@ -10,7 +10,6 @@ version 0.2 (in progress):
 	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
 	  improvements
 	- tools/regex.h dos2unixed and then removed (in no particular order)
-	- configure support for mingw
 	- applied Francois Revol's BeOS patches (2,4,6-fixes,6-beos,6-compose).
 	- AMD64 portability fixes (mainly void* <-> int conversions)
 	- HFS partition code fixes (reportedly working)
@@ -19,6 +18,8 @@ version 0.2 (in progress):
 	- implemented conditional redraw code proposed by Jens von der Heydt
 	- code to minimize redraw races
 	- added RealTek-8139 network card driver by Eric Estabrooks
+	- configure support for mingw and darwin
+	- bnstr() is evil and has been banned. fixes can't parse pci_3c90x_mac = "00:20:35:67:e7:0e" 
 
 version 0.1.2:
 	- PROM: fixed: seek > 2^32 not impl.

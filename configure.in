@@ -78,19 +78,19 @@ dnl LIBS="$LIBS $X_EXTRA_LIBS"
 case "$target_os" in
 linux*) 
 	SYSTEM_DIR=posix
-	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread.])
+	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread + X11.])
 	PPC_LDADD="$PPC_LDADD -lpthread"
 	NEED_X11=yes
 ;;
 *freebsd*) 
 	SYSTEM_DIR=posix
-	AC_MSG_RESULT([*** FREEBSD, building native FreeBSD version. we need pthread.])
+	AC_MSG_RESULT([*** FREEBSD, building native FreeBSD version. we need pthread + X11.])
 	PPC_LDFLAGS="$PPC_LDFLAGS -pthread"
 	NEED_X11=yes
 ;;
 cygwin*)
 	SYSTEM_DIR=win32
-	AC_MSG_RESULT([*** CYGWIN, building native Win32 version (no cygwin.dll)])
+	AC_MSG_RESULT([*** CYGWIN, building native Win32 version (without cygwin.dll)])
 	PPC_CFLAGS="$PPC_CFLAGS -mno-cygwin"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -mno-cygwin"
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
@@ -102,9 +102,14 @@ mingw32*)
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32"
         NASM_OPTS="--prefix _ -f win32"
 ;;
+darwin*)
+	SYSTEM_DIR=posix
+	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
+	NEED_X11=yes
+;;
 beos*)
 	SYSTEM_DIR=beos
-	echo "*** BEOS, building native BeOS version (no pthread)" 1>&2
+	AC_MSG_RESULT([*** BEOS, building native BeOS version])
         PPC_LDFLAGS="-lbe -lgame"
 	PPC_CFLAGS="$PPC_CFLAGS -Wno-multichar"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -Wno-multichar"
@@ -112,7 +117,7 @@ beos*)
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
 	SYSTEM_DIR=posix
-	AC_MSG_WARN([*** assuming POSIX OS, we need pthread])
+	AC_MSG_WARN([*** assuming POSIX OS, we need pthread + X11])
 	PPC_LDADD="$PPC_LDADD -lpthread"
 	NEED_X11=yes
 ;;	

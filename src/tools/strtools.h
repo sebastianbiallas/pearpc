@@ -51,8 +51,7 @@ void whitespaces(char *&str);
 bool waitforchar(char *&str, char b);
 
 /* string evaluation functions */
-bool bnstr(const char *&str, uint32 &u, int defaultbase);
-bool bnstr(const char *&str, uint64 &u, int defaultbase);
+bool parseIntStr(const char *&str, uint64 &u64, int defaultbase);
 
 /* hex/string functions */
 int hexdigit(char a);

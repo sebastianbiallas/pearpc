@@ -367,92 +367,30 @@ bool waitforchar(const char *&str, char b)
 	return true;
 }
 
-/*
-static bool bnstr2bin(char *str, char *p, int base, dword *v)
-{
-	*v=0;
-	do {
-		int c=hexdigit(*str);
-		if ((c==-1) || (c>=base)) return false;
-		(*v)*=base;
-		*v+=c;
-		str++;
-	} while (str<p);
-	return true;
-}
-*/
-
-static bool bnstr2bin(uint64 &u64, const char *str, const char *p, int base)
+static bool bnstr2bin(uint64 &u64, const char *&str, int base)
 {
 	u64 = 0;
 	uint64 ubase = base;
+	int i = 0;
 	do {
 		int c = hexdigit(*str);
-		if ((c == -1) || (c >= base)) return false;
+		if ((c == -1) || (c >= base)) return (i == 0) ? false : true;
 		u64 *= ubase;
 		u64 += c;
 		str++;
-	} while (str < p);
+		i++;
+	} while (*str);
 	return true;
 }
 
-bool bnstr(const char *&str, uint64 &u64, int defaultbase)
+bool parseIntStr(const char *&str, uint64 &u64, int defaultbase)
 {
 	int base = defaultbase;
-	int t = 0;
-	const char *p = str;
-	while (!strchr("+-*/%()[] \t#.,:;", *p) && (*p)) p++;
-	if (p == str) return false; /* zero length */
-	if (strncmp("0x", str, 2)==0) {
+	if ((base == 10) && strncmp("0x", str, 2) == 0) {
 		str += 2;
 		base = 16;
-	} else {
-		switch (*(p-1)) {
-			case 'b':
-				if (base <= 'b'-'a'+10) {
-					base = 2;
-					p--;
-					t++;
-				}
-				break;
-			case 'o':
-				if (base <= 'o'-'a'+10) {
-					base = 8;
-					p--;
-					t++;
-				}
-				break;
-			case 'd':
-				if (base <= 'd'-'a'+10) {
-					base = 10;
-					p--;
-					t++;
-				}
-				break;
-			case 'h':
-				if (base <= 'h'-'a'+10) {
-					base = 16;
-					p--;
-					t++;
-				}
-				break;
-			default:
-				if (str[0] == '0') base = 8;
-		}
 	}
-	if (bnstr2bin(u64, str, p, base)) {
-		str = p+t;
-		return true;
-	}
-	return false;
-}
-
-bool bnstr(const char *&str, uint32 &v, int defaultbase)
-{
-	uint64 u;
-	bool res = bnstr(str, u, defaultbase);
-	v = u;
-	return res;
+	return bnstr2bin(u64, str, base);
 }
 
 /* hex/string functions */
