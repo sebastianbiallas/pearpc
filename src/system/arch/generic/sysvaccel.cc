@@ -72,6 +72,9 @@ void sys_convert_display(
 			case 4:
 				*(uint32*)dest = p;
 				break;
+			default:
+				ht_printf("internal error in %s:%d\n", __FILE__, __LINE__);
+				exit(1);
 			}
 			dest += aDestChar.bytesPerPixel;
 			src += aSrcChar.bytesPerPixel;
