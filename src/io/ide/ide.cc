@@ -1721,7 +1721,7 @@ void receive_atapi_packet()
 			gIDEState.state[gIDEState.drive].cyl = ((data<<8)&0xff00) + (gIDEState.state[gIDEState.drive].cyl & 0xff);
 			return;
 		}
-		IO_IDE_ERR("hae?\n");
+		IO_IDE_ERR("write(%d) %08x to unknown IDE register %d\n", size, data, addr);
 	};
 
 void ide_read_reg(uint32 addr, uint32 &data, int size)
@@ -1886,7 +1886,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 		return;
 	}
 	}
-	IO_IDE_ERR("hae?\n");
+	IO_IDE_ERR("write(%d) %08x to unknown IDE register %d\n", size, data, addr);
 };
 
 /********************************************************************************
