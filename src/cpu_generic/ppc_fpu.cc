@@ -492,6 +492,9 @@ inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, in
 //
 // .752
 //
+// FIXME: There is a bug in this code that shows up in Mac OS X Finder fwd/bwd
+// button: the top line is not rendered correctly. This works with the jitc_x86
+// FPU however...
 inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
 	ppc_double &s)
 {
