@@ -34,7 +34,6 @@
 
 JITC gJITC;
 
-
 static TranslationCacheFragment *jitcAllocFragment();
 
 /*
@@ -155,7 +154,7 @@ static void inline jitcUnmapClientPage(ClientPage *cp)
  *	Moves client page to the end of the LRU list
  *	page *must* be in LRU list before
  */
-void FASTCALL jitcTouchClientPage(ClientPage *cp)
+extern "C" FASTCALL ClientPage *jitcTouchClientPage(ClientPage *cp)
 {
 	if (cp->moreRU) {
 		// there's a page which is used more recently
@@ -174,6 +173,7 @@ void FASTCALL jitcTouchClientPage(ClientPage *cp)
 		gJITC.MRUpage->moreRU = cp;
 		gJITC.MRUpage = cp;
 	}
+	return cp;
 }
 
 /*
@@ -293,7 +293,7 @@ static TranslationCacheFragment *jitcAllocFragment()
  *	Moves page from freeClientPages at the end of the LRU list if there's
  *	a free page or destroys the LRU page and touches it
  */
-ClientPage FASTCALL *jitcCreateClientPage(uint32 baseaddr)
+extern "C" ClientPage FASTCALL *jitcCreateClientPage(uint32 baseaddr)
 {
 	ClientPage *cp;
 	if (gJITC.freeClientPages) {
@@ -351,7 +351,7 @@ extern uint64 gJITCCompileTicks;
 extern uint64 gJITCRunTicks;
 extern uint64 gJITCRunTicksStart;
 
-NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32 ofs)
+extern "C" NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32 ofs)
 {
 /*
 	gJITCRunTicks += jitcDebugGetTicks() - gJITCRunTicksStart;
@@ -416,7 +416,7 @@ NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 baseaddr, uint32
 	return entry;
 }
 
-NativeAddress FASTCALL jitcStartTranslation(ClientPage *cp, uint32 baseaddr, uint32 ofs)
+extern "C" NativeAddress FASTCALL jitcStartTranslation(ClientPage *cp, uint32 baseaddr, uint32 ofs)
 {
 	cp->tcf_current = jitcAllocFragment();
 	cp->tcp = cp->tcf_current->base;
@@ -467,6 +467,11 @@ extern "C" void FASTCALL jitc_error_program(uint32 a, uint32 b)
 	ht_printf("JITC Warning, program exception: %08x %08x\n", a, b);
 //	exit(1);
 }
+
+extern uint8 jitcFlagsMapping[257];
+extern uint8 jitcFlagsMapping2[256];
+extern uint8 jitcFlagsMappingCMP_U[257];
+extern uint8 jitcFlagsMappingCMP_L[257];
 
 bool jitc_init(int maxClientPages, uint32 tcSize)
 {
@@ -529,11 +534,35 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 
 	for (int i=1; i<9; i++) {
 		gJITC.floatRegPerm[i] = i;
-	}
-	for (int i=1; i<9; i++) {
 		gJITC.floatRegPermInverse[i] = i;
 	}
-	
+
+	jitcFlagsMapping[0] = 1<<6; // GT
+	jitcFlagsMapping[1] = 1<<7; // LT
+	jitcFlagsMapping[1<<8] = 1<<5; // EQ
+	jitcFlagsMappingCMP_U[0] = 1<<5; // EQ
+	jitcFlagsMappingCMP_U[1] = 1<<6; // GT
+	jitcFlagsMappingCMP_U[1<<8] = 1<<7; // LT
+	jitcFlagsMappingCMP_L[0] = 1<<1; // EQ
+	jitcFlagsMappingCMP_L[1] = 1<<2; // GT
+	jitcFlagsMappingCMP_L[1<<8] = 1<<3; // LT
+	for (int i=0; i<256; i++) {
+		switch (i & 0xc0) {
+		case 0x00: // neither zero nor sign
+			jitcFlagsMapping2[i] = 1<<6; // GT
+			break;
+		case 0x40: // zero flag
+			jitcFlagsMapping2[i] = 1<<5; // EQ
+			break;
+		case 0x80: // sign flag
+			jitcFlagsMapping2[i] = 1<<7; // LT
+			break;
+		case 0xc0: // impossible
+			jitcFlagsMapping2[i] = 0; 
+			break;
+		}
+	}
+
 	/*
 	 *	Note that REG_NO=-1 and PPC_REG_NO=0 so this works 
 	 *	by accident.

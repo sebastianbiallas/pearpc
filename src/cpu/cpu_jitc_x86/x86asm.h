@@ -93,6 +93,11 @@ PPC_CRx FASTCALL jitcGetFlagsMapping();
 bool FASTCALL jitcFlagsMapped();
 bool FASTCALL jitcCarryMapped();
 
+void FASTCALL jitcFlushFlagsAfterCMPL_L(int disp);
+void FASTCALL jitcFlushFlagsAfterCMPL_U(int disp);
+void FASTCALL jitcFlushFlagsAfterCMP_L(int disp);
+void FASTCALL jitcFlushFlagsAfterCMP_U(int disp);
+
 enum X86ALUopc {
 	X86_ADC  = 2,
 	X86_ADD  = 0,
@@ -126,6 +131,7 @@ enum X86SimpleOpc {
 	X86_CWD = 0x9966,
 	X86_CDQ = 0x99,
 	X86_CMC = 0xf5,
+	X86_LAHF = 0x9f,
 	X86_PUSHA = 0x60,
 	X86_POPA = 0x61,
 	X86_PUSHF = 0x9c,

@@ -109,9 +109,7 @@ struct PPC_CPU_State {
 	uint32 temp2;
 	uint32 x87cw;
 	uint32 pc_ofs;
-	uint32 start_pc_ofs;
 	uint32 current_code_base;
-	uint32 check_intr;
 } PACKED;
 
 enum PPC_Register {

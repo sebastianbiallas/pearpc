@@ -92,13 +92,31 @@ struc PPC_CPU_State
 	temp2: resd 1
 	x87cw: resd 1
 	pc_ofs: resd 1
-	start_pc_ofs: resd 1
 	current_code_base: resd 1
-	check_intr: resd 1
 endstruc
 
-extern gCPU, gMemory, jitc_error, jitc_error_program
+struc JITC
+	clientPages resd 1
+endstruc
+
+struc ClientPage
+	entrypoints: resd 1024
+	baseaddress: resd 1
+	tcf_current: resd 1
+	
+	bytesLeft: resd 1
+	tcp: resd 1
+
+	moreRU: resd 1
+	lessRU: resd 1
+endstruc
+
+extern gCPU, gMemory, gJITC, jitc_error, jitc_error_program
 extern jitcNewPC
+extern jitcCreateClientPage
+extern jitcTouchClientPage
+extern jitcNewEntrypoint
+extern jitcStartTranslation
 extern ppc_mmu_tlb_invalidate_all_asm
 extern jitc_error_msr_unsupported_bits
 extern ppc_effective_to_physical_code
@@ -435,7 +453,56 @@ align 16
 ppc_cpu_atomic_cancel_ext_exception:
 	ppc_atomic_cancel_ext_exception_macro
 	ret
+
+align 16
+ppc_jitc_new_pc:
+;	db	0xcc
+	mov	ecx, [gJITC+clientPages]
+	mov	ebx, eax
+	shr	eax, 12
+	mov	eax, [ecx+eax*4]
+	test	eax, eax
+	jnz	.have_client_page
+
+	mov	eax, ebx
+	and	eax, 0xfffff000
+	call	jitcCreateClientPage
+
+.have_client_page:
+	call	jitcTouchClientPage
+	cmp	dword [eax+tcf_current], 0
+	je	.new_page
+	mov	ecx, ebx
+	mov	esi, eax
+	and	ecx, 0x00000ffc
+	mov	eax, [eax + entrypoints + ecx]
+	test	eax, eax
+	jz	.new_entry
+	ret
+
+.new_entry:
+	mov	eax, esi
+	mov	edx, ebx
+	and	edx, 0xfffff000
+	jmp	jitcNewEntrypoint
+
+.new_page:
+	mov	edx, ebx
+	mov	ecx, ebx
+	and	edx, 0xfffff000
+	and	ecx, 0x00000fff
+	jmp	jitcStartTranslation
 	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;	IN: eax new client pc (physical address)
+;;
+%macro ppc_new_pc_intern 0
+	call	jitcNewPC
+;	call	ppc_jitc_new_pc
+	jmp	eax
+%endmacro
+
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	ppc_dsi_exception
@@ -458,8 +525,7 @@ ppc_dsi_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x300	; entry of DSI exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -480,8 +546,7 @@ ppc_isi_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x400	; entry of ISI exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -501,8 +566,7 @@ ppc_ext_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x500	; entry of ext int exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -529,8 +593,7 @@ ppc_program_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x700	; entry of program exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -552,8 +615,7 @@ ppc_no_fpu_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x800	; entry of no fpu exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -573,8 +635,7 @@ ppc_dec_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x900	; entry of decrementer exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -596,8 +657,7 @@ ppc_sc_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0xc00	; entry of SC exception
-	mov	[gCPU+start_pc_ofs], eax
-	jmp	ppc_new_pc_intern
+	ppc_new_pc_intern
 	
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -670,8 +730,7 @@ ppc_new_pc_rel_asm:
 	call	ppc_heartbeat_ext_asm
 	push	0
 	call	ppc_effective_to_physical_code
-	call	jitcNewPC
-	jmp	eax
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -685,8 +744,7 @@ ppc_new_pc_asm:
 	call	ppc_heartbeat_ext_asm
 	push	0
 	call	ppc_effective_to_physical_code
-	call	jitcNewPC
-	jmp	eax
+	ppc_new_pc_intern
 
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -710,14 +768,6 @@ ppc_new_pc_this_page_asm:
 	sub	eax, edi
 	mov	dword [edi-4], eax
 	jmp	edx
-align 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;	IN: eax new client pc (physical address)
-;;
-ppc_new_pc_intern:
-	call	jitcNewPC
-	jmp	eax
 
 ppc_start_fpu_cw: dw 0x37f
 
@@ -733,7 +783,6 @@ ppc_start_jitc_asm:
 	push	edi
 	mov	esi, eax
 	and	esi, 0xfff
-	mov	[gCPU+start_pc_ofs], esi
 	fldcw	[ppc_start_fpu_cw]
 	jmp	ppc_new_pc_asm
 

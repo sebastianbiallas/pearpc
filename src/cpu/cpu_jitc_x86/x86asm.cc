@@ -545,15 +545,83 @@ static inline void FASTCALL jitcFlushCarry()
 	asmSETMem(X86_C, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca));
 }
 
+#if 0
+
+static inline void FASTCALL jitcFlushFlags()
+{
+	asmCALL((NativeAddress)ppc_flush_flags_asm);
+}
+
+#else
+
+uint8 jitcFlagsMapping[257];
+uint8 jitcFlagsMapping2[256];
+uint8 jitcFlagsMappingCMP_U[257];
+uint8 jitcFlagsMappingCMP_L[257];
+
+static inline void FASTCALL jitcFlushFlags()
+{
+#if 1
+	byte modrm[6];
+	NativeReg r = jitcAllocRegister(NATIVE_REG_8);
+	asmSETReg8(X86_S, (NativeReg8)r);
+	asmSETReg8(X86_Z, (NativeReg8)(r+4));
+	asmMOVxxRegReg16(X86_MOVZX, r, r);
+	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x0f);
+	asmALURegMem8(X86_MOV, (NativeReg8)r, modrm, x86_mem(modrm, r, (uint32)&jitcFlagsMapping));
+	asmALUMemReg8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), (NativeReg8)r);
+#else 
+	byte modrm[6];
+	jitcAllocRegister(NATIVE_REG | EAX);
+	asmSimple(X86_LAHF);
+	asmMOVxxRegReg8(X86_MOVZX, EAX, AH);
+	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x0f);
+	asmALURegMem8(X86_MOV, AL, modrm, x86_mem(modrm, EAX, (uint32)&jitcFlagsMapping2));
+	asmALUMemReg8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), AL);
+#endif
+}
+
+#endif
+
+static inline void jitcFlushFlagsAfterCMP(X86FlagTest t1, X86FlagTest t2, byte mask, int disp, uint32 map)
+{
+	byte modrm[6];
+	NativeReg r = jitcAllocRegister(NATIVE_REG_8);
+	asmSETReg8(t1, (NativeReg8)r);
+	asmSETReg8(t2, (NativeReg8)(r+4));
+	asmMOVxxRegReg16(X86_MOVZX, r, r);
+	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+disp), mask);
+	asmALURegMem8(X86_MOV, (NativeReg8)r, modrm, x86_mem(modrm, r, map));
+	asmALUMemReg8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+disp), (NativeReg8)r);
+}
+
+void FASTCALL jitcFlushFlagsAfterCMPL_U(int disp)
+{
+	jitcFlushFlagsAfterCMP(X86_A, X86_B, 0x0f, disp, (uint32)&jitcFlagsMappingCMP_U);
+}
+
+void FASTCALL jitcFlushFlagsAfterCMPL_L(int disp)
+{
+	jitcFlushFlagsAfterCMP(X86_A, X86_B, 0xf0, disp, (uint32)&jitcFlagsMappingCMP_L);
+}
+
+void FASTCALL jitcFlushFlagsAfterCMP_U(int disp)
+{
+	jitcFlushFlagsAfterCMP(X86_G, X86_L, 0x0f, disp, (uint32)&jitcFlagsMappingCMP_U);
+}
+
+void FASTCALL jitcFlushFlagsAfterCMP_L(int disp)
+{
+	jitcFlushFlagsAfterCMP(X86_G, X86_L, 0xf0, disp, (uint32)&jitcFlagsMappingCMP_L);
+}
+
 void FASTCALL jitcClobberFlags()
 {
 	if (gJITC.nativeFlagsState == rsDirty) {
 		if (gJITC.nativeCarryState == rsDirty) {
 			jitcFlushCarry();
-			asmCALL((NativeAddress)ppc_flush_flags_asm);
-		} else {
-			asmCALL((NativeAddress)ppc_flush_flags_asm);
 		}
+		jitcFlushFlags();
 		gJITC.nativeCarryState = rsUnused;
 	}
 	gJITC.nativeFlagsState = rsUnused;
@@ -563,21 +631,6 @@ void FASTCALL jitcClobberCarry()
 {
 	if (gJITC.nativeCarryState == rsDirty) {
 		jitcFlushCarry();
-#if 0
-		if (gJITC.nativeFlagsState == rsDirty) {
-			asmCALL((NativeAddress)ppc_flush_carry_and_flags_asm);
-		} else {
-			// can someone please optimize this??
-			NativeAddress fixup = asmJxxFixup(X86_C);
-			byte modrm[6];
-			asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer+3), ~(1<<5));
-			NativeAddress fixup2 = asmJMPFixup();
-			asmResolveFixup(fixup, asmHERE());
-			asmALUMemImm8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer+3), 1<<5);
-			asmResolveFixup(fixup2, asmHERE());
-		}
-		gJITC.nativeFlagsState = rsUnused;
-#endif
 	}
 	gJITC.nativeCarryState = rsUnused;
 }
@@ -587,7 +640,7 @@ void FASTCALL jitcClobberCarryAndFlags()
 	if (gJITC.nativeCarryState == rsDirty) {
 		if (gJITC.nativeFlagsState == rsDirty) {
 			jitcFlushCarry();
-			asmCALL((NativeAddress)ppc_flush_flags_asm);
+			jitcFlushFlags();
 			gJITC.nativeCarryState = gJITC.nativeFlagsState = rsUnused;
 		} else {
 			jitcClobberCarry();
@@ -605,21 +658,11 @@ void FASTCALL jitcFlushCarryAndFlagsDirty()
 	if (gJITC.nativeCarryState == rsDirty) {
 		jitcFlushCarry();
 		if (gJITC.nativeFlagsState == rsDirty) {
-			asmCALL((NativeAddress)ppc_flush_flags_asm);
-		} else {
-#if 0
-			NativeAddress fixup = asmJxxFixup(X86_C);
-			byte modrm[6];
-			asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer+3), ~(1<<5));
-			NativeAddress fixup2 = asmJMPFixup();
-			asmResolveFixup(fixup, asmHERE());
-			asmALUMemImm8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer+3), 1<<5);
-			asmResolveFixup(fixup2, asmHERE());
-#endif
+			jitcFlushFlags();
 		}
 	} else {
 		if (gJITC.nativeFlagsState == rsDirty) {
-			asmCALL((NativeAddress)ppc_flush_flags_asm);
+			jitcFlushFlags();
 		}
 	}
 }
@@ -684,7 +727,6 @@ JitcFloatReg FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r)
  */
 JitcFloatReg FASTCALL jitcFloatRegisterDirty(JitcFloatReg r)
 {
-//	ht_printf("dirty %d\n", r);
 	gJITC.nativeFloatRegState[r] = rsDirty;
 	return r;
 }
@@ -1162,7 +1204,7 @@ void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
 	jitcEmit(instr, len+1);
 }
 
-void FASTCALL asmALURegMem8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
+void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg8 reg1, byte *modrm, int len)
 {
 	byte instr[15];
 	switch (opc) {
@@ -1181,7 +1223,7 @@ void FASTCALL asmALURegMem8(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 		instr[0] = 0x02+(opc<<3);
 	}
 	memcpy(&instr[1], modrm, len);
-	instr[1] |= (reg2<<3);
+	instr[1] |= (reg1<<3);
 	jitcEmit(instr, len+1);
 }
 
