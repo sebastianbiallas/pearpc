@@ -758,7 +758,6 @@ ppc_write_effective_half_asm:
 	mov	[gCPU+pc_ofs], esi
 	mov	ebx, eax
 	and	ebx, 0xfff
-	xchg	dh, dl
 	cmp	ebx, 4095
 	jae	.overlap
 
@@ -768,10 +767,12 @@ ppc_write_effective_half_asm:
 	cmp	eax, [gMemorySize]
 	pop	edx
 	jae	.mmio
+	xchg	dh, dl
 	add	eax, [gMemory]
 	mov	[eax], dx
 	ret
 .mmio:
+	xchg	dh, dl
 	mov	ecx, 2
 	movzx	edx, dx
 	call	io_mem_write_glue
@@ -827,9 +828,10 @@ ppc_write_effective_word_asm:
 	mov	[gCPU+pc_ofs], esi
 	mov	ebx, eax
 	and	ebx, 0xfff
-	bswap	edx
 	cmp	ebx, 4093
 	jae	.overlap
+
+	bswap	edx
 
 	push	edx
 	push	8			; roll back 8 bytes in case of exception
@@ -925,9 +927,10 @@ ppc_write_effective_dword_asm:
 	mov	ebx, eax
 	and	ebx, 0xfff
 	cmp	ebx, 4089
-	bswap	edx
-	bswap	ecx
 	jae	.overlap
+
+	bswap	ecx
+	bswap	edx
 
 	push	ecx
 	push	edx
@@ -942,6 +945,9 @@ ppc_write_effective_dword_asm:
 	mov	[eax+4], edx
 	ret
 .mmio:
+	mov	ebx, ecx
+	mov	ecx, edx
+	mov	edx, ebx
 	call	io_mem_write64_glue
 	ret
 .overlap:
