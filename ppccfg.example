@@ -22,6 +22,8 @@ ppc_start_resolution = 2
 ## but feel less responsive. You should adjust this to your computer speed and personal
 ## preference.
 ##
+## Setting this to a value less than 10 is silly.
+##
 
 redraw_interval_msec = 40
 
