@@ -228,7 +228,7 @@ typedef struct osi_get_vmode_info {
 		ppc_cpu_set_gpr(cpu, 4, (gGraphicModes->count()<<16) | (vmode+1));
 		ppc_cpu_set_gpr(cpu, 5, (1<<16) | 0);
 		ppc_cpu_set_gpr(cpu, 6, (chr->width << 16) | chr->height);
-		ppc_cpu_set_gpr(cpu, 7, 85 << 16);
+		ppc_cpu_set_gpr(cpu, 7, chr->vsyncFrequency << 16);
 		ppc_cpu_set_gpr(cpu, 8, chr->bytesPerPixel*8);
 		ppc_cpu_set_gpr(cpu, 9, ((chr->scanLineLength)<<16) | 0);
 		return;
