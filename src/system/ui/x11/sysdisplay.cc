@@ -40,10 +40,6 @@
 #define DPRINTF(a...)
 //#define DPRINTF(a...) ht_printf(a)
 
-// FIXME: these should be members of X11SystemDisplay
-static bool gVisible;
-static bool gMapped;
-
 static void findMaskShiftAndSize(int &shift, int &size, uint bitmask)
 {
 	if (!bitmask) {
@@ -105,8 +101,7 @@ public:
 		mMenuHeight = 28;
 		menuData = NULL;
 
-		gMapped = true;
-		gVisible = true;
+		mXImage = NULL;
 
 		mClientChar = aClientChar;
 		convertCharacteristicsToHost(mXChar, mClientChar);
