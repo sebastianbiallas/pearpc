@@ -419,7 +419,6 @@ void SystemDisplay::clickMenu(int x, int y)
 
 void SystemDisplay::composeKeyDialog()
 {
-	//translate this to SDL calls at some point
 	byte *oldframebuffer = (byte*)malloc(gFramebufferScanlineLen * mClientChar.height);
 	memmove(oldframebuffer, gFramebuffer, gFramebufferScanlineLen * mClientChar.height);
 
