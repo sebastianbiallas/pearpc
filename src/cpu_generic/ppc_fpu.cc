@@ -149,27 +149,28 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 //		printf("new exp: %d\n", res.e);
 //		ht_printf("a.m: %qb\nb.m: %qb\n", &a.m, &b.m);
 		uint64 fH, fM1, fM2, fL;
-		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [64]
-		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [56]
-		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [56]
-		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [48]
-//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [63,64]
+		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [55,56]
+		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [55,56]
+		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [47,48]
+		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
 
 		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
 		uint64 rL, rH;
-		rL = fL;					// rL = rH = [64]
-		rH = fH;					// rH = fH = [48]
+		rL = fL;					// rL = rH = [63,64]
+		rH = fH;					// rH = fH = [47,48]
 		uint64 split;
 		split = fM1 + fM2;
 		uint64 carry;
-		ppc_fpu_add_uint64_carry(rL, (split & 0xffffffff) << 32, carry); // rL = [64]
+		ppc_fpu_add_uint64_carry(rL, (split & 0xffffffff) << 32, carry); // rL = [63,64]
 		rH += carry;					// rH = [0 .. 2^48]
-		rH += split >> 32;				// rH = [49]
-		// res.m = [0   0  .. 0  |  rH_48 rH_47 .. rH_0 | rL_63 rL_63 .. rL_56
-		// bit      63  62 .. 57 |  56    55    .. 8    | 7     6        0
-		res.m = rH << 8;
-		res.m |= rL >> 56;
-		// res.m = [57]
+		rH += split >> 32;				// rH = [0:48], where 46, 47 or 48 set
+		// res.m = [0   0  .. 0  | rH_48 rH_47 .. rH_0 | rL_63 rL_62 .. rL_55
+		// bit      63  62 .. 58 | 57    56    .. 9    | 8     7        0
+		res.m = rH << 9;
+		res.m |= rL >> (64-9);
+		// res.m = [58]
+		ht_printf("res.m = %qx\n", &res.m);
 /*
 		// FIXME: incorrect
 		fM1 >>= 2;
@@ -183,7 +184,10 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 		fM1 |= fH;
 		res.m = fM1;*/
 //		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
-		if (res.m & (1ULL << 56)) {
+		if (res.m & (1ULL << 57)) {
+			res.m >>= 2;
+			res.e += 2;
+		} else if (res.m & (1ULL << 56)) {
 			res.m >>= 1;
 			res.e++;
 		}
