@@ -18,3 +18,4 @@
 - usability: try to eject CD if "Change CD" is clicked
 - usability: make Win32 CDROM drives work
 - hardware: full USB support
+- Win32: displayConvert() incorrectly uses it's arguments
