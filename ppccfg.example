@@ -107,15 +107,15 @@ pci_ide0_slave_image = "/dev/cdrom"
 pci_ide0_slave_type = "cdrom"
 
 ##
-##	Network (unavailable on windows)
+##	Network
 ##
 ##	Choose one of the cards
 
-#pci_3c90x_installed = 0
-#pci_3c90x_mac = "de:ad:ca:fe:12:34"
+pci_3c90x_installed = 0
+pci_3c90x_mac = "de:ad:ca:fe:12:34"
 
-#pci_rtl8139_installed = 0
-#pci_rtl8139_mac = "de:ad:ca:fe:12:35"
+pci_rtl8139_installed = 0
+pci_rtl8139_mac = "de:ad:ca:fe:12:35"
 
 ##
 ##	USB
