@@ -144,6 +144,17 @@ void SDLSystemDisplay::displayShow()
 	}
 
 	sys_lock_mutex(mRedrawMutex);
+
+	if (SDL_MUSTLOCK(gSDLScreen)) SDL_LockSurface(gSDLScreen);
+
+	sys_convert_display(mClientChar, mSDLChar, gFrameBuffer,
+		(byte*)gSDLScreen->pixels, firstDamagedLine, lastDamagedLine);
+
+	if (SDL_MUSTLOCK(gSDLScreen)) SDL_UnlockSurface(gSDLScreen);
+
+	SDL_UpdateRect(gSDLScreen, 0, firstDamagedLine, mClientChar.width, lastDamagedLine-firstDamagedLine+1);
+
+#if 0
 	if (mSDLFrameBuffer) { // using software-mode?
 		sys_convert_display(mClientChar, mSDLChar, gFrameBuffer,
 			mSDLFrameBuffer, firstDamagedLine, lastDamagedLine);
@@ -169,6 +180,7 @@ void SDLSystemDisplay::displayShow()
 	SDL_UpdateRect(gSDLScreen, 0, firstDamagedLine, mClientChar.width, lastDamagedLine-firstDamagedLine+1);
 	if (SDL_MUSTLOCK(gSDLScreen))
 		SDL_LockSurface(gSDLScreen);
+#endif
 	sys_unlock_mutex(mRedrawMutex);
 }
 
@@ -179,74 +191,6 @@ void SDLSystemDisplay::convertCharacteristicsToHost(DisplayCharacteristics &aHos
 
 bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacteristics)
 {
-#if 0
-	DPRINTF("Changing resolution to %dx%d\n", aCharacteristics.width, aCharacteristics.height);
-
-        DisplayCharacteristics chr;
-	convertCharacteristicsToHost(chr, aCharacteristics);
-	uint bitsPerPixel;
-	/*
-	 * From the SDL documentation:
-	 * "Note: The bpp parameter is the number of bits per pixel,
-	 * so a bpp of 24 uses the packed representation of 3 bytes/pixel.
-	 * For the more common 4 bytes/pixel mode, use a bpp of 32.
-	 * Somewhat oddly, both 15 and 16 will request a 2 bytes/pixel
-	 * mode, but different pixel formats."
-	 *
-	 * Because of their odd convention, we have to mess with 
-	 * bytesPerPixel here.
-	 */
-	switch (chr.bytesPerPixel) {
-	case 2:
-		bitsPerPixel = 15;
-		break;
-	case 4:
-		bitsPerPixel = 32;
-		break;
-	default:
-		ASSERT(0);
-		break;
-	}
-
-	if (!SDL_VideoModeOK(chr.width, chr.height, bitsPerPixel, SDL_HWSURFACE))
-		return false;
-
-	mSDLChar = chr;
-	mClientChar = aCharacteristics;
-
-	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
-		SDL_UnlockSurface(gSDLScreen);
-	}
-
-	gSDLScreen = SDL_SetVideoMode(aCharacteristics.width, aCharacteristics.height,
-	                          bitsPerPixel, SDL_HWSURFACE);
-	if (!gSDLScreen) {
-		// FIXME: this is really bad.
-		ht_printf("SDL: FATAL: can't switch mode?!\n");
-		exit(1);
-	}
-
-	if (gSDLScreen->pitch != aCharacteristics.width * aCharacteristics.bytesPerPixel) {
-		// FIXME: this is really bad.
-		ht_printf("SDL: FATAL: new mode has scanline gap.\n");
-		exit(1);
-	}
-
-	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
-		mClientChar.height * mClientChar.bytesPerPixel);
-	mSDLFrameBuffer = (byte*)gSDLScreen->pixels;
-
-	if (SDL_MUSTLOCK(gSDLScreen)) {
-		SDL_LockSurface(gSDLScreen);
-	}
-
-	ht_printf("SDL rmask %08x, gmask %08x, bmask %08x\n", gSDLScreen->format->Rmask,
-		gSDLScreen->format->Gmask, gSDLScreen->format->Bmask);
-
-	return true;
-
-===========================================================================
-#endif
     	Uint32 videoFlags = 0; 		/* Flags to pass to SDL_SetVideoMode */
         DisplayCharacteristics chr;
                             
@@ -308,9 +252,11 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 	mClientChar = aCharacteristics;
 	
 	sys_lock_mutex(mRedrawMutex);
+#if 0
 	if (gSDLScreen && SDL_MUSTLOCK(gSDLScreen)) {
 		SDL_UnlockSurface(gSDLScreen);
 	}
+#endif
 
 	gSDLScreen = SDL_SetVideoMode(aCharacteristics.width, aCharacteristics.height,
                           bitsPerPixel, videoFlags);
@@ -338,6 +284,9 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 		exit(1);
 	}	
 
+	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
+		mClientChar.height * mClientChar.bytesPerPixel);
+#if 0
 	if (mSDLClientScreen) {
 		// if this is a modechange, free the old surface first.
 		if (SDL_MUSTLOCK(gSDLScreen))
@@ -370,16 +319,17 @@ bool SDLSystemDisplay::changeResolution(const DisplayCharacteristics &aCharacter
 		SDL_LockSurface(gSDLScreen);
 	if (SDL_MUSTLOCK(mSDLClientScreen))
 		SDL_LockSurface(mSDLClientScreen);
+#endif
 
 	//ht_printf("SDL rmask %08x, gmask %08x, bmask %08x\n", gSDLScreen->format->Rmask,
 	//	gSDLScreen->format->Gmask, gSDLScreen->format->Bmask);
 	// 
-/*	mSDLChar.redSize = 8 - gSDLScreen->format->Rloss;
+	mSDLChar.redSize = 8 - gSDLScreen->format->Rloss;
 	mSDLChar.greenSize = 8 - gSDLScreen->format->Gloss;
 	mSDLChar.blueSize = 8 - gSDLScreen->format->Bloss;
 	mSDLChar.redShift = gSDLScreen->format->Rshift;
 	mSDLChar.greenShift = gSDLScreen->format->Gshift;
-	mSDLChar.blueShift = gSDLScreen->format->Bshift;*/
+	mSDLChar.blueShift = gSDLScreen->format->Bshift;
 
         damageFrameBufferAll();
 	sys_unlock_mutex(mRedrawMutex);
