@@ -85,7 +85,7 @@ public:
 	inline	int		length() const;
 		bool		leftSplit(char chr, String &initial, String &rem) const;
 		void		prepend(const String &s);
-		bool		regexMatch(const String &aRegEx, Container *resultStrings = NULL, int maxRegExMatches = 32) const;
+//		bool		regexMatch(const String &aRegEx, Container *resultStrings = NULL, int maxRegExMatches = 32) const;
 //		bool		regexReplace(const String &aRegEx, Container *resultStrings = NULL) const;
 		int		replace(const String &what, const String &with, int start = 0, int maxReplacements = -1);
 		bool		rightSplit(char chr, String &initial, String &rem) const;

@@ -34,9 +34,9 @@
 #include "atom.h"
 #endif
 
-extern "C" {
-#include "regex.h"
-}
+//extern "C" {
+//#include "regex.h"
+//}
 
 /*
  *	CLASS String
@@ -436,7 +436,7 @@ void String::realloc(int aNewSize)
 	mLength = aNewSize;*/
 }
 
-bool String::regexMatch(const String &aRegEx, Container *resultStrings, int maxRegExMatches) const
+/*bool String::regexMatch(const String &aRegEx, Container *resultStrings, int maxRegExMatches) const
 {
 	const char *re = aRegEx.toString();
 	bool result = false;
@@ -459,7 +459,7 @@ bool String::regexMatch(const String &aRegEx, Container *resultStrings, int maxR
 
 	delete re;
 	return result;
-}
+}*/
 
 /**
  *	replaces all occurences of |what| in string with |with|
