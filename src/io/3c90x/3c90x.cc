@@ -228,7 +228,7 @@ static byte gRegAccess[0x70] =
 	1,				/* DnPriorityThresh */
 	1,				/* DnPoll */
 	RA_INV,
-	RA_INV,
+	1,
 /* 0x30 */
 	4, RA_INV, RA_INV, RA_INV,	/* UpPktStatus */
 /* 0x34 */
@@ -620,7 +620,7 @@ void totalReset()
 	mTxEnabled = false;
 	mUpStalled = false;
 	mDnStalled = false;
-	w3.MaxPktSize = sizeof mRxPacket;
+	w3.MaxPktSize = 1514 /* FIXME: should depend on sizeof mRxPacket*/;
 	w3.RxFree = 16*1024;
 	w3.TxFree = 16*1024;
 	mRxPacketSize = 0;
@@ -739,14 +739,14 @@ void readRegWindow(uint window, uint32 port, uint32 &data, uint size)
 			}
 			data = w4.PhysMgmt;
 			bool mgmtData = mMIIReadWord & 0x80000000;
-			IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
+//			IO_3C90X_TRACE("Read cycle mgmtData=%d\n", mgmtData ? 1 : 0);
 			if (mgmtData) {
 				data = w4.PhysMgmt | PM_mgmtData;
 			} else {
 				data = w4.PhysMgmt & (~PM_mgmtData);
 			}
-			IO_3C90X_TRACE("read PhysMgmt = %04x (mgmtData = %d)\n",
-				data, mgmtData ? 1 : 0);
+/*			IO_3C90X_TRACE("read PhysMgmt = %04x (mgmtData = %d)\n",
+				data, mgmtData ? 1 : 0);*/
 			break;
 		}
 		case 0xc: {
@@ -1035,14 +1035,14 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 				IO_3C90X_WARN("alignment.4.8\n");
 				SINGLESTEP("");
 			}
-			IO_3C90X_TRACE("PhysMgmt = %04x (clk=%d, data=%d, dir=%d), old = %04x\n",
+/*			IO_3C90X_TRACE("PhysMgmt = %04x (clk=%d, data=%d, dir=%d), old = %04x\n",
 				data, (data & PM_mgmtClk) ? 1 : 0, (data & PM_mgmtData) ? 1 : 0,
-					(data & PM_mgmtDir) ? 1 : 0, w4.PhysMgmt);
+					(data & PM_mgmtDir) ? 1 : 0, w4.PhysMgmt);*/
 			bool hiClk = !(w4.PhysMgmt & PM_mgmtClk) && (data & PM_mgmtClk);
 			if (hiClk) {
 				// Z means lo edge of mgmtDir
 				bool Z = (mLastHiClkPhysMgmt & PM_mgmtDir) && !(data & PM_mgmtDir);
-				IO_3C90X_TRACE("hi-edge, Z=%d\n", Z ? 1 : 0);
+//				IO_3C90X_TRACE("hi-edge, Z=%d\n", Z ? 1 : 0);
 				if (Z) {
 					IO_3C90X_TRACE("Z-cycle, %016qx, written bits=%d\n", &mMIIWriteWord, mMIIWrittenBits);
 					// check if the 5 frames have been sent
@@ -1056,7 +1056,7 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 							switch (opcode) {
 							case 1: {
 								// Opcode Write
-								IO_3C90X_TRACE("Opcode Write\n");
+//								IO_3C90X_TRACE("Opcode Write\n");
 								if (mMIIWrittenBits == 64) {
 									uint32 value = mMIIWriteWord & 0xffff;
 									IO_3C90X_TRACE("NOT writing 0x%04x to register. feature disabled. (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
@@ -1070,7 +1070,7 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 							}
 							case 2: {
 								// Opcode Read
-								IO_3C90X_TRACE("Opcode Read\n");
+//								IO_3C90X_TRACE("Opcode Read\n");
 								if (mMIIWrittenBits == 32+2+2+5+5) {
 									// msb gets sent first and is zero to indicated success
 									// shift one more for algorithmic reasons. not beautiful I know.
@@ -1238,16 +1238,17 @@ void setCR(uint16 cr)
 	}
 	case CmdSetTxStartThresh: {
 		IO_3C90X_WARN("SetTxStartTresh(%02x)\n", (cr & 0x7ff) << 2);
-		SINGLESTEP("");
+//		SINGLESTEP("");
 		RegWindow5 &w5 = (RegWindow5&)mWindows[5];
 		w5.TxStartThresh = (cr & 0x7ff) << 2;
 		break;
 	}
-/*	case CmdSetHashFilterBit: {
-		bool set = cr & 0x400;
+	case CmdSetHashFilterBit: {
+		bool value = cr & 0x400;
 		uint which = cr & 0x3f;
+		IO_3C90X_WARN("SetHashFilterBit(which=%d, value=%d)\n", which, value ? 1 : 0);
 		break;
-	}*/
+	}
 	case CmdSetRxEarlyThresh: {
 		IO_3C90X_TRACE("SetTxStartTresh(%02x)\n", (cr & 0x7ff) << 2);
 		RegWindow5 &w5 = (RegWindow5&)mWindows[5];
@@ -1321,7 +1322,7 @@ void txDPD0(DPD0 *dpd)
 	uint32 fsh = dpd->FrameStartHeader;
 //	printf("fsh = %08x\n", fsh);
 	if (fsh & FSH_dpdEmpty) {
-		printf("packet empty!\n");
+		IO_3C90X_TRACE("dpd empty\n");
 		return;
 	}
 	byte pbuf[MAX_PACKET_SIZE];
@@ -1338,7 +1339,7 @@ void txDPD0(DPD0 *dpd)
 		IO_3C90X_TRACE("frag %d: %08x, len %04x\n", i, addr, len);
 //		dumpMem(addr, len);
 		if (p-pbuf+len >= sizeof pbuf) {
-			IO_3C90X_WARN("packet too big !");
+			IO_3C90X_WARN("packet too big ! (%d >= %d)", p-pbuf+len, sizeof pbuf);
 			SINGLESTEP("");
 			return;
 		}
@@ -1734,7 +1735,7 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 	} else if ((port >= 0x10) && (port+size <= 0x10 + sizeof(Registers))) {
 		byte l = gRegAccess[port-0x10];
 		if (l != size) {
-			IO_3C90X_WARN("invalid/unaligned read from register port=%04x, size=%d\n", port, size);
+			IO_3C90X_WARN("invalid/unaligned read from register port=%04x, size=%d (expecting size %d)\n", port, size, l);
 			SINGLESTEP("");
 		}
 		// read from (standard) register
@@ -1812,6 +1813,27 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 		case 0x2d:
 			IO_3C90X_WARN("DnPoll\n");
 			SINGLESTEP("");
+			break;
+		case 0x2a:
+			memcpy(((byte*)&mRegisters)+port-0x10, &data, size);
+			IO_3C90X_TRACE("write DnBurstThresh\n");
+			break;
+		case 0x2c:
+			memcpy(((byte*)&mRegisters)+port-0x10, &data, size);
+			IO_3C90X_TRACE("write DnPriorityThresh\n");
+			break;
+		case 0x2f:
+			// used by Darwin as TxFreeThresh. Not documented in [1].
+			memcpy(((byte*)&mRegisters)+port-0x10, &data, size);
+			IO_3C90X_TRACE("write TxFreeThresh\n");
+			break;
+		case 0x3c:
+			memcpy(((byte*)&mRegisters)+port-0x10, &data, size);
+			IO_3C90X_TRACE("write UpPriorityThresh\n");
+			break;
+		case 0x3e:
+			memcpy(((byte*)&mRegisters)+port-0x10, &data, size);
+			IO_3C90X_TRACE("write UpBurstThresh\n");
 			break;
 		default:
 			IO_3C90X_WARN("write to register port=%04x, size=%d\n", port, size);
