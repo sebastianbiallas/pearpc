@@ -24,13 +24,13 @@
 #include "config.h"		// we need config.h
 #include "system/types.h"
 
-#if HOST_ENDIANESS == LE
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
 
 /*
  *		Little-endian machine
  */
-// FIXME: configure this
-#	define HOST_IS_X86
+// FIXME: configure this, default to no
+#	undef HOST_IS_X86
 
 #	define ppc_dword_from_BE ppc_dword_to_BE
 #	define ppc_word_from_BE ppc_word_to_BE
@@ -79,7 +79,7 @@ static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
 
 #	endif
 
-#elif HOST_ENDIANESS == BE
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
 
 /*
  *		Big-endian machine

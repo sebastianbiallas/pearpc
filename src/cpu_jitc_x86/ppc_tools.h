@@ -24,12 +24,12 @@
 #include "config.h"		// we need config.h
 #include "system/types.h"
 
-#if HOST_ENDIANESS == LE
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
 
 /*
  *		Little-endian machine
  */
-// FIXME: configure this
+// FIXME: check that machine really is x86
 #	define HOST_IS_X86
 
 #	ifndef HOST_IS_X86
@@ -38,7 +38,7 @@
 
 #	endif
 
-#elif HOST_ENDIANESS == BE
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
 
 /*
  *		Big-endian machine

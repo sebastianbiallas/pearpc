@@ -201,7 +201,7 @@ byte mapchar[]={
 	INV,INV,INV,INV,INV,INV,INV,INV,INV,INV,INV,INV,INV,INV,INV,INV
 };
 
-void ConfigParser::load(Stream &in)
+void ConfigParser::loadConfig(Stream &in)
 {
 	read(in);
 	foreach(ConfigEntry, e, *entries, {

@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
 		try {
 			LocalFile *config;
 			config = new LocalFile(argv[1]);
-			gConfig->load(*config);
+			gConfig->loadConfig(*config);
 			delete config;
 		} catch (Exception *e) {
 			String res;

@@ -731,7 +731,7 @@ bool rtl8139_installed = false;
 void rtl8139_init()
 {
 	String tunstr_;
-	char   tun_name[1024];
+//	char   tun_name[1024];
 
 	int verbose = 0;
 

@@ -52,16 +52,16 @@ class ConfigParser: public Object {
 public:
 			ConfigParser();
 	virtual		~ConfigParser();
-	
+
 		void	acceptConfigEntryInt(const String &mName, bool mandatory);
 		void	acceptConfigEntryString(const String &mName, bool mandatory);
 		void	acceptConfigEntryIntDef(const String &mName, int d);
 		void	acceptConfigEntryStringDef(const String &mName, const String &d);
-		void	load(Stream &in);
-		
+		void	loadConfig(Stream &in);
+
 		ConfigEntry *getEntry(const String &name);
 		bool	haveKey(const String &name);
-		
+
 		// these will throw an exception if key isn't set!
 		int	getConfigInt(const String &name);
 		String &getConfigString(const String &name, String &result);

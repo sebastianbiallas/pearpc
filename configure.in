@@ -31,8 +31,8 @@ if test "x$enable_gui" = "xno"; then
 	enable_gui="nogui"
 fi
 
-PPC_CFLAGS="-Wall -fsigned-char"
-PPC_CXXFLAGS="-Wall -fsigned-char"
+PPC_CFLAGS="-Wundef -Wall -fsigned-char"
+PPC_CXXFLAGS="-Wundef -Wall -Woverloaded-virtual -fsigned-char"
 PPC_LDADD=""
 PPC_LDFLAGS=""
 
@@ -67,12 +67,16 @@ AM_CONFIG_HEADER(config.h)
 dnl Check OS specifica
 
 AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
+
+AC_DEFINE(HOST_ENDIANESS_BE, 1234, [big-endian byte-order helper constant])
+AC_DEFINE(HOST_ENDIANESS_LE, 4321, [little-endian byte-order helper constant])
+
 AC_C_BIGENDIAN(
-	AC_DEFINE(HOST_ENDIANESS, BE, [Which host endianess/byte-order?]),
- 	AC_DEFINE(HOST_ENDIANESS, LE, [Which host endianess/byte-order?]),
+	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_BE, [Which host endianess/byte-order?]),
+ 	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?]),
 	[
 	AC_MSG_WARN([couldn't determine host endianess/byte-order. assuming your machine is little-endian.])
-	AC_DEFINE(HOST_ENDIANESS, LE, [Which host endianess/byte-order?])
+	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?])
 	]
 )
 
@@ -149,9 +153,6 @@ esac
 
 AM_CONDITIONAL(USE_CPU_GENERIC, test x$CPU_DIR = xcpu_generic)
 AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
-
-PPC_CFLAGS="$PPC_CFLAGS";
-PPC_CXXFLAGS="$PPC_CFLAGS";
 
 PPC_CFLAGS="$PPC_CFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
 PPC_CXXFLAGS="$PPC_CXXFLAGS -D_FILE_OFFSET_BITS=64 -pipe";
