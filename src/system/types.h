@@ -52,8 +52,6 @@
  *	integers
  */
 
-#include <sys/types.h>
-
 #include SYSTEM_TYPES_HDR
 
 /*

@@ -22,17 +22,18 @@
 #ifndef __POSIX_TYPES_H__
 #define __POSIX_TYPES_H__
 
-// >> FIXME: only works on x86
-typedef unsigned char	uint8;
-typedef unsigned short	uint16;
-typedef unsigned int	uint32;
-typedef unsigned long long uint64;
+#include <stdint.h>
+#include <sys/types.h>
 
-typedef signed char	sint8;
-typedef signed short	sint16;
-typedef signed int	sint32;
-typedef signed long long sint64;
-// <<
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+typedef int8_t sint8;
+typedef int16_t	sint16;
+typedef int32_t sint32;
+typedef int64_t sint64;
 
 typedef signed int	sint;
 

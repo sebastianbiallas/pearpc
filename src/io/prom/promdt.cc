@@ -1075,7 +1075,7 @@ void prom_init_device_tree()
 	cpu->addProp(new PromPropString("data-streams", ""));
 	
 	PromNode *cache = new PromNode("cache");
-	cpu->addProp(new PromPropInt("l2-cache", (int)cache));
+	cpu->addProp(new PromPropInt("l2-cache", cache->getPHandle()));
 	cache->addProp(new PromPropString("device_type", "cache"));
 	cache->addProp(new PromPropInt("i-cache-size", 0x100000));
 	cache->addProp(new PromPropInt("d-cache-size", 0x100000));

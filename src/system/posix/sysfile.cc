@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstddef>
 #include <cstring>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -267,7 +268,7 @@ void *sys_alloc_read_write_execute(int size)
 	void *p = malloc(size+PAGESIZE-1);
 	if (!p) return NULL;
 	
-	void *ret = (void *)(((int)p + PAGESIZE-1) & ~(PAGESIZE-1));
+	void *ret = (void *)(((ptrdiff_t)p + PAGESIZE-1) & ~(PAGESIZE-1));
 	
 	if (mprotect(ret, size, PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		free(p);
