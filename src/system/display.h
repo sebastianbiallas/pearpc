@@ -23,6 +23,7 @@
 
 #include "tools/data.h"
 #include "types.h"
+#include "keyboard.h"
 
 /* codepages */
 
@@ -277,7 +278,7 @@ public:
 extern SystemDisplay *gDisplay;
 
 // should be declared elsewhere
-void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms);
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyCharacteristics);
 void doneUI();
 
 #endif /* __SYSTEM_DISPLAY_H__ */

@@ -57,12 +57,15 @@ bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 	if (ev.key.keycode == KEY_ALTGR) mRAlt = ev.key.pressed ? KEYCODE_RALT : 0;
 	if (ev.key.keycode == KEY_SHIFT) mShift = ev.key.pressed ? KEYCODE_SHIFT : 0;
 	int keycode = ev.key.keycode | mCtrl | mRAlt | mLAlt | mShift;
-	if ((keycode & 0xff)== KEY_F12) {
+	if (keycode == keyConfig.key_toggle_mouse_grab) {
 		if (ev.key.pressed) gDisplay->setMouseGrab(!gDisplay->isMouseGrabbed());
 		return true;
-	} else if (keycode == (KEY_RETURN | KEYCODE_LALT | KEYCODE_CTRL)) {
+	} else if (keycode == keyConfig.key_toggle_full_screen) {
 		if (ev.key.pressed) gDisplay->setFullscreenMode(!gDisplay->mFullscreen);
 		return true;
+	/*} else if (keycode == keyConfig.key_compose_dialog) {
+		if (ev.key.pressed) gDisplay->composeKeyDialog();
+		return true;*/
 	} else {
 		return SystemDevice::handleEvent(ev);
 	}
@@ -162,3 +165,8 @@ bool SystemKeyboard::adbKeyToAscii(char &chr, int adbcode)
 	return chr != 0;
 }
 
+bool SystemKeyboard::setKeyConfig(KeyboardCharacteristics keycon)
+{
+	keyConfig=keycon;
+	return true;
+}

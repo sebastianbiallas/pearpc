@@ -278,21 +278,19 @@ int main(int argc, char *argv[])
 		String key_compose_dialog_string;
 		String key_toggle_mouse_grab_string;
 		String key_toggle_full_screen_string;
-		int key_compose_dialog;
-		int key_toggle_mouse_grab;
-		int key_toggle_full_screen;
+		KeyboardCharacteristics keyConfig;
 		gConfig->getConfigString("key_compose_dialog", key_compose_dialog_string);		
 		gConfig->getConfigString("key_toggle_mouse_grab", key_toggle_mouse_grab_string);
 		gConfig->getConfigString("key_toggle_full_screen", key_toggle_full_screen_string);
-		if (!SystemKeyboard::convertStringToKeycode(key_compose_dialog, key_compose_dialog_string)) {
+		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_compose_dialog, key_compose_dialog_string)) {
 			ht_printf("%s: invalid '%s'\n", argv[1], "key_compose_dialog");
 			exit(1);
 		}
-		if (!SystemKeyboard::convertStringToKeycode(key_toggle_mouse_grab, key_toggle_mouse_grab_string)) {
+		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_mouse_grab, key_toggle_mouse_grab_string)) {
 			ht_printf("%s: invalid '%s'\n", argv[1], "key_toggle_mouse_grab");
 			exit(1);
 		}
-		if (!SystemKeyboard::convertStringToKeycode(key_toggle_full_screen, key_toggle_full_screen_string)) {
+		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_full_screen, key_toggle_full_screen_string)) {
 			ht_printf("%s: invalid '%s'\n", argv[1], "key_toggle_full_screen");
 			exit(1);
 		}
@@ -342,7 +340,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
-		initUI(APPNAME" "APPVERSION, gm, msec);
+		initUI(APPNAME" "APPVERSION, gm, msec, keyConfig);
 
 		io_init();
 

@@ -154,6 +154,13 @@
 #define KEYCODE_RALT	0x400
 #define KEYCODE_SHIFT	0x800
 
+struct KeyboardCharacteristics
+{
+	int key_compose_dialog;
+	int key_toggle_mouse_grab;
+	int key_toggle_full_screen;
+};
+
 /* system-dependent (implementation in ui / $MYUI / *.cc) */
 class SystemKeyboard: public SystemDevice {
 	int mShift;
@@ -168,9 +175,14 @@ public:
 	static	bool	convertKeycodeToString(String &result, int keycode);
 	static	bool	convertStringToKeycode(int &keycode, const String &s);
 	static	bool	adbKeyToAscii(char &chr, int adbcode);
+	bool		setKeyConfig(KeyboardCharacteristics keyConfig);
+private:
+	KeyboardCharacteristics keyConfig;
 };
 
 /* system-independent (implementation in keyboard.cc) */
 extern SystemKeyboard *gKeyboard;
+
+
 
 #endif /* __SYSTEM_KEYBOARD_H__ */

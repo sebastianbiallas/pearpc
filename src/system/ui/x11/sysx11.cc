@@ -304,7 +304,7 @@ extern SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharact
 extern SystemMouse *allocSystemMouse();
 extern SystemKeyboard *allocSystemKeyboard();
 
-void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms)
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig)
 {
 	// connect to X server
 	char *display = getenv("DISPLAY");
@@ -322,11 +322,15 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
 	gMouse = allocSystemMouse();
 	gKeyboard = allocSystemKeyboard();
+	if(!gKeyboard->setKeyConfig(keyConfig)) {
+		ht_printf("no keyConfig, or is empty");
+		exit(1);
+	}
 
 	sys_thread X11eventLoopThread;
 
 	if (sys_create_thread(&X11eventLoopThread, 0, X11eventLoop, NULL)) {
-		printf("can't create x11 event thread!\n");
+		ht_printf("can't create x11 event thread!\n");
 		exit(1);
 	}
 }

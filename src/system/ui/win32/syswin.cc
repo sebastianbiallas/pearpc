@@ -1,6 +1,6 @@
 /* 
  *	PearPC
- *	sysx11.cc
+ *	syswin.cc
  *
  *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
  *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
@@ -347,13 +347,17 @@ extern SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharact
 extern SystemMouse *allocSystemMouse();
 extern SystemKeyboard *allocSystemKeyboard();
 
-void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms)
+void initUI(const char *title, const DisplayCharacteristics &chr, int redraw_ms, const KeyboardCharacteristics &keyConfig)
 {
 	gHInst = GetModuleHandle(NULL);
 
 	gDisplay = allocSystemDisplay(title, chr, redraw_ms);
 	gMouse = allocSystemMouse();
 	gKeyboard = allocSystemKeyboard();
+	if(!gKeyboard->setKeyConfig(keyConfig)) {
+		ht_printf("no keyConfig, or is empty");
+		exit(1);
+	}
 
 	_beginthread(eventLoop, 0, gDisplay);
 

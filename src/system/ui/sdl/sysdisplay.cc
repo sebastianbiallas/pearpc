@@ -180,15 +180,16 @@ void SDLSystemDisplay::displayShow()
 
 	if (gSDLScreen) {
 		if (SDL_MUSTLOCK(gSDLScreen)) {
+			SDL_LockSurface(gSDLScreen);
+		}
+
+		if (SDL_MUSTLOCK(gSDLScreen)) {
 			SDL_UnlockSurface(gSDLScreen);
 		}
+
 		// If possible, we should use doublebuffering and SDL_Flip()
 		// SDL_Flip(); 
 		SDL_UpdateRect(gSDLScreen, 0, firstDamagedLine, 0, lastDamagedLine-firstDamagedLine+1);
-
-		if (SDL_MUSTLOCK(gSDLScreen)) {
-			SDL_LockSurface(gSDLScreen);
-		}
 	}
 }
 
