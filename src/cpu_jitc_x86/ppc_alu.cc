@@ -942,8 +942,20 @@ void ppc_opc_crand()
 }
 JITCFlow ppc_opc_gen_crand()
 {
-	ppc_opc_gen_interpret(ppc_opc_crand);
-	return flowEndBlock;
+	int crD, crA, crB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crD, crA, crB);
+	jitcClobberCarryAndFlags();
+	asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crA));	
+	NativeAddress nocrA = asmJxxFixup(X86_Z);
+		asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crB));
+		NativeAddress nocrB = asmJxxFixup(X86_Z);
+			asmORDMemImm((uint32)&gCPU.cr, 1<<(31-crD));
+			NativeAddress end1 = asmJMPFixup();
+	asmResolveFixup(nocrB, asmHERE());
+	asmResolveFixup(nocrA, asmHERE());
+		asmANDDMemImm((uint32)&gCPU.cr, ~(1<<(31-crD)));
+	asmResolveFixup(end1, asmHERE());
+	return flowContinue;
 }
 /*
  *	crandc		Condition Register AND with Complement
@@ -961,8 +973,20 @@ void ppc_opc_crandc()
 }
 JITCFlow ppc_opc_gen_crandc()
 {
-	ppc_opc_gen_interpret(ppc_opc_crandc);
-	return flowEndBlock;
+	int crD, crA, crB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crD, crA, crB);
+	jitcClobberCarryAndFlags();
+	asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crA));	
+	NativeAddress nocrA = asmJxxFixup(X86_Z);
+		asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crB));
+		NativeAddress nocrB = asmJxxFixup(X86_NZ);
+			asmORDMemImm((uint32)&gCPU.cr, 1<<(31-crD));
+			NativeAddress end1 = asmJMPFixup();
+	asmResolveFixup(nocrB, asmHERE());
+	asmResolveFixup(nocrA, asmHERE());
+		asmANDDMemImm((uint32)&gCPU.cr, ~(1<<(31-crD)));
+	asmResolveFixup(end1, asmHERE());
+	return flowContinue;
 }
 /*
  *	creqv		Condition Register Equivalent
@@ -1026,8 +1050,20 @@ void ppc_opc_crnand()
 }
 JITCFlow ppc_opc_gen_crnand()
 {
-	ppc_opc_gen_interpret(ppc_opc_crnand);
-	return flowEndBlock;
+	int crD, crA, crB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crD, crA, crB);
+	jitcClobberCarryAndFlags();
+	asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crA));	
+	NativeAddress nocrA = asmJxxFixup(X86_Z);
+		asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crB));
+		NativeAddress nocrB = asmJxxFixup(X86_Z);
+			asmANDDMemImm((uint32)&gCPU.cr, ~(1<<(31-crD)));
+			NativeAddress end1 = asmJMPFixup();
+	asmResolveFixup(nocrB, asmHERE());
+	asmResolveFixup(nocrA, asmHERE());
+		asmORDMemImm((uint32)&gCPU.cr, 1<<(31-crD));
+	asmResolveFixup(end1, asmHERE());
+	return flowContinue;
 }
 /*
  *	crnor		Condition Register NOR
@@ -1101,10 +1137,23 @@ void ppc_opc_crorc()
 		gCPU.cr &= ~(1<<(31-crD));
 	}
 }
+
 JITCFlow ppc_opc_gen_crorc()
 {
-	ppc_opc_gen_interpret(ppc_opc_crorc);
-	return flowEndBlock;
+	int crD, crA, crB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, crD, crA, crB);
+	jitcClobberCarryAndFlags();
+	asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crA));	
+	NativeAddress crAset = asmJxxFixup(X86_NZ);
+		asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crB));
+		NativeAddress nocrB = asmJxxFixup(X86_Z);
+			asmANDDMemImm((uint32)&gCPU.cr, ~(1<<(31-crD)));
+			NativeAddress end1 = asmJMPFixup();
+	asmResolveFixup(nocrB, asmHERE());
+	asmResolveFixup(crAset, asmHERE());
+		asmORDMemImm((uint32)&gCPU.cr, 1<<(31-crD));
+	asmResolveFixup(end1, asmHERE());
+	return flowContinue;
 }
 /*
  *	crxor		Condition Register XOR
