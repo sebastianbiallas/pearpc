@@ -23,60 +23,74 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
-#include "system/systimer.h"
+#include <sys/time.h>
 
+#include "system/systimer.h"
+#include "tools/snprintf.h"
+
+static const int kTimerSignal = SYSTIMER_SIGNAL;
+#ifdef USE_POSIX_REALTIME_CLOCK
 static void signal_handler(int signo, siginfo_t *extra, void *junk);
-static const int kTimerSignal = SIGRTMIN;
 static const int kClockRT = CLOCK_PROCESS_CPUTIME_ID;
 static const int kClock = CLOCK_REALTIME;
+#else
+# ifdef USE_POSIX_SETITIMER
+static void signal_handler(int signo);
+static const int kClock = ITIMER_REAL;
+struct sys_timer_struct;
+static sys_timer_struct *gSingleTimer = NULL;
+static const int kSignalFlags = 0;
+# endif
+#endif
 
 struct sys_timer_struct
 {
+#ifdef USE_POSIX_REALTIME_CLOCK
 	struct sigevent event_info;
 	timer_t timer_id;
+#endif
 	sys_timer_callback callback;
 	int clock;
 	uint64 timer_res;
 
 	sys_timer_struct(sys_timer_callback cb)
-			: timer_id(0), callback(cb), clock(kClock), timer_res(0)
+			: callback(cb), clock(kClock), timer_res(0)
 	{
+#ifdef USE_POSIX_REALTIME_CLOCK
 		memset(&event_info, 0, sizeof(event_info));
+		timer_id = 0;
 
 		event_info.sigev_notify = SIGEV_SIGNAL;
 		event_info.sigev_signo = kTimerSignal;
 		event_info.sigev_value.sival_ptr = this;
+#endif
 	}
 };
 
+#ifdef USE_POSIX_REALTIME_CLOCK
 static void signal_handler(int signo, siginfo_t *extra, void *junk)
 {
 	sys_timer_struct *timer = reinterpret_cast<sys_timer_struct *>(extra->si_value.sival_ptr);
 	timer->callback(reinterpret_cast<sys_timer>(timer));
 }
-
+#else
+# ifdef USE_POSIX_SETITIMER
+static void signal_handler(int signo)
+{
+	if (gSingleTimer != NULL) {
+		gSingleTimer->callback(reinterpret_cast<sys_timer>(gSingleTimer));
+	}
+}
+# endif
+#endif
 
 bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 {
-	struct sigaction act;
-
-	sigemptyset(&act.sa_mask);
-	act.sa_sigaction = signal_handler;
-	act.sa_flags = SA_SIGINFO;
-
 	*t = 0;
-	if (sigemptyset(&act.sa_mask) == -1) {
-		perror("Error calling sigemptyset");
-		return false;
-	}
 
-	if (sigaction(kTimerSignal, &act, 0) == -1) {
-		perror("Error calling sigaction");
-		return false;
-	}
+	sys_timer_struct *newTimer = new sys_timer_struct(cb_func);
 
-	sys_timer_struct *newTimer = new sys_timer_struct( cb_func );
-
+#ifdef USE_POSIX_REALTIME_CLOCK
 	if (timer_create(kClockRT, &(newTimer->event_info),
 					 &(newTimer->timer_id)) < 0) {
 		if (timer_create(kClock, &(newTimer->event_info),
@@ -96,8 +110,45 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 		newTimer->timer_res = uint64(clockRes.tv_sec) * 1000 * 1000 * 1000;
 		newTimer->timer_res += uint64(clockRes.tv_nsec);
 	}
+#else
+# ifdef USE_POSIX_SETITIMER
+	if (gSingleTimer != NULL) {
+		ht_printf("There can only be one active sys timer at a time using\n"
+				  "interval timers.\n");
+		delete newTimer;
+		return false;
+	}
+	newTimer->timer_res = 10 * 1000 * 1000;
+# endif
+#endif
+
+	struct sigaction act;
+
+	sigemptyset(&act.sa_mask);
+#ifdef USE_POSIX_REALTIME_CLOCK
+	act.sa_sigaction = signal_handler;
+	act.sa_flags = SA_SIGINFO;
+#else
+# ifdef USE_POSIX_SETITIMER
+	act.sa_handler = signal_handler;
+	act.sa_flags = 0;
+# endif
+#endif
+
+	if (sigemptyset(&act.sa_mask) == -1) {
+		perror("Error calling sigemptyset");
+		return false;
+	}
+
+	if (sigaction(kTimerSignal, &act, 0) == -1) {
+		perror("Error calling sigaction");
+		return false;
+	}
 
 	*t = reinterpret_cast<sys_timer>(newTimer);
+#ifdef USE_POSIX_SETITIMER
+	gSingleTimer = newTimer;
+#endif
 
 	return true;
 }
@@ -106,26 +157,34 @@ void sys_delete_timer(sys_timer t)
 {
 	sys_timer_struct *timer = reinterpret_cast<sys_timer_struct *>(t);
 
+#ifdef USE_POSIX_REALTIME_CLOCK
 	timer_delete(timer->timer_id);
-	delete timer;
-}
+#else
+# ifdef USE_POSIX_SETITIMER
+	struct itimerval itime;
 
-static inline long long int toNSecs(time_t secs, long int nanosecs)
-{
-	return secs * 1000 * 1000 * 1000 + nanosecs;
+	itime.it_value.tv_sec = 0;
+	itime.it_value.tv_usec = 0;
+	itime.it_interval.tv_sec = 0;
+	itime.it_interval.tv_usec = 0;
+
+	setitimer(timer->clock, &itime, NULL);
+	gSingleTimer = NULL;
+# endif
+#endif
+
+	delete timer;
 }
 
 void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 {
 	sys_timer_struct *timer = reinterpret_cast<sys_timer_struct *>(t);
+#ifdef USE_POSIX_REALTIME_CLOCK
 	struct itimerspec itime;
 
 	itime.it_value.tv_sec = secs;
+	// FIXME: Do we need to have rounding based on timer resolution here?
 	itime.it_value.tv_nsec = nanosecs;// + (nanosecs % timer->timer_res);
-//	if (itime.it_value.tv_nsec > 1000000000ULL) {
-//		itime.it_value.tv_sec += 1;
-//		itime.it_value.tv_nsec -= 1000000000ULL;
-//	}
 
 	if (periodic) {
 		itime.it_interval.tv_sec = secs;
@@ -135,8 +194,24 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 		itime.it_interval.tv_nsec = 0;
 	}
 
-//	printf("timer %ld\n", itime.it_value.tv_nsec);
 	timer_settime(timer->timer_id, 0, &itime, NULL);
+#else
+# ifdef USE_POSIX_SETITIMER
+	struct itimerval itime;
+
+	itime.it_value.tv_sec = secs;
+	itime.it_value.tv_usec = (nanosecs + 500) / 1000;
+
+	if (periodic) {
+		itime.it_interval = itime.it_value;
+	} else {
+		itime.it_interval.tv_sec = 0;
+		itime.it_interval.tv_usec = 0;
+	}
+
+	setitimer(timer->clock, &itime, NULL);
+# endif
+#endif
 }
 
 uint64 sys_get_timer_resolution(sys_timer t)

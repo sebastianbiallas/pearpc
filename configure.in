@@ -186,6 +186,35 @@ AC_PATH_PROG(AR, gar)
 AC_DEFINE(HOST_ENDIANESS_BE, 1234, [big-endian byte-order helper constant])
 AC_DEFINE(HOST_ENDIANESS_LE, 4321, [little-endian byte-order helper constant])
 
+dnl Figure out what version of the posix system timers to use
+if test "x$OSAPI_DIR" = "xposix"; then
+	AC_CHECK_LIB(rt, clock_settime,
+	[
+		AC_DEFINE(USE_POSIX_REALTIME_CLOCK, 1, [Prefer POSIX realtime clock API])
+		PPC_LDADD="$PPC_LDADD -lrt"
+		AC_EGREP_CPP(yes,
+		[
+			#include <signal.h>
+			#ifdef SIGRTMIN
+				   yes
+			#endif
+		], syssignal=SIGRTMIN, syssignal=SIGALRM
+		)
+	], [
+		AC_CHECK_LIB(c, setitimer,
+		[
+			AC_DEFINE(USE_POSIX_SETITIMER, 1, [Use interval timer clock API])
+			syssignal=SIGALRM
+			PPC_LDADD="$PPC_LDADD"
+		], [
+			AC_MSG_ERROR([*** Unable to find timer mechanism, should have either POSIX realtime API or BSD interval timer API ***])
+		]
+		)
+	]
+	)
+	AC_DEFINE_UNQUOTED(SYSTIMER_SIGNAL, $syssignal, [Which signal to use for clock timer]),
+fi	
+
 AC_C_BIGENDIAN(
 	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_BE, [Which host endianess/byte-order?]),
  	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?]),
@@ -210,7 +239,7 @@ dnl /non-sense
 
 dnl FIXME: should be if A or B then check for NASM fi. Don'T know how to do it with shell :-(
 dnl Anyone?
-if test "x$CPU_DIR" = "jitc_x86"; then
+if test "x$CPU_DIR" = "xjitc_x86"; then
 	AC_PATH_PROG(NASM, nasm)
 	if test "x$NASM" = "x"; then
 		AC_MSG_ERROR([*** 'nasm' missing, please install or fix your \$PATH ***])
