@@ -316,8 +316,9 @@ Win32EthTunDevice()
 	mOverlapped.OffsetHigh = 0;
 	mOverlapped.hEvent = CreateEvent(NULL, TRUE, false, NULL);
 	if (!tap_set_status(true)) {
-		if(CloseHandle(handle) != 1)
+		if (CloseHandle(handle) != 1) {
 			printm("Error closing handle.\n");
+		}
 		throw new MsgfException("Setting Media Status to connected failed (handle is %d)\n", handle);
 	}
 }
@@ -325,8 +326,9 @@ Win32EthTunDevice()
 virtual ~Win32EthTunDevice()
 {
 	printm("Setting Media Status to disconnected.\n");
-	if(!tap_set_status(false))
+	if (!tap_set_status(false)) {
 		printm("Error disconnecting media.\n");
+	}
 	printm("Closing TAP-WIN32 handle.\n");
 	CloseHandle(mFile);
 }
@@ -355,7 +357,7 @@ virtual	int waitRecvPacket()
 		DWORD e = GetLastError();
 		if (e == ERROR_IO_PENDING) {
 			WaitForSingleObject(mOverlapped.hEvent, INFINITE);
-			if(!GetOverlappedResult(mFile, &mOverlapped, &mBuflen, FALSE)) {
+			if (!GetOverlappedResult(mFile, &mOverlapped, &mBuflen, FALSE)) {
 				printm("You should never see this error\n");
 			}
 		} else {
