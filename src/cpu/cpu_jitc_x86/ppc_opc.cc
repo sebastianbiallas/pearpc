@@ -46,8 +46,16 @@ static void writeDEC()
 //	PPC_OPC_WARN("write dec=%08x\n", gCPU.dec);
 	uint64 q = 1000000000ULL*gCPU.dec / gClientTimeBaseFrequency;
 
-	sys_set_timer(gDECtimer, q / 1000000000ULL,
-				  q % 1000000000ULL, false);
+	// FIXME: Occasionally, ppc seems to generate very large dec values
+	// as a result of a memory overwrite or something else. Let's handle
+	// that until we figure out why.
+	if (q > 20 * 1000 * 1000) {
+		PPC_OPC_WARN("write dec > 20 millisec := %ld (%llu)\n", gCPU.dec, q);
+		q = 10 * 1000 * 1000;
+		sys_set_timer(gDECtimer, 0, q, false);
+	} else {
+		sys_set_timer(gDECtimer, 0, q, false);
+	}
 
 	gDECwriteValue = gCPU.dec;
 	gDECwriteITB = ppc_get_cpu_ideal_timebase();
@@ -1290,6 +1298,7 @@ void ppc_opc_mtspr()
 		case 19: gCPU.gpr[rD] = gCPU.dar; return;*/
 		case 22: {
 			gCPU.dec = gCPU.gpr[rS];
+			writeDEC();
 			return;
 		}
 		case 25: 
