@@ -25,6 +25,7 @@
 #include "ppc_alu.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
+#include "ppc_esc.h"
 #include "ppc_exc.h"
 #include "ppc_fpu.h"
 #include "ppc_mmu.h"
@@ -35,6 +36,21 @@
 #include "io/prom/promosi.h"
 
 static void ppc_opc_invalid()
+{
+	SINGLESTEP("unknown instruction\n");
+}
+
+static JITCFlow ppc_opc_gen_invalid()
+{
+//	PPC_DEC_WARN("invalid instruction 0x%08x\n", gJITC.current_opc);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALURegImm(X86_MOV, EDX, gJITC.current_opc);
+	asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_ILL);
+	asmJMP((NativeAddress)ppc_program_exception_asm);
+	return flowEndBlockUnreachable;
+}
+
+static void ppc_opc_special()
 {
 	if (gCPU.pc == gPromOSIEntry && gCPU.current_opc == PROM_MAGIC_OPCODE) {
 		call_prom_osi();
@@ -85,29 +101,28 @@ static void ppc_opc_invalid()
 		gCPU.pc = gCPU.npc;
 		return;
 	}
-	SINGLESTEP("unknown instruction\n");
+	ppc_opc_invalid();
 }
 
-static JITCFlow ppc_opc_gen_invalid()
+static JITCFlow ppc_opc_gen_special()
 {
+	if (gJITC.current_opc == PPC_OPC_ESCAPE_VM) {
+		jitcGetClientRegister(PPC_GPR(3), NATIVE_REG | EAX);
+		jitcClobberAll();
+		asmALURegReg(X86_MOV, EDX, ESP);
+		asmALURegImm(X86_MOV, ECX, gJITC.pc);
+		asmCALL((NativeAddress)&ppc_escape_vm);
+		return flowEndBlock;
+	}
 	if (gJITC.pc == (gPromOSIEntry&0xfff) && gJITC.current_opc == PROM_MAGIC_OPCODE) {
 		jitcClobberAll();
 		asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
 		asmALURegImm(X86_ADD, EAX, gJITC.pc);
 		asmMOVDMemReg((uint32)&gCPU.pc, EAX);
 		asmCALL((NativeAddress)&call_prom_osi);
-/*		asmMOVRegDMem(EAX, (uint32)&gCPU.npc);
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
-		asmJMP((NativeAddress)ppc_new_pc_asm);
-		return flowEndBlockUnreachable;*/
 		return flowContinue;
 	}
-//	PPC_DEC_WARN("invalid instruction 0x%08x\n", gJITC.current_opc);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmALURegImm(X86_MOV, EDX, gJITC.current_opc);
-	asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_ILL);
-	asmJMP((NativeAddress)ppc_program_exception_asm);
-	return flowEndBlockUnreachable;
+	return ppc_opc_gen_invalid();
 }
 
 // main opcode 19
@@ -526,7 +541,7 @@ static JITCFlow ppc_opc_gen_group_f2()
 }
 
 static ppc_opc_function ppc_opc_table_main[64] = {
-	&ppc_opc_invalid,	//  0
+	&ppc_opc_special,	//  0
 	&ppc_opc_invalid,	//  1
 	&ppc_opc_invalid,	//  2  (tdi on 64 bit platforms)
 	&ppc_opc_twi,		//  3
@@ -592,7 +607,7 @@ static ppc_opc_function ppc_opc_table_main[64] = {
 	&ppc_opc_group_f2,	// 63
 };
 static ppc_opc_gen_function ppc_opc_table_gen_main[64] = {
-	&ppc_opc_gen_invalid,	//  0
+	&ppc_opc_gen_special,	//  0
 	&ppc_opc_gen_invalid,	//  1
 	&ppc_opc_gen_invalid,	//  2  (tdi on 64 bit platforms)
 	&ppc_opc_gen_twi,	//  3

@@ -124,7 +124,7 @@ extern pic_check_interrupt
 extern ppc_display_jitc_stats
 extern cpu_doze
 
-global ppc_isi_exception_asm, ppc_dsi_exception_asm
+global ppc_isi_exception_asm, ppc_dsi_exception_asm, ppc_dsi_exception_special_asm
 global ppc_sc_exception_asm, ppc_no_fpu_exception_asm
 global ppc_program_exception_asm
 ;;global ppc_flush_carry_and_flags_asm, 
@@ -519,11 +519,12 @@ align 16
 ;;	does not return, so call this per JMP
 ppc_dsi_exception_asm:
 	mov	[gCPU+dar], eax
+	mov	[gCPU+dsisr], ecx
+ppc_dsi_exception_special_asm:
 	mov	edx, [gCPU+pc_ofs]
 	mov	eax, [gCPU+msr]
 	add	edx, [gCPU+current_code_base]
 	and	eax, 0x87c0ffff
-	mov	[gCPU+dsisr], ecx
 	mov	[gCPU+srr1], eax
 	mov	[gCPU+srr0], edx
 	xor	eax, eax

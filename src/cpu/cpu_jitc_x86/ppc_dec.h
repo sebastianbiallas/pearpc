@@ -32,6 +32,11 @@ void ppc_dec_init();
 
 #define PPC_OPC_ASSERT(v)
 
+#define PPC_OPC_ESCAPE_VM 0x0069BABE
+
+#define PPC_INTERN_MEMSET 0
+#define PPC_INTERN_MEMCPY 1
+
 #define PPC_OPC_MAIN(opc)		(((opc)>>26)&0x3f)
 #define PPC_OPC_EXT(opc)		(((opc)>>1)&0x3ff)
 #define PPC_OPC_Rc			1

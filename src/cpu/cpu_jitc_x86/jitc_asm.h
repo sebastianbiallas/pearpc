@@ -43,6 +43,7 @@ extern "C" void ppc_opc_icbi_asm();
 
 extern "C" void ppc_isi_exception_asm();
 extern "C" void ppc_dsi_exception_asm();
+extern "C" void ppc_dsi_exception_special_asm();
 extern "C" void ppc_program_exception_asm();
 extern "C" void ppc_no_fpu_exception_asm();
 extern "C" void ppc_sc_exception_asm();

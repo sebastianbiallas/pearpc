@@ -304,6 +304,171 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 	return PPC_MMU_FATAL;
 }
 
+int FASTCALL ppc_effective_to_physical_vm(uint32 addr, int flags, uint32 &result)
+{
+	if (!(gCPU.msr & MSR_DR)) {
+		result = addr;
+		return PPC_MMU_READ | PPC_MMU_WRITE;
+	}
+	/*
+	 * BAT translation .329
+	 */
+	for (int i=0; i<4; i++) {
+		uint32 bl17 = gCPU.dbat_bl17[i];
+		uint32 addr2 = addr & (bl17 | 0xf001ffff);
+		if (BATU_BEPI(addr2) == BATU_BEPI(gCPU.dbatu[i])) {
+			// bat applies to this address
+			if (((gCPU.dbatu[i] & BATU_Vs) && !(gCPU.msr & MSR_PR))
+			 || ((gCPU.dbatu[i] & BATU_Vp) &&  (gCPU.msr & MSR_PR))) {
+				// bat entry valid
+				uint32 offset = BAT_EA_OFFSET(addr);
+				uint32 page = BAT_EA_11(addr);
+				page &= ~bl17;
+				page |= BATL_BRPN(gCPU.dbatl[i]);
+				// fixme: check access rights
+				result = page | offset;
+//				ht_printf("MMU: DBAT: %08x -> %08x\n", addr, result);
+				return PPC_MMU_READ | PPC_MMU_WRITE;
+			}
+		}
+	}
+	
+	/*
+	 * Address translation with segment register
+	 */
+	uint32 sr = gCPU.sr[EA_SR(addr)];
+
+	if (sr & SR_T) {
+		// woea
+		// FIXME: implement me
+		PPC_MMU_ERR("sr & T\n");
+	} else {
+		// page address translation
+		uint32 offset = EA_Offset(addr);         // 12 bit
+		uint32 page_index = EA_PageIndex(addr);  // 16 bit
+		uint32 VSID = SR_VSID(sr);               // 24 bit
+		uint32 api = EA_API(addr);               //  6 bit (part of page_index)
+		// VSID.page_index = Virtual Page Number (VPN)
+
+		// Hashfunction no 1 "xor" .360
+		uint32 hash1 = (VSID ^ page_index);
+		uint32 pteg_addr = ((hash1 & gCPU.pagetable_hashmask)<<6) | gCPU.pagetable_base;
+		for (int i=0; i<8; i++) {
+			uint32 pte;
+			if (ppc_read_physical_word(pteg_addr, pte)) {
+				return PPC_MMU_FATAL;
+			}
+			if ((pte & PTE1_V) && (!(pte & PTE1_H))) {
+				if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
+					// page found
+					if (ppc_read_physical_word(pteg_addr+4, pte)) {
+						return PPC_MMU_FATAL;
+					}
+					// check accessmode .346
+					int key;
+					if (gCPU.msr & MSR_PR) {
+						key = (sr & SR_Kp) ? 4 : 0;
+					} else {
+						key = (sr & SR_Ks) ? 4 : 0;
+					}
+					int ret = PPC_MMU_WRITE | PPC_MMU_READ;
+					if (!ppc_pte_protection[8 + key + PTE2_PP(pte)]) {
+						if (!(flags & PPC_MMU_NO_EXC)) {
+							if (flags & PPC_MMU_WRITE) {
+								gCPU.dsisr = PPC_EXC_DSISR_PROT | PPC_EXC_DSISR_STORE;
+							}
+						}
+						ret &= ~PPC_MMU_WRITE;
+					}
+					if (!ppc_pte_protection[key + PTE2_PP(pte)]) {
+						if (!(flags & PPC_MMU_NO_EXC)) {
+							if (!(flags & PPC_MMU_WRITE)) {
+								gCPU.dsisr = PPC_EXC_DSISR_PROT;
+							}
+						}
+						return PPC_MMU_OK;
+					}
+					// ok..
+					uint32 pap = PTE2_RPN(pte);
+					result = pap | offset;
+					// update access bits
+					if (ret & PPC_MMU_WRITE) {
+						pte |= PTE2_C | PTE2_R;
+					} else {
+						pte |= PTE2_R;
+					}
+					ppc_write_physical_word(pteg_addr+4, pte);
+					return ret;
+				}
+			}
+			pteg_addr+=8;
+		}
+		
+		// Hashfunction no 2 "not" .360
+		hash1 = ~hash1;
+		pteg_addr = ((hash1 & gCPU.pagetable_hashmask)<<6) | gCPU.pagetable_base;
+		for (int i=0; i<8; i++) {
+			uint32 pte;
+			if (ppc_read_physical_word(pteg_addr, pte)) {
+				return PPC_MMU_FATAL;
+			}
+			if ((pte & PTE1_V) && (pte & PTE1_H)) {
+				if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
+					// page found
+					if (ppc_read_physical_word(pteg_addr+4, pte)) {
+						return PPC_MMU_FATAL;
+					}
+					// check accessmode
+					int key;
+					if (gCPU.msr & MSR_PR) {
+						key = (sr & SR_Kp) ? 4 : 0;
+					} else {
+						key = (sr & SR_Ks) ? 4 : 0;
+					}
+					int ret = PPC_MMU_WRITE | PPC_MMU_READ;
+					if (!ppc_pte_protection[8 + key + PTE2_PP(pte)]) {
+						if (!(flags & PPC_MMU_NO_EXC)) {
+							if (flags & PPC_MMU_WRITE) {
+								gCPU.dsisr = PPC_EXC_DSISR_PROT | PPC_EXC_DSISR_STORE;
+							}
+						}
+						ret &= ~PPC_MMU_WRITE;
+					}
+					if (!ppc_pte_protection[key + PTE2_PP(pte)]) {
+						if (!(flags & PPC_MMU_NO_EXC)) {
+							if (!(flags & PPC_MMU_WRITE)) {
+								gCPU.dsisr = PPC_EXC_DSISR_PROT;
+							}
+						}
+						return PPC_MMU_OK;
+					}
+					// ok..
+					result = PTE2_RPN(pte) | offset;
+					
+					// update access bits
+					if (ret & PPC_MMU_WRITE) {
+						pte |= PTE2_C | PTE2_R;
+					} else {
+						pte |= PTE2_R;
+					}
+					ppc_write_physical_word(pteg_addr+4, pte);
+					return ret;
+				}
+			}
+			pteg_addr+=8;
+		}
+	}
+	// page fault
+	if (!(flags & PPC_MMU_NO_EXC)) {
+		if (flags & PPC_MMU_WRITE) {
+			gCPU.dsisr = PPC_EXC_DSISR_PAGE | PPC_EXC_DSISR_STORE;
+		} else {
+			gCPU.dsisr = PPC_EXC_DSISR_PAGE;
+		}
+	}
+	return PPC_MMU_OK;
+}
+
 void ppc_mmu_tlb_invalidate()
 {
 	gCPU.effective_code_page = 0xffffffff;
