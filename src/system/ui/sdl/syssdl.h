@@ -25,7 +25,6 @@
 
 #include "system/systhread.h"
 
-extern sys_mutex	gSDLMutex;
 extern SDL_Surface *	gSDLScreen;
 
 #endif

@@ -36,7 +36,6 @@
 
 #include "syssdl.h"
 
-sys_mutex	gSDLMutex;
 SDL_Surface *	gSDLScreen;
 
 static uint8 sdl_key_to_adb_key[256] = {
@@ -105,8 +104,6 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.key.keycode = sdl_key_to_adb_key[event.key.keysym.scancode];
 		ev.key.chr = event.key.keysym.unicode;
 		return gKeyboard->handleEvent(ev);
-	default:
-		handleSDLEvent(event);
 	}
 /*	static bool mouseButton[3] = {false, false, false};
 
@@ -251,6 +248,7 @@ static bool handleSDLEvent(const SDL_Event &event)
 		break;
 	}
 	}*/
+	return false;
 }
 
 static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
@@ -276,31 +274,29 @@ static void *SDLeventLoop(void *p)
 	return NULL;
 }
 
-void initUI()
-{
-	// connect to X server
-/*	char *display = getenv("DISPLAY");
-	if (display == NULL) {
-		display = ":0.0";
-	}
-	gSDLScreen = XOpenDisplay(display);
-	if (!gSDLScreen) {
-		printf("can't open SDL display (%s)!\n", display);
-		exit(1);
-	}*/
-}
+SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
+SystemKeyboard *allocSystemKeyboard();
+SystemMouse *allocSystemMouse();
 
-void startUI()
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms)
 {
+	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
+		printf("SDL: Unable to init: %s\n", SDL_GetError());
+		exit(1);
+	}
+
+	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
+	gMouse = allocSystemMouse();
+	gKeyboard = allocSystemKeyboard();
+
 	sys_thread SDLeventLoopThread;
 
 	if (sys_create_thread(&SDLeventLoopThread, 0, SDLeventLoop, NULL)) {
-		printf("can't create x11 event thread!\n");
+		printf("SDL: can't create event thread!\n");
 		exit(1);
 	}
 }
 
 void doneUI()
 {
-//	XCloseDisplay(gSDLScreen);
 }

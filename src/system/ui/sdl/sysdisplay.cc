@@ -79,12 +79,8 @@ public:
 SDLSystemDisplay(const char *name, int xres, int yres, const DisplayCharacteristics &chr, int redraw_ms)
 		:SystemDisplay(chr, redraw_ms)
 {
-	sys_create_mutex(&gSDLMutex);
 	mClientChar.width = xres;
 	mClientChar.height = yres;
-
-	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0)
-		DPRINTF("Unable to init: %s\n", SDL_GetError());
 
 	SDL_WM_SetCaption(name,name);
 
@@ -227,6 +223,12 @@ bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 
 	return true;
 }
+
+void getHostCharacteristics(Container &modes)
+{
+	// FIXME: implement me
+}
+
 
 };
 
