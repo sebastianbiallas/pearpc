@@ -57,7 +57,7 @@ struct sys_timer_struct
 			: callback(cb), clock(kClock), timer_res(0)
 	{
 #ifdef USE_POSIX_REALTIME_CLOCK
-		memset(&event_info, 0, sizeof(event_info));
+		memset(&event_info, 0, sizeof event_info);
 		timer_id = 0;
 
 		event_info.sigev_notify = SIGEV_SIGNAL;
@@ -91,25 +91,30 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 	sys_timer_struct *newTimer = new sys_timer_struct(cb_func);
 
 #ifdef USE_POSIX_REALTIME_CLOCK
-	if (timer_create(kClockRT, &(newTimer->event_info),
-					 &(newTimer->timer_id)) < 0) {
-		if (timer_create(kClock, &(newTimer->event_info),
-						 &(newTimer->timer_id)) < 0) {
-			perror("Timer create error");
-			delete newTimer;
-			return false;
-		} else {
-			newTimer->clock = kClock;
-		}
-	} else {
-		newTimer->clock = kClockRT;
-	}
+	int clocks[] = {kClockRT, kClock};
 
 	struct timespec clockRes;
-	if (0 == clock_getres(newTimer->clock, &clockRes)) {
-		newTimer->timer_res = uint64(clockRes.tv_sec) * 1000 * 1000 * 1000;
-		newTimer->timer_res += uint64(clockRes.tv_nsec);
+	bool foundTimer = false;
+
+	for (uint i=0; i < (sizeof clocks / sizeof clocks[0]); i++) {
+		if (clock_getres(clocks[i], &clockRes) == 0
+		 && timer_create(clocks[i], &newTimer->event_info,
+					 &newTimer->timer_id) == 0) {
+
+			newTimer->clock = clocks[i];
+			foundTimer = true;
+			break;
+		}
 	}
+	
+	if (!foundTimer) {
+		perror("Timer create error");
+		delete newTimer;
+		return false;
+	}
+
+	newTimer->timer_res = (uint64)clockRes.tv_sec * 1000 * 1000 * 1000;
+	newTimer->timer_res += (uint64)clockRes.tv_nsec;
 #else
 # ifdef USE_POSIX_SETITIMER
 	if (gSingleTimer != NULL) {
@@ -194,7 +199,10 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 		itime.it_interval.tv_nsec = 0;
 	}
 
-	timer_settime(timer->timer_id, 0, &itime, NULL);
+	if (timer_settime(timer->timer_id, 0, &itime, NULL) < 0) {
+		perror(__FUNCTION__);
+	}
+	
 #else
 # ifdef USE_POSIX_SETITIMER
 	struct itimerval itime;
@@ -249,12 +257,12 @@ uint64 sys_get_hiresclk_ticks_per_second()
 			char lineBuf[1024];
 
 			lineBuf[1023] = '\0';
-			while (0 != fgets(lineBuf, 1023, cpuFile)) {
-				if (0 == strncmp("cpu MHz", lineBuf, 7)) {
+			while (fgets(lineBuf, 1023, cpuFile)) {
+				if (strncmp("cpu MHz", lineBuf, 7) == 0) {
 					char *sep = strchr(lineBuf, ':');
 					if (sep) {
 						double tmpval = 0.0;
-						if (1 == sscanf(sep, ": %lf", &tmpval)) {
+						if (sscanf(sep, ": %lf", &tmpval) == 1) {
 							tmpval *= 1000000.0;
 							ticksPerSec = static_cast<uint64>(tmpval);
 							break;
@@ -265,7 +273,7 @@ uint64 sys_get_hiresclk_ticks_per_second()
 			fclose(cpuFile);
 		}
 
-		if (0 == ticksPerSec) {
+		if (!ticksPerSec) {
 			printf("Unable to query cpu speed from /proc/cpuinfo");
 			ticksPerSec = CLOCKS_PER_SEC;
 		}
