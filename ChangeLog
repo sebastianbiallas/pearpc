@@ -8,6 +8,8 @@ version 0.3 (not yet released):
 		- src/system/arch created
 	- experimental SDL support
 	- configure-system: choose "jitc_x86" on x86s when no --enable-cpu given
+	- JITC: srawix implemented
+	- JITC: align entrypoints
 
 version 0.2 (released 15.June 2004):
 	- JITC: all crXX implemented
