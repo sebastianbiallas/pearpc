@@ -211,7 +211,7 @@ static int compareMACs(byte a[6], byte b[6])
 /*
  *
  */
-class _rtl8139_NIC: public PCI_Device {
+class rtl8139_NIC: public PCI_Device {
 protected:
 	uint16		mEEPROM[0x40];
 	bool		mEEPROMWritable;
@@ -400,8 +400,8 @@ inline uint32 swapData(uint32 data, uint size)
 }
 
 public:
-_rtl8139_NIC(enet_iface_t &aENetIf)
-: PCI_Device("rtl8139 Network interface card", 0x1, 0xc)
+rtl8139_NIC(enet_iface_t &aENetIf)
+: PCI_Device("rtl8139 Network interface card", 0x1, 0xd)
 {
 	int e;
 	if ((e = sys_create_mutex(&mLock))) throw IOException(e);
@@ -415,7 +415,7 @@ void verbose(int level)
 	mVerbose = level;
 }
 
-virtual ~_rtl8139_NIC()
+virtual ~rtl8139_NIC()
 {
 	sys_destroy_mutex(mLock);
 }
@@ -702,9 +702,9 @@ void handleRxQueue()
 
 };
 
-static void *_rtl8139HandleRxQueue(void *nic)
+static void *rtl8139HandleRxQueue(void *nic)
 {
-	_rtl8139_NIC *NIC = (_rtl8139_NIC *)nic;
+	rtl8139_NIC *NIC = (rtl8139_NIC *)nic;
 	NIC->handleRxQueue();
 	return NULL;
 }
@@ -712,16 +712,16 @@ static void *_rtl8139HandleRxQueue(void *nic)
 #include "configparser.h"
 #include "tools/strtools.h"
 
-#define _RTL8139_KEY_INSTALLED	"pci_rtl8139_installed"
-#define _RTL8139_KEY_MAC	"pci_rtl8139_mac"
-#define _RTL8139_KEY_VERBOSE	"pci_rtl8139_verbose"
+#define RTL8139_KEY_INSTALLED	"pci_rtl8139_installed"
+#define RTL8139_KEY_MAC	"pci_rtl8139_mac"
+#define RTL8139_KEY_VERBOSE	"pci_rtl8139_verbose"
 
-void _rtl8139_init()
+void rtl8139_init()
 {
 	int verbose = 0;
-	verbose = gConfig->getConfigInt(_RTL8139_KEY_VERBOSE); 
+	verbose = gConfig->getConfigInt(RTL8139_KEY_VERBOSE); 
 
-	if (gConfig->getConfigInt(_RTL8139_KEY_INSTALLED)) {
+	if (gConfig->getConfigInt(RTL8139_KEY_INSTALLED)) {
 		byte mac[6];
 		mac[0] = 0xde;
 		mac[1] = 0xad;
@@ -729,9 +729,9 @@ void _rtl8139_init()
 		mac[3] = 0xfe;
 		mac[4] = 0x12;
 		mac[5] = 0x34;
-		if (gConfig->haveKey(_RTL8139_KEY_MAC)) {
+		if (gConfig->haveKey(RTL8139_KEY_MAC)) {
 			String macstr_;
-			gConfig->getConfigString(_RTL8139_KEY_MAC, macstr_);
+			gConfig->getConfigString(RTL8139_KEY_MAC, macstr_);
 			// do something useful with mac
 			const char *macstr = macstr_.contentChar();
 			byte cfgmac[6];
@@ -740,7 +740,9 @@ void _rtl8139_init()
 				if (!bnstr(macstr, v, 16) || (v>255) || ((*macstr != ':') && (i!=5))) {
 					IO_RTL8139_ERR("error in config key %s:"
 					"expected format: XX:XX:XX:XX:XX:XX, "
-					"where X stands for any digit or the letters a-f, A-F (error at: %s)\n",_RTL8139_KEY_MAC, macstr);
+					"where X stands for any digit or the "
+					"letters a-f, A-F (error at: %s)\n",
+					RTL8139_KEY_MAC, macstr);
 				}
 				macstr++;
 				cfgmac[i] = v;
@@ -765,17 +767,17 @@ void _rtl8139_init()
 			}
 		}
 		printf("\n");
-		_rtl8139_NIC *MyNIC = new _rtl8139_NIC(enetif);
+		rtl8139_NIC *MyNIC = new rtl8139_NIC(enetif);
 		MyNIC->verbose(verbose);
 		gPCI_Devices->insert(MyNIC);
 		sys_thread rxthread;
-		sys_create_thread(&rxthread, 0, _rtl8139HandleRxQueue, MyNIC);
+		sys_create_thread(&rxthread, 0, rtl8139HandleRxQueue, MyNIC);
 	}
 }
 
-void _rtl8139_init_config()
+void rtl8139_init_config()
 {
-	gConfig->acceptConfigEntryIntDef(_RTL8139_KEY_VERBOSE, 0);
-	gConfig->acceptConfigEntryIntDef(_RTL8139_KEY_INSTALLED, 0);
-	gConfig->acceptConfigEntryString(_RTL8139_KEY_MAC, false);
+	gConfig->acceptConfigEntryIntDef(RTL8139_KEY_VERBOSE, 0);
+	gConfig->acceptConfigEntryIntDef(RTL8139_KEY_INSTALLED, 0);
+	gConfig->acceptConfigEntryString(RTL8139_KEY_MAC, false);
 }

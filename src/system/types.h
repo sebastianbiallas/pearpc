@@ -41,7 +41,11 @@
 
 #ifdef __GNUC__
 #define FUNCTION_CONST __attribute__((const))
+#ifndef __ppc__
 #define FASTCALL __attribute__((regparm (3)))
+#else
+#define FASTCALL
+#endif
 #define PACKED __attribute__((packed))
 #define UNUSED __attribute__((unused))
 #else

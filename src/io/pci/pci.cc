@@ -540,7 +540,7 @@ void pci_init()
 	ide_init();
 	macio_init();
 	_3c90x_init();
-	_rtl8139_init();
+	rtl8139_init();
 	usb_init();
 }
 
@@ -550,6 +550,6 @@ void pci_init_config()
 	ide_init_config();
 	macio_init_config();
 	_3c90x_init_config();
-	_rtl8139_init_config();
+	rtl8139_init_config();
 	usb_init_config();
 }

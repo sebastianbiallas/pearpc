@@ -21,6 +21,24 @@
 #ifndef __IO_PCI_H__
 #define __IO_PCI_H__
 
+/*	Current device listing:
+ *	ide:	bus 1, function 1
+ *			IOREG0:  0x00001c40 +0x00000010
+ *			IOREG1:  0x00001c30 +0x00000010
+ *			...
+ *			IOREG4:  0x00001c00 +0x00000010
+ *	macio:	bus 1, function 5
+ *			MEMREG0: 0x80800000 +0x00080000
+ *	usb:	bus 1, function 6
+ *			MEMREG0: 0x80881000 +0x00001000
+ *	eth0:	bus 1, function c
+ *			IOREG0:  0x00001000 +0x00000100
+ *	eth1:	bus 1, function d
+ *			IOREG0:  0x00001800 +0x00000100
+ *	gcard:	bus 0, function 7
+ *			MEMREG0: 0x84000000 +0x01000000
+ */
+
 #include "tools/data.h"
 #include "system/types.h"
 #include "system/display.h"

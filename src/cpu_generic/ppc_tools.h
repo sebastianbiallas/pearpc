@@ -23,9 +23,13 @@
 
 #include "system/types.h"
 
+#if defined(__ppc__)
+#undef HOST_IS_LE
+#undef HOST_IS_X86
+#else
 #define HOST_IS_LE
 #define HOST_IS_X86
-
+#endif
 
 #ifdef HOST_IS_LE
 
@@ -57,9 +61,9 @@ static inline __attribute__((const)) uint64 ppc_dword_to_BE(uint64 data)
 	return (((uint64)ppc_word_to_BE(data)) << 32) | (uint64)ppc_word_to_BE(data >> 32);
 }
 
-
 #else
 
+/* LE, but not on x86 */
 static inline __attribute__((const))uint32 ppc_word_to_BE(uint32 data)
 {
 	return (data>>24)|((data>>8)&0xff00)|((data<<8)&0xff0000)|(data<<24);
@@ -76,9 +80,17 @@ static inline __attribute__((const))uint16 ppc_half_to_BE(uint16 data)
 }
 
 #endif
+
 #else
 
-bla
+/* BE arch, no problems */
+#define ppc_dword_from_BE(data)	(uint64)(data)
+#define ppc_word_from_BE(data)	(uint32)(data)
+#define ppc_half_from_BE(data)	(uint16)(data)
+
+#define ppc_dword_to_BE(data)	(uint64)(data)
+#define ppc_word_to_BE(data)	(uint32)(data)
+#define ppc_half_to_BE(data)	(uint16)(data)
 
 #endif
 

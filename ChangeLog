@@ -14,7 +14,7 @@ version 0.2 (in progress):
 	- AMD64 portability fixes (mainly void* <-> int conversions)
 	- HFS partition code fixes (reportedly working)
 	- removed tools/regex.c, tools/regex.h, io/prom/hfs/memcmp.c
-	- applied Anders F.Bjoerklund's patches (no.1+X11) to run PearPC on Mac OS X
+	- applied Anders F.Bjoerklund's patches (1,ppc,X11) to run PearPC on Mac OS X
 	- implemented conditional redraw code proposed by Jens von der Heydt
 	- code to minimize redraw races
 	- added RealTek-8139 network card driver by Eric Estabrooks

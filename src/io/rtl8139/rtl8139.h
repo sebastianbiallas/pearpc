@@ -22,7 +22,7 @@
 #ifndef __IO_RTL8139_H__
 #define __IO_RTL8139_H__
 
-void _rtl8139_init();
-void _rtl8139_init_config();
+void rtl8139_init();
+void rtl8139_init_config();
 
 #endif
