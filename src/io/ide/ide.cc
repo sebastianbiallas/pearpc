@@ -501,7 +501,7 @@ void drive_ident()
 
 /*		id[53] = 0; // DMA Hack <----- (DMA on) ------------------------
 		id[53] = 2; // DMA Hack <----- (DMA off) -----------------------*/
-		id[53] = 2; // fieldValidity: Multi DMA fields valid
+		id[53] = 4; // fieldValidity: Multi DMA fields valid
 
 		id[54] = gIDEState.config[gIDEState.drive].hd.cyl;
 		id[55] = gIDEState.config[gIDEState.drive].hd.heads;
@@ -515,8 +515,8 @@ void drive_ident()
 		id[59] = 0; // multisector bla
 		id[60] = sectors;       // lba capacity
 		id[61] = sectors >> 16; // lba capacity cont.
-		id[62] = 0; // obsolete single word dma
-		id[63] = 7; // multiple word dma info
+		id[62] = 0;       // obsolete single word dma (linux dma_1word)
+		id[63] = 7|0x404; // multiple word dma info   (linux dma_mword)
 		id[64] = 1; // eide pio modes
 		id[65] = 480; // eide min dma cycle time
 		id[66] = 480; // eide recommended dma cycle time
@@ -532,7 +532,7 @@ void drive_ident()
 		id[85] = (1<<5); // set feature enabled
 		id[86] = (1<<14); // set feature enabled 2
 		id[87] = (1<<14); // set feature default
-		id[88] = 0; // dma ultra
+		id[88] = 7; // dma ultra
 		id[93] = (1<<14) | 1; // hw config
 /*		// DMA hack
 		id[53] = 4;
@@ -1424,6 +1424,7 @@ void receive_atapi_packet()
 	bool bmide_start_dma(bool startbit)
 	{
 		IO_IDE_TRACE("start dma %d\n", gIDEState.mode);
+		ht_printf("holla die waldfee\n");
 		switch (gIDEState.mode) {
 		case IDE_TRANSFER_MODE_NONE:
 			/*
