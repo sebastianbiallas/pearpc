@@ -51,6 +51,14 @@ enum ppc_fpr_type {
 	ppc_fpr_Inf,
 };
 
+struct ppc_quadro {
+	ppc_fpr_type type;
+	int s;
+	int e;
+	uint64 m0;	// most  significant
+	uint64 m1;	// least significant
+};
+
 struct ppc_double {
 	ppc_fpr_type type;
 	int s;
@@ -65,10 +73,10 @@ struct ppc_single {
 	uint m;
 };
 
-inline int ppc_fpu_normalize(ppc_double &d)
+inline int ppc_count_leading_zeros(uint64 i)
 {
 	int ret;
-	uint32 dd = d.m >> 32;
+	uint32 dd = i >> 32;
 	if (dd) {
 		ret = 31;
 		if (dd > 0xffff) { ret -= 16; dd >>= 16; }
@@ -77,7 +85,7 @@ inline int ppc_fpu_normalize(ppc_double &d)
 		if (dd & 0xc) { ret -= 2; dd >>= 2; }
 		if (dd & 0x2) ret--;
 	} else {
-		dd = (uint32)d.m;
+		dd = (uint32)i;
 		ret = 63;
 		if (dd > 0xffff) { ret -= 16; dd >>= 16; }
 		if (dd > 0xff) { ret -= 8; dd >>= 8; }
@@ -86,6 +94,17 @@ inline int ppc_fpu_normalize(ppc_double &d)
 		if (dd & 0x2) ret--;
 	}
 	return ret;
+}
+
+inline int ppc_fpu_normalize_quadro(ppc_quadro &d)
+{
+	int ret = d.m0 ? ppc_count_leading_zeros(d.m0) : 64 + ppc_count_leading_zeros(d.m1);
+	return ret;
+}
+
+inline int ppc_fpu_normalize(ppc_double &d)
+{
+	return ppc_count_leading_zeros(d.m);
 }
 
 inline int ppc_fpu_normalize_single(ppc_single &s)
@@ -168,7 +187,6 @@ inline uint32 ppc_fpu_round(ppc_double &d)
 	// .132
 	switch (FPSCR_RN(gCPU.fpscr)) {
 	case FPSCR_RN_NEAR:
-		// .751
 		if (d.m & 0x7) {
 			if ((d.m & 0x7) != 4) {
 				d.m += 4;

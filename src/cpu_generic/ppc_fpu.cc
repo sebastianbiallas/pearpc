@@ -133,12 +133,198 @@ inline void ppc_fpu_add(ppc_double &res, ppc_double &a, ppc_double &b)
 	}
 }
 
+inline void ppc_fpu_quadro_mshr(ppc_quadro &q, int exp)
+{
+	if (exp >= 64) {
+		q.m1 = q.m0;
+		q.m0 = 0;
+		exp -= 64;
+	}
+	uint64 t = q.m0 & ((1ULL<<exp)-1);
+	q.m0 >>= exp;
+	q.m1 >>= exp;
+	q.m1 |= t<<(64-exp);
+}
+
+inline void ppc_fpu_quadro_mshl(ppc_quadro &q, int exp)
+{
+	if (exp >= 64) {
+		q.m0 = q.m1;
+		q.m1 = 0;
+		exp -= 64;
+	}
+	uint64 t = (q.m1 >> (64-exp)) & ((1ULL<<exp)-1);
+	q.m0 <<= exp;
+	q.m1 <<= exp;
+	q.m0 |= t;
+}
+
+inline void ppc_fpu_add_quadro_m(ppc_quadro &res, const ppc_quadro &a, const ppc_quadro &b)
+{
+	if (a.m1+b.m1 < a.m1) {
+		res.m0 = 1;
+	} else {
+		res.m0 = 0;
+	}
+	res.m1 = a.m1+b.m1;
+	res.m0 += a.m0+b.m0;
+}
+
+inline void ppc_fpu_sub_quadro_m(ppc_quadro &res, const ppc_quadro &a, const ppc_quadro &b)
+{
+	if (a.m1 < b.m1) {
+		res.m0 = (uint64)-1;
+	} else {
+		res.m0 = 0;
+	}
+	res.m1 = a.m1-b.m1;
+	res.m0 += a.m0-b.m0;
+}
+
+// res has 107 significant bits. a, b have 106 significant bits each.
+inline void ppc_fpu_add_quadro(ppc_quadro &res, ppc_quadro &a, ppc_quadro &b)
+{
+	// treat as 107 bit mantissa
+	if (a.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(a, 1);
+	if (b.type == ppc_fpr_norm) ppc_fpu_quadro_mshl(b, 1);
+	switch (PPC_FPR_TYPE2(a.type, b.type)) {
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_norm): {
+		int diff = a.e - b.e;
+		if (diff < 0) {
+			diff = -diff;
+			if (diff <= 107) {
+				// FIXME: may set x_prime
+				ppc_fpu_quadro_mshr(a, diff);
+			} else if (a.m0 || a.m1) {
+				a.m0 = 0;
+				a.m1 = 1;
+			} else {
+				a.m0 = 0;
+				a.m1 = 0;
+			}
+			res.e = b.e;
+		} else {
+			if (diff <= 107) {
+				// FIXME: may set x_prime
+				ppc_fpu_quadro_mshr(b, diff);
+			} else if (b.m0 || b.m1) {
+				b.m0 = 0;
+				b.m1 = 1;
+			} else {
+				b.m0 = 0;
+				b.m1 = 0;
+			}
+			res.e = a.e;
+		}
+		res.type = ppc_fpr_norm;
+		if (a.s == b.s) {
+			res.s = a.s;
+			ppc_fpu_add_quadro_m(res, a, b);
+			int X_prime = res.m1 & 1;
+			if (res.m0 & (1ULL<<(107-64))) {
+				ppc_fpu_quadro_mshr(res, 1);
+				res.e++;
+			}
+			// res = [107]
+			res.m1 = (res.m1 & 0xfffffffffffffffeULL) | X_prime;
+		} else {
+			res.s = a.s;
+			int cmp;
+			if (a.m0 < b.m0) {
+				cmp = -1;
+			} else if (a.m0 > b.m0) {
+				cmp = +1;
+			} else {
+				if (a.m1 < b.m1) {
+					cmp = -1;
+				} else if (a.m1 > b.m1) {
+					cmp = +1;
+				} else {
+					cmp = 0;
+				}
+			}
+			if (!cmp) {
+				if (FPSCR_RN(gCPU.fpscr) == FPSCR_RN_MINF) {
+					res.s |= b.s;
+				} else {
+					res.s &= b.s;
+				}
+				res.type = ppc_fpr_zero;
+			} else {
+				if (cmp < 0) {
+					ppc_fpu_sub_quadro_m(res, b, a);
+					res.s = b.s;
+				} else {
+					ppc_fpu_sub_quadro_m(res, a, b);
+				}
+				diff = ppc_fpu_normalize_quadro(res) - (128-107);
+				int X_prime = res.m1 & 1;
+				res.m1 &= 0xfffffffffffffffeULL;
+				ppc_fpu_quadro_mshl(res, diff);
+				res.e -= diff;
+				res.m1 |= X_prime;
+			}
+			// res = [107]
+		}
+		break;
+	}
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_NaN):
+		res.s = a.s;
+		res.type = ppc_fpr_NaN;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_zero):
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_norm): 
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_Inf): 
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_zero):
+		res.e = a.e;
+		res.s = a.s;
+		res.m0 = a.m0;
+		res.m1 = a.m1;
+		res.type = a.type;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_norm):
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_NaN): 
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_NaN): 
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_NaN):
+		res.e = b.e;
+		res.s = b.s;
+		res.m0 = b.m0;
+		res.m1 = b.m1;
+		res.type = b.type;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_Inf):
+		if (a.s != b.s) {
+			// +oo + -oo == NaN
+			res.s = a.s ^ b.s;
+			res.type = ppc_fpr_NaN;
+			break;
+		}
+		// fall-thru
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_norm): 
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_zero):
+		res.s = a.s;
+		res.type = a.type;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_Inf):
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_Inf):
+		res.s = b.s;
+		res.type = b.type;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_zero):
+		// round bla
+		res.type = ppc_fpr_zero;
+		res.s = a.s && b.s;
+		break;
+	}
+}
+
 inline void ppc_fpu_add_uint64_carry(uint64 &a, uint64 b, uint64 &carry)
 {
 	carry = (a+b < a) ? 1 : 0;
 	a += b;
 }
 
+// 'res' has 56 significant bits on return, a + b have 56 significant bits each
 inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 {
 	res.s = a.s ^ b.s;
@@ -147,13 +333,13 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 		res.type = ppc_fpr_norm;
 		res.e = a.e + b.e;
 //		printf("new exp: %d\n", res.e);
-//		ht_printf("a.m: %qb\nb.m: %qb\n", &a.m, &b.m);
+//		ht_printf("MUL:\na.m: %qb\nb.m: %qb\n", &a.m, &b.m);
 		uint64 fH, fM1, fM2, fL;
 		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [63,64]
 		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [55,56]
 		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [55,56]
 		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [47,48]
-		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
+//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
 
 		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
 		uint64 rL, rH;
@@ -165,24 +351,16 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 		ppc_fpu_add_uint64_carry(rL, (split & 0xffffffff) << 32, carry); // rL = [63,64]
 		rH += carry;					// rH = [0 .. 2^48]
 		rH += split >> 32;				// rH = [0:48], where 46, 47 or 48 set
-		// res.m = [0   0  .. 0  | rH_48 rH_47 .. rH_0 | rL_63 rL_62 .. rL_55
-		// bit      63  62 .. 58 | 57    56    .. 9    | 8     7        0
+
+		// res.m = [0   0  .. 0  | rH_48 rH_47 .. rH_0 | rL_63 rL_62 .. rL_55]
+		//         [---------------------------------------------------------]
+		// bit   = [63  62 .. 58 | 57    56    .. 9    | 8     7        0    ]
+		//         [---------------------------------------------------------]
+		//         [15 bits zero |      49 bits rH     | 8 most sign.bits rL ]
 		res.m = rH << 9;
 		res.m |= rL >> (64-9);
 		// res.m = [58]
-		ht_printf("res.m = %qx\n", &res.m);
-/*
-		// FIXME: incorrect
-		fM1 >>= 2;
-		fM2 >>= 2;
-		fM1 += fM2;
-		fM1 += fL >> 34;
-		fH += fM1 >> 30;
-		fM1 >>= 62-9;
-//		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
-		fH <<= 9;
-		fM1 |= fH;
-		res.m = fM1;*/
+
 //		ht_printf("fH: %qx fM1: %qx fM2: %qx fL: %qx\n", &fH, &fM1, &fM2, &fL);
 		if (res.m & (1ULL << 57)) {
 			res.m >>= 2;
@@ -191,6 +369,7 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 			res.m >>= 1;
 			res.e++;
 		}
+		// res.m = [56]
 		break;
 	}
 	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_NaN):
@@ -222,6 +401,140 @@ inline void ppc_fpu_mul(ppc_double &res, ppc_double &a, ppc_double &b)
 		res.type = ppc_fpr_NaN;
 		break;
 	}
+}
+
+// 'res' has 'prec' significant bits on return, a + b have 56 significant bits each
+// for 111 >= prec >= 64
+inline void ppc_fpu_mul_quadro(ppc_quadro &res, ppc_double &a, ppc_double &b, int prec)
+{
+	res.s = a.s ^ b.s;
+	switch (PPC_FPR_TYPE2(a.type, b.type)) {
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_norm): {
+		res.type = ppc_fpr_norm;
+		res.e = a.e + b.e;
+//		printf("new exp: %d\n", res.e);
+//		ht_printf("MUL:\na.m: %016qx\nb.m: %016qx\n", &a.m, &b.m);
+		uint64 fH, fM1, fM2, fL;
+		fL = (a.m & 0xffffffff) * (b.m & 0xffffffff);	// [32] * [32] = [63,64]
+		fM1 = (a.m >> 32) * (b.m & 0xffffffff);		// [24] * [32] = [55,56]
+		fM2 = (a.m & 0xffffffff) * (b.m >> 32);		// [32] * [24] = [55,56]
+		fH = (a.m >> 32) * (b.m >> 32);			// [24] * [24] = [47,48]
+//		ht_printf("fH: %016qx fM1: %016qx fM2: %016qx fL: %016qx\n", &fH, &fM1, &fM2, &fL);
+
+		// calulate fH * 2^64 + (fM1 + fM2) * 2^32 + fL
+		uint64 rL, rH;
+		rL = fL;					// rL = rH = [63,64]
+		rH = fH;					// rH = fH = [47,48]
+		uint64 split;
+		split = fM1 + fM2;
+		uint64 carry;
+		ppc_fpu_add_uint64_carry(rL, (split & 0xffffffff) << 32, carry); // rL = [63,64]
+		rH += carry;					// rH = [0 .. 2^48]
+		rH += split >> 32;				// rH = [0:48], where 46, 47 or 48 set
+
+		// res.m0 = [0    0   .. 0   | rH_48 rH_47 .. rH_0 | rL_63 rL_62 .. rL_0]
+		//          [-----------------------------------------------------------]
+		// log.bit= [127  126 .. 113 | 112            64   | 63    62       0   ]
+		//          [-----------------------------------------------------------]
+		//          [ 15 bits zero   |      49 bits rH     |      64 bits rL    ]
+		res.m0 = rH;
+		res.m1 = rL;
+		// res.m0|res.m1 = [111,112,113]
+
+//		ht_printf("res = %016qx%016qx\n", &res.m0, &res.m1);
+		if (res.m0 & (1ULL << 48)) {
+			ppc_fpu_quadro_mshr(res, 2+(111-prec));
+			res.e += 2;
+		} else if (res.m0 & (1ULL << 47)) {
+			ppc_fpu_quadro_mshr(res, 1+(111-prec));
+			res.e += 1;
+		} else {
+			ppc_fpu_quadro_mshr(res, 111-prec);
+		}
+		// res.m0|res.m1 = [prec]
+		break;
+	}
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_NaN):
+		res.type = a.type;
+		res.e = a.e;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_norm): 
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_Inf): 
+	case PPC_FPR_TYPE2(ppc_fpr_NaN, ppc_fpr_zero): 
+		res.s = a.s;
+		// fall-thru
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_Inf): 
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_norm): 
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_norm): 
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_zero): 
+		res.type = a.type;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_NaN): 
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_NaN): 
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_NaN): 
+		res.s = b.s;
+		// fall-thru
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_Inf): 
+	case PPC_FPR_TYPE2(ppc_fpr_norm, ppc_fpr_zero): 
+		res.type = b.type;
+		break;
+	case PPC_FPR_TYPE2(ppc_fpr_zero, ppc_fpr_Inf): 
+	case PPC_FPR_TYPE2(ppc_fpr_Inf, ppc_fpr_zero): 
+		res.type = ppc_fpr_NaN;
+		break;
+	}
+}
+
+// calculate one of these:
+// + m1 * m2 + s
+// + m1 * m2 - s
+// - m1 * m2 + s
+// - m1 * m2 - s
+// using a 106 bit accumulator
+//
+// .752
+//
+inline void ppc_fpu_mul_add(ppc_double &res, ppc_double &m1, ppc_double &m2,
+	ppc_double &s)
+{
+	ppc_quadro p;
+/*	ht_printf("m1 = %d * %016qx * 2^%d, %s\n", m1.s, &m1.m, m1.e,
+		ppc_fpu_get_fpr_type(m1.type));
+	ht_printf("m2 = %d * %016qx * 2^%d, %s\n", m2.s, &m2.m, m2.e,
+		ppc_fpu_get_fpr_type(m2.type));*/
+	// create product with 106 significant bits
+	ppc_fpu_mul_quadro(p, m1, m2, 106);
+/*	ht_printf("p = %d * %016qx%016qx * 2^%d, %s\n", p.s, &p.m0, &p.m1, p.e,
+		ppc_fpu_get_fpr_type(p.type));*/
+	// convert s into ppc_quadro
+/*	ht_printf("s = %d * %016qx * 2^%d %s\n", s.s, &s.m, s.e,
+		ppc_fpu_get_fpr_type(s.type));*/
+	ppc_quadro q;
+	q.e = s.e;
+	q.s = s.s;
+	q.type = s.type;
+	q.m0 = 0;
+	q.m1 = s.m;
+	// .. with 106 significant bits
+	ppc_fpu_quadro_mshl(q, 106-56);
+/*	ht_printf("q = %d * %016qx%016qx * 2^%d %s\n", q.s, &q.m0, &q.m1, q.e,
+		ppc_fpu_get_fpr_type(q.type));*/
+	// now we must add p, q.
+	ppc_quadro x;
+	ppc_fpu_add_quadro(x, p, q);
+	// x = [107]
+/*	ht_printf("x = %d * %016qx%016qx * 2^%d %s\n", x.s, &x.m0, &x.m1, x.e,
+		ppc_fpu_get_fpr_type(x.type));*/
+	res.type = x.type;
+	res.s = x.s;
+	res.e = x.e;
+	if (x.type == ppc_fpr_norm) {
+		res.m = x.m0 << 13;			// 43 bits from m0
+		res.m |= (x.m1 >> (64-12)) << 1;	// 12 bits from m1
+		res.m |= x.m1 & 1;			// X' bit from m1
+	}
+/*	ht_printf("res = %d * %016qx * 2^%d %s\n", res.s, &res.m, res.e,
+		ppc_fpu_get_fpr_type(res.type));*/
 }
 
 inline void ppc_fpu_div(ppc_double &res, ppc_double &a, ppc_double &b)
@@ -596,12 +909,13 @@ void ppc_opc_fmaddx()
 {
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	ppc_double A, B, C, D, E;
+	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, gCPU.fpr[frC]);
-	ppc_fpu_mul(E, A, C);
-	ppc_fpu_add(D, E, B);
+/*	ppc_fpu_mul(E, A, C);
+	ppc_fpu_add(D, E, B);*/
+	ppc_fpu_mul_add(D, A, C, B);
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
@@ -651,13 +965,15 @@ void ppc_opc_fmsubx()
 {
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	ppc_double A, B, C, D, E;
+	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, gCPU.fpr[frC]);
-	ppc_fpu_mul(E, A, C);
+/*	ppc_fpu_mul(E, A, C);
 	B.s ^= 1;
-	ppc_fpu_add(D, E, B);
+	ppc_fpu_add(D, E, B);*/
+	B.s ^= 1;
+	ppc_fpu_mul_add(D, A, C, B);
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
@@ -770,12 +1086,13 @@ void ppc_opc_fnmaddx()
 {
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	ppc_double A, B, C, D, E;
+	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, gCPU.fpr[frC]);
-	ppc_fpu_mul(E, A, C);
-	ppc_fpu_add(D, E, B);
+/*	ppc_fpu_mul(E, A, C);
+	ppc_fpu_add(D, E, B);*/
+	ppc_fpu_mul_add(D, A, C, B);
 	D.s ^= 1;
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (gCPU.current_opc & PPC_OPC_Rc) {
@@ -812,13 +1129,16 @@ void ppc_opc_fnmsubx()
 {
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(gCPU.current_opc, frD, frA, frB, frC);
-	ppc_double A, B, C, D, E;
+	ppc_double A, B, C, D/*, E*/;
 	ppc_fpu_unpack_double(A, gCPU.fpr[frA]);
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, gCPU.fpr[frC]);
-	ppc_fpu_mul(E, A, C);
+/*	ppc_fpu_mul(E, A, C);
 	B.s ^= 1;
 	ppc_fpu_add(D, E, B);
+	D.s ^= 1;*/
+	B.s ^= 1;
+	ppc_fpu_mul_add(D, A, C, B);
 	D.s ^= 1;
 	gCPU.fpscr |= ppc_fpu_pack_double(D, gCPU.fpr[frD]);
 	if (gCPU.current_opc & PPC_OPC_Rc) {
