@@ -401,6 +401,10 @@ protection_fault_8_data:
 %endmacro
 
 align 16
+ppc_effective_to_physical_ret:
+	ret	4
+
+align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_effective_to_physical_code(uint32 addr)
 ;; 
@@ -411,9 +415,7 @@ align 16
 ppc_effective_to_physical_code:
 	; if (!gCPU.msr & MSR_IR) this should be patched to "ret"
 	test	byte [gCPU+msr], (1<<5)	; MSR_IR
-	jnz	.translate
-		ret	4
-	.translate:
+	jz	ppc_effective_to_physical_ret
 
 	tlb_lookup 0, code
 
@@ -515,9 +517,7 @@ ppc_effective_to_physical_data_read:
 	; if (!gCPU.msr & MSR_DR) this should be patched to "ret"
 	
 	test	byte [gCPU+msr], (1<<4)	; MSR_DR
-	jnz	.translate
-		ret	4
-	.translate:
+	jz	ppc_effective_to_physical_ret
 	
 	tlb_lookup 0, data
 
@@ -608,9 +608,7 @@ ppc_effective_to_physical_data_write:
 	; if (!gCPU.msr & MSR_DR) this should be patched to "ret"
 
 	test	byte [gCPU+msr], (1<<4)	; MSR_DR
-	jnz	.translate
-		ret	4
-	.translate:
+	jz	ppc_effective_to_physical_ret
 	
 	tlb_lookup 8, data
 
