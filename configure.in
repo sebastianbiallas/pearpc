@@ -61,15 +61,15 @@ dnl Check OS specifica
 NASM_OPTS="-f elf"
 
 case "$target_os" in
-linux*) 
+linux* | gnu* | k*bsd*-gnu)
 	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="x11"
 	fi	
-	AC_MSG_RESULT([*** LINUX, building POSIX version. we need pthread.])
+	AC_MSG_RESULT([*** GNU, building POSIX version. we need pthread and rt.])
 	PPC_LDADD="$PPC_LDADD -lpthread -lrt"
 ;;
-*freebsd*) 
+freebsd*) 
 	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
 		enable_ui="x11"
