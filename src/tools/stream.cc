@@ -58,9 +58,8 @@ public:
 };
 #endif
 /*
- *	CLASS Stream
+ *	Stream
  */
-
 #define STREAM_COPYBUF_SIZE	(64*1024)
 
 Stream::Stream()
@@ -166,7 +165,7 @@ void Stream::notifyListeners(StreamEvent event,...)
 /**
  *	Set access-mode
  */
-int	Stream::setAccessMode(IOAccessMode mode)
+int Stream::setAccessMode(IOAccessMode mode)
 {
 	mAccessMode = mode;
 	return 0;
@@ -183,7 +182,7 @@ int	Stream::setAccessMode(IOAccessMode mode)
  *	@returns number of bytes read
  *	@throws IOException
  */
-uint	Stream::read(void *buf, uint size)
+uint Stream::read(void *buf, uint size)
 {
 	return 0;
 }
@@ -198,7 +197,7 @@ uint	Stream::read(void *buf, uint size)
  *	@throws IOException
  */
 //#include "snprintf.h" 
-void	Stream::readx(void *buf, uint size)
+void Stream::readx(void *buf, uint size)
 {
 //	File *f = dynamic_cast<File*>(this);
 //	FileOfs t = f ? f->tell() : mkfofs(0);
@@ -227,7 +226,7 @@ void Stream::removeEventListener(StreamEventListener *l)
  *	@returns number of bytes written
  *	@throws IOException
  */
-uint	Stream::write(const void *buf, uint size)
+uint Stream::write(const void *buf, uint size)
 {
 	return 0;
 }
@@ -241,7 +240,7 @@ uint	Stream::write(const void *buf, uint size)
  *	@param size number of bytes to write
  *	@throws IOException
  */
-void	Stream::writex(const void *buf, uint size)
+void Stream::writex(const void *buf, uint size)
 {
 	if (write(buf, size) != size) throw new IOException(EIO);
 }
@@ -261,16 +260,6 @@ StreamLayer::~StreamLayer()
 	if (mOwnStream) delete mStream;
 }
 
-uint StreamLayer::copyAllTo(Stream *stream)
-{
-	return mStream->copyAllTo(stream);
-}
-
-uint StreamLayer::copyTo(Stream *s, uint count)
-{
-	return mStream->copyTo(s, count);
-}
-
 IOAccessMode StreamLayer::getAccessMode() const
 {
 	return mStream->getAccessMode();
@@ -286,12 +275,12 @@ int StreamLayer::setAccessMode(IOAccessMode mode)
 	return mStream->setAccessMode(mode);
 }
 
-uint	StreamLayer::read(void *buf, uint size)
+uint StreamLayer::read(void *buf, uint size)
 {
 	return mStream->read(buf, size);
 }
 
-uint	StreamLayer::write(const void *buf, uint size)
+uint StreamLayer::write(const void *buf, uint size)
 {
 	return mStream->write(buf, size);
 }
@@ -308,9 +297,8 @@ void StreamLayer::setLayered(Stream *newLayered, bool ownNewLayered)
 }
 
 /*
- *	CLASS ObjectStream
+ *	ObjectStream
  */
- 
 ObjectStream::ObjectStream(Stream *s, bool own_s) : StreamLayer(s, own_s)
 {
 }
@@ -419,7 +407,7 @@ File::File()
  *	@param cmd file control command number
  *	@returns 0 on success, POSIX.1 I/O error code on error
  */
-int	File::cntl(uint cmd, ...)
+int File::cntl(uint cmd, ...)
 {
 	va_list vargs;
 	va_start(vargs, cmd);
@@ -489,7 +477,7 @@ void File::del(uint size)
  *	@param newsize new extended file size
  *	@throws IOException
  */
-void	File::extend(FileOfs newsize)
+void File::extend(FileOfs newsize)
 {
 	if (getSize() > newsize) throw new IOException(EINVAL);
 	if (getSize() == newsize) return;
@@ -572,7 +560,7 @@ void File::insert(const void *buf, uint size)
  *	Get file status in a portable way.
  *	@param s structure that receives the file status
  */
-void	File::pstat(pstat_t &s) const
+void File::pstat(pstat_t &s) const
 {
 	s.caps = 0;
 }
@@ -603,7 +591,7 @@ FileOfs File::tell() const
  *	@param newsize new truncated file size
  *	@throws IOException
  */
-void	File::truncate(FileOfs newsize)
+void File::truncate(FileOfs newsize)
 {
 	if (getSize() < newsize) throw new IOException(EINVAL);
 	if (getSize() == newsize) return;
@@ -614,7 +602,7 @@ void	File::truncate(FileOfs newsize)
 /**
  *	Vararg wrapper for cntl()
  */
-int	File::vcntl(uint cmd, va_list vargs)
+int File::vcntl(uint cmd, va_list vargs)
 {
 	switch (cmd) {
 		case FCNTL_GET_MOD_COUNT: {	// int &mcount
@@ -627,9 +615,8 @@ int	File::vcntl(uint cmd, va_list vargs)
 }
 
 /*
- *	CLASS FileLayer
+ *	FileLayer
  */
-
 FileLayer::FileLayer(File *f, bool own_f) : File()
 {
 	mFile = f;
@@ -641,22 +628,12 @@ FileLayer::~FileLayer()
 	if (mOwnFile) delete mFile;
 }
 
-uint FileLayer::copyAllTo(Stream *stream)
-{
-	return mFile->copyAllTo(stream);
-}
-
-uint FileLayer::copyTo(Stream *s, uint count)
-{
-	return mFile->copyTo(s, count);
-}
-
 void FileLayer::del(uint size)
 {
 	return mFile->del(size);
 }
 
-void	FileLayer::extend(FileOfs newsize)
+void FileLayer::extend(FileOfs newsize)
 {
 	return mFile->extend(newsize);
 }
@@ -686,22 +663,22 @@ void FileLayer::insert(const void *buf, uint size)
 	return mFile->insert(buf, size);
 }
 
-void	FileLayer::pstat(pstat_t &s) const
+void FileLayer::pstat(pstat_t &s) const
 {
 	return mFile->pstat(s);
 }
 
-uint	FileLayer::read(void *buf, uint size)
+uint FileLayer::read(void *buf, uint size)
 {
 	return mFile->read(buf, size);
 }
 
-void	FileLayer::seek(FileOfs offset)
+void FileLayer::seek(FileOfs offset)
 {
 	return mFile->seek(offset);
 }
 
-int	FileLayer::setAccessMode(IOAccessMode mode)
+int FileLayer::setAccessMode(IOAccessMode mode)
 {
 	return mFile->setAccessMode(mode);
 }
@@ -722,24 +699,24 @@ FileOfs FileLayer::tell() const
 	return mFile->tell();
 }
 
-void	FileLayer::truncate(FileOfs newsize)
+void FileLayer::truncate(FileOfs newsize)
 {
 	return mFile->truncate(newsize);
 }
 
-int	FileLayer::vcntl(uint cmd, va_list vargs)
+int FileLayer::vcntl(uint cmd, va_list vargs)
 {
 	return mFile->vcntl(cmd, vargs);
 }
 
-uint	FileLayer::write(const void *buf, uint size)
+uint FileLayer::write(const void *buf, uint size)
 {
 	return mFile->write(buf, size);
 }
 
 #if 0
 /*
- *	CLASS LocalFileFD
+ *	LocalFileFD
  */
 
 /**
@@ -795,7 +772,7 @@ FileOfs LocalFileFD::getSize() const
 	return r;
 }
 
-uint	LocalFileFD::read(void *buf, uint size)
+uint LocalFileFD::read(void *buf, uint size)
 {
 	if (!(getAccessMode() & IOAM_READ)) throw new IOException(EACCES);
 	errno = 0;
@@ -812,7 +789,7 @@ uint	LocalFileFD::read(void *buf, uint size)
 	}		
 }
 
-void	LocalFileFD::seek(FileOfs o)
+void LocalFileFD::seek(FileOfs o)
 {
 	if (o == offset) return;
 	off_t r = ::lseek(fd, o, SEEK_SET);
@@ -820,7 +797,7 @@ void	LocalFileFD::seek(FileOfs o)
 	if (offset != o) throw new IOException(EIO);
 }
 
-int	LocalFileFD::setAccessMode(IOAccessMode am)
+int LocalFileFD::setAccessMode(IOAccessMode am)
 {
 	IOAccessMode orig_access_mode = getAccessMode();
 	int e = setAccessModeInternal(am);
@@ -829,7 +806,7 @@ int	LocalFileFD::setAccessMode(IOAccessMode am)
 	return e;
 }
 
-int	LocalFileFD::setAccessModeInternal(IOAccessMode am)
+int LocalFileFD::setAccessModeInternal(IOAccessMode am)
 {
 //RETRY:
 	if (getAccessMode() == am) return 0;
@@ -887,7 +864,7 @@ FileOfs LocalFileFD::tell() const
 	return offset;
 }
 
-void	LocalFileFD::truncate(FileOfs newsize)
+void LocalFileFD::truncate(FileOfs newsize)
 {
 	errno = 0;
 	int e = sys_truncate_fd(fd, newsize);
@@ -895,7 +872,7 @@ void	LocalFileFD::truncate(FileOfs newsize)
 	if (e) throw new IOException(e);
 }
 
-int	LocalFileFD::vcntl(uint cmd, va_list vargs)
+int LocalFileFD::vcntl(uint cmd, va_list vargs)
 {
 	switch (cmd) {
 		case FCNTL_FLUSH_STAT: {
@@ -914,7 +891,7 @@ int	LocalFileFD::vcntl(uint cmd, va_list vargs)
 	return File::vcntl(cmd, vargs);
 }
 
-uint	LocalFileFD::write(const void *buf, uint size)
+uint LocalFileFD::write(const void *buf, uint size)
 {
 	if (!(getAccessMode() & IOAM_WRITE)) throw new IOException(EACCES);
 	errno = 0;
@@ -933,7 +910,7 @@ uint	LocalFileFD::write(const void *buf, uint size)
 #endif
 
 /*
- *	CLASS StdIoFile
+ *	StdIoFile
  */
 
 /**
@@ -990,12 +967,12 @@ FileOfs LocalFile::getSize() const
 	return r;
 }
 
-void	LocalFile::pstat(pstat_t &s) const
+void LocalFile::pstat(pstat_t &s) const
 {
 	sys_pstat(s, mFilename);
 }
 
-uint	LocalFile::read(void *buf, uint size)
+uint LocalFile::read(void *buf, uint size)
 {
 	if (!(getAccessMode() & IOAM_READ)) throw new IOException(EACCES);
 	errno = 0;
@@ -1005,7 +982,7 @@ uint	LocalFile::read(void *buf, uint size)
 	return r;
 }
 
-void	LocalFile::seek(FileOfs o)
+void LocalFile::seek(FileOfs o)
 {
 	if (o == offset) return;
 	int e = fseek(file, o, SEEK_SET);
@@ -1013,7 +990,7 @@ void	LocalFile::seek(FileOfs o)
 	offset = o;					// unreliable for DJGPP
 }
 
-int	LocalFile::setAccessMode(IOAccessMode am)
+int LocalFile::setAccessMode(IOAccessMode am)
 {
 	IOAccessMode orig_access_mode = getAccessMode();
 	int e = setAccessModeInternal(am);
@@ -1022,7 +999,7 @@ int	LocalFile::setAccessMode(IOAccessMode am)
 	return e;
 }
 
-int	LocalFile::setAccessModeInternal(IOAccessMode am)
+int LocalFile::setAccessModeInternal(IOAccessMode am)
 {
 //RETRY:
 	if (getAccessMode() == am) return 0;
@@ -1072,7 +1049,7 @@ FileOfs LocalFile::tell() const
 	return offset;
 }
 
-void	LocalFile::truncate(FileOfs newsize)
+void LocalFile::truncate(FileOfs newsize)
 {
 	errno = 0;
 
@@ -1087,7 +1064,7 @@ void	LocalFile::truncate(FileOfs newsize)
 	if (e) throw new IOException(e);
 }
 
-int	LocalFile::vcntl(uint cmd, va_list vargs)
+int LocalFile::vcntl(uint cmd, va_list vargs)
 {
 	switch (cmd) {
 		case FCNTL_FLUSH_STAT: {
@@ -1109,7 +1086,7 @@ int	LocalFile::vcntl(uint cmd, va_list vargs)
 	return File::vcntl(cmd, vargs);
 }
 
-uint	LocalFile::write(const void *buf, uint size)
+uint LocalFile::write(const void *buf, uint size)
 {
 	if (!(getAccessMode() & IOAM_WRITE)) throw new IOException(EACCES);
 	errno = 0;
@@ -1120,9 +1097,8 @@ uint	LocalFile::write(const void *buf, uint size)
 }
 
 /*
- *	CLASS TempFile
+ *	TempFile
  */
-
 TempFile::TempFile(uint am) : LocalFile(tmpfile(), true, am)
 {
 }
@@ -1259,6 +1235,7 @@ uint CroppedFile::read(void *buf, uint size)
 		if (offset >= mCropStart+mCropSize) return 0;
 		if (offset+size >= mCropStart+mCropSize) size = mCropStart+mCropSize-offset;
 	}
+	ht_printf("CroppedFile::read 0x%08x bytes @ 0x%08qx\n", &size, &offset);
 	return FileLayer::read(buf, size);
 }
 
