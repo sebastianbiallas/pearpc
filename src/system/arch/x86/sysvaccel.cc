@@ -72,7 +72,10 @@ static inline void genericConvertDisplay(
 				| (b << aDestChar.blueShift);
 			switch (aDestChar.bytesPerPixel) {
 			case 2:
-				dest[1] = p>>8; dest[0] = p;
+				dest[0] = p; dest[1] = p>>8;
+				break;
+			case 3:
+				dest[0] = p; dest[1] = p>>8; dest[2] = p>>16;
 				break;
 			case 4:
 				*(uint32*)dest = p;
