@@ -364,7 +364,6 @@ bool displayCharacteristicsFromString(DisplayCharacteristics &aChar, const Strin
 		if (!tmp2.toInt(aChar.bytesPerPixel)) return false;
 	}
 	aChar.scanLineLength = -1;
-	aChar.vsyncFrequency = -1;
 	aChar.redShift = -1;
 	aChar.redSize = -1;
 	aChar.greenShift = -1;
