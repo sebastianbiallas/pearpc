@@ -52,6 +52,7 @@ int sys_create_thread(sys_thread *t, int flags, sys_thread_function start_routin
 	unsigned long *p = (unsigned long *)malloc(sizeof (unsigned long));
 	*t = p;
 	*p = _beginthread((void (*)(void *))start_routine, 0, arg);
+	return 0;
 }
 
 void sys_destroy_mutex(sys_mutex m)
