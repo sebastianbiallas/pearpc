@@ -115,7 +115,6 @@ static char mCurTitle[200];
 static byte *mouseData;
 static byte *menuData;
 
-
 class X11SystemDisplay: public SystemDisplay
 {
 	sys_thread redrawthread;
@@ -144,12 +143,27 @@ class X11SystemDisplay: public SystemDisplay
 		}
 	}
 public:
-	X11SystemDisplay(const char *name, const DisplayCharacteristics &chr)
-		:SystemDisplay(chr)
+	X11SystemDisplay(const char *name, const DisplayCharacteristics &aClientChar)
+		:SystemDisplay(aClientChar)
 	{
+		if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
+			printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
+			exit(1);
+		}
+
 		sys_create_mutex(&mutex);
 		mEventQueue = new Queue(true);
+
+		// mouse
 		mMouseEnabled = false;
+		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
+		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
+
+		// menu
+		mMenuHeight = 28;
+		menuData = NULL;
+
+		// X11 stuff
 		char *display = getenv("DISPLAY");
 		if (display == NULL) {
 			display = ":0.0";
@@ -160,27 +174,8 @@ public:
 			exit(1);
 		}
 
-		if (bitsPerPixelToXBitmapPad(mClientChar.bytesPerPixel*8) != mClientChar.bytesPerPixel*8) {
-			printf("nope. bytes per pixel is: %d. only 1,2 or 4 are allowed.\n", mClientChar.bytesPerPixel);
-			exit(1);
-		}
-
-		mMenuHeight = 28;
-
-		gFramebuffer = (byte*)malloc(mClientChar.width *
-			mClientChar.height * mClientChar.bytesPerPixel);
-		memset(gFramebuffer, 0, mClientChar.width *
-			mClientChar.height * mClientChar.bytesPerPixel);
-		damageFrameBufferAll();
-
-		mHomeMouseX = mClientChar.width / 2;
-		mHomeMouseY = mClientChar.height / 2;
-
 		mMapped = true;
 		mVisible = true;
-		
-		mouseData = (byte*)malloc(2 * 2 * mClientChar.bytesPerPixel);
-		memset(mouseData, 0, 2 * 2 * mClientChar.bytesPerPixel);
 
 		int screen_num = DefaultScreen(gXDisplay);
 		gXWindow = XCreateSimpleWindow(gXDisplay, 
@@ -206,6 +201,7 @@ public:
 			fprintf(stderr, "\tblue  = %x:\n", info[i].blue_mask);
 		}
 #endif
+		// generate X characteristics from visual info
 		mXChar = mClientChar;
 		if (ninfo) {
 			mXChar.bytesPerPixel = bitsPerPixelToXBitmapPad(info->depth) >> 3;
@@ -217,21 +213,12 @@ public:
 			exit(1);
 		}
 		XFree(info);
-#if 0
-		fprintf(stderr, "X Server display characteristics:\n");
-		dumpDisplayChar(mXChar);
-		fprintf(stderr, "Client display characteristics:\n");
-		dumpDisplayChar(mClientChar);
-#endif
 
 		XSetWindowAttributes attr;
 		attr.save_under = 1;
 		attr.backing_store = Always;
 		XChangeWindowAttributes(gXDisplay, gXWindow, CWSaveUnder|CWBackingStore, &attr);
-		
-		mTitle = strdup(name);
-		updateTitle();
-		
+
 		gDefaultColormap = DefaultColormap(gXDisplay, screen_num);
 
 		XSelectInput(gXDisplay, gXWindow, 
@@ -253,35 +240,14 @@ public:
 		XNextEvent(gXDisplay, &event);
 
 		uint XDepth = mXChar.redSize + mXChar.greenSize + mXChar.blueSize;
-		// Maybe client and (X-)server display characeristics match
-		if (0 && memcmp(&mClientChar, &mXChar, sizeof (mClientChar)) == 0) {
-//			fprintf(stderr, "client and server display characteristics match!!\n");
-			gXframebuffer = NULL;
 
-			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-				XDepth, ZPixmap, 0, (char*)gFramebuffer,
-				mXChar.width, mXChar.height,
-				mXChar.bytesPerPixel*8, 0);
-		} else {
-			// Otherwise we need a second framebuffer
-//			fprintf(stderr, "client and server display characteristics DONT match :-(\n");
-			gXframebuffer = (byte*)malloc(mXChar.width
-				* mXChar.height * mXChar.bytesPerPixel);
-
-			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
-				XDepth, ZPixmap, 0, (char*)gXframebuffer,
-				mXChar.width, mXChar.height,
-				mXChar.bytesPerPixel*8, 0);
-		}
-
-		
 		gMouseXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
 			XDepth, ZPixmap, 0, (char*)mouseData,
 			2, 2,
 			mXChar.bytesPerPixel*8, 0);
-			
+
 		gGC = DefaultGC(gXDisplay, screen_num);
-		
+
 		switch (mClientChar.bytesPerPixel) {
 			case 1:
 				ht_printf("nyi: %s::%d", __FILE__, __LINE__);
@@ -298,7 +264,21 @@ public:
 				gPosixRGBMask.b_mask = 0x000000ff000000ffULL;
 				break;
 		}
-		menuData = NULL;
+
+		// setup interna
+		gFramebuffer = NULL;
+		reinitChar();
+
+#if 0
+		fprintf(stderr, "X Server display characteristics:\n");
+		dumpDisplayChar(mXChar);
+		fprintf(stderr, "Client display characteristics:\n");
+		dumpDisplayChar(mClientChar);
+#endif
+
+		// finally set title
+		mTitle = strdup(name);
+		updateTitle();
 	}
 
 	virtual ~X11SystemDisplay()
@@ -333,14 +313,86 @@ public:
 				* mXChar.bytesPerPixel);
 		}
 	}
-	
-	bool changeResolution(const DisplayCharacteristics &aCharacteristics)
+
+	void reinitChar()
 	{
-		// FIXME: implement me
-		return false;
+		sys_lock_mutex(mutex);
+		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width *
+			mClientChar.height * mClientChar.bytesPerPixel);
+		memset(gFramebuffer, 0, mClientChar.width *
+			mClientChar.height * mClientChar.bytesPerPixel);
+		damageFrameBufferAll();
+
+		mHomeMouseX = mClientChar.width / 2;
+		mHomeMouseY = mClientChar.height / 2;
+
+		uint XDepth = mXChar.redSize + mXChar.greenSize + mXChar.blueSize;
+		int screen_num = DefaultScreen(gXDisplay);
+
+		if (gXImage) XDestroyImage(gXImage);	// no need to free gXFramebuffer. XDeleteImage does this.
+
+		// Maybe client and (X-)server display characteristics match
+		if (0 && memcmp(&mClientChar, &mXChar, sizeof (mClientChar)) == 0) {
+//			fprintf(stderr, "client and server display characteristics match!!\n");
+			gXframebuffer = NULL;
+
+			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
+				XDepth, ZPixmap, 0, (char*)gFramebuffer,
+				mXChar.width, mXChar.height,
+				mXChar.bytesPerPixel*8, 0);
+		} else {
+			// Otherwise we need a second framebuffer
+//			fprintf(stderr, "client and server display characteristics DONT match :-(\n");
+			gXframebuffer = (byte*)malloc(mXChar.width
+				* mXChar.height * mXChar.bytesPerPixel);
+
+			gXImage = XCreateImage(gXDisplay, DefaultVisual(gXDisplay, screen_num),
+				XDepth, ZPixmap, 0, (char*)gXframebuffer,
+				mXChar.width, mXChar.height,
+				mXChar.bytesPerPixel*8, 0);
+		}
+		sys_unlock_mutex(mutex);
 	}
 
-	virtual int  getKeybLEDs()
+	bool changeResolution(const DisplayCharacteristics &aClientChar)
+	{
+		if (bitsPerPixelToXBitmapPad(aClientChar.bytesPerPixel*8) != aClientChar.bytesPerPixel*8) {
+			fprintf(stderr, "bitsPerPixelToXBitmapPad(%d) failed\n", aClientChar.bytesPerPixel*8);
+			return false;
+		}
+
+		sys_lock_mutex(mutex);
+		XResizeWindow(gXDisplay, gXWindow, aClientChar.width, aClientChar.height+mMenuHeight);
+
+		XSync(gXDisplay, False);
+
+		XWindowAttributes attr;
+		if (!XGetWindowAttributes(gXDisplay, gXWindow, &attr)) {
+			fprintf(stderr, "Couldn't get X window size\n");
+			XResizeWindow(gXDisplay, gXWindow, mXChar.width, mXChar.height+mMenuHeight);
+			sys_unlock_mutex(mutex);
+			return false;
+		}
+
+		if (((int)attr.width < aClientChar.width) || ((int)attr.height < aClientChar.height+mMenuHeight)) {
+	    		fprintf(stderr, "Couldn't change X window size to %dx%d\n", aClientChar.width, aClientChar.height);
+	    		fprintf(stderr, "Reported new size: %dx(%d+%d)\n", attr.width, attr.height-mMenuHeight, mMenuHeight);
+			XResizeWindow(gXDisplay, gXWindow, mXChar.width, mXChar.height+mMenuHeight);
+			sys_unlock_mutex(mutex);
+			return false;
+		}
+
+		mClientChar = aClientChar;
+		mXChar.width = aClientChar.width;
+		mXChar.height = aClientChar.height;
+		sys_unlock_mutex(mutex);
+
+		reinitChar();
+		fprintf(stderr, "Change resolution OK\n");
+		return true;
+	}
+
+	virtual int getKeybLEDs()
 	{
 		return 0;
 	}
@@ -740,6 +792,8 @@ public:
 
 	static void *eventLoop(void *p)
 	{
+		// FIXME: implement me
+		return NULL;
 	}
 	
 	virtual void startRedrawThread(int msec)
