@@ -256,7 +256,7 @@ class Win32EthTunDevice: public EthTunDevice {
 protected:
 	HANDLE		mFile;
 	unsigned char	mBuf[BUFFER_SIZE];
-	uint		mBuflen;
+	DWORD		mBuflen;
 	OVERLAPPED	mOverlapped;
 
 bool tap_set_status(BOOL status)
@@ -376,7 +376,7 @@ virtual	uint sendPacket(void *buf, uint size)
 	if (!ret) {
 		char errmsg[ERRORMSG_SIZE];
 		GetErrorString(errmsg, GetLastError());
-		printm("Sending of %d bytes failed (%d bytes sent): %s\n", count, written, errmsg);
+		printm("Sending of %d bytes failed (%d bytes sent): %s\n", size, written, errmsg);
 	}
 	return written;
 }
