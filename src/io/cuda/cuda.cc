@@ -887,7 +887,7 @@ static bool doProcessCudaEvent(const SystemEvent &ev)
 
 static bool tryProcessCudaEvent(const SystemEvent &ev)
 {
-	uint timeout_msec = 100;
+	uint timeout_msec = 200;
 	uint64 time_end = sys_get_hiresclk_ticks() + sys_get_hiresclk_ticks_per_second()
 		* timeout_msec / 1000;
 //	ht_printf("process  %d\n", ev.key.pressed);
@@ -904,11 +904,11 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 			} else {
 				IO_CUDA_TRACE2("left: %d\n", gCUDA.left);
 				if (lockuphack++ == 20) {
-					gCUDA.left = 0;
+/*					gCUDA.left = 0;
 					gCUDA.rA = TREQ;
 					gCUDA.rACR = 0;
 					lockuphack = 0;
-					IO_CUDA_WARN("lock-up parachute\n");
+					IO_CUDA_WARN("lock-up parachute\n");*/
 				}
 			}
 		} else {
@@ -916,7 +916,7 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 		}
 		sys_unlock_mutex(gCUDAMutex);
 		sys_lock_mutex(gCUDA.idle_sem);
-		sys_wait_semaphore_bounded(gCUDA.idle_sem, 20);
+		sys_wait_semaphore_bounded(gCUDA.idle_sem, 10);
 		sys_unlock_mutex(gCUDA.idle_sem);
 	}
 	IO_CUDA_WARN("Event processing timed out. Event dropped.\n");
@@ -950,6 +950,7 @@ bool cuda_prom_get_key(uint32 &key)
 		gCUDA.left = 0;
 		return true;
 	} else {
+		gCUDA.left = 0;
 		return false;
 	}
 }
