@@ -214,6 +214,10 @@ packet_driver_t g_sys_ethtun_pd = {
 
 #else
 
+#include <errno.h>
+
+#include "system/sysethtun.h"
+
 static int pdnull_open(enet_iface_t *is, char *intf_name, int *sigio_capable, const byte *mac)
 {
 	return ENOSYS;

@@ -69,7 +69,6 @@ PCI_Device::PCI_Device(const char *aName, uint8 aBus, uint8 aUnit)
 	memset(&mAddress, 0, sizeof mAddress);
 	memset(&mPort, 0, sizeof mPort);
 	memset(&mIORegSize, 0, sizeof mIORegSize);
-	
 }
 
 PCI_Device::~PCI_Device()

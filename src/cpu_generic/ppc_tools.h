@@ -23,7 +23,7 @@
 
 #include "system/types.h"
 
-#if defined(__ppc__)
+#if defined(__ppc__) || defined(__powerpc__)
 #undef HOST_IS_LE
 #undef HOST_IS_X86
 #else
