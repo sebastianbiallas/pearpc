@@ -1,0 +1,5 @@
+.deps
+Makefile
+Makefile.in
+ifppc_down.setuid
+ifppc_up.setuid
