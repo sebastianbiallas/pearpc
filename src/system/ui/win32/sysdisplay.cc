@@ -39,7 +39,8 @@
 #undef FASTCALL
 #include "system/types.h"
 
-byte *gFramebuffer = NULL;
+byte *gFrameBuffer = NULL;
+uint gFrameBufferScanLineLength;
 uint gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
 static HINSTANCE gHInst;
@@ -127,11 +128,12 @@ public:
 
 		gHInst = GetModuleHandle(NULL);
 
-		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width 
+		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
+		gFrameBufferScanLineLength = mClientChar.bytesPerPixel * mClientChar.width;
 		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
-		memset(gFramebuffer, 0, mClientChar.width 
+		memset(gFrameBuffer, 0, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
 		gEventQueue = new Queue(true);
 		gWidth = mWinChar.width;
@@ -157,7 +159,7 @@ public:
 		DeleteCriticalSection(&gEventCS);
 
 		delete gEventQueue;
-		free(gFramebuffer);
+		free(gFrameBuffer);
 		free(winframebuffer);
 	}
 
@@ -181,11 +183,12 @@ public:
 		mWinChar.height = mClientChar.height;
 		mWinChar.width = mClientChar.width;
 
-		gFramebuffer = (byte*)realloc(gFramebuffer, mClientChar.width 
+		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
+		gFrameBufferScanLineLength = mClientChar.bytesPerPixel * mClientChar.width;
 		winframebuffer = (byte*)realloc(winframebuffer, mWinChar.width 
 			* mWinChar.height * mWinChar.bytesPerPixel);
-		memset(gFramebuffer, 0, mClientChar.width 
+		memset(gFrameBuffer, 0, mClientChar.width 
 			* mClientChar.height * mClientChar.bytesPerPixel);
 
 		gHeight = mWinChar.height;
@@ -380,7 +383,7 @@ public:
 
 	void displayConvert(uint firstLine, uint lastLine)
 	{
-		byte *buf = gFramebuffer;
+		byte *buf = gFrameBuffer;
 		byte *xbuf = winframebuffer;
 		if (win32_vaccel_func) {
 			win32_vaccel_func((lastLine-firstLine+1)*mClientChar.width, 
