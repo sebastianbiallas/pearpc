@@ -381,21 +381,24 @@ ppc_set_msr_asm:
 	
 		;; See if the privilege level (MSR_PR), data address
 		;; translation (MSR_DR) or code address translation (MSR_IR)
-		;; is changing, in which case we need to inval the tlb
+		;; is changing, in which case we need to invalidate the tlb
 	test	eax, (1<<14) | (1<<4) | (1<<5)
-	jnz	.msr_pr_change
+
+		;; FIXME: this should be "jnz ppc_mmu_tlb_invalidate_all_asm"
+		;; which doesn't work for strange reasons
+	jnz	.invd
 	ret
-	
+
+.invd:
+	jmp	ppc_mmu_tlb_invalidate_all_asm
+
 .power:
 	push	eax
 	call	cpu_doze
 	pop	eax
+	mov	ecx, eax
 	and	eax, ~(1<<18)
 	jmp	.power_back
-	
-.msr_pr_change:
-	call ppc_mmu_tlb_invalidate_all_asm
-	ret
 
 .singlestep:
 	mov	eax, singlestep_error
