@@ -3,6 +3,7 @@
 
 version 0.2 (in progress):
 	- JITC: all crXX implemented
+	- JITC: overlapped mmio fixes
 	- (POSIX) fixed: Alt and AltGr are swapped
 	- incorporated Roman Bogorodskiy's FreeBSD patch, many configure.in
 	  improvements

@@ -800,7 +800,7 @@ ppc_write_effective_word_asm:
 	neg	ebp
 	add	ebp, 4096
 	cmp	ebx, [gMemorySize]
-	jae	.dslk
+	jae	.overlapped_mmio_1
 	add	ebx, [gMemory]
 	.loop1:
 		rol	edx, 8
@@ -808,12 +808,12 @@ ppc_write_effective_word_asm:
 		inc	ebx
 		dec	ebp
 	jnz	.loop1
-	.dslk:
+	.overlapped_mmio_1_back:
 	mov	ebp, eax
 	and	eax, 0xfffff000
 	and	ebp, 0x00000fff
 	cmp	eax, [gMemorySize]
-	jae	.dslk5
+	jae	.overlapped_mmio_2
 	add	eax, [gMemory]
 	.loop2:
 		rol	edx, 8
@@ -821,7 +821,33 @@ ppc_write_effective_word_asm:
 		inc	eax
 		dec	ebp
 	jnz	.loop2
-	.dslk5:
+	ret
+.overlapped_mmio_1:
+	.overlapped_mmio_1_loop:
+		rol	edx, 8
+		pusha
+		movzx	edx, dl
+		mov	eax, ebx
+		mov	ecx, 1
+		call	io_mem_write_glue
+		popa
+		mov	[ebx], dl
+		inc	ebx
+		dec	ebp
+	jnz	.overlapped_mmio_1_loop
+	jmp	.overlapped_mmio_1_back
+.overlapped_mmio_2:
+	.overlapped_mmio_2_loop:
+		rol	edx, 8
+		pusha
+		movzx	edx, dl
+		mov	ecx, 1
+		call	io_mem_write_glue
+		popa
+		mov	[eax], dl
+		inc	eax
+		dec	ebp
+	jnz	.overlapped_mmio_2_loop
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -879,7 +905,7 @@ ppc_write_effective_dword_asm:
 	bswap	ecx
 	bswap	edx
 	cmp	ebx, [gMemorySize]
-	jae	.fjfjjfjf
+	jae	.overlapped_mmio_1
 	add	ebx, [gMemory]
 	.loop1:
 		mov	[ebx], cl
@@ -888,12 +914,12 @@ ppc_write_effective_dword_asm:
 		shr	edx, 8
 		dec	ebp
 	jnz	.loop1
-	.fjfjjfjf:
+	.overlapped_mmio_1_back:
 	mov	ebp, eax
 	and	eax, 0xfffff000
 	and	ebp, 0x00000fff
 	cmp	eax, [gMemorySize]
-	jae	.fjfjjfjffffffffffffffffffffjjjfffffffffffffffffjfjfjfjjfjfjfjf
+	jae	.overlapped_mmio_2
 	add	eax, [gMemory]
 	.loop2:
 		mov	[eax], cl
@@ -902,7 +928,33 @@ ppc_write_effective_dword_asm:
 		shr	edx, 8
 		dec	ebp
 	jnz	.loop2
-	.fjfjjfjffffffffffffffffffffjjjfffffffffffffffffjfjfjfjjfjfjfjf:
+	ret
+.overlapped_mmio_1:
+	.overlapped_mmio_1_loop:
+		pusha
+		movzx	edx, cl
+		mov	eax, ebx
+		mov	ecx, 1
+		call	io_mem_write_glue
+		popa
+		shrd	ecx, edx, 8
+		inc	ebx
+		shr	edx, 8
+		dec	ebp
+	jnz	.overlapped_mmio_1_loop
+	jmp	.overlapped_mmio_1_back
+.overlapped_mmio_2:
+	.overlapped_mmio_2_loop:
+		pusha
+		movzx	edx, cl
+		mov	ecx, 1
+		call	io_mem_write_glue
+		popa
+		shrd	ecx, edx, 8
+		inc	eax
+		shr	edx, 8
+		dec	ebp
+	jnz	.overlapped_mmio_2_loop
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
