@@ -1391,6 +1391,13 @@ void prom_init_device_tree()
 	PromNode *keyboard = new PromNode("keyboard"); 
 	adb->addNode(keyboard);
 	keyboard->addProp(new PromPropString("device_type", "keyboard"));
+	PromNode *mouse = new PromNode("mouse"); 
+	adb->addNode(mouse);
+	mouse->addProp(new PromPropString("device_type", "mouse"));
+	mouse->addProp(new PromPropInt("#buttons", 3));
+	mouse->addProp(new PromPropInt("reg", 3));
+//	byte regmouse[] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0};
+//	mouse->addProp(new PromPropMemory("reg", &regmouse, sizeof regmouse));
 	via->addProp(new PromPropString("compatible", "cuda"));
 	via->addProp(new PromPropString("device_type", "via-cuda"));
 
