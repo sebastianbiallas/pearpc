@@ -30,8 +30,10 @@
 #include "cpu/mem.h"
 #include "io/prom/fs/part.h"
 #include "io/ide/ide.h"
+#include "io/cuda/cuda.h"
 #include "system/keyboard.h"
 #include "system/display.h"
+#include "system/sys.h"
 #include "tools/debug.h"
 #include "tools/except.h"
 #include "tools/strtools.h"
@@ -1045,16 +1047,14 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 		uint choice = 0;
 		if (gPromBootMethod == prombmSelect) {
 			gDisplay->printf("\nYour choice (ESC abort):");
-			IO_PROM_ERR("currently b0rken in promboot.cc line 1012\n");
-			return false;
-/*			while (1) {
+			while (1) {
 				gDisplay->printf("\r\e[0K\rYour choice (ESC abort): %d", choice);
-				SystemEvent ev;
+				uint32 keycode;
 				do {
-					gKeyboard->getEvent(ev, true);
-				} while (ev.type != sysevKey || !ev.key.pressed);
+					cuda_prom_get_key(keycode);
+					if (keycode & 0x80) sys_suspend();
+				} while (keycode & 0x80);
 
-				uint keycode = ev.key.keycode;
 				if (keycode == KEY_DELETE) choice = 0; else
 				if (keycode == KEY_RETURN) break; else
 				if (keycode == KEY_ESCAPE) return false;
@@ -1063,7 +1063,7 @@ bool prom_user_boot_partition(File *&ret_file, uint32 &size, bool &direct, uint3
 					choice *= 10;
 					choice += key2digit[keycode];
 				}
-			}*/
+			}
 		} else {
 			choice = 1;
 		}
@@ -1174,13 +1174,13 @@ bool prom_load_boot_file()
 			IO_PROM_WARN("Can't boot a partition.\nTry bootmethod 'force' and specify a 'prom_loadfile' in your config-file...\n");
 			return false;
 		}
-/*		try {
+		try {
 			LocalFile lf("bootfile.dump", IOAM_WRITE, FOM_CREATE);
 			f->seek(0);
 			f->copyAllTo(&lf);
 		} catch (...) {
 			printf("error dumping bootfile");
-		}*/
+		}
 		if (direct) {
 			if (!mapped_load_direct(*f, loadAddr, entryAddr)) {
 				IO_PROM_TRACE("couldn't load.\n");
