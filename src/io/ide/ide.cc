@@ -1829,8 +1829,9 @@ void receive_atapi_packet()
 				// FIXME: dont raise interrupt?
 				break;
 			case IDE_COMMAND_FLUSH_CACHE:
-				IO_IDE_WARN("command FLUSH CACHE stub\n");
-				// FIXME: dont raise interrupt?
+				gIDEState.config[gIDEState.drive].device->acquire();
+				gIDEState.config[gIDEState.drive].device->flush();
+				gIDEState.config[gIDEState.drive].device->release();
 				break;
 			case IDE_COMMAND_SLEEP: 
 				IO_IDE_WARN("command SLEEP stub\n");

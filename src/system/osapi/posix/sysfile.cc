@@ -258,6 +258,12 @@ int sys_fseek(SYS_FILE *file, FileOfs newofs, int seekmode)
 	return r ? errno : 0;
 }
 
+void sys_flush(SYS_FILE *file)
+{
+	fflush((FILE *)file);
+}
+
+
 FileOfs	sys_ftell(SYS_FILE *file)
 {
 	return ftello((FILE *)file);

@@ -49,6 +49,7 @@ public:
 	virtual ~ATADeviceFile();
 
 	virtual bool	seek(int blockno);
+	virtual void	flush();
 	virtual int	readBlock(byte *buf);
 	virtual int	writeBlock(byte *buf);
 

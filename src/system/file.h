@@ -162,6 +162,7 @@ int		sys_fread(SYS_FILE *file, byte *buf, int size);
 int		sys_fwrite(SYS_FILE *file, byte *buf, int size);
 int		sys_fseek(SYS_FILE *file, FileOfs newofs, int seekmode = SYS_SEEK_SET);
 FileOfs		sys_ftell(SYS_FILE *file);
+void		sys_flush(SYS_FILE *file);
 //int		sys_geterror();
 
 #endif /* __FILE_H__ */

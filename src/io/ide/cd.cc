@@ -297,6 +297,11 @@ bool CDROMDeviceFile::seek(int blockno)
 	return true;
 }
 
+void CDROMDeviceFile::flush()
+{
+	sys_flush(mFile);
+}
+
 int CDROMDeviceFile::readBlock(byte *buf)
 {
 //	ht_printf("cdrom.readBlock(%x)\n", curLBA);

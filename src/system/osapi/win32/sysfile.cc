@@ -405,6 +405,11 @@ int sys_fseek(SYS_FILE *file, FileOfs newofs, int seekmode)
 	}
 }
 
+void sys_flush(SYS_FILE *file)
+{
+	// 
+}
+
 FileOfs	sys_ftell(SYS_FILE *file)
 {
 	LONG a, b=0;

@@ -90,6 +90,11 @@ bool ATADeviceFile::seek(int blockno)
 	return true;
 }
 
+void ATADeviceFile::flush()
+{
+	sys_flush(mFile);
+}
+
 int ATADeviceFile::readBlock(byte *buf)
 {
 	sys_fread(mFile, buf, 512);

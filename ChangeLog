@@ -4,6 +4,7 @@
 version 0.3 (not yet released):
 	- (experimental) idle sleep for the JITC CPU
 	- asynchronous keyboard and mouse events
+	- implemented IDE Flush
 	- short cuts are configurable
 	- correct clock/timing (Win32 + Posix) by Keith Rothman, Kimball Thurston and Stefan Weyergraf
 	- source tree reorganisation

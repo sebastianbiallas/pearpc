@@ -79,6 +79,7 @@ public:
 	virtual uint32	getCapacity();
 		bool	changeDataSource(const char *file);
 	virtual bool	seek(int blockno);
+	virtual void	flush();
 	virtual int	readBlock(byte *buf);
 	virtual int	writeBlock(byte *buf);
 	virtual void	readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format);

@@ -50,6 +50,7 @@ public:
 	virtual uint	getBlockSize() = 0;
 	virtual uint	getBlockCount() = 0;
 	virtual bool	seek(int blockno) = 0;
+	virtual void	flush() = 0;
 		void	setMode(int aMode, int aSectorSize);
 	/* these are deblocking read/writes */
 	virtual int	read(byte *buf, int size);
