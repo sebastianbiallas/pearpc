@@ -185,6 +185,15 @@ void usage()
 	exit(1);
 }
 
+#ifdef main
+// Get rid of stupid SDL main redefinitions
+#undef main
+extern "C" int SDL_main(int argc, char *argv[])
+{
+	return 0;
+}
+#endif
+
 int main(int argc, char *argv[])
 {
 /*	SYS_FILE *a = sys_fopen("test\\c.img", SYS_OPEN_CREATE | SYS_OPEN_WRITE);

@@ -358,6 +358,7 @@ sdl)
 		    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
 	)
 	
+	SDL_LIBS=`echo "$SDL_LIBS" | sed 's/-mwindows//' | sed 's/-lmingw32//'`
 	LDFLAGS="$LDFLAGS $SDL_LIBS"
 	PPC_CFLAGS="$PPC_CFLAGS $SDL_CFLAGS"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS $SDL_CFLAGS"
