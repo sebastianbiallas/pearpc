@@ -757,14 +757,14 @@ double ppc_fpu_get_double(ppc_double &d)
  *
  */
 
-#define SWAP do {                                \
-	int tmp = frA; frA = frB; frB = tmp;     \
-	tmp = a; a = b; b = tmp;                 \
-	tmp = op; op = rop; rop = tmp;           \
+#define SWAP do {                                                    \
+	int tmp = frA; frA = frB; frB = tmp;                         \
+	tmp = a; a = b; b = tmp;                                     \
+	X86FloatArithOp tmpop = op; op = rop; rop = tmpop;           \
 } while(0);
 
  
-/*static void ppc_opc_gen_binary_floatop(X86FloatArithOp op, X86FloatArithOp rop, int frD, int frA, int frB)
+static void ppc_opc_gen_binary_floatop(X86FloatArithOp op, X86FloatArithOp rop, int frD, int frA, int frB)
 {
 	// op == st(i)/st(0)
 	// rop == st(0)/st(i)
@@ -775,8 +775,8 @@ double ppc_fpu_get_double(ppc_double &d)
 	// frD := frA (op) frB = frB (rop) frA
 
 	// make sure client float register aren't mapped to integer registers
-	jitcFlushClientRegisterForFloat(frA);
-	jitcFlushClientRegisterForFloat(frB);
+	jitcClobberClientRegisterForFloat(frA);
+	jitcClobberClientRegisterForFloat(frB);
 	jitcInvalidateClientRegisterForFloat(frD);
 
 	JitcFloatReg a = jitcGetClientFloatRegisterMapping(frA);
@@ -791,28 +791,28 @@ double ppc_fpu_get_double(ppc_double &d)
 			// b = st(a) (op) b
 			b = jitcGetClientFloatRegister(frB);
 			if (jitcFloatRegisterIsTOP(b)) {
-				asmFArithST0(op, jitcFloatRegToNative(a));
+				asmFArithST0(op, jitcFloatRegisterToNative(a));
 			} else {
-				a = jitcXCHGToFront(a);
-				asmFArithSTi(rop, jitcFloatRegToNative(b));
+				jitcFloatRegisterXCHGToFront(a);
+				asmFArithSTi(rop, jitcFloatRegisterToNative(b));
 			}
-			jitcDirtyFloatRegister(b);			
+			jitcFloatRegisterDirty(b);
 		} else if (frA == frD) {
 			// st(a) = st(a) (op) b
 			b = jitcGetClientFloatRegister(frB);
 			if (jitcFloatRegisterIsTOP(b)) {
-				asmFArithSTi(op, jitcFloatRegToNative(b));
+				asmFArithSTi(op, jitcFloatRegisterToNative(b));
 			} else {
-				a = jitcXCHGToFront(a);
-				asmFArithST0(rop, jitcFloatRegToNative(b));
+				jitcFloatRegisterXCHGToFront(a);
+				asmFArithST0(rop, jitcFloatRegisterToNative(b));
 			}
-			jitcDirtyFloatRegister(a);
+			jitcFloatRegisterDirty(a);
 		} else {
 			// frA != frD != frB (and frA is mapped)
-			JitcFloatReg d = jitcFloatDupRegister(a, b);
+			JitcFloatReg d = jitcFloatRegisterDup(a, b);
 			// now a is TOP
 			if (b != JITC_FLOAT_REG_NONE) {
-				asmFArithST0(rop, jitcFloatRegToNative(b));
+				asmFArithST0(rop, jitcFloatRegisterToNative(b));
 			} else {
 				byte modrm[6];
 				asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
@@ -827,15 +827,16 @@ double ppc_fpu_get_double(ppc_double &d)
 		}
 		if (frA == frD) {
 			// frA = frA (op) frB, none of them is mapped
-			a = jitcGetClientFloatRegisterDirty(frA);
+			a = jitcGetClientFloatRegister(frA);
+			jitcFloatRegisterDirty(a);
 			byte modrm[6];
 			asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
 		} else {
 			// frA != frD != frB (and frA, frB aren't mapped)
-			d = jitcGetClientFloatRegisterUnmapped(frA);
+			a = jitcGetClientFloatRegisterUnmapped(frA);
 			byte modrm[6];
 			asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
-			jitcMapClientFloatRegisterDirty(frD, d);
+			jitcMapClientFloatRegisterDirty(frD, a);
 		}
 	}
 }
@@ -843,15 +844,16 @@ double ppc_fpu_get_double(ppc_double &d)
 static inline void ppc_opc_gen_unary_floatop(X86FloatOp op, int frD, int frA)
 {
 	if (frD == frA) {
-		JitcFloatReg a = jitcGetClientFloatRegisterDirty(frA);
-		a = jitcXCHGToFront(a);		
+		JitcFloatReg a = jitcGetClientFloatRegister(frA);
+		jitcFloatRegisterDirty(a);
+		jitcFloatRegisterXCHGToFront(a);
 	} else {
 		JitcFloatReg a = jitcGetClientFloatRegisterUnmapped(frA);
-		a = jitcXCHGToFront(a);
+		jitcFloatRegisterXCHGToFront(a);
 		jitcMapClientFloatRegisterDirty(frD, a);
 	}
 	asmFSimpleST0(op);
-}*/
+}
  
 /*
  *	fabsx		Floating Absolute Value

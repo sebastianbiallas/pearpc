@@ -161,10 +161,11 @@ struct JITC {
 	JitcFloatReg clientFloatReg[32];
 
 	/*
-	 *	An element of S_8 (indexed by JitcFloatReg)
+	 *	An element of S_8 and its inverse (indexed by JitcFloatReg)
 	 *	to keep track of FXCH
 	 */
 	JitcFloatReg floatRegPerm[9];
+	JitcFloatReg floatRegPermInverse[9];
 
 	/*
 	 *	Only used for the LRU list

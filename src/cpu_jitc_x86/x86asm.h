@@ -249,12 +249,13 @@ bool		FASTCALL jitcFloatRegisterIsTOP(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterDirty(JitcFloatReg r);
 JitcFloatReg	FASTCALL jitcFloatRegisterDup(JitcFloatReg r, JitcFloatReg hint=JITC_FLOAT_REG_NONE);
+void		FASTCALL jitcFloatRegisterClobberAll();
 
 void		FASTCALL jitcClobberClientRegisterForFloat(int creg);
 void		FASTCALL jitcInvalidateClientRegisterForFloat(int creg);
 JitcFloatReg	FASTCALL jitcGetClientFloatRegisterMapping(int creg);
-JitcFloatReg	FASTCALL jitcGetClientFloatRegister(int creg);
-JitcFloatReg	FASTCALL jitcGetClientFloatRegisterUnmapped(int creg);
+JitcFloatReg	FASTCALL jitcGetClientFloatRegister(int creg, JitcFloatReg hint1=JITC_FLOAT_REG_NONE, JitcFloatReg hint1=JITC_FLOAT_REG_NONE);
+JitcFloatReg	FASTCALL jitcGetClientFloatRegisterUnmapped(int creg, JitcFloatReg hint1=JITC_FLOAT_REG_NONE, JitcFloatReg hint1=JITC_FLOAT_REG_NONE);
 JitcFloatReg	FASTCALL jitcMapClientFloatRegisterDirty(int creg, JitcFloatReg freg=JITC_FLOAT_REG_NONE);
 
 enum X86FloatFlagTest {
@@ -275,7 +276,7 @@ enum X86FloatArithOp {
 	X86_FDIV = 0xf8,  //  .261
 
 	// st(0)/st(i)
-	X86_FRDIV = 0xf0,  //  .265
+	X86_FDIVR = 0xf0,  //  .265
 
 	X86_FMUL = 0xc8,  // .288
 	
@@ -283,7 +284,7 @@ enum X86FloatArithOp {
 	X86_FSUB = 0xe8,  //  .327
 	
 	// st(0) - st(i)
-	X86_FRSUB = 0xe0,  //  .330
+	X86_FSUBR = 0xe0,  //  .330
 };
 
 enum X86FloatCompOp {
@@ -302,6 +303,7 @@ enum X86FloatCompOp {
 
 enum X86FloatOp {
 	FABS = 0xe1d9,
+	FCOMPP = 0xd9de, // .252
 	FCHS = 0xe0d9, // .246
 	FLDZ = 0xeed9, // .282
 	FRNDINT = 0xfcd9,
@@ -309,21 +311,27 @@ enum X86FloatOp {
 };
 
 // .250 FCMOVcc
+// .277 FISTP [mem32]  0xDB /3
 
 void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti);
-void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm);
+void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm, int len);
 void FASTCALL asmFArithST0(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFArithSTi(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFArithSTiP(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFXCHSTi(NativeFloatReg sti);
 void FASTCALL asmFFREESTi(NativeFloatReg sti);
+void FASTCALL asmFFREEPSTi(NativeFloatReg sti);
 void FASTCALL asmFSimpleST0(X86FloatOp op);
-void FASTCALL asmFLDSingleMem();
-void FASTCALL asmFLDDoubleMem();
-void FASTCALL asmFSTSingleMem();
-void FASTCALL asmFSTPSingleMem();
-void FASTCALL asmFSTDoubleMem();
-void FASTCALL asmFSTPDoubleMem();
+void FASTCALL asmFLDSingleMem(byte *modrm, int len);
+void FASTCALL asmFLDDoubleMem(byte *modrm, int len);
+void FASTCALL asmFLDSTi(NativeFloatReg sti);
+void FASTCALL asmFSTSingleMem(byte *modrm, int len);
+void FASTCALL asmFSTPSingleMem(byte *modrm, int len);
+void FASTCALL asmFSTDoubleMem(byte *modrm, int len);
+void FASTCALL asmFSTPDoubleMem(byte *modrm, int len);
+
+void FASTCALL asmFLDCWMem(byte *modrm, int len);
+void FASTCALL asmFSTCWMem(byte *modrm, int len);
 
 /*
  *	reg1 must not be ESP

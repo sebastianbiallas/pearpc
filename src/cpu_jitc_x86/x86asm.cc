@@ -620,33 +620,6 @@ void FASTCALL jitcFlushCarryAndFlagsDirty()
 	}
 }
 
-	int nativeFloatTOP;
-	/*
-	 *	Indexed by type JitcFloatReg
-	 */
-	int nativeFloatRegStack[9];
-	RegisterState nativeFloatRegState[9];
-
-	/*
-	 *
-	 */
-	PPC_CRx nativeFlags;
-	RegisterState nativeFlagsState;
-	RegisterState nativeCarryState;
-	
-	/*
-	 *	If clientRegister is set, in indicates to which native
-	 *	register this client register corrensponds.
-	 *	Indexed by type PPC_Register
-	 */
-	NativeReg clientReg[800];
-	
-	/*
-	 *	If clientFloatReg[i] is set fpr[i] is mapped to the native
-	 *	float register clientFloatReg[i]
-	 */
-	JitcFloatReg clientFloatReg[32];
-
 /*
  *	jitcFloatRegisterToNative converts the stack-independent 
  *	register r to a stack-dependent register ST(i)
@@ -654,6 +627,16 @@ void FASTCALL jitcFlushCarryAndFlagsDirty()
 NativeFloatReg FASTCALL jitcFloatRegisterToNative(JitcFloatReg r)
 {
 	return X86_FLOAT_ST(gJITC.nativeFloatTOP-gJITC.floatRegPerm[r]);
+}
+
+/*
+ *	jitcFloatRegisterFromNative converts the stack-dependent 
+ *	register ST(r) to a stack-independent JitcFloatReg
+ */
+JitcFloatReg FASTCALL jitcFloatRegisterFromNative(NativeFloatReg r)
+{
+	ASSERT(gJITC.nativeFloatTOP > r);
+	return gJITC.floatRegPermInverse[gJITC.nativeFloatTOP-r];
 }
 
 /*
@@ -673,6 +656,19 @@ JitcFloatReg FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r)
 {
 	ASSERT(r != JITC_FLOAT_REG_NONE);
 	if (jitcFloatRegisterIsTOP(r)) return r;
+	
+	JitcFloatReg s = jitcFloatRegisterFromNative(Float_ST0);
+	// set floatRegPerm := (s r) * floatRegPerm
+	int tmp = gJITC.floatRegPerm[r];
+	gJITC.floatRegPerm[r] = gJITC.floatRegPerm[s];
+	gJITC.floatRegPerm[s] = tmp;
+	
+	// set floatRegPermInverse := floatRegPermInverse * (s r)
+	tmp = gJITC.floatRegPermInverse[gJITC.floatRegPerm[r]];
+	gJITC.floatRegPermInverse[gJITC.floatRegPerm[r]] = gJITC.floatRegPermInverse[gJITC.floatRegPerm[s]];
+	gJITC.floatRegPermInverse[gJITC.floatRegPerm[s]] = tmp;
+
+	return r;
 }
 
 /*
@@ -680,21 +676,8 @@ JitcFloatReg FASTCALL jitcFloatRegisterXCHGToFront(JitcFloatReg r)
  */
 JitcFloatReg FASTCALL jitcFloatRegisterDirty(JitcFloatReg r)
 {
-}
-
-/*
- *	Creates a copy of r on the stack. If the stack is full, it will
- *	clobber an entry. It will not clobber r nor hint.
- */
-JitcFloatReg FASTCALL jitcFloatRegisterDup(JitcFloatReg r, JitcFloatReg hint)
-{
-	if (gJITC.nativeFloatTOP < 8) {
-	} else {
-		// stack is full
-		if (hint == JITC_FLOAT_REG_NONE) {
-		} else {
-		}
-	}
+	gJITC.nativeFloatRegState[r] = rsDirty;
+	return r;
 }
 
 static void FASTCALL jitcPopFloatStack(JitcFloatReg hint1, JitcFloatReg hint2)
@@ -721,9 +704,10 @@ static void FASTCALL jitcPopFloatStack(JitcFloatReg hint1, JitcFloatReg hint2)
 	JitcFloatReg r = jitcGetClientFloatRegisterMapping(creg);
 	jitcFloatRegisterXCHGToFront(r);
 	if (gJITC.nativeFloatRegState[i] == rsDirty) {
-		asmFSTPDoubleMem();
+		byte modrm[6];
+		asmFSTPDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
 	} else {
-		asmFFREESTi(Float_ST0);
+		asmFFREEPSTi(Float_ST0);
 	}
 	gJITC.clientFloatReg[creg] = JITC_FLOAT_REG_NONE;
 	gJITC.nativeFloatTOP--;
@@ -733,11 +717,52 @@ static JitcFloatReg FASTCALL jitcPushFloatStack(int creg)
 {
 	ASSERT(gJITC.nativeFloatTOP < 8);
 	gJITC.nativeFloatTOP++;
-	JitcFloatReg r = gJITC.nativeFloatTOP;
-	asmFLDDoubleMem();
+	int r = gJITC.nativeFloatTOP;
+	byte modrm[6];
+	asmFLDDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
 	gJITC.floatRegPerm[r] = r;
-	gJITC.nativeFloatRegStack[r] = creg;
-	gJITC.nativeFloatRegState[r] = rsMapped;
+	gJITC.floatRegPermInverse[r] = r;
+	return r;
+}
+
+/*
+ *	Creates a copy of r on the stack. If the stack is full, it will
+ *	clobber an entry. It will not clobber r nor hint.
+ */
+JitcFloatReg FASTCALL jitcFloatRegisterDup(JitcFloatReg freg, JitcFloatReg hint)
+{
+	if (gJITC.nativeFloatTOP == 8) {
+		// stack is full
+		jitcPopFloatStack(freg, hint);
+	}
+	asmFLDSTi(jitcFloatRegisterToNative(freg));
+	gJITC.nativeFloatTOP++;
+	int r = gJITC.nativeFloatTOP;
+	gJITC.floatRegPerm[r] = r;
+	gJITC.floatRegPermInverse[r] = r;
+	gJITC.nativeFloatRegState[r] = rsUnused; // not really mapped
+	return r;
+}
+
+void FASTCALL jitcFloatRegisterClobberAll()
+{
+	if (!gJITC.nativeFloatTOP) return;
+	
+	do  {
+		JitcFloatReg r = jitcFloatRegisterFromNative(Float_ST0);
+		switch (gJITC.nativeFloatRegState[r]) {
+		case rsDirty: {
+			byte modrm[6];
+			int creg = gJITC.nativeFloatRegStack[r];
+			asmFSTPDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
+			break;
+		}
+		case rsMapped:
+			asmFFREEPSTi(Float_ST0);
+			break;
+		case rsUnused: {ASSERT(0);}
+		}
+	} while (gJITC.nativeFloatTOP--);
 }
 
 void FASTCALL jitcClobberClientRegisterForFloat(int creg)
@@ -756,7 +781,7 @@ void FASTCALL jitcInvalidateClientRegisterForFloat(int creg)
 
 JitcFloatReg FASTCALL jitcGetClientFloatRegisterMapping(int creg)
 {
-	return clientFloatReg[creg];
+	return gJITC.clientFloatReg[creg];
 }
 
 JitcFloatReg FASTCALL jitcGetClientFloatRegisterUnmapped(int creg, int hint1, int hint2)
@@ -767,21 +792,33 @@ JitcFloatReg FASTCALL jitcGetClientFloatRegisterUnmapped(int creg, int hint1, in
 			jitcPopFloatStack(hint1, hint2);
 		}
 		r = jitcPushFloatStack(creg);
+		gJITC.nativeFloatRegState[r] = rsUnused;
 	}
 	return r;
 }
 
 JitcFloatReg FASTCALL jitcGetClientFloatRegister(int creg, int hint1, int hint2)
 {
-	JitcFloatReg r = jitcGetClientFloatRegisterUnmapped(creg, hint1, hint2);
+	JitcFloatReg r = jitcGetClientFloatRegisterMapping(creg);
+	if (r == JITC_FLOAT_REG_NONE) {
+		if (gJITC.nativeFloatTOP == 8) {
+			jitcPopFloatStack(hint1, hint2);
+		}
+		r = jitcPushFloatStack(creg);
+		gJITC.nativeFloatRegStack[r] = creg;
+		gJITC.nativeFloatRegState[r] = rsMapped;
+	}
+	return r;
 }
 
 JitcFloatReg FASTCALL jitcMapClientFloatRegisterDirty(int creg, JitcFloatReg freg)
 {
 	if (freg == JITC_FLOAT_REG_NONE) {
-		// use TOP
-	} else {
+		freg = jitcFloatRegisterFromNative(Float_ST0);
 	}
+	gJITC.nativeFloatRegStack[freg] = creg;
+	gJITC.nativeFloatRegState[freg] = rsDirty;
+	return freg;
 }
 
 /*
@@ -1456,8 +1493,34 @@ void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti)
 {
 }
 
-void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm)
+void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm, int len)
 {
+	int mod = 0;
+	switch (op) {
+	case X86_FADD:
+		mod = 0;
+		break;
+	case X86_FMUL:
+		mod = 1;
+		break;
+	case X86_FDIV:
+		mod = 6;
+		break;
+	case X86_FDIVR:
+		mod = 7;
+		break;
+	case X86_FSUB:
+		mod = 4;
+		break;
+	case X86_FSUBR:
+		mod = 5;
+		break;
+	}
+	byte instr[15];
+	instr[0] = 0xdc;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= mod<<3;
+	jitcEmit(instr, len+1);	
 }
 
 void FASTCALL asmFArithST0(X86FloatArithOp op, NativeFloatReg sti)
@@ -1490,32 +1553,94 @@ void FASTCALL asmFFREESTi(NativeFloatReg sti)
 	jitcEmit(instr, sizeof instr);
 }
 
+void FASTCALL asmFFREEPSTi(NativeFloatReg sti)
+{
+	/* 
+	 * AMD says:
+	 * "Note that the FREEP instructions, although insufficiently 
+	 * documented in the past, is supported by all 32-bit x86 processors."
+	 */
+	byte instr[2] = {0xdf, 0xc0+sti};
+	jitcEmit(instr, sizeof instr);
+}
+
 void FASTCALL asmFSimpleST0(X86FloatOp op)
 {
 	jitcEmit((byte*)&op, 2);
 }
 
-void FASTCALL asmFLDSingleMem()
+void FASTCALL asmFLDSingleMem(byte *modrm, int len)
 {
+	byte instr[15];
+	instr[0] = 0xd9;
+	memcpy(instr+1, modrm, len);
+	jitcEmit(instr, len+1);
 }
 
-void FASTCALL asmFLDDoubleMem()
+void FASTCALL asmFLDDoubleMem(byte *modrm, int len)
 {
+	byte instr[15];
+	instr[0] = 0xdd;
+	memcpy(instr+1, modrm, len);
+	jitcEmit(instr, len+1);
 }
 
-void FASTCALL asmFSTSingleMem()
+void FASTCALL asmFLDSTi(NativeFloatReg sti)
 {
+	byte instr[2] = {0xd9, 0xc0+sti};
+	jitcEmit(instr, sizeof instr);
 }
 
-void FASTCALL asmFSTPSingleMem()
+void FASTCALL asmFSTSingleMem(byte *modrm, int len)
 {
+	byte instr[15];
+	instr[0] = 0xd9;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 2<<3;
+	jitcEmit(instr, len+1);
 }
 
-void FASTCALL asmFSTDoubleMem()
+void FASTCALL asmFSTPSingleMem(byte *modrm, int len)
 {
+	byte instr[15];
+	instr[0] = 0xd9;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 3<<3;
+	jitcEmit(instr, len+1);
 }
 
-void FASTCALL asmFSTPDoubleMem()
+void FASTCALL asmFSTDoubleMem(byte *modrm, int len)
 {
+	byte instr[15];
+	instr[0] = 0xdd;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 2<<3;
+	jitcEmit(instr, len+1);
 }
 
+void FASTCALL asmFSTPDoubleMem(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xdd;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 3<<3;
+	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFLDCWMem(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xd9;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 5<<3;
+	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFSTCWMem(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xd9;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 7<<3;
+	jitcEmit(instr, len+1);
+}
