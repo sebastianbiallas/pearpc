@@ -1424,7 +1424,6 @@ void receive_atapi_packet()
 	bool bmide_start_dma(bool startbit)
 	{
 		IO_IDE_TRACE("start dma %d\n", gIDEState.mode);
-		ht_printf("holla die waldfee\n");
 		switch (gIDEState.mode) {
 		case IDE_TRANSFER_MODE_NONE:
 			/*
