@@ -224,6 +224,7 @@ public:
 
 	virtual bool	changeResolution(const DisplayCharacteristics &aChar) = 0;
 	virtual bool	setFullscreenMode(bool fullscreen);
+	virtual void	getHostCharacteristics(Container &modes) = 0;
 
 	/* VT */
 	bool	openVT(int width, int height, int dx, int dy, File &font);

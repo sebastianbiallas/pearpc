@@ -310,6 +310,11 @@ public:
 		return true;
 	}
 
+	virtual void getHostCharacteristics(Container &modes)
+	{
+		// FIXME: implement me
+	}
+
 	virtual int getKeybLEDs()
 	{
 		return 0;
