@@ -107,7 +107,7 @@ void sys_wait_semaphore(sys_semaphore s)
 
 void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
 {
-	WaitForSingleObject(((sys_win32_semaphore *)s)->sem, INFINITE);
+	WaitForSingleObject(((sys_win32_semaphore *)s)->sem, ms);
 }
 
 void sys_lock_semaphore(sys_semaphore s)
