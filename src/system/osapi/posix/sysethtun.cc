@@ -125,9 +125,24 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 		} else {
 			progname = downScript();
 		}
-		//setenv("PPC_INTERFACE", interface,0);
-		tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface);
-		putenv(tmpenv);
+		/*
+		 *	We will leak 'env'. We have to, since:
+		 *
+		 *	The libc4 and libc5 and glibc 2.1.2 versions conform 
+		 *	to SUSv2: the pointer string given to putenv() is used. 
+		 *	In particular, this string becomes part of the 
+		 *	environment; changing it later will change the 
+		 *	environment. (Thus, it is an error is to call putenv() 
+		 *	with an automatic variable as the argument, then return 
+		 *	from the calling function while string is still part of 
+		 *	the environment.) However, glibc 2.0-2.1.1 differs: 
+		 *	a copy of the string is used. On the one hand this 
+		 *	causes a memory leak, and on the other hand it 
+		 *	violates SUSv2. This has been fixed in glibc2.1.2.
+		 *
+		 */
+		char *env = strdup(tmpenv.assignFormat("%s%s", "PPC_INTERFACE=", interface));
+		putenv(env);
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
 		execl(progname, progname, 0);
