@@ -421,7 +421,7 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 				}
 				data+=bpx;
 			}
-			f += (gDisplay->mClientChar.width - width)*bpx;
+			f += gFramebufferScanlineLen - width*bpx;
 		}
 		damageFrameBufferAll();
 		pa->args[7] = 0;
@@ -442,7 +442,7 @@ void PromInstanceATY::callMethod(const char *method, prom_args *pa)
 				if (bpx > 1) gFramebuffer[f++] = color >> 8;
 				gFramebuffer[f++] = color;
 			}
-			f += (gDisplay->mClientChar.width - width)*bpx;
+			f += gFramebufferScanlineLen - width*bpx;
 		}
 		damageFrameBufferAll();
 		pa->args[7] = 0;
