@@ -114,7 +114,6 @@ void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
 	ts.tv_nsec = (nsec % 1000000000ULL);
 #else
 	clock_gettime(CLOCK_REALTIME, &ts);
-	uint64 nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
 	nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
 	ts.tv_sec = ts.tv_sec+(uint)(nsec/1000000000);
 	ts.tv_nsec = (nsec % 1000000000ULL);
