@@ -50,6 +50,7 @@ static int gMenuHeight;
 static HBITMAP gMemoryBitmap = 0;
 static unsigned long gWorkerThread = 0;
 static DWORD gWorkerThreadID = 0;
+static bool gSkipUpdate = false;
 static BITMAPINFO gBitmapInfo;
 static BITMAPINFO gMenuBitmapInfo;
 static int gShiftDown = 0;
@@ -76,7 +77,7 @@ static Queue *gEventQueue;
 static DisplayCharacteristics mWinChar;
 
 void displaythread(void *pvoid);
-VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime);
+static VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime);
 
 extern "C" void __attribute__((regparm (3))) win32_vaccel_15_to_15(uint32 pixel, byte *input, byte *output);
 extern "C" void __attribute__((regparm (3))) win32_vaccel_15_to_16(uint32 pixel, byte *input, byte *output);
@@ -475,9 +476,23 @@ public:
 	}
 };
 
-VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime)
+static bool needUpdateDisplay()
 {
-	gDisplay->displayShow();
+	if (!gSkipUpdate) {
+ 		RECT rect;
+ 		HDC hdc = GetDC(gHWNDMain);
+ 		int gcb = GetClipBox(hdc, &rect);
+ 		ReleaseDC(gHWNDMain, hdc);
+ 		if (gcb != NULLREGION) {
+ 			return true;
+		}
+	}
+	return false;
+}
+
+static VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime)
+{
+	if (needUpdateDisplay()) gDisplay->displayShow();
 }
 
 /*
@@ -738,6 +753,9 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				+ GetSystemMetrics(SM_CYCAPTION));
 		break;
 	}
+	case WM_SIZE:
+		gSkipUpdate = (wParam == SIZE_MINIMIZED);
+		break;
 	case WM_COMMAND:
 		MainWndProc_OnCommand(hwnd, (int)(LOWORD(wParam)), (HWND)lParam, (UINT)HIWORD(wParam));
 		break;     
