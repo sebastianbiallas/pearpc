@@ -138,13 +138,13 @@ case "$target" in
 i?86*)
 	AC_MSG_RESULT([*** x86 target system])
 	ARCH_DIR=x86
-	if test "x$CPU_DIR" = "x"; then
+	if test -z "$CPU_DIR"; then
 		CPU_DIR="cpu_jitc_x86"
 	fi
 ;;
 *)
 	ARCH_DIR=generic
-	if test "x$CPU_DIR" = "x"; then
+	if test -z "$CPU_DIR"; then
 		CPU_DIR="cpu_generic"
 	fi
 ;;
@@ -238,23 +238,14 @@ no*)
 esac
 dnl /non-sense
 
-dnl FIXME: should be if A or B then check for NASM fi. Don'T know how to do it with shell :-(
-dnl Anyone?
-if test "x$CPU_DIR" = "xjitc_x86"; then
+if test "x$CPU_DIR" = "xcpu_jitc_x86" -o "x$ARCH_DIR" = "x86"; then
 	AC_PATH_PROG(NASM, nasm)
-	if test "x$NASM" = "x"; then
+	if test -z "$NASM"; then
 		AC_MSG_ERROR([*** 'nasm' missing, please install or fix your \$PATH ***])
 	fi
 fi
 
-if test "x$ARCH_DIR" = "x86"; then
-	AC_PATH_PROG(NASM, nasm)
-	if test "x$NASM" = "x"; then
-		AC_MSG_ERROR([*** 'nasm' missing, please install or fix your \$PATH ***])
-	fi
-fi
-
-if test "x$AR" = "x"; then
+if test -z "$AR"; then
 	AC_MSG_ERROR([*** 'ar' and 'gar' missing, please install one of them or fix your \$PATH ***])
 fi
 
@@ -279,7 +270,7 @@ x11)
 qt)
 	dnl Check for QTDIR environment variable.
 	AC_MSG_CHECKING([whether QTDIR environment variable is set])
-	if test "x$QTDIR" = "x"; then
+	if test -z "$QTDIR"; then
 	  AC_MSG_RESULT([no])
 	  AC_MSG_ERROR([QTDIR must be properly set.])
 	else
@@ -290,14 +281,14 @@ qt)
 	AC_CACHE_CHECK([for Qt library],
 	  ac_qtlib, [
 	  for X in qt-mt qt; do
-	    if test "x$ac_qtlib" = "x"; then
+	    if test -z "$ac_qtlib"; then
 	      if test -f $QTDIR/lib/lib$X.so -o -f $QTDIR/lib/lib$X.a; then
 	        ac_qtlib=$X
 	      fi
 	    fi
 	  done
 	])
-	if test "x$ac_qtlib" = "x"; then
+	if test -z "$ac_qtlib"; then
 	  AC_MSG_ERROR([Qt library not found. Maybe QTDIR isn't properly set.])
 	fi
 
