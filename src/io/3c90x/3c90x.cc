@@ -1495,7 +1495,7 @@ void rxUPD(UPD *upd)
 			break;
 		}
 
-		if (ppc_dma_write(addr, p, len)) {
+		if (!ppc_dma_write(addr, p, len)) {
 			upPktStatus |= UPS_upError;
 			upd->UpPktStatus = upPktStatus;
 			IO_3C90X_WARN("invalid UPD fragment address! (%08x)\n", addr);
@@ -1579,7 +1579,7 @@ void maybeRaiseIntr()
 void checkDnWork()
 {
 	while (!mDnStalled && (mRegisters.DnListPtr != 0)) {
-		byte dpd[16];
+		byte dpd[512];
 		
 		if (ppc_dma_read(dpd, mRegisters.DnListPtr, sizeof dpd)) {
 			// get packet type
@@ -1616,7 +1616,7 @@ void checkDnWork()
 void checkUpWork()
 {
 	if (!mUpStalled && (mRegisters.UpListPtr != 0) && mRxPacketSize) {
-		byte upd[8];
+		byte upd[512];
 		if (ppc_dma_read(upd, mRegisters.UpListPtr, sizeof upd)) {
 			UPD *p = (UPD*)upd;
 			rxUPD(p);
