@@ -116,11 +116,12 @@ prom_driver_graphic = "video.x"
 ##		hd:		A hdd image should be specified
 ##				e.g. "test/imgs/linux.img"
 ##		cdrom:		A cdrom image should be specified
-##				For Linux a cdrom device can be specified as well
+##				For Linux or BeOS a cdrom device can be specified as well
 ##				e.g. "/dev/cdrom"
 ##		nativecdrom:	Platform dependant
 ##			Win (SPTI): drive letter, e.g. "d:\"
 ##			Win (ASPI): SCSI host adapter,target,lun e.g. "2,0,1"
+##			BeOS (ATAPI): device path, e.g. "/dev/disk/ide/atapi/0/master/0/raw"
 
 pci_ide0_master_installed = 1
 pci_ide0_master_image = "test/imgs/linux.img"
