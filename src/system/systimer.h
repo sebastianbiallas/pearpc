@@ -80,17 +80,4 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic);
  */
 uint64 sys_get_timer_resolution(sys_timer t);
 
-/**
- * Retrieves the host CPU global ticks. This is expected to be a counter
- * that is very fast to query, and has very good resolution.
- *
- * Under x86, this is probably best implemented as retrieving the time
- * stamp counter (rdtsc).*/
-uint64 sys_get_cpu_ticks();
-
-/*
- * Find the number of high resolution CPU ticks per second.
- */
-uint64 sys_get_cpu_ticks_per_second();
-
 #endif /* _SYSTIMER_H_ */

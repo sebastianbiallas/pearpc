@@ -109,14 +109,14 @@ uint64 sys_get_timer_resolution(sys_timer t)
 	return(timer->timerRes); 
 }
 
-uint64 sys_get_cpu_ticks()
+uint64 sys_get_hiresclk_ticks()
 {
 	uint64 test;
 	QueryPerformanceCounter((_LARGE_INTEGER *)&test);
 	return test;
 }
 
-uint64 sys_get_cpu_ticks_per_second()
+uint64 sys_get_hiresclk_ticks_per_second()
 {
 	uint64 test;
 	QueryPerformanceFrequency((_LARGE_INTEGER *)&test);

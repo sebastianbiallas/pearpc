@@ -145,7 +145,7 @@ uint64 sys_get_timer_resolution(sys_timer t)
 	return timer->timer_res;
 }
 
-uint64 sys_get_cpu_ticks()
+uint64 sys_get_hiresclk_ticks()
 {
 #ifdef __i386__
 # ifdef __linux__
@@ -160,7 +160,7 @@ uint64 sys_get_cpu_ticks()
 #endif
 }
 
-uint64 sys_get_cpu_ticks_per_second()
+uint64 sys_get_hiresclk_ticks_per_second()
 {
 #ifdef __i386__
 # ifdef __linux__

@@ -39,7 +39,7 @@
 #include "tools/snprintf.h"
 #include "debug/tracers.h"
 #include "io/pic/pic.h"
-#include "system/systimer.h"
+#include "system/sysclk.h"
 #include "cuda.h"
 
 //#define IO_CUDA_TRACE2(str...) ht_printf(str)
@@ -471,9 +471,9 @@ void cuda_receive_packet()
 
 static void cuda_update_T1()
 {
-	uint64 clk = sys_get_cpu_ticks();
+	uint64 clk = sys_get_hiresclk_ticks();
 	if (clk < gCUDA.T1_end) {
-		uint64 ticks_per_sec = 1000ULL * sys_get_cpu_ticks_per_second();
+		uint64 ticks_per_sec = 1000ULL * sys_get_hiresclk_ticks_per_second();
 		uint64 T1 = (gCUDA.T1_end - clk) * VIA_TIMER_FREQ_DIV_HZ_TIMES_1000 / ticks_per_sec;
 		gCUDA.rT1CL = T1;
 		gCUDA.rT1CH = T1 >> 8;
@@ -482,7 +482,7 @@ static void cuda_update_T1()
 //		uint64 tmp = gCUDA.T1_end - clk;
 //		IO_CUDA_WARN("T1 running, T1 now %04x, T1_end-clk=%08qx\n", (uint32)T1, &tmp);
 	} else {
-		uint64 ticks_per_sec = 1000ULL * sys_get_cpu_ticks_per_second();
+		uint64 ticks_per_sec = 1000ULL * sys_get_hiresclk_ticks_per_second();
 		uint64 T1_latch = (gCUDA.rT1LH << 8) | gCUDA.rT1LL;
 		uint64 full_T1_interval_ticks = (T1_latch+1) * ticks_per_sec / VIA_TIMER_FREQ_DIV_HZ_TIMES_1000;
 		uint64 T1_end = clk + full_T1_interval_ticks - (clk - gCUDA.T1_end) % full_T1_interval_ticks;
@@ -499,8 +499,8 @@ static void cuda_update_T1()
 
 static void cuda_start_T1()
 {
-	uint64 clk = sys_get_cpu_ticks();
-	uint64 ticks_per_sec = 1000ULL * sys_get_cpu_ticks_per_second();
+	uint64 clk = sys_get_hiresclk_ticks();
+	uint64 ticks_per_sec = 1000ULL * sys_get_hiresclk_ticks_per_second();
 	uint32 T1 = (gCUDA.rT1CH << 8) | gCUDA.rT1CL;
 /*	uint64 tmp = static_cast<uint64>(T1) * ticks_per_sec / VIA_TIMER_FREQ_DIV_HZ_TIMES_1000;
 	printf("T1 for %lld ticks (%g seconds vs. %g)\n",
