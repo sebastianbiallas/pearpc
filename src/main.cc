@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 		gConfig->acceptConfigEntryStringDef("key_change_cd_0", "none");
 		gConfig->acceptConfigEntryStringDef("key_change_cd_1", "none");
 		gConfig->acceptConfigEntryStringDef("key_toggle_mouse_grab", "F12");
-		gConfig->acceptConfigEntryStringDef("key_toggle_full_screen", "Alt+Return");
+		gConfig->acceptConfigEntryStringDef("key_toggle_full_screen", "Ctrl+Alt+Return");
 
 		prom_init_config();
 		io_init_config();
