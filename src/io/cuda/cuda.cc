@@ -928,6 +928,17 @@ static void *cudaEventLoop(void *arg)
 	}
 }
 
+bool cuda_prom_get_key(uint32 &key)
+{
+	if (gCUDA.left == 5 && gCUDA.data[2] == 0x2c) {
+		key = gCUDA.data[3];
+		gCUDA.left = 0;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void cuda_init()
 {
 	memset(&gCUDA, 0, sizeof gCUDA);

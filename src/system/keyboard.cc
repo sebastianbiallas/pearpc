@@ -139,3 +139,27 @@ bool SystemKeyboard::convertStringToKeycode(int &keycode, const String &s)
 	}
 	return true;
 }
+
+static char chrs[0x7f] = {
+'a','s','d','f','h','g','z','x','c','v',
+0,'b','q','w','e','r','y','t','1','2',
+'3','4','6','5','=','9','7','-','8','0',']',
+'o','u','[','i','p',13,'l','j','\'','k',
+';','\\',',','/','n','m','.',9,32,
+'`',8,0,27,0,0,0,0,0,0,
+0,0,0,0,0,'.',0,'*',0,'+',
+0,0,0,0,0,'/',13,0,'-',0,
+0,0,'0','1','2','3','4','5','6','7',
+0,'8','9',0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,
+};
+
+bool SystemKeyboard::adbKeyToAscii(char &chr, int adbcode)
+{
+	adbcode &= 0x7f;
+	chr = chrs[adbcode];
+	return chr != 0;
+}
+

@@ -167,6 +167,7 @@ public:
 	virtual bool	handleEvent(const SystemEvent &ev);
 	static	bool	convertKeycodeToString(String &result, int keycode);
 	static	bool	convertStringToKeycode(int &keycode, const String &s);
+	static	bool	adbKeyToAscii(char &chr, int adbcode);
 };
 
 /* system-independent (implementation in keyboard.cc) */

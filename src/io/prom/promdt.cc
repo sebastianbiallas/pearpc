@@ -1,4 +1,4 @@
-/* 
+/* d
  *	PearPC
  *	promdt.cc
  *
@@ -25,6 +25,7 @@
 #include "cpu/cpu.h"
 #include "cpu/mem.h"
 #include "io/graphic/gcard.h"
+#include "io/cuda/cuda.h"
 #include "io/pic/pic.h"
 #include "io/ide/ide.h"
 #include "io/3c90x/3c90x.h"
@@ -492,16 +493,12 @@ uint32 PromInstanceKBD::read(uint32 buf, int length)
 {
 	uint32 phys;
 	if (ppc_prom_effective_to_physical(phys, buf)) {
-		SystemEvent ev;
-		ht_printf("in promdt.cc line 488. keyboard access b0rken. looping...\n");
-		while (1);
-/*		while (gKeyboard->getEvent(ev, false)) {
-			if (ev.type == sysevKey && ev.key.pressed) {
-				*tobuf = ev.key.chr;
-				ppc_dma_write(phys, ev.key.chr, 1);
-				return 1;
-			}
-		}*/
+		uint32 key;
+		char chr;
+		if (cuda_prom_get_key(key) && !(key & 0x80) && SystemKeyboard::adbKeyToAscii(chr, key)) {
+			ppc_dma_write(phys, &chr, 1);
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -572,7 +569,7 @@ void PromInstanceMMU::callMethod(const char *method, prom_args *pa)
 		uint32 virt = pa->args[2];
 		IO_PROM_TRACE("mmu->translate(%08x)\n", virt);
 		uint32 phys;
-		if (ppc_prom_effective_to_physical(phys, virt)) {
+		if (!ppc_prom_effective_to_physical(phys, virt)) {
 			IO_PROM_ERR("translate failed\n");
 		} else {
 			pa->args[4] = 0;
@@ -791,7 +788,7 @@ uint32 PromInstanceDiskFile::read(uint32 buf, int length)
 	uint32 result = mFile->read(buffer, length);
 	uint32 phys;
 	ppc_prom_effective_to_physical(phys, buf);
-	ppc_dma_write(phys, buffer, length);
+	ppc_dma_write(phys, buffer, result);
 	free(buffer);
     	return result;
 }
@@ -857,7 +854,7 @@ uint32 PromInstanceDiskPart::read(uint32 buf, int length)
 	uint32 result = ic->device->promRead(buffer, length);
 	uint32 phys;
 	ppc_prom_effective_to_physical(phys, buf);
-	ppc_dma_write(phys, buffer, length);
+	ppc_dma_write(phys, buffer, result);
 	free(buffer);
     	return result;
 }

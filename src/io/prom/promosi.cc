@@ -139,7 +139,7 @@ void prom_service_getproplen(prom_args *pa)
 	PromNode *p = handleToPackage(phandle);	
 	String name;
 	prom_get_string(name, pa->args[1]);
-	IO_PROM_TRACE("getproplen(%08x, '%s')\n", phandle, name);
+	IO_PROM_TRACE("getproplen(%08x, '%y')\n", phandle, &name);
 	PromProp *prop = p ? p->findProp(name) : 0;
 	if (!prop) {
 		pa->args[2] = 0xffffffff;
@@ -174,7 +174,7 @@ void prom_service_nextprop(prom_args *pa)
 	prom_get_string(previous, pa->args[1]);
 	uint32 buf = pa->args[2];
 	uint32 *flag = &pa->args[3];
-	IO_PROM_TRACE("nextprop(%08x, %08x:'%y', %08x)\n", phandle, pa->args[1], previous, buf);
+	IO_PROM_TRACE("nextprop(%08x, %08x:'%y', %08x)\n", phandle, pa->args[1], &previous, buf);
 	PromNode *pn = handleToPackage(phandle);
 	PromProp *prop = NULL;
 	if (!previous || !*previous || !pn) {
@@ -201,8 +201,8 @@ void prom_service_nextprop(prom_args *pa)
 	if (ppc_prom_effective_to_physical(phys, buf)) {
 		if (prop) {
 			char b[32];
-			ht_snprintf(b, 32, "%s", prop->name);
-			ppc_dma_write(phys, b, strlen(b));
+			ht_snprintf(b, sizeof b, "%s", prop->name);
+			ppc_dma_write(phys, b, strlen(b)+1);
 		} else {
 			char b=0;
 			ppc_dma_write(phys, &b, 1);
@@ -226,7 +226,9 @@ void prom_service_setprop(prom_args *pa)
 	uint32 len = pa->args[3];
 	String value(bufbuf.content(), len);
 	PromNode *p = handleToPackage(phandle);	
-	IO_PROM_TRACE("setprop(%x=='%s', '%y', '%y', %d)\n", phandle, p->name, &name, &value, len);
+	String value2 = value;
+	value2.escape("");
+	IO_PROM_TRACE("setprop(%x=='%s', '%y', '%y', %y, %d)\n", phandle, p->name, &name, &value, &value2, len);
 /*	if (phandle == 0xdeadbee1) {
 		pa->args[4] = len;
 //		gSinglestep = true;
@@ -263,8 +265,10 @@ void prom_service_canon(prom_args *pa)
 	if (ppc_prom_effective_to_physical(phys, buf)) {
 		if (buflen) buflen--;
 		device.crop(buflen);
-		ppc_dma_write(phys, device.contentChar(), device.length());
+		ppc_dma_write(phys, device.contentChar(), device.length()+1);
 		pa->args[3] = device.length();
+	} else {
+		pa->args[3] = 0;
 	}
 	IO_PROM_TRACE("= %08x\n", pa->args[3]);
 }
@@ -280,7 +284,7 @@ void prom_service_instance_to_path(prom_args *pa)
 		PromNode *pn = pi->getType();
 		char *s = (char *)malloc(buflen);
 		pa->args[3] = pn->toPath(s, buflen);
-		ppc_dma_write(buf, s, pa->args[3]);
+		ppc_dma_write(buf, s, pa->args[3]+1);
 		free(s);
 	} else {
 		pa->args[3] = 0;
@@ -298,7 +302,7 @@ void prom_service_package_to_path(prom_args *pa)
 	if (p) {
 		char *s = (char *)malloc(buflen);
 		pa->args[3] = p->toPath(s, buflen);
-		ppc_dma_write(buf, s, pa->args[3]);
+		ppc_dma_write(buf, s, pa->args[3]+1);
 		free(s);
 	} else {
 		pa->args[3] = 0;
@@ -337,7 +341,7 @@ void prom_service_call_method(prom_args *pa)
 			if (obj) {
 				char *s = (char *)malloc(buflen);
 				pa->args[6] = obj->toPath(s, buflen);
-				ppc_dma_write(buf, s, pa->args[6]);
+				ppc_dma_write(buf, s, pa->args[6]+1);
 				free(s);
 			} else {
 				pa->args[6] = 0;
@@ -456,7 +460,7 @@ void prom_service_interpret(prom_args *pa)
 	//; of_(const char *arg, ...);
 	String arg;
 	prom_get_string(arg, pa->args[0]);
-	IO_PROM_TRACE("interpret(%d, %08x, '%y' ...)\n", strlen(arg), pa->args[1], &arg);
+	IO_PROM_TRACE("interpret(%d, %08x, %08x, %08x, %08x, '%y' ...)\n", strlen(arg), pa->args[1], pa->args[2], pa->args[3], pa->args[4], &arg);
 	switch (strlen(arg)) {
 	case 6:
 		// " 10 ms"
@@ -477,6 +481,7 @@ void prom_service_interpret(prom_args *pa)
 			pa->args[6] = 0;
 		} else {
 			uint32 m = prom_mem_phys_to_virt(prom_mem_malloc(100));
+			IO_PROM_TRACE("m = %08x\n", m);
 			int s = prop->getValue(m, 100);
 			pa->args[4] = 0;
 			pa->args[5] = s;
@@ -601,6 +606,7 @@ prom_service_desc prom_service_table[] = {
 void call_prom_osi()
 {
 	prom_args pa;
+	memset(&pa, 0, sizeof pa);
 	uint32 pa_s = ppc_cpu_get_gpr(0, 3);
 	uint32 phys;
 	if (!ppc_prom_effective_to_physical(phys, pa_s)

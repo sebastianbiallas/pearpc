@@ -54,8 +54,10 @@ bool prom_get_string(String &result, uint32 ea)
 		}
 		byte *end;
 		if ((end = (byte *)memchr(mem, 0, sizeof mem))) {
-			String s(mem, end-mem+1);
-			result += s;			
+			if (end != mem) {
+				String s(mem, end-mem);
+				result += s;
+			}
 			return true;
 		} else {
 			String s(mem, sizeof mem);
@@ -163,27 +165,6 @@ bool prom_free_mem(uint32 virt)
 	return false;
 }
 
-void *prom_mem_eaptr2(uint32 ea)
-{
-/*	byte *p;
-	int r;
-	uint32 pa;
-	if (!((r = ppc_effective_to_physical(ea, PPC_MMU_READ | PPC_MMU_NO_EXC, pa)))) {
-		r = ppc_direct_physical_memory_handle(pa, p);
-	}
-	if (r) return NULL; else return p;*/
-}
-
-void *prom_mem_ptr2(uint32 pa)
-{
-/*	byte *p;
-	if (ppc_direct_physical_memory_handle(pa, p)) {
-		return NULL;
-	} else {
-		return p;
-	}*/
-}
-
 void prom_mem_set(uint32 pa, int c, int size)
 {
 	if (!ppc_dma_set(pa, c, size)) {
@@ -218,7 +199,6 @@ static uint32 prom_mem_entry_set_prev(uint32 pa, uint32 v)
 
 uint32 prom_mem_malloc(uint32 size)
 {
-//	ht_printf("malloc: %d", size);
 	if (!size) {
 		IO_PROM_ERR("zero byte allocation!\n");
 	}

@@ -34,8 +34,6 @@ void prom_mem_free(uint32 p);
 uint32 prom_mem_phys_to_virt(uint32 pa);
 uint32 prom_mem_virt_to_phys(uint32 va);
 void prom_mem_set(uint32 pa, int c, int size);
-void *prom_mem_eaptr2(uint32 pa);
-void *prom_mem_ptr2(uint32 pa);
 
 bool prom_mem_init();
 bool prom_mem_done();
