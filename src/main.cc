@@ -90,7 +90,7 @@ void changeCDFunc(void *p)
 
 void initMenu()
 {
-	IDEConfig *idecfg = ide_get_config(0);
+/*	IDEConfig *idecfg = ide_get_config(0);
 	if (idecfg->installed && idecfg->protocol == IDE_ATAPI) {
 		MemMapFile changeCDButton(ppc_button_changecd, sizeof ppc_button_changecd);
 		int *i = new int;
@@ -104,7 +104,7 @@ void initMenu()
 		*i = 1;
 		gDisplay->insertMenuButton(changeCDButton, changeCDFunc, i);
 	}
-	gDisplay->finishMenu();
+	gDisplay->finishMenu();*/
 }
 
 static char *textlogo UNUSED = "\e[?7h\e[40m\e[2J\e[40m\n\n\n\n\n\e[0;1m"
