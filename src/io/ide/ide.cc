@@ -503,8 +503,6 @@ void drive_ident()
 
 // see also: static int config_drive_for_dma (ide_drive_t *drive) in ide-dma.c
 
-/*		id[53] = 0; // DMA Hack <----- (DMA on) ------------------------
-		id[53] = 2; // DMA Hack <----- (DMA off) -----------------------*/
 		id[53] = 4; // fieldValidity: Multi DMA fields valid
 
 		id[54] = gIDEState.config[gIDEState.drive].hd.cyl;
@@ -545,10 +543,6 @@ void drive_ident()
 			    // bits 0-2 ???
 
 		id[93] = (1<<14) | 1; // hw config
-/*		// DMA hack
-		id[53] = 4;
-		id[63] = 0x1;
-		id[88] = 0x1;*/
 	} else {
 		id[47] = 0; // sectors per interrupt
 		id[48] = 1; // 32 bit i/o
@@ -729,8 +723,10 @@ void receive_atapi_packet()
 		} else if (!eject && start) {
 			atapi_command_nop();
 		} else if (eject && !start) {
+                        dev->eject();
 			atapi_command_nop();
 		} else {
+			dev->eject();
 			atapi_command_nop();
 		}
 		raiseInterrupt(0);

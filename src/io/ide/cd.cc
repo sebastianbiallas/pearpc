@@ -359,3 +359,12 @@ bool CDROMDeviceFile::changeDataSource(const char *file)
 	mCapacity = fsize / 2048 + !!(fsize % 2048);
 	return true;
 }
+
+void CDROMDeviceFile::readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format)
+{
+}
+
+void CDROMDeviceFile::eject()
+{
+}
+

@@ -58,6 +58,8 @@ public:
 	virtual uint	getBlockSize();
 	virtual uint	getBlockCount();
 	virtual	bool	setReady(bool aReady);
+	virtual void	readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format) = 0;
+	virtual void	eject() = 0;
 protected:
 		void	addFeature(int feature);
 		void	addProfile(int profile);
@@ -79,6 +81,9 @@ public:
 	virtual bool	seek(int blockno);
 	virtual int	readBlock(byte *buf);
 	virtual int	writeBlock(byte *buf);
+	virtual void	readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format);
+	virtual void	eject();
+
 	virtual bool	promSeek(uint64 pos);
 	virtual uint	promRead(byte *buf, uint size);
 };
