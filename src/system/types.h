@@ -48,10 +48,11 @@
 #		define FASTCALL
 #	endif
 
-#	define FUNCTION_CONST __attribute__((const))
+#	define FUNCTION_CONST	__attribute__((const))
 #	define PACKED		__attribute__((packed))
 #	define UNUSED		__attribute__((unused))
 #	define DEPRECATED	__attribute__((deprecated))
+#	define NORETURN		__attribute__((noreturn))
 #else
 #	error "you're not using the GNU C compiler :-( please add the macros and conditionals for your compiler"
 #endif /* !__GNUC__ */
