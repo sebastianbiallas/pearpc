@@ -1,6 +1,6 @@
 /*
  *	PearPC
- *	cpu.h
+ *	mem.h
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
  *
@@ -18,31 +18,20 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __CPU_H__
-#define __CPU_H__
+#ifndef __MEM_H__
+#define __MEM_H__
 
 #include "system/types.h"
 
-uint64	ppc_get_clock_frequency();
-uint64	ppc_get_bus_frequency();
-uint64	ppc_get_timebase_frequency();
+bool	ppc_init_physical_memory(uint32 size);
 
-bool	ppc_cpu_init();
-void	ppc_cpu_init_config();
+void	ppc_dma_write(uint32 dest, const void *src, uint32 size);
+void	ppc_dma_read(const void *dest, uint32 src, uint32 size);
 
-bool	ppc_init_physical_memory(uint size);
-
-void	ppc_cpu_stop();
-
-// May only be called from within a CPU thread.
-void	ppc_cpu_start();
-uint32	ppc_cpu_get_gpr(int i);
-void	ppc_cpu_set_gpr(int i, uint32 newvalue);
-void	mem_dma_write(uint32 dest, const void *, uint32 size);
-void	mem_dma_read(const void *, uint32 src, uint32 size);
-
-// MAY ONLY BE USED FROM PROM
-bool	ppc_mmu_page_create(uint32 ea, uint32 pa);
-void	ppc_prom_page_create();
+/*
+ *	These functions will be removed once we switch to openbios.
+ */
+bool	DEPRECATED ppc_prom_effective_to_physical(uint32 &result, uint32 ea);
+bool	DEPRECATED ppc_prom_page_create(uint32 ea, uint32 pa);
 
 #endif
