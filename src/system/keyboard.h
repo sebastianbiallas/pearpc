@@ -172,6 +172,7 @@ public:
 	virtual int	getKeybLEDs() = 0;
 	virtual void	setKeybLEDs(int leds) = 0;
 	virtual bool	handleEvent(const SystemEvent &ev);
+	virtual void	reset();
 	static	bool	convertKeycodeToString(String &result, int keycode);
 	static	bool	convertStringToKeycode(int &keycode, const String &s);
 	static	bool	adbKeyToAscii(char &chr, int adbcode);

@@ -42,11 +42,8 @@ NULL,"F12",NULL,"Pause","Insert","Home","Pageup","Delete","F4","End",
 };
 
 SystemKeyboard::SystemKeyboard()
-{	
-	mCtrl = false;
-	mLAlt = false;
-	mRAlt = false;
-	mShift = false;
+{
+	reset();
 }
 
 bool SystemKeyboard::handleEvent(const SystemEvent &ev)
@@ -62,6 +59,11 @@ bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 		return true;
 	} else if (keycode == keyConfig.key_toggle_full_screen) {
 		if (ev.key.pressed) gDisplay->setFullscreenMode(!gDisplay->mFullscreen);
+		/*
+		 *	Changing fullscreen/windowed mode confuses
+		 *	some well-known OS (key release events are dropped).
+		 */
+		reset();
 		return true;
 	} else if (keycode == keyConfig.key_compose_dialog) {
 		if (ev.key.pressed) gDisplay->composeKeyDialog();
@@ -69,6 +71,14 @@ bool SystemKeyboard::handleEvent(const SystemEvent &ev)
 	} else {
 		return SystemDevice::handleEvent(ev);
 	}
+}
+
+void SystemKeyboard::reset()
+{
+	mCtrl = false;
+	mLAlt = false;
+	mRAlt = false;
+	mShift = false;
 }
 
 bool SystemKeyboard::convertKeycodeToString(String &result, int keycode)
