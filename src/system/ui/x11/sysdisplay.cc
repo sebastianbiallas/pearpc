@@ -162,7 +162,6 @@ public:
 
 		// finally set title
 		mTitle = strdup(name);
-		updateTitle();
 	}
 
 	virtual ~X11SystemDisplay()

@@ -326,6 +326,7 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 		ht_printf("no keyConfig, or is empty");
 		exit(1);
 	}
+	gDisplay->updateTitle();
 
 	sys_thread X11eventLoopThread;
 
