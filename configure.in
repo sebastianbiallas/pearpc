@@ -242,7 +242,9 @@ AM_CONDITIONAL(USE_GUI_NOGUI, test x$GUI_DIR = xnogui)
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(asm/types.h sys/socket.h linux/netlink.h, AC_DEFINE(HAVE_ETHERTAP, 1, [Have linux/netlink.h?]),,
+AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_HEADERS([asm/types.h])
+AC_CHECK_HEADERS(linux/netlink.h, AC_DEFINE(HAVE_ETHERTAP, 1, [Have TUN/TAP headers?]),,
      [[
      #if HAVE_ASM_TYPES_H
      # include <asm/types.h>
