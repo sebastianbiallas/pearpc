@@ -38,6 +38,7 @@
 #include "syssdl.h"
 
 SDL_Surface *	gSDLScreen;
+static bool	gSDLVideoExposePending = false;
 
 static uint8 sdl_key_to_adb_key[256];
 
@@ -168,6 +169,7 @@ static bool handleSDLEvent(const SDL_Event &event)
 	case SDL_VIDEOEXPOSE:
 		damageFrameBufferAll();
 		gDisplay->displayShow();
+		gSDLVideoExposePending = false;
 		return true;
 	case SDL_QUIT: // should we trap this and send power key?
 		SDL_WM_GrabInput(SDL_GRAB_OFF);
@@ -303,20 +305,27 @@ static bool handleSDLEvent(const SDL_Event &event)
 	return false;
 }
 
-static void SDL_redrawCallback(sys_timer t)
+static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
 {
 	SDL_Event event;
 
-	event.type = SDL_VIDEOEXPOSE;
-	SDL_PushEvent(&event);
+//	ht_printf("redrawtimer\n");
+	if (!gSDLVideoExposePending) {
+		event.type = SDL_VIDEOEXPOSE;
+		// according to the docs, "You may always call SDL_PushEvent" in an SDL
+		// timer callback function
+		SDL_PushEvent(&event);
+		gSDLVideoExposePending = true;
+	}
+	return interval;
 }
 
 sys_timer gSDLRedrawTimer;
 
 static void *SDLeventLoop(void *p)
 {
-	sys_create_timer(&gSDLRedrawTimer, SDL_redrawCallback);
-	sys_set_timer(gSDLRedrawTimer, 0, gDisplay->mRedraw_ms*1000000, true);
+	gSDLVideoExposePending = false;
+	SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
 
 	while (1) {
 		SDL_Event event;
@@ -336,6 +345,8 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 		printf("SDL: Unable to init: %s\n", SDL_GetError());
 		exit(1);
 	}
+
+        SDL_WM_GrabInput(SDL_GRAB_OFF);
 
 	createSDLToADBKeytable();
 
