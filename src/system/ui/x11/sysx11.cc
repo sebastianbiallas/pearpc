@@ -63,10 +63,8 @@ static uint8 x11_key_to_adb_key[256] = {
 
 static void handleX11Event(const XEvent &event)
 {
-	static bool visible = true;
-	static bool mapped = true;
 	static bool mouseButton[3] = {false, false, false};
-	
+
 	switch (event.type) {
 	case GraphicsExpose:
 	case Expose:
@@ -197,17 +195,16 @@ static void handleX11Event(const XEvent &event)
 		if (gDisplay->isMouseGrabbed()) gDisplay->setMouseGrab(false);
 		break;
 	case MapNotify:
-		mapped = true;
-		gDisplay->setExposed(visible);
+		gDisplay->setExposed(true);
 		break;
 	case UnmapNotify:
-		mapped = false;
 		gDisplay->setExposed(false);
 		break;
-	case VisibilityNotify:
-		visible = (event.xvisibility.state != VisibilityFullyObscured);
-		gDisplay->setExposed(mapped && visible);
+	case VisibilityNotify: {
+		bool visible = (event.xvisibility.state != VisibilityFullyObscured);
+		gDisplay->setExposed(visible);
 		break;
+	}
 	}
 }
 
