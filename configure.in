@@ -449,6 +449,9 @@ src/io/macio/Makefile
 src/io/nvram/Makefile
 src/io/usb/Makefile
 src/system/Makefile
+src/system/arch/Makefile
+src/system/arch/x86/Makefile
+src/system/arch/generic/Makefile
 src/system/ui/Makefile
 src/system/ui/qt/Makefile
 src/system/ui/gtk/Makefile
