@@ -238,7 +238,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 			if (scancode == 0x138) {
 				// altgr == ctrl+alt --> release ctrl, press alt
 				ev.key.chr = 0;
-				ev.key.keycode = scancode_to_mackey[0x1d] | 0x80000000;
+				ev.key.keycode = scancode_to_mackey[0x1d];
 				ev.key.pressed = false;
 				gKeyboard->handleEvent(ev);
 				ev.type = sysevKey;
@@ -264,7 +264,7 @@ static LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
 		if (scancode == 42 || scancode == 54) shiftDown = 0;
 
-		ev.key.keycode = scancode_to_mackey[scancode] | 0x80000000;
+		ev.key.keycode = scancode_to_mackey[scancode];
 
 		if ((ev.key.keycode & 0xff) != 0xff) {
 			gKeyboard->handleEvent(ev);

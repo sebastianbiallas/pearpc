@@ -337,7 +337,7 @@ public:
 	{
 	}
 
-	void updateTitle() 
+	virtual void updateTitle() 
 	{
 		String key;
 		int key_toggle_mouse_grab = gKeyboard->getKeyConfig().key_toggle_mouse_grab;

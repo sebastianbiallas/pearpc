@@ -44,7 +44,7 @@ public:
 	virtual bool changeResolution(const DisplayCharacteristics &aHostChar);
 	virtual	int toString(char *buf, int buflen) const;
 	virtual	void finishMenu();
-	void updateTitle();
+	virtual void updateTitle();
 	virtual void setMouseGrab(bool enable);
 	virtual void displayShow();
 	void createBitmap();

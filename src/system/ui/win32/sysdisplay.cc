@@ -301,7 +301,6 @@ void Win32Display::setMouseGrab(bool enable)
 {
 	if (mMouseGrabbed == enable) return;
 	SystemDisplay::setMouseGrab(enable);
-	if (!mFullscreenChanged) updateTitle();
 	if (enable) {
 		mResetMouseX = mCurMouseX;
 		mResetMouseY = mCurMouseY;

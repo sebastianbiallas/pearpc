@@ -240,6 +240,7 @@ public:
 
 	/* ui */
 		void insertMenuButton(Stream &str, void (*callback)(void *), void *p);
+	virtual	void updateTitle() = 0;
 	virtual	void finishMenu() = 0;
 		void drawMenu();
 		void clickMenu(int x, int y);

@@ -133,6 +133,8 @@ SystemDisplay::SystemDisplay(const DisplayCharacteristics &aClientChr, int redra
 	
 	mFullscreenChanged = false;
 	mFullscreen = false;
+
+	mExposed = false;
 }
 
 SystemDisplay::~SystemDisplay()
@@ -590,10 +592,17 @@ void SystemDisplay::putPixelRGBA(int x, int y, RGBA rgba)
 void SystemDisplay::setMouseGrab(bool mouseGrab)
 {
 	mMouseGrabbed = mouseGrab;
+	if (!mFullscreenChanged) updateTitle();
 }
 
 bool SystemDisplay::setFullscreenMode(bool fullscreen)
 {
 	mFullscreen = fullscreen;
-	return changeResolution(mClientChar);
+	changeResolution(mClientChar);
+	if (mFullscreenChanged) {
+		setMouseGrab(true);
+	} else {
+		setMouseGrab(false);
+	}
+	return mFullscreenChanged;
 }
