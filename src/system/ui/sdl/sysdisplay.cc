@@ -235,7 +235,6 @@ bool changeResolution(const DisplayCharacteristics &aCharacteristics)
 		exit(1);
 	}
 
-	if (gFrameBuffer) free(gFrameBuffer);
 	gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
 		mClientChar.height * mClientChar.bytesPerPixel);
 	memset(gFrameBuffer, 0, mClientChar.width *
