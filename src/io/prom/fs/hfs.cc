@@ -250,12 +250,11 @@ bool tryBootHFS(File *aDevice, uint aDeviceBlocksize, FileOfs start, PartitionEn
 			if (mdb.drEmbedSigWord == HFSPlusSigWord) {
 				// HFS+ (embedded in HFS)
 				IO_PROM_FS_TRACE("contains HFS volume, embedding a HFS+ volume\n");
-				IO_PROM_FS_TRACE("start=%08x, count=%08x\n",
+				IO_PROM_FS_TRACE("embed.start=%08x, embed.count=%08x, hfsblksz=%08x\n",
 					mdb.drEmbedExtent.startBlock, 
-					mdb.drEmbedExtent.blockCount);
-//				IO_PROM_FS_TRACE("FIXME: start-offset?\n");
-				return tryBootHFSPlus(aDevice, aDeviceBlocksize, start, partEnt);
-//				return false;
+					mdb.drEmbedExtent.blockCount,
+					mdb.drAlblkSz);
+				return tryBootHFSPlus(aDevice, aDeviceBlocksize, start+mdb.drEmbedExtent.startBlock*mdb.drAlblkSz, partEnt);
 			} else {
 				IO_PROM_FS_TRACE("contains HFS volume\n");
 				return doTryBootHFS(mdb, aDevice, aDeviceBlocksize, start, partEnt);
