@@ -3,6 +3,7 @@
  *	ppc_cpu.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *      Portions Copyright (C) 2004 Apple Computer, Inc.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -105,7 +106,7 @@ void ppc_cpu_run()
 	gDebugger = new Debugger();
 	gDebugger->mAlwaysShowRegs = true;
 	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
-	int ops=0;
+	uint ops=0;
 	gCPU.effective_code_page = 0xffffffff;
 //	ppc_fpu_test();
 //	return;
@@ -146,7 +147,7 @@ void ppc_cpu_run()
 //				uint32 j=0;
 //				ppc_read_effective_word(0xc046b2f8, j);
 
-				ht_printf("@%08x (%d ops) pdec: %08x lr: %08x\r", gCPU.pc, ops, gCPU.pdec, gCPU.lr);
+				ht_printf("@%08x (%u ops) pdec: %08x lr: %08x\r", gCPU.pc, ops, gCPU.pdec, gCPU.lr);
 #if 0
 				extern uint32 PIC_enable_low;
 				extern uint32 PIC_enable_high;
