@@ -1,7 +1,8 @@
 /* 
  *	PearPC
- *	sysx11.cc
+ *	syssdl.cc
  *
+ *	Copyright (C)      2004 Jens v.d. Heydt (mailme@vdh-webservice.de)
  *	Copyright (C) 1999-2002 Stefan Weyergraf (stefan@weyergraf.de)
  *	Copyright (C) 1999-2004 Sebastian Biallas (sb@biallas.net)
  *
@@ -230,8 +231,6 @@ static uint8 scancode_to_adb_key[256] = {
 
 static bool handleSDLEvent(const SDL_Event &event)
 {
-//	static bool visible = true;
-//	static bool mapped = true;
 	static bool mouseButton[3] = {false, false, false};
 	bool tmpMouseButton[3];
 
@@ -335,7 +334,6 @@ static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
 {
 	SDL_Event event;
 
-//	ht_printf("redrawtimer\n");
 	if (!gSDLVideoExposePending) {
 		event.type = SDL_VIDEOEXPOSE;
 		// according to the docs, "You may always call SDL_PushEvent" in an SDL
@@ -356,13 +354,12 @@ static void *SDLeventLoop(void *p)
 	}
 	SDLSystemDisplay *sd = (SDLSystemDisplay*)gDisplay;
 
-	SDL_WM_SetCaption(sd->mTitle, sd->mTitle);
+	sd->updateTitle();
 
         SDL_WM_GrabInput(SDL_GRAB_OFF);
 
 	sd->changeResolution(sd->mClientChar);
 	sd->setExposed(true);
-	damageFrameBufferAll();
 
 	gSDLVideoExposePending = false;
 	SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);

@@ -24,6 +24,7 @@
 #include <SDL/SDL.h>
 
 #include "system/display.h"
+#include "system/systhread.h"
 
 extern SDL_Surface *	gSDLScreen;
 
@@ -31,6 +32,9 @@ class SDLSystemDisplay: public SystemDisplay {
 protected:
 	DisplayCharacteristics	mSDLChar;
 	byte *			mSDLFrameBuffer;
+	bool			mChangingScreen;
+	SDL_Surface *		mSDLClientScreen;
+	sys_mutex		mRedrawMutex;
 
 	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel);
 	void dumpDisplayChar(const DisplayCharacteristics &chr);
@@ -40,7 +44,7 @@ public:
 	SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
 
 		void finishMenu();
-		void updateTitle();
+	virtual	void updateTitle();
 	virtual	int  toString(char *buf, int buflen) const;
 		void toggleFullScreen();
 	virtual	void displayShow();
