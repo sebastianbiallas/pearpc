@@ -176,6 +176,7 @@ enum X86FlagTest {
 
 NativeAddress FASTCALL asmHERE();
 
+void FASTCALL asmNOP(int n);
 void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2);
 void FASTCALL asmALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm);
 void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2);

@@ -1956,6 +1956,11 @@ JITCFlow ppc_opc_gen_fsubx()
 	PPC_OPC_TEMPL_A(gJITC.current_opc, frD, frA, frB, frC);
 	PPC_OPC_ASSERT(frC==0);
 	ppc_opc_gen_binary_floatop(X86_FSUB, X86_FSUBR, frD, frA, frB);
+	/*
+	 *	FIXME: This solves the a floating point bug.
+	 *	I have no idea why.
+	 */
+	jitcFloatRegisterClobberAll();
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		ppc_opc_gen_update_cr1("fsub.\n");

@@ -742,8 +742,8 @@ ppc_write_effective_byte_asm:
 .mmio:
 	mov	ecx, 1
 	movzx	edx, dl
-	call	io_mem_write_glue
-	ret
+	jmp	io_mem_write_glue
+
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_effective_write_half()
@@ -775,8 +775,8 @@ ppc_write_effective_half_asm:
 	xchg	dh, dl
 	mov	ecx, 2
 	movzx	edx, dx
-	call	io_mem_write_glue
-	ret
+	jmp	io_mem_write_glue
+
 .overlap:
 	push	edx
 	push	eax
@@ -812,8 +812,8 @@ ppc_write_effective_half_asm:
 .overlapped_mmio_2:
 	movzx	edx, dl
 	mov	ecx, 1
-	call	io_mem_write_glue
-	ret
+	jmp	io_mem_write_glue
+
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_effective_write_word()
@@ -844,8 +844,8 @@ ppc_write_effective_word_asm:
 	ret
 .mmio:
 	mov	ecx, 4
-	call	io_mem_write_glue
-	ret
+	jmp	io_mem_write_glue
+
 .overlap:
 	push	edx
 	push	eax
@@ -948,8 +948,8 @@ ppc_write_effective_dword_asm:
 	mov	ebx, ecx
 	mov	ecx, edx
 	mov	edx, ebx
-	call	io_mem_write64_glue
-	ret
+	jmp	io_mem_write64_glue
+
 .overlap:
 	push	ecx
 	push	edx
@@ -1528,10 +1528,12 @@ ppc_opc_icbi_asm:
 	jae	.ok
 	shr	eax, 12
 	cmp	dword [ebp+eax*4], 0
-	jz	.ok
+	jnz	.destroy
+	ret
+	
 .destroy:
 	mov	eax, [ebp+eax*4]
-	call	jitcDestroyAndFreeClientPage
+	jmp	jitcDestroyAndFreeClientPage
 .ok:
 	ret
 end

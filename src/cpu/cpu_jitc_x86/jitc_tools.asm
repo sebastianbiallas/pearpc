@@ -759,10 +759,43 @@ align 16
 ;;
 ;;
 ppc_new_pc_this_page_asm:
+	mov	esi, [esp]
+	mov	[esi-6], eax			;; patch it now, later we don't have the value
 	add	eax, [gCPU+current_code_base]
+	
 	push	4
 	call	ppc_effective_to_physical_code
 	call	jitcNewPC
+	pop	esi	
+	;	now eax and esi are both native addresses
+	;	eax is dest and esi is source
+	;
+	;	we assume that we can overwrite 15 bytes before the call
+	;	and 3 bytes after the call and the 5 bytes of the call instruction
+	mov	edx, eax
+	sub	eax, esi
+	
+	mov	byte [esi-20], 0xf6	;; test	[gCPU+exception_pending], 1
+	mov	byte [esi-19], 0x05
+	mov	dword [esi-18], gCPU+exception_pending
+	mov	byte [esi-14], 1
+	
+	add	eax, 7
+	
+	mov	byte [esi-13], 0x0f	;; jz	dest (edx)
+	mov	byte [esi-12], 0x84
+	mov	dword [esi-11], eax	;; the jz is relative to (esi-7)
+	
+	mov	eax, ppc_heartbeat_ext_rel_asm - 3
+	sub	eax, esi
+	
+	mov	byte [esi-7], 0xb8	;; mov	eax, offset
+;;	mov	dword [esi-6], ...	;; see above, this is already patched!
+
+	mov	byte [esi-2], 0xe8	;; call	ppc_heartbeat_ext_rel_asm
+	mov	dword [esi-1], eax	;; the call is relative to (esi+3)
+	jmp	edx
+	
 	pop	edi
 	;	now eax and edi are both native addresses
 	;	eax is dest and edi is source

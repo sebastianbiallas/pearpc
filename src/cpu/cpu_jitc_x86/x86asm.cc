@@ -910,6 +910,17 @@ NativeAddress FASTCALL asmHERE()
 	return gJITC.currentPage->tcp;
 }
 
+void FASTCALL asmNOP(int n)
+{
+	if (n <= 0) return;
+	byte instr[15];
+	for (int i=0; i < (n-1); i++) {
+		instr[i] = 0x66;
+	}
+	instr[n-1] = 0x90;
+	jitcEmit(instr, n);	
+}
+
 void FASTCALL asmSimpleMODRMRegReg(uint8 opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};

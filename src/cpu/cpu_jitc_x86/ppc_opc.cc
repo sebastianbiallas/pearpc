@@ -125,17 +125,16 @@ static inline void ppc_opc_gen_set_pc_rel(uint32 li)
 	li += gJITC.pc;
 	if (li < 4096) {
 		/*
-		 *	No need to set ESI
+		 *	We assure here 7+6+5+5 bytes, to have enough space for 
+		 *	four instructions (since we want to modify them)
 		 */
-		asmALURegImm(X86_MOV, EAX, li);
+		jitcEmitAssure(7+6+5+5);
+		
+		asmMOVRegImm_NoFlags(EAX, li);
 		asmCALL((NativeAddress)ppc_heartbeat_ext_rel_asm);
-		jitcEmitAssure(10);
-		/*
-		 *	We assure here 10 bytes, to have enough space for 
-		 *	next two instructions (since we want to modify them)
-		 */
 		asmMOVRegImm_NoFlags(EAX, li);
 		asmCALL((NativeAddress)ppc_new_pc_this_page_asm);
+		asmNOP(3);
 	} else {
 		asmALURegImm(X86_MOV, EAX, li);
 		asmJMP((NativeAddress)ppc_new_pc_rel_asm);
