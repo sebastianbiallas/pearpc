@@ -881,8 +881,7 @@ Object *LinkedList::remove(ObjHandle h)
 
 void LinkedList::insertAt(ObjHandle h, Object *obj)
 {
-	uint i = handleToNative(h);
-	if (i>ecount-1) {
+	if (h == invObjHandle) {
 		insert(obj);
 		return;
 	}
@@ -917,7 +916,7 @@ bool LinkedList::moveTo(ObjHandle from, ObjHandle to)
 	throw new NotImplementedException(HERE);
 }
 
-bool	LinkedList::set(ObjHandle h, Object *obj)
+bool LinkedList::set(ObjHandle h, Object *obj)
 {
 	LinkedListNode *n = handleToNative(h);
 	if (!n) return false;
