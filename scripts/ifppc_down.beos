@@ -3,4 +3,4 @@
 # IT SHOULD BE OWNED BY ROOT.
 # ONLY ROOT SHOULD HAVE WRITE-ACCESS TO THIS FILE.
 #
-/bin/ifconfig --del ppc
+/bin/ifconfig --del ppc >/dev/null

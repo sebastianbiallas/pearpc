@@ -23,7 +23,7 @@
 
 #include "system/types.h"
 
-bool	ppc_init_physical_memory(uint32 size);
+bool	ppc_init_physical_memory(uint size);
 
 uint32  ppc_get_memory_size();
 
