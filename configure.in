@@ -66,20 +66,6 @@ AM_CONFIG_HEADER(config.h)
 
 dnl Check OS specifica
 
-AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
-
-AC_DEFINE(HOST_ENDIANESS_BE, 1234, [big-endian byte-order helper constant])
-AC_DEFINE(HOST_ENDIANESS_LE, 4321, [little-endian byte-order helper constant])
-
-AC_C_BIGENDIAN(
-	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_BE, [Which host endianess/byte-order?]),
- 	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?]),
-	[
-	AC_MSG_WARN([couldn't determine host endianess/byte-order. assuming your machine is little-endian.])
-	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?])
-	]
-)
-
 NASM_OPTS="-f elf"
 
 AC_PATH_X
@@ -180,6 +166,31 @@ AM_PROG_LEX
 AC_PROG_YACC
 AC_PATH_PROG(AR, ar)
 AC_PATH_PROG(AR, gar)
+
+AC_DEFINE(HOST_ENDIANESS_BE, 1234, [big-endian byte-order helper constant])
+AC_DEFINE(HOST_ENDIANESS_LE, 4321, [little-endian byte-order helper constant])
+
+AC_C_BIGENDIAN(
+	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_BE, [Which host endianess/byte-order?]),
+ 	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?]),
+	[
+	AC_MSG_WARN([couldn't determine host endianess/byte-order. assuming your machine is little-endian.])
+	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?])
+	]
+)
+
+dnl This non-sense is needed to work around the fact, that autoconf-2.13 provides
+dnl a different AC_C_BIGENDIAN macro (without parameters) and doesn't moan when
+dnl giving them anyway. GRRRRR. autoconf-2.5 works OK.
+case "$ac_cv_c_bigendian" in
+yes*)
+	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_BE, [Which host endianess/byte-order?])
+;;
+no*)
+  	AC_DEFINE(HOST_ENDIANESS, HOST_ENDIANESS_LE, [Which host endianess/byte-order?])
+;;
+esac
+dnl /non-sense
 
 if test "x$enable_cpu" = "jitc_x86"; then
 	dnl FIXME: or SYS_DIR=="win32"
@@ -295,6 +306,7 @@ AM_CONDITIONAL(USE_GUI_NOGUI, test x$GUI_DIR = xnogui)
 
 dnl Checks for header files.
 AC_HEADER_STDC
+AC_CHECK_HEADERS(pthread.h, AC_DEFINE(PTHREAD_HDR, <pthread.h>, [Have pthread.h?]))
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([asm/types.h])
 AC_CHECK_HEADERS(linux/netlink.h, AC_DEFINE(HAVE_ETHERTAP, 1, [Have TUN/TAP headers?]),,
