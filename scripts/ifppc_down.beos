@@ -3,5 +3,4 @@
 # IT SHOULD BE OWNED BY ROOT.
 # ONLY ROOT SHOULD HAVE WRITE-ACCESS TO THIS FILE.
 #
-echo "/bin/ifconfig --del $PPC_INTERFACE >/dev/null"
 /bin/ifconfig --del $PPC_INTERFACE >/dev/null
