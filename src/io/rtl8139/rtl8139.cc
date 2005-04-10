@@ -345,10 +345,10 @@ void TxPacket(uint32 address, uint32 size)
 			if (w == psize) {
 				IO_RTL8139_TRACE("EthTun: %d bytes sent.\n", psize);
 			} else {
-				IO_RTL8139_TRACE("EthTun: ARGH! send error: only %d of %d bytes sent\n", w, psize);
+				IO_RTL8139_WARN("EthTun: ARGH! send error: only %d of %d bytes sent\n", w, psize);
 			}
 		} else {
-			IO_RTL8139_TRACE("EthTun: ARGH! send error in packet driver.\n");
+			IO_RTL8139_WARN("EthTun: ARGH! send error in packet driver.\n");
 		}
 		maybeRaiseIntr();
 	}
@@ -422,7 +422,7 @@ void readConfig(uint reg)
 {
 	//if (mVerbose) IO_RTL8139_TRACE("readConfig %02x\n", reg);
 	if (reg >= 0xdc) {
-		IO_RTL8139_WARN("re\n");
+		IO_RTL8139_WARN("readConfig(%x)\n", reg);
 	}
 	sys_lock_mutex(mLock);
 	PCI_Device::readConfig(reg);
@@ -434,7 +434,7 @@ void writeConfig(uint reg, int offset, int size)
 	//if (mVerbose) IO_RTL8139_TRACE("writeConfig %02x, %d, %d\n", reg, offset, size);
 	sys_lock_mutex(mLock);
 	if (reg >= 0xdc) {
-		IO_RTL8139_WARN("jg\n");
+		IO_RTL8139_WARN("writeConfig(%x, %d, %d)\n", reg, offset, size);
 	}
 	PCI_Device::writeConfig(reg, offset, size);
 	sys_unlock_mutex(mLock);
@@ -633,7 +633,7 @@ void handleRxQueue()
 	byte            rxPacket[MAX_PACKET_SIZE];
 	uint16          rxPacketSize;
 	byte		tmp;
-	byte		broadcast[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	static byte	broadcast[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 	while (1) {
 		while (mEthTun->waitRecvPacket() != 0) {
