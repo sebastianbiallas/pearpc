@@ -263,8 +263,13 @@ uint64 sys_get_hiresclk_ticks_per_second()
 					if (sep) {
 						double tmpval = 0.0;
 						if (sscanf(sep, ": %lf", &tmpval) == 1) {
-							tmpval *= 1000000.0;
-							ticksPerSec = static_cast<uint64>(tmpval);
+							if (tmpval < 1.0) {								
+								ticksPerSec = 1000000000;
+								printf("cpu speed in /proc/cpuinfo looks bogus. Defaulting to 1 GHz\n");
+							} else {
+								tmpval *= 1000000.0;
+								ticksPerSec = static_cast<uint64>(tmpval);
+							}
 							break;
 						}
 					}
@@ -274,8 +279,8 @@ uint64 sys_get_hiresclk_ticks_per_second()
 		}
 
 		if (!ticksPerSec) {
-			printf("Unable to query cpu speed from /proc/cpuinfo");
-			ticksPerSec = CLOCKS_PER_SEC;
+			printf("Unable to query cpu speed from /proc/cpuinfo\n");
+			ticksPerSec = 1000000000;
 		}
 
 		init = false;
