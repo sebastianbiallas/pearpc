@@ -362,7 +362,7 @@ int FASTCALL ppc_effective_to_physical_vm(uint32 addr, int flags, uint32 &result
 				if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
 					// page found
 					if (ppc_read_physical_word(pteg_addr+4, pte)) {
-						return PPC_MMU_FATAL;
+						return 0;
 					}
 					// check accessmode .346
 					int key;
@@ -416,7 +416,7 @@ int FASTCALL ppc_effective_to_physical_vm(uint32 addr, int flags, uint32 &result
 				if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
 					// page found
 					if (ppc_read_physical_word(pteg_addr+4, pte)) {
-						return PPC_MMU_FATAL;
+						return 0;
 					}
 					// check accessmode
 					int key;

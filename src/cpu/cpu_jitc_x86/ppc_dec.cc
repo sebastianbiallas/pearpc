@@ -111,6 +111,7 @@ static JITCFlow ppc_opc_gen_special()
 		jitcClobberAll();
 		asmALURegReg(X86_MOV, EDX, ESP);
 		asmALURegImm(X86_MOV, ECX, gJITC.pc);
+		PPC_ESC_TRACE("pc = %08x\n", gJITC.pc);
 		asmCALL((NativeAddress)&ppc_escape_vm);
 		return flowEndBlock;
 	}
@@ -120,7 +121,7 @@ static JITCFlow ppc_opc_gen_special()
 		asmALURegImm(X86_ADD, EAX, gJITC.pc);
 		asmMOVDMemReg((uint32)&gCPU.pc, EAX);
 		asmCALL((NativeAddress)&call_prom_osi);
-		return flowContinue;
+		return flowEndBlock;
 	}
 	return ppc_opc_gen_invalid();
 }

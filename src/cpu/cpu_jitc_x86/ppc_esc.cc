@@ -49,6 +49,7 @@ static void return_to_dsi_exception_handler(uint32 ea, uint32 *stack, uint32 cli
 	 *
 	 *      if we want to return to a different function.
 	 */
+	PPC_ESC_TRACE(" return_to_dsi(%08x, %08x, %08x)\n", ea, stack, client_pc);
 	stack[-4] = (uint32)&ppc_dsi_exception_special_asm;
 	gCPU.pc_ofs = client_pc;
 	gCPU.dar = ea;
@@ -57,10 +58,10 @@ static void return_to_dsi_exception_handler(uint32 ea, uint32 *stack, uint32 cli
 static void escape_memset(uint32 *stack, uint32 client_pc)
 {
 	// memset(dest [r4], c [r5], size [r6])	
-
 	uint32 dest = gCPU.gpr[4];
 	uint32 c = gCPU.gpr[5];
 	uint32 size = gCPU.gpr[6];
+	PPC_ESC_TRACE("memest(%08x, %02x, %d)\n", dest, c, size);
 	if (dest & 0xfff) {
 		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
 		if (!dst) {
