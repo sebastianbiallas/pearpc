@@ -44,6 +44,29 @@
 # include "hfstime.h"
 # include "partitions.h"
 
+/*
+ *  A replacement of the ffs C library function which does not exist
+ *  in all C libraries.
+ *
+ *  ffs finds the first set bit in a four-byte integer
+ */
+static unsigned long
+my_ffs( unsigned long i )
+{
+  register unsigned long j;
+
+  if( i == 0 ) return( 0 );
+
+  for( j = 1; j <= ( sizeof( unsigned long )*8 ); j++ )
+    {
+      if( (i>>(j-1))&1 ) return( j );
+    }
+
+  return( 0 );
+}
+
+#define ffs(_a_)    my_ffs(_a_)
+
 /* Fill a given buffer with the given block in volume.
  */
 int volume_readinbuf(volume * vol,void* buf, long block)

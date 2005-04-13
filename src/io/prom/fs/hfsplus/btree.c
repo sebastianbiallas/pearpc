@@ -42,6 +42,10 @@
 # include "record.h"
 # include "swab.h"
 
+#ifdef HAVE_MEMSET
+#    define bzero(_a_,_s_) memset (_a_,0,_s_)
+#endif
+
 /* Read the node from the given buffer and swap the bytes.
  *
  * return pointer after reading the structure
