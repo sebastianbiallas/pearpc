@@ -1466,15 +1466,6 @@ void rxUPD(UPD *upd)
 		mRxPacketSize = 60;
 	}
 
-	// append crc
-	uint32 crc = ether_crc(mRxPacketSize, mRxPacket);
-	mRxPacket[mRxPacketSize+0] = crc;
-	mRxPacket[mRxPacketSize+1] = crc>>8;
-	mRxPacket[mRxPacketSize+2] = crc>>16;
-	mRxPacket[mRxPacketSize+3] = crc>>24;
-	mRxPacketSize += 4;
-	// IO_3C90X_TRACE("packet has crc: %08x\n", crc);
-
 	// IO_3C90X_TRACE("rx(%d):\n", mRxPacketSize);
 	// dumpMem((unsigned char*)mRxPacket, mRxPacketSize);
 
