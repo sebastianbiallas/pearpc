@@ -39,6 +39,13 @@ static byte *memory_handle(uint32 ea, int flags)
 	return ptr;
 }
 
+static byte *memory_handle_phys(uint32 pa)
+{
+	byte *ptr = NULL;
+	ppc_direct_physical_memory_handle(pa, ptr);
+	return ptr;
+}
+
 static void return_to_dsi_exception_handler(uint32 ea, uint32 *stack, uint32 client_pc)
 {
 	/*
@@ -50,9 +57,14 @@ static void return_to_dsi_exception_handler(uint32 ea, uint32 *stack, uint32 cli
 	 *      if we want to return to a different function.
 	 */
 	PPC_ESC_TRACE(" return_to_dsi(%08x, %08x, %08x)\n", ea, stack, client_pc);
-	stack[-4] = (uint32)&ppc_dsi_exception_special_asm;
+	stack[-1] = (uint32)&ppc_dsi_exception_special_asm;
 	gCPU.pc_ofs = client_pc;
 	gCPU.dar = ea;
+}
+
+static void escape_version(uint32 *stack, uint32 client_pc)
+{
+	gCPU.gpr[4] = PPC_ESCAPE_IF_VERSION;
 }
 
 static void escape_memset(uint32 *stack, uint32 client_pc)
@@ -62,6 +74,7 @@ static void escape_memset(uint32 *stack, uint32 client_pc)
 	uint32 c = gCPU.gpr[5];
 	uint32 size = gCPU.gpr[6];
 	PPC_ESC_TRACE("memest(%08x, %02x, %d)\n", dest, c, size);
+	if (!size) return;
 	if (dest & 0xfff) {
 		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
 		if (!dst) {
@@ -100,11 +113,162 @@ static void escape_memset(uint32 *stack, uint32 client_pc)
 
 static void escape_memcpy(uint32 *stack, uint32 client_pc)
 {
+	// memcpy(dest [r4], src [r5], size [r6])	
+	uint32 dest = gCPU.gpr[4];
+	uint32 source = gCPU.gpr[5];
+	uint32 size = gCPU.gpr[6];
+	PPC_ESC_TRACE("memcpy(%08x, %08x, %d)\n", dest, source, size);
+	if (!size) return;
+	while (size) {
+		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+		if (!dst) {
+			return_to_dsi_exception_handler(dest, stack, client_pc);
+			gCPU.gpr[4] = dest;
+			gCPU.gpr[5] = source;
+			gCPU.gpr[6] = size;
+			return;
+		}
+		byte *src = memory_handle(source, PPC_MMU_READ);
+		if (!src) {
+			return_to_dsi_exception_handler(source, stack, client_pc);
+			gCPU.gpr[4] = dest;
+			gCPU.gpr[5] = source;
+			gCPU.gpr[6] = size;
+			return;
+		}
+		uint32 s = 4096 - (dest & 0xfff);
+		uint32 s2 = 4096 - (source & 0xfff);
+		s = MIN(s, s2);
+		s = MIN(s, size);
+		memcpy(dst, src, s);
+		dest += s;
+		source += s;
+		size -= s;
+	}
+}
+
+static void escape_bzero(uint32 *stack, uint32 client_pc)
+{
+	// bzero(dest [r4], size [r5])
+	// basically this is memset with predefined CHAR of 0x0
+
+	uint32 dest = gCPU.gpr[4];
+	const uint32 c = 0;
+	uint32 size = gCPU.gpr[5];
+	PPC_ESC_TRACE("bzero(%08x, %08x)\n", dest, size);
+	if (!size) return;
+	if (dest & 0xfff) {
+		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+		if (!dst) {
+			return_to_dsi_exception_handler(dest, stack, client_pc);
+			return;
+		}
+		uint32 a = 4096 - (dest & 0xfff);
+		a = MIN(a, size);
+		memset(dst, c, a);
+		size -= a;
+		dest += a;
+	}
+	while (size >= 4096) {
+		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+		if (!dst) {
+			return_to_dsi_exception_handler(dest, stack, client_pc);
+			gCPU.gpr[4] = dest;
+			gCPU.gpr[5] = size;
+			return;
+		}
+		memset(dst, c, 4096);
+		dest += 4096;
+		size -= 4096;
+	}
+	if (size) {
+		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+		if (!dst) {
+			return_to_dsi_exception_handler(dest, stack, client_pc);
+			gCPU.gpr[4] = dest;
+			gCPU.gpr[5] = size;
+			return;
+		}
+		memset(dst, c, size);
+	}
+}
+
+static void escape_bzero_phys(uint32 *stack, uint32 client_pc)
+{
+	// bzero(dest [r4], size [r5])
+	// basically this is memset with predefined CHAR of 0x0
+
+	uint32 dest = gCPU.gpr[4];
+	const uint32 c = 0;
+	uint32 size = gCPU.gpr[5];
+	PPC_ESC_TRACE("bzero_phys(%08x, %08x)\n", dest, size);
+	if (gCPU.msr & MSR_PR) return;
+	byte *dst = memory_handle_phys(dest);
+	memset(dst, c, size);
+}
+
+static void escape_bcopy(uint32 *stack, uint32 client_pc)
+{
+	// memcpy(src [r4], dest [r5], size [r6])	
+	uint32 source = gCPU.gpr[4];
+	uint32 dest = gCPU.gpr[5];
+	uint32 size = gCPU.gpr[6];
+	PPC_ESC_TRACE("bcopy(%08x, %08x, %d)\n", source, dest, size);
+	if (!size) return;
+	while (size) {
+		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+		if (!dst) {
+			return_to_dsi_exception_handler(dest, stack, client_pc);
+			gCPU.gpr[4] = source;
+			gCPU.gpr[5] = dest;
+			gCPU.gpr[6] = size;
+			return;
+		}
+		byte *src = memory_handle(source, PPC_MMU_READ);
+		if (!src) {
+			return_to_dsi_exception_handler(source, stack, client_pc);
+			gCPU.gpr[4] = source;
+			gCPU.gpr[5] = dest;
+			gCPU.gpr[6] = size;
+			return;
+		}
+		uint32 s = 4096 - (dest & 0xfff);
+		uint32 s2 = 4096 - (source & 0xfff);
+		s = MIN(s, s2);
+		s = MIN(s, size);
+		memcpy(dst, src, s);
+		dest += s;
+		source += s;
+		size -= s;
+	}
+}
+
+static void escape_bcopy_phys(uint32 *stack, uint32 client_pc)
+{
+	// bcopy_phys(src [r4], dest [r5], size [r6])
+	// bcopy_physvirt(src [r4], dest [r5], size [r6])
+	uint32 source = gCPU.gpr[4];
+	uint32 dest = gCPU.gpr[5];
+	uint32 size = gCPU.gpr[6];
+	PPC_ESC_TRACE("bcopy_phys(%08x, %08x, %d)\n", source, dest, size);
+	if (gCPU.msr & MSR_PR) return;
+	byte *dst = memory_handle_phys(dest);
+	if (!dst) return;
+	byte *src = memory_handle_phys(source);
+	if (!src) return;
+	memcpy(dst, src, size);
 }
 
 static ppc_escape_function escape_functions[] = {
+	escape_version,
+	
 	escape_memset,
 	escape_memcpy,
+	escape_bzero,
+	escape_bzero_phys,
+	escape_bcopy,
+	escape_bcopy_phys,
+	escape_bcopy_phys,
 };
 
 void FASTCALL ppc_escape_vm(uint32 func, uint32 *stack, uint32 client_pc)
