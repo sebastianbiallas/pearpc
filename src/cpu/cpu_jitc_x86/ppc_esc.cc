@@ -209,37 +209,108 @@ static void escape_bzero_phys(uint32 *stack, uint32 client_pc)
 
 static void escape_bcopy(uint32 *stack, uint32 client_pc)
 {
-	// memcpy(src [r4], dest [r5], size [r6])	
+	// memcpy(src [r4], dest [r5], size [r6], reverse [r7])
 	uint32 source = gCPU.gpr[4];
 	uint32 dest = gCPU.gpr[5];
 	uint32 size = gCPU.gpr[6];
-	PPC_ESC_TRACE("bcopy(%08x, %08x, %d)\n", source, dest, size);
-	if (!size) return;
-	while (size) {
-		byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
-		if (!dst) {
-			return_to_dsi_exception_handler(dest, stack, client_pc);
-			gCPU.gpr[4] = source;
-			gCPU.gpr[5] = dest;
-			gCPU.gpr[6] = size;
-			return;
+	bool reverse = gCPU.gpr[7];
+	PPC_ESC_TRACE("bcopy%s(%08x, %08x, %d)\n", reverse ? "_reverse" : "", source, dest, size);
+	if (dest == source) return;
+	if (dest < source) {
+		if (dest + size <= source) goto do_memcpy;
+//do_memmove:
+		while (size) {
+			byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+			if (!dst) {
+				return_to_dsi_exception_handler(dest, stack, client_pc);
+				gCPU.gpr[4] = source;
+				gCPU.gpr[5] = dest;
+				gCPU.gpr[6] = size;
+				return;
+			}
+			byte *src = memory_handle(source, PPC_MMU_READ);
+			if (!src) {
+				return_to_dsi_exception_handler(source, stack, client_pc);
+				gCPU.gpr[4] = source;
+				gCPU.gpr[5] = dest;
+				gCPU.gpr[6] = size;
+				return;
+			}
+			uint32 s = 4096 - (dest & 0xfff);
+			uint32 s2 = 4096 - (source & 0xfff);
+			s = MIN(s, s2);
+			s = MIN(s, size);
+			memmove(dst, src, s);
+			dest += s;
+			source += s;
+			size -= s;
 		}
-		byte *src = memory_handle(source, PPC_MMU_READ);
-		if (!src) {
-			return_to_dsi_exception_handler(source, stack, client_pc);
-			gCPU.gpr[4] = source;
-			gCPU.gpr[5] = dest;
-			gCPU.gpr[6] = size;
-			return;
+	} else {
+		// dest > source
+		if (reverse) goto do_reverse_memmove;
+		if (source + size <= dest) {
+do_memcpy:
+			while (size) {
+				byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+				if (!dst) {
+					return_to_dsi_exception_handler(dest, stack, client_pc);
+					gCPU.gpr[4] = source;
+					gCPU.gpr[5] = dest;
+					gCPU.gpr[6] = size;
+					return;
+				}
+				byte *src = memory_handle(source, PPC_MMU_READ);
+				if (!src) {
+					return_to_dsi_exception_handler(source, stack, client_pc);
+					gCPU.gpr[4] = source;
+					gCPU.gpr[5] = dest;
+					gCPU.gpr[6] = size;
+					return;
+				}
+				uint32 s = 4096 - (dest & 0xfff);
+				uint32 s2 = 4096 - (source & 0xfff);
+				s = MIN(s, s2);
+				s = MIN(s, size);
+				memcpy(dst, src, s);
+				dest += s;
+				source += s;
+				size -= s;
+			}
+		} else {
+			dest += size;
+			source += size;
+do_reverse_memmove:
+			while (size) {
+				uint32 s = dest & 0xfff;
+				uint32 s2 = source & 0xfff;
+				if (!s) s = 0x1000;
+				if (!s2) s2 = 0x1000;
+				s = MIN(s, s2);
+				s = MIN(s, size);
+				dest -= s;
+				source -= s;
+				size -= s;
+				byte *dst = memory_handle(dest, PPC_MMU_READ | PPC_MMU_WRITE);
+				if (!dst) {
+					return_to_dsi_exception_handler(dest, stack, client_pc);
+					gCPU.gpr[4] = source + s;
+					gCPU.gpr[5] = dest + s;
+					gCPU.gpr[6] = size + s;
+					gCPU.gpr[7] = 1;
+					return;
+				}
+				byte *src = memory_handle(source, PPC_MMU_READ);
+				if (!src) {
+					return_to_dsi_exception_handler(source, stack, client_pc);
+					gCPU.gpr[4] = source + s;
+					gCPU.gpr[5] = dest + s;
+					gCPU.gpr[6] = size + s;
+					gCPU.gpr[7] = 1;
+					return;
+				}
+				memmove(dst, src, s);
+			}
 		}
-		uint32 s = 4096 - (dest & 0xfff);
-		uint32 s2 = 4096 - (source & 0xfff);
-		s = MIN(s, s2);
-		s = MIN(s, size);
-		memcpy(dst, src, s);
-		dest += s;
-		source += s;
-		size -= s;
 	}
 }
 
