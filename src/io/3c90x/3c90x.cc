@@ -474,6 +474,15 @@ struct UPD {
 /*	UPDFragDesc Frags[n] */
 };
 
+struct UPDFragDesc {
+	uint32	UpFragAddr PACKED;
+	uint32	UpFragLen PACKED;	// [12:0] fragLen, [31] lastFrag
+};
+
+#define MAX_DPD_FRAGS	63
+#define MAX_UPD_FRAGS	63
+#define MAX_UPD_SIZE	(sizeof(UPD) + sizeof(UPDFragDesc)*MAX_UPD_FRAGS) // 512
+
 enum UpPktStatusBits {
 	UPS_upPktLen = 0x1fff,
 	/* 13 unspecified */
@@ -496,11 +505,6 @@ enum UpPktStatusBits {
 	UPS_udpChecksumChecked = 1<<31
 };
 
-struct UPDFragDesc {
-	uint32	UpFragAddr PACKED;
-	uint32	UpFragLen PACKED;	// [12:0] fragLen, [31] lastFrag
-};
-
 // IEEE 802.3 MAC, Ethernet-II
 struct EthFrameII {
 	byte	destMAC[6] PACKED;
@@ -513,7 +517,7 @@ struct EthFrameII {
  */
 static int compareMACs(byte a[6], byte b[6])
 {
-	for (uint i=0; i<6; i++) {
+	for (uint i = 0; i < 6; i++) {
 		if (a[i] != b[i]) return a[i] - b[i];
 	}
 	return 0;
@@ -1126,8 +1130,7 @@ void setCR(uint16 cr)
 		totalReset();
 		break;
 	case CmdSelectWindow: {
-		uint curwindow = mIntStatus >> 13;
-		IO_3C90X_TRACE("SelectWindow (window = %d) oldwindow = %d\n", cr & 7, curwindow);
+		IO_3C90X_TRACE("SelectWindow (window = %d) oldwindow = %d\n", cr & 7, mIntStatus >> 13);
 		mIntStatus &= 0x1fff;
 		mIntStatus |= (cr & 7)<<13;
 		break;
@@ -1307,8 +1310,8 @@ void txDPD0(DPD0 *dpd)
 	p += framePrefix;
 	//
 	uint i = 0;
-	// assemble packet from fragments (up to 63 fragments)
-	while (i<63) {
+	// assemble packet from fragments (up to MAX_DPD_FRAGS fragments)
+	while (i < MAX_DPD_FRAGS) {
 		uint addr = frags->DnFragAddr;
 		uint len = frags->DnFragLen & 0x1fff;
 		IO_3C90X_TRACE("frag %d: %08x, len %04x (full: %08x)\n", i, addr, len, frags->DnFragLen);
@@ -1405,9 +1408,6 @@ void txDPD0(DPD0 *dpd)
 
 bool passesRxFilter(byte *pbuf, uint psize)
 {
-	// shouldn't happen
-	if (psize < sizeof (EthFrameII)) return true;
-
 	EthFrameII *f = (EthFrameII*)pbuf;
 	RegWindow5 &w5 = (RegWindow5&)mWindows[5];
 	if (w5.RxFilter & RXFILT_receiveAllFrames) return true;
@@ -1423,7 +1423,7 @@ bool passesRxFilter(byte *pbuf, uint psize)
 		byte destMAC[6];
 		byte thisMAC[6];
 		RegWindow2 &w2 = (RegWindow2&)mWindows[2];
-		for (uint i=0; i<6; i++) {
+		for (uint i = 0; i < 6; i++) {
 			destMAC[i] = f->destMAC[i] & ~w2.StationMask[i];
 			thisMAC[i] = w2.StationAddress[i] & ~w2.StationMask[i];
 		}
@@ -1437,14 +1437,21 @@ void rxUPD(UPD *upd)
 	// FIXME: threading to care about (mRegisters.DmaCtrl & DC_upAltSeqDisable)
 	IO_3C90X_TRACE("rxUPD()\n");
 
+	bool error = false;
+
 	if (upd->UpPktStatus & UPS_upComplete) {
-		IO_3C90X_WARN("UPD already upComplete!\n");
-		// it's already been used, stall...
-/*		mUpStalled = true;
-		return;*/
+		// IO_3C90X_WARN("UPD already upComplete!\n");
+
+		// the top of the ring buffer is already used, 
+	        // stall the upload and throw away the packet.
+		// the ring buffers are filled.
+
+		mUpStalled = true;
+		return;
 	}
 
-	bool error = false;
+	uint upPktStatus = 0;
+
 	if (mRegisters.UpPoll) {
 		IO_3C90X_WARN("UpPoll unsupported\n");
 		SINGLESTEP("");
@@ -1459,7 +1466,7 @@ void rxUPD(UPD *upd)
 		upd->UpPktStatus = UPS_upError | UPS_oversizedFrame;
 		error = true;
 	}
-	uint upPktStatus = 0;
+
 	if (mRxPacketSize < 60) {
 		// pad packet to at least 60 bytes (+4 bytes crc = 64 bytes)
 		memset(mRxPacket+mRxPacketSize, 0, (60-mRxPacketSize));
@@ -1485,7 +1492,7 @@ void rxUPD(UPD *upd)
 
 	byte *p = mRxPacket;
 	uint i = 0;
-	while (!error && (i<63)) {	// (up to 63 fragments)
+	while (!error && i < MAX_UPD_FRAGS) {	// (up to MAX_UPD_FRAGS fragments)
 		uint32 addr = frags->UpFragAddr;
 		uint len = frags->UpFragLen & 0x1fff;
 		IO_3C90X_TRACE("frag %d: %08x, len %04x (full: %08x)\n", i, addr, len, frags->UpFragLen);
@@ -1520,6 +1527,8 @@ void rxUPD(UPD *upd)
 	upPktStatus |= UPS_upComplete;
 	upd->UpPktStatus = upPktStatus;
 
+	mRxPacketSize = 0;
+
 	/* the client OS is waiting for a change in status, but won't see it */
 	/* until we dma our local copy upd->UpPktStatus back to the client address space */
 	if (!ppc_dma_write(mRegisters.UpListPtr+4, &upd->UpPktStatus, sizeof(upd->UpPktStatus))) {
@@ -1536,8 +1545,6 @@ void rxUPD(UPD *upd)
 	mRegisters.DmaCtrl |= DC_upComplete;
 	indicate(IS_upComplete);
 	maybeRaiseIntr();
-
-	mRxPacketSize = 0;
 }
 
 void indicate(uint indications)
@@ -1618,8 +1625,8 @@ void checkDnWork()
 
 void checkUpWork()
 {
-	if (!mUpStalled && (mRegisters.UpListPtr != 0) && mRxPacketSize) {
-		byte upd[512];
+	if (mRxEnabled && !mUpStalled && mRxPacketSize && (mRegisters.UpListPtr != 0) ) {
+		byte upd[MAX_UPD_SIZE];
 		if (ppc_dma_read(upd, mRegisters.UpListPtr, sizeof upd)) {
 			UPD *p = (UPD*)upd;
 			rxUPD(p);
@@ -1687,7 +1694,7 @@ bool readDeviceIO(uint r, uint32 port, uint32 &data, uint size)
 		IO_3C90X_TRACE("read IntStatus = %04x\n", mIntStatus);
 		data = mIntStatus;
 		retval = true;
-	} else if ((port >= 0) && (port+size <= 0x0e)) {
+	} else if (port >= 0 && (port+size <= 0x0e)) {
 		// read from window
 		uint curwindow = mIntStatus >> 13;
 		readRegWindow(curwindow, port, data, size);
@@ -1754,12 +1761,12 @@ bool writeDeviceIO(uint r, uint32 port, uint32 data, uint size)
 		}
 		setCR(data);
 		retval = true;
-	} else if ((port >= 0) && (port+size <= 0x0e)) {
+	} else if (port >= 0 && (port+size <= 0x0e)) {
 		// write to window
 		uint curwindow = mIntStatus >> 13;
 		writeRegWindow(curwindow, port, data, size);
 		retval = true;
-	} else if ((port >= 0x10) && (port+size <= 0x10 + sizeof(Registers))) {
+	} else if (port >= 0x10 && (port + size <= 0x10 + sizeof(Registers))) {
 		byte l = gRegAccess[port-0x10];
 		if (l != size) {
 			IO_3C90X_WARN("invalid/unaligned write to register port=%04x, size=%d\n", port, size);
@@ -1841,7 +1848,7 @@ void handleRxQueue()
 			IO_3C90X_TRACE("Argh. old packet not yet uploaded. waiting some more...\n");
 		} else {
 			mRxPacketSize = mEthTun->recvPacket(mRxPacket, sizeof mRxPacket);
-			if (mRxPacketSize) {
+			if (mRxEnabled && (mRxPacketSize > sizeof(EthFrameII))) {
 				indicate(IS_rxComplete);
 				maybeRaiseIntr();
 				acknowledge(IS_rxComplete);
@@ -1853,10 +1860,11 @@ void handleRxQueue()
 				}
 			}  else {
 				// don't block the system in case of (repeated) error(s)
+				mRxPacketSize = 0;
 				sys_suspend();
 			}
 		}
-	        checkUpWork();
+		checkUpWork();
 		sys_unlock_mutex(mLock);
 	}
 }
@@ -1895,7 +1903,7 @@ void _3c90x_init()
 			// do something useful with mac
 			const char *macstr = macstr_.contentChar();
 			byte cfgmac[6];
-			for (uint i=0; i<6; i++) {
+			for (uint i = 0; i < 6; i++) {
 				uint64 v;
 				if (!parseIntStr(macstr, v, 16) || (v>255) || ((*macstr != ':') && (i!=5))) {
 					IO_3C90X_ERR("error in config key %s:"
@@ -1918,8 +1926,8 @@ void _3c90x_init()
 		}
 #if 0
 		printf("Creating 3com 3c90x NIC emulation with eth_addr = ");
-		for (uint i=0; i<6; i++) {
-			if (i<5) {
+		for (uint i = 0; i < 6; i++) {
+			if (i < 5) {
 				printf("%02x:", mac[i]);
 			} else {
 				printf("%02x", mac[i]);
