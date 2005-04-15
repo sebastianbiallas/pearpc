@@ -13,6 +13,8 @@ version 0.4pre (not yet released):
 	- support for DVD-Drives
 	- correctly check for NASM
 	- Work-around for graphic errors in Mac OS X 10.1
+	- POSIX/Linux: fall back to 1 GHz if /proc/cpuinfo doesn't provide cpu frequency
+	- 3c90x emulation fixed
 
 version 0.3.1 (released 5. September 2004):
 	- JITC_X86: increased translation cache size
