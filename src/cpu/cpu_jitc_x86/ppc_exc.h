@@ -3,6 +3,7 @@
  *	ppc_exc.h
  *
  *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -42,6 +43,7 @@
 #define PPC_EXC_TRACE2 0x00D00
 #define PPC_EXC_FLOAT_ASSIST 0x00E00
 #define PPC_EXC_PERF_MON 0xF00
+#define PPC_EXC_NO_VEC 0xF20
 #define PPC_EXC_ALTIVEC 0xF20
 #define PPC_EXC_ALTIVEC_ASSIST 0x1600
 #define PPC_EXC_TAU 0x1700

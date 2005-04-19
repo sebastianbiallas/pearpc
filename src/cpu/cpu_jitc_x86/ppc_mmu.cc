@@ -3,6 +3,7 @@
  *	ppc_mmu.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -26,6 +27,7 @@
 #include "io/io.h"
 #include "ppc_cpu.h"
 #include "ppc_fpu.h"
+#include "ppc_vec.h"
 #include "ppc_mmu.h"
 #include "ppc_exc.h"
 #include "ppc_tools.h"
@@ -147,10 +149,10 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 			}
 			return PPC_MMU_FATAL;
 		}
-		uint32 offset = EA_Offset(addr);         // 12 bit
+		uint32 offset = EA_Offset(addr);	 // 12 bit
 		uint32 page_index = EA_PageIndex(addr);  // 16 bit
-		uint32 VSID = SR_VSID(sr);               // 24 bit
-		uint32 api = EA_API(addr);               //  6 bit (part of page_index)
+		uint32 VSID = SR_VSID(sr);	       // 24 bit
+		uint32 api = EA_API(addr);	       //  6 bit (part of page_index)
 		// VSID.page_index = Virtual Page Number (VPN)
 
 		// Hashfunction no 1 "xor" .360
@@ -552,6 +554,17 @@ int FASTCALL ppc_direct_effective_memory_handle_code(uint32 addr, byte *&ptr)
 	return r;
 }
 
+int FASTCALL ppc_read_physical_qword(uint32 addr, Vector_t &result)
+{
+	if (addr < gMemorySize) {
+		// big endian
+		VECT_D(result,0) = ppc_dword_from_BE(*((uint64*)(gMemory+addr)));
+		VECT_D(result,1) = ppc_dword_from_BE(*((uint64*)(gMemory+addr+8)));
+		return PPC_MMU_OK;
+	}
+	return io_mem_read128(addr, (uint128 *)&result);
+}
+
 int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
 {
 	if (addr < gMemorySize) {
@@ -613,6 +626,20 @@ int FASTCALL ppc_read_effective_code(uint32 addr, uint32 &result)
 	if (!((r=ppc_effective_to_physical(addr, PPC_MMU_READ | PPC_MMU_CODE, p)))) {
 		return ppc_read_physical_word(p, result);
 	}
+	return r;
+}
+
+int FASTCALL ppc_read_effective_qword(uint32 addr, Vector_t &result)
+{
+	uint32 p;
+	int r;
+
+	addr &= ~0x0f;
+
+	if (!(r = ppc_effective_to_physical(addr, PPC_MMU_READ, p))) {
+		return ppc_read_physical_qword(p, result);
+	}
+
 	return r;
 }
 
@@ -697,6 +724,21 @@ int FASTCALL ppc_read_effective_byte(uint32 addr, uint8 &result)
 	return r;
 }
 
+int FASTCALL ppc_write_physical_qword(uint32 addr, Vector_t data)
+{
+	if (addr < gMemorySize) {
+		// big endian
+		*((uint64*)(gMemory+addr)) = ppc_dword_to_BE(VECT_D(data,0));
+		*((uint64*)(gMemory+addr+8)) = ppc_dword_to_BE(VECT_D(data,1));
+		return PPC_MMU_OK;
+	}
+	if (io_mem_write128(addr, (uint128 *)&data) == IO_MEM_ACCESS_OK) {
+		return PPC_MMU_OK;
+	} else {
+		return PPC_MMU_FATAL;
+	}
+}
+
 int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 {
 	if (addr < gMemorySize) {
@@ -739,6 +781,19 @@ int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
 		return PPC_MMU_OK;
 	}
 	return io_mem_write(addr, data, 1);
+}
+
+int FASTCALL ppc_write_effective_qword(uint32 addr, Vector_t data)
+{
+	uint32 p;
+	int r;
+
+	addr &= ~0x0f;
+
+	if (!((r=ppc_effective_to_physical(addr, PPC_MMU_WRITE, p)))) {
+		return ppc_write_physical_qword(p, data);
+	}
+	return r;
 }
 
 int FASTCALL ppc_write_effective_dword(uint32 addr, uint64 data)
@@ -830,6 +885,9 @@ bool FASTCALL ppc_init_physical_memory(uint size)
 		PPC_MMU_ERR("Main memory size must >= 64MB!\n");
 	}
 	gMemory = (byte*)malloc(size);
+	if ((uint32)gMemory & 0x0f) {
+		gMemory += 16 - ((uint32)gMemory & 0x0f);
+	}
 	gMemorySize = size;
 	return gMemory != NULL;
 }
@@ -894,8 +952,8 @@ bool ppc_prom_page_create(uint32 ea, uint32 pa)
 {
 	uint32 sr = gCPU.sr[EA_SR(ea)];
 	uint32 page_index = EA_PageIndex(ea);  // 16 bit
-	uint32 VSID = SR_VSID(sr);             // 24 bit
-	uint32 api = EA_API(ea);               //  6 bit (part of page_index)
+	uint32 VSID = SR_VSID(sr);	     // 24 bit
+	uint32 api = EA_API(ea);	       //  6 bit (part of page_index)
 	uint32 hash1 = (VSID ^ page_index);
 	uint32 pte, pte2;
 	uint32 h = 0;
@@ -2311,6 +2369,579 @@ JITCFlow ppc_opc_gen_lwzx()
 	return flowContinue;
 }
 
+static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, int hint)
+{
+	NativeReg ret = REG_NO;
+	byte modrm[6];
+
+	NativeReg reg1 = jitcGetClientRegisterMapping(PPC_GPR(rA));
+	NativeReg reg2 = jitcGetClientRegisterMapping(PPC_GPR(rB));
+
+	if (reg1 == hint) {
+		jitcClobberCarryAndFlags();
+		jitcClobberRegister(NATIVE_REG | reg1);
+		ret = reg1;
+		jitcTouchRegister(ret);
+
+		if (reg2 != REG_NO) {
+			asmALURegReg(X86_ADD, ret, reg2);
+		} else {
+			asmALURegMem(X86_ADD, ret, modrm,
+				x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		}
+	} else if (reg2 == hint) {
+		jitcClobberCarryAndFlags();
+		jitcClobberRegister(NATIVE_REG | reg2);
+		ret = reg2;
+		jitcTouchRegister(ret);
+
+		if (reg1 != REG_NO) {
+			asmALURegReg(X86_ADD, ret, reg1);
+		} else {
+			asmALURegMem(X86_ADD, ret, modrm,
+				x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rA]));
+		}
+	} else if ((reg1 != REG_NO) && (reg2 != REG_NO)) {
+		/* If both are in register space, and not the hint we're best
+		 *   off clobbering the hint, then using leal as a 3-operand
+		 *   ADD.
+		 * This gives us the performance of an ADD, and removes the
+		 *   need for a later MOV into the hint.
+		 */
+		jitcClobberRegister(NATIVE_REG | hint);
+		ret = (NativeReg)hint;
+		jitcTouchRegister(ret);
+
+		asmLEA(ret, modrm, x86_mem_sib(modrm, reg1, 1, reg2, 0));
+	}
+
+	return ret;
+}
+
+static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx(int rA, int rB, int hint=0)
+{
+	NativeReg ret = REG_NO;
+	byte modrm[6];
+
+	if (!rA) {
+		ret = jitcGetClientRegisterMapping(PPC_GPR(rB));
+
+		if (ret == REG_NO) {
+			ret = jitcGetClientRegister(PPC_GPR(rB), hint);
+		}
+
+		jitcClobberRegister(NATIVE_REG | ret);
+		jitcTouchRegister(ret);
+
+		return ret;
+	}
+
+	if (hint & NATIVE_REG) {
+		ret = ppc_opc_gen_helper_lvx_hint(rA, rB, hint & 0x0f);
+
+		if (ret != REG_NO)
+			return ret;
+	}
+
+	jitcClobberCarryAndFlags();
+
+	NativeReg reg1 = jitcGetClientRegisterMapping(PPC_GPR(rA));
+	NativeReg reg2 = jitcGetClientRegisterMapping(PPC_GPR(rB));
+
+	if (reg2 == REG_NO) {
+		ret = jitcGetClientRegister(PPC_GPR(rA));
+		jitcClobberRegister(NATIVE_REG | ret);
+
+		asmALURegMem(X86_ADD, ret, modrm,
+			x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+	} else {
+		jitcClobberRegister(NATIVE_REG | reg2);
+		ret = reg2;
+
+		if (reg1 != REG_NO) {
+			asmALURegReg(X86_ADD, ret, reg1);
+		} else {
+			asmALURegMem(X86_ADD, ret, modrm,
+				x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rA]));
+		}
+	}
+
+	jitcTouchRegister(ret);
+	return ret;
+}
+
+/*      lvx	     Load Vector Indexed
+ *      v.127
+ */
+void ppc_opc_lvx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	Vector_t r;
+
+	int ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+
+	int ret = ppc_read_effective_qword(ea, r);
+	if (ret == PPC_MMU_OK) {
+		gCPU.vr[vrD] = r;
+	}
+}
+JITCFlow ppc_opc_gen_lvx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
+	jitcDropClientVectorRegister(vrD);
+	jitcAssertFlushedVectorRegister(vrD);
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+#if 1
+	jitcClobberAll();
+	if (regA != EAX) {
+		//printf("*** hint miss r%u != r0\n", regA);
+		asmALURegReg(X86_MOV, EAX, regA);
+	}
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALURegImm(X86_MOV, EDX, (uint32)&(gCPU.vr[vrD]));
+
+	if (0 && gJITC.hostCPUCaps.sse) {
+		asmCALL((NativeAddress)ppc_read_effective_qword_sse_asm);
+		gJITC.nativeVectorReg = vrD;
+	} else {
+		asmCALL((NativeAddress)ppc_read_effective_qword_asm);
+	}
+#else
+	asmALURegImm(X86_AND, regA, ~0x0f);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+
+	jitcClobberAll();
+	if (regA != EAX) {
+		//printf("*** hint miss r%u != r0\n", regA);
+		asmALURegReg(X86_MOV, EAX, regA);
+	}
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
+	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[3]), ECX);
+	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[2]), EDX);
+
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_OR, EAX, 8);
+
+	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
+	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[1]), ECX);
+	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[0]), EDX);
+#endif
+
+	return flowContinue;
+}
+
+
+/*      lvxl	    Load Vector Index LRU
+ *      v.128
+ */
+void ppc_opc_lvxl()
+{
+	ppc_opc_lvx();
+	/* This instruction should hint to the cache that the value won't be
+	 *   needed again in memory anytime soon.  We don't emulate the cache,
+	 *   so this is effectively exactly the same as lvx.
+	 */
+}
+JITCFlow ppc_opc_gen_lvxl()
+{
+	return ppc_opc_gen_lvx();
+}
+
+
+/*      lvebx	   Load Vector Element Byte Indexed
+ *      v.119
+ */
+void ppc_opc_lvebx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint8 r;
+	ea = (rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB];
+	int ret = ppc_read_effective_byte(ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_B(gCPU.vr[vrD], ea & 0x0f) = r;
+	}
+}
+JITCFlow ppc_opc_gen_lvebx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrD, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
+	jitcDropClientVectorRegister(vrD);
+	jitcAssertFlushedVectorRegister(vrD);
+
+	if (vrD == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_AND, EAX, 0x0f);
+	asmALUReg(X86_NOT, EAX);
+
+	asmALUMemReg8(X86_MOV, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+16), DL);
+
+	return flowContinue;
+}
+
+/*      lvehx	   Load Vector Element Half Word Indexed
+ *      v.121
+ */
+void ppc_opc_lvehx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint16 r;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~1;
+	int ret = ppc_read_effective_half(ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_H(gCPU.vr[vrD], (ea & 0x0f) >> 1) = r;
+	}
+}
+JITCFlow ppc_opc_gen_lvehx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrD, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
+	jitcDropClientVectorRegister(vrD);
+	jitcAssertFlushedVectorRegister(vrD);
+
+	if (vrD == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+	asmALURegImm(X86_AND, regA, ~0x01);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_AND, EAX, 0x0e);
+	asmALUReg(X86_NOT, EAX);
+
+	asmALUMemReg8(X86_MOV, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+15), DL);
+	asmALUMemReg8(X86_MOV, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+16), DH);
+
+	return flowContinue;
+}
+
+/*      lvewx	   Load Vector Element Word Indexed
+ *      v.122
+ */
+void ppc_opc_lvewx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint32 r;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~3;
+	int ret = ppc_read_effective_word(ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_W(gCPU.vr[vrD], (ea & 0xf) >> 2) = r;
+	}
+}
+JITCFlow ppc_opc_gen_lvewx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrD, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
+	jitcDropClientVectorRegister(vrD);
+	jitcAssertFlushedVectorRegister(vrD);
+
+	if (vrD == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+	asmALURegImm(X86_AND, regA, ~0x03);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_AND, EAX, 0x0c);
+	asmALUReg(X86_NOT, EAX);
+
+	asmALUMemReg(X86_MOV, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+13), EDX);
+	return flowContinue;
+}
+
+const static byte lvsl_helper[] = {
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19, 0x18,
+	0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11, 0x10,
+	0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08,
+	0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+	0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+#else
+#error Endianess not supported!
+#endif
+};
+
+const static uint32 lvsl_helper_full[16*4] = {
+	VECT_BUILD(0x00010203, 0x04050607, 0x08090A0B, 0x0C0D0E0F),
+	VECT_BUILD(0x01020304, 0x05060708, 0x090A0B0C, 0x0D0E0F10),
+	VECT_BUILD(0x02030405, 0x06070809, 0x0A0B0C0D, 0x0E0F1011),
+	VECT_BUILD(0x03040506, 0x0708090A, 0x0B0C0D0E, 0x0F101112),
+	VECT_BUILD(0x04050607, 0x08090A0B, 0x0C0D0E0F, 0x10111213),
+	VECT_BUILD(0x05060708, 0x090A0B0C, 0x0D0E0F10, 0x11121314),
+	VECT_BUILD(0x06070809, 0x0A0B0C0D, 0x0E0F1011, 0x12131415),
+	VECT_BUILD(0x0708090A, 0x0B0C0D0E, 0x0F101112, 0x13141516),
+	VECT_BUILD(0x08090A0B, 0x0C0D0E0F, 0x10111213, 0x14151617),
+	VECT_BUILD(0x090A0B0C, 0x0D0E0F10, 0x11121314, 0x15161718),
+	VECT_BUILD(0x0A0B0C0D, 0x0E0F1011, 0x12131415, 0x16171819),
+	VECT_BUILD(0x0B0C0D0E, 0x0F101112, 0x13141516, 0x1718191A),
+	VECT_BUILD(0x0C0D0E0F, 0x10111213, 0x14151617, 0x18191A1B),
+	VECT_BUILD(0x0D0E0F10, 0x11121314, 0x15161718, 0x191A1B1C),
+	VECT_BUILD(0x0E0F1011, 0x12131415, 0x16171819, 0x1A1B1C1D),
+	VECT_BUILD(0x0F101112, 0x13141516, 0x1718191A, 0x1B1C1D1E),
+};
+
+const static uint32 lvsr_helper_full[16*4] = {
+	VECT_BUILD(0x10111213, 0x14151617, 0x18191A1B, 0x1C1D1E1F),
+	VECT_BUILD(0x0F101112, 0x13141516, 0x1718191A, 0x1B1C1D1E),
+	VECT_BUILD(0x0E0F1011, 0x12131415, 0x16171819, 0x1A1B1C1D),
+	VECT_BUILD(0x0D0E0F10, 0x11121314, 0x15161718, 0x191A1B1C),
+	VECT_BUILD(0x0C0D0E0F, 0x10111213, 0x14151617, 0x18191A1B),
+	VECT_BUILD(0x0B0C0D0E, 0x0F101112, 0x13141516, 0x1718191A),
+	VECT_BUILD(0x0A0B0C0D, 0x0E0F1011, 0x12131415, 0x16171819),
+	VECT_BUILD(0x090A0B0C, 0x0D0E0F10, 0x11121314, 0x15161718),
+	VECT_BUILD(0x08090A0B, 0x0C0D0E0F, 0x10111213, 0x14151617),
+	VECT_BUILD(0x0708090A, 0x0B0C0D0E, 0x0F101112, 0x13141516),
+	VECT_BUILD(0x06070809, 0x0A0B0C0D, 0x0E0F1011, 0x12131415),
+	VECT_BUILD(0x05060708, 0x090A0B0C, 0x0D0E0F10, 0x11121314),
+	VECT_BUILD(0x04050607, 0x08090A0B, 0x0C0D0E0F, 0x10111213),
+	VECT_BUILD(0x03040506, 0x0708090A, 0x0B0C0D0E, 0x0F101112),
+	VECT_BUILD(0x02030405, 0x06070809, 0x0A0B0C0D, 0x0E0F1011),
+	VECT_BUILD(0x01020304, 0x05060708, 0x090A0B0C, 0x0D0E0F10),
+};
+
+/*
+ *      lvsl	    Load Vector for Shift Left
+ *      v.123
+ */
+void ppc_opc_lvsl()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	memmove(&gCPU.vr[vrD], lvsl_helper+0x10-(ea & 0xf), 16);
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(&gCPU.vr[vrD], lvsl_helper+(ea & 0xf), 16);
+#else
+#error Endianess not supported!
+#endif
+}
+JITCFlow ppc_opc_gen_lvsl()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrD, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
+
+	if (vrD == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB);
+	asmALURegImm(X86_AND, regA, 0x0f);
+
+	if (gJITC.hostCPUCaps.sse) {
+		asmShiftRegImm(X86_SHL, regA, 4);
+
+		NativeVectorReg reg1 = jitcMapClientVectorRegisterDirty(vrD);
+
+		asmALUPSRegvMem(X86_MOVAPS, reg1, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper_full));
+	} else {
+		asmALUReg(X86_NOT, regA);
+		jitcDropClientVectorRegister(vrD);
+
+		NativeReg reg1 = jitcAllocRegister();
+		NativeReg reg2 = jitcAllocRegister();
+		NativeReg reg3 = jitcAllocRegister();
+
+		asmALURegMem(X86_MOV, reg1, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x11));
+		asmALURegMem(X86_MOV, reg2, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x15));
+		asmALURegMem(X86_MOV, reg3, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x19));
+		asmALURegMem(X86_MOV, regA, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x1d));
+
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[0]), reg1);
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[1]), reg2);
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[2]), reg3);
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[3]), regA);
+	}
+
+	return flowContinue;
+}
+
+/*
+ *      lvsr	    Load Vector for Shift Right
+ *      v.125
+ */
+void ppc_opc_lvsr()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	memmove(&gCPU.vr[vrD], lvsl_helper+(ea & 0xf), 16);
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(&gCPU.vr[vrD], lvsl_helper+0x10-(ea & 0xf), 16);
+#else
+#error Endianess not supported!
+#endif
+}
+JITCFlow ppc_opc_gen_lvsr()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrD, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
+
+	if (vrD == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB);
+	asmALURegImm(X86_AND, regA, 0x0f);
+
+	if (gJITC.hostCPUCaps.sse) {
+		asmShiftRegImm(X86_SHL, regA, 4);
+
+		NativeVectorReg reg1 = jitcMapClientVectorRegisterDirty(vrD);
+
+		asmALUPSRegvMem(X86_MOVAPS, reg1, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsr_helper_full));
+	} else {
+		jitcDropClientVectorRegister(vrD);
+		jitcAssertFlushedVectorRegister(vrD);
+
+		NativeReg reg1 = jitcAllocRegister();
+		NativeReg reg2 = jitcAllocRegister();
+		NativeReg reg3 = jitcAllocRegister();
+
+		asmALURegMem(X86_MOV, reg1, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper));
+		asmALURegMem(X86_MOV, reg2, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+4));
+		asmALURegMem(X86_MOV, reg3, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+8));
+		asmALURegMem(X86_MOV, regA, modrm,
+			x86_mem(modrm, regA, (uint32)&lvsl_helper+12));
+
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[0]), reg1);
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[1]), reg2);
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[2]), reg3);
+		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[3]), regA);
+	}
+
+	return flowContinue;
+}
+
+/*
+ *      dst	     Data Stream Touch
+ *      v.115
+ */
+void ppc_opc_dst()
+{
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+}
+JITCFlow ppc_opc_gen_dst()
+{
+	/* Since we are not emulating the cache, this is a nop */
+	return flowContinue;
+}
+
 /*
  *	stb		Store Byte
  *	.632
@@ -2440,7 +3071,7 @@ JITCFlow ppc_opc_gen_stfd()
 	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
-        return flowEndBlock;
+	return flowEndBlock;
 }
 /*
  *	stfdu		Store Floating-Point Double with Update
@@ -2628,7 +3259,7 @@ JITCFlow ppc_opc_gen_stfs()
 	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
-        return flowEndBlock;
+	return flowEndBlock;
 }
 /*
  *	stfsu		Store Floating-Point Single with Update
@@ -2677,7 +3308,7 @@ JITCFlow ppc_opc_gen_stfsu()
 		NativeReg r = jitcGetClientRegisterDirty(PPC_GPR(rA));
 		asmALURegImm(X86_ADD, r, imm);
 	}
-        return flowContinue;
+	return flowContinue;
 }
 /*
  *	stfsux		Store Floating-Point Single with Update Indexed
@@ -2722,7 +3353,7 @@ JITCFlow ppc_opc_gen_stfsux()
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 	asmALURegReg(X86_ADD, a, b);
-        return flowContinue;
+	return flowContinue;
 }
 /*
  *	stfsx		Store Floating-Point Single Indexed
@@ -2763,7 +3394,7 @@ JITCFlow ppc_opc_gen_stfsx()
 	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
-        return flowEndBlock;
+	return flowEndBlock;
 }
 /*
  *	sth		Store Half Word
@@ -3169,4 +3800,262 @@ JITCFlow ppc_opc_gen_stwx()
 	ppc_opc_gen_helper_stx(PPC_GPR(rA), PPC_GPR(rB), PPC_GPR(rS));
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowEndBlock;
+}
+
+/*      stvx	    Store Vector Indexed
+ *      v.134
+ */
+void ppc_opc_stvx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+
+	int ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+
+	ppc_write_effective_qword(ea, gCPU.vr[vrS]) != PPC_MMU_FATAL;
+}
+JITCFlow ppc_opc_gen_stvx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
+
+	jitcFlushClientVectorRegister(vrS);
+	jitcAssertFlushedVectorRegister(vrS);
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+
+#if 1
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	if (0 && vrS == gJITC.nativeVectorReg) {
+		asmALURegImm(X86_MOV, EDX, (uint32)&(gCPU.vr[JITC_VECTOR_TEMP]));
+		asmCALL((NativeAddress)ppc_write_effective_qword_sse_asm);
+	} else {
+		asmALURegImm(X86_MOV, EDX, (uint32)&(gCPU.vr[vrS]));
+		asmCALL((NativeAddress)ppc_write_effective_qword_asm);
+	}
+#else
+	asmALURegImm(X86_AND, regA, ~0x0f);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmMOVRegDMem(ECX, (uint32)&(gCPU.vr[vrS])+12);
+	asmMOVRegDMem(EDX, (uint32)&(gCPU.vr[vrS])+8);
+
+	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
+
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_OR, EAX, 8);
+
+	asmMOVRegDMem(ECX, (uint32)&(gCPU.vr[vrS])+4);
+	asmMOVRegDMem(EDX, (uint32)&(gCPU.vr[vrS])+0);
+
+	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
+#endif
+	return flowEndBlock;
+}
+
+/*      stvxl	   Store Vector Indexed LRU
+ *      v.135
+ */
+void ppc_opc_stvxl()
+{
+	ppc_opc_stvx();
+	/* This instruction should hint to the cache that the value won't be
+	 *   needed again in memory anytime soon.  We don't emulate the cache,
+	 *   so this is effectively exactly the same as stvx.
+	 */
+}
+JITCFlow ppc_opc_gen_stvxl()
+{
+	return ppc_opc_gen_stvx();
+}
+
+/*      stvebx	  Store Vector Element Byte Indexed
+ *      v.131
+ */
+void ppc_opc_stvebx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = (rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB];
+	ppc_write_effective_byte(ea, VECT_B(gCPU.vr[vrS], ea & 0xf));
+}
+JITCFlow ppc_opc_gen_stvebx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrS, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
+
+	jitcFlushClientVectorRegister(vrS);
+	jitcAssertFlushedVectorRegister(vrS);
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+	asmALURegImm(X86_AND, regA, 0x0f);
+	asmALUReg(X86_NOT, regA);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmALURegMem8(X86_MOV, DL, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+16));
+
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+
+	asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	return flowEndBlock;
+}
+
+
+/*      stvehx	  Store Vector Element Half Word Indexed
+ *      v.132
+ */
+void ppc_opc_stvehx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~1;
+	ppc_write_effective_half(ea, VECT_H(gCPU.vr[vrS], (ea & 0xf) >> 1));
+}
+JITCFlow ppc_opc_gen_stvehx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrS, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
+
+	jitcFlushClientVectorRegister(vrS);
+	jitcAssertFlushedVectorRegister(vrS);
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+	asmALURegImm(X86_AND, regA, 0x0e);
+	asmALUReg(X86_NOT, regA);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmALURegMem8(X86_MOV, DL, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+15));
+	asmALURegMem8(X86_MOV, DH, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+16));
+
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_AND, EAX, ~0x1);
+
+	asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	return flowEndBlock;
+}
+
+
+/*      stvewx	  Store Vector Element Word Indexed
+ *      v.133
+ */
+void ppc_opc_stvewx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~3;
+	ppc_write_effective_word(ea, VECT_W(gCPU.vr[vrS], (ea & 0xf) >> 2));
+}
+JITCFlow ppc_opc_gen_stvewx()
+{
+	ppc_opc_gen_check_vec();
+	int rA, vrS, rB;
+	byte modrm[6];
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
+
+	jitcFlushClientVectorRegister(vrS);
+	jitcAssertFlushedVectorRegister(vrS);
+
+	jitcClobberCarryAndFlags();
+	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
+	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+	asmALURegImm(X86_AND, regA, 0x0c);
+	asmALUReg(X86_NOT, regA);
+
+	jitcClobberAll();
+	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+
+	asmALURegMem(X86_MOV, EDX, modrm,
+		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+13));
+
+	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALURegImm(X86_AND, EAX, ~0x3);
+
+	asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	return flowEndBlock;
+}
+
+/*      dstst	   Data Stream Touch for Store
+ *      v.117
+ */
+void ppc_opc_dstst()
+{
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+}
+JITCFlow ppc_opc_gen_dstst()
+{
+	/* Since we are not emulating the cache, this is a nop */
+	return flowContinue;
+}
+
+/*      dss	     Data Stream Stop
+ *      v.114
+ */
+void ppc_opc_dss()
+{
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+}
+JITCFlow ppc_opc_gen_dss()
+{
+	/* Since we are not emulating the cache, this is a nop */
+	return flowContinue;
 }

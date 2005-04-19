@@ -359,6 +359,8 @@ int main(int argc, char *argv[])
 		gcard_init_host_modes();
 		gcard_set_mode(gm);
 
+		if (fullscreen) gDisplay->setFullscreenMode(true);
+
 		MemMapFile font(ppc_font, sizeof ppc_font);
 		// FIXME: ..
 		if (gDisplay->mClientChar.height >= 600) {

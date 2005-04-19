@@ -645,6 +645,7 @@ static UNUSED void ppc_opc_gen_check_fpu()
 {
 	if (!gJITC.checkedFloat) {
 		jitcFloatRegisterClobberAll();
+		jitcFlushVectorRegister();
 		jitcClobberCarryAndFlags();
 		NativeReg r1 = jitcGetClientRegister(PPC_MSR);
 		asmALURegImm(X86_TEST, r1, MSR_FP);

@@ -3,6 +3,7 @@
  *	ppc_mmu.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Portions Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *	Portions Copyright (C) 2004 Apple Computer, Inc.
  *
  *	This program is free software; you can redistribute it and/or modify
@@ -19,6 +20,11 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+/*	Pages marked: v.???
+ *	From: IBM PowerPC MicroProcessor Family: Altivec(tm) Technology...
+ *		Programming Environments Manual
+ */
+
 #include <cstdlib>
 #include <cstring>
 #include "system/arch/sysendian.h"
@@ -28,6 +34,7 @@
 #include "io/io.h"
 #include "ppc_cpu.h"
 #include "ppc_fpu.h"
+#include "ppc_vec.h"
 #include "ppc_mmu.h"
 #include "ppc_exc.h"
 #include "ppc_tools.h"
@@ -426,6 +433,17 @@ int FASTCALL ppc_direct_effective_memory_handle_code(uint32 addr, byte *&ptr)
 	return r;
 }
 
+inline int FASTCALL ppc_read_physical_qword(uint32 addr, Vector_t &result)
+{
+	if (addr < gMemorySize) {
+		// big endian
+		VECT_D(result,0) = ppc_dword_from_BE(*((uint64*)(gMemory+addr)));
+		VECT_D(result,1) = ppc_dword_from_BE(*((uint64*)(gMemory+addr+8)));
+		return PPC_MMU_OK;
+	}
+	return io_mem_read128(addr, (uint128 *)&result);
+}
+
 inline int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
 {
 	if (addr < gMemorySize) {
@@ -487,6 +505,20 @@ inline int FASTCALL ppc_read_effective_code(uint32 addr, uint32 &result)
 	if (!((r=ppc_effective_to_physical(addr, PPC_MMU_READ | PPC_MMU_CODE, p)))) {
 		return ppc_read_physical_word(p, result);
 	}
+	return r;
+}
+
+inline int FASTCALL ppc_read_effective_qword(uint32 addr, Vector_t &result)
+{
+	uint32 p;
+	int r;
+
+	addr &= ~0x0f;
+
+	if (!(r = ppc_effective_to_physical(addr, PPC_MMU_READ, p))) {
+		return ppc_read_physical_qword(p, result);
+	}
+
 	return r;
 }
 
@@ -571,6 +603,21 @@ inline int FASTCALL ppc_read_effective_byte(uint32 addr, uint8 &result)
 	return r;
 }
 
+inline int FASTCALL ppc_write_physical_qword(uint32 addr, Vector_t data)
+{
+	if (addr < gMemorySize) {
+		// big endian
+		*((uint64*)(gMemory+addr)) = ppc_dword_to_BE(VECT_D(data,0));
+		*((uint64*)(gMemory+addr+8)) = ppc_dword_to_BE(VECT_D(data,1));
+		return PPC_MMU_OK;
+	}
+	if (io_mem_write128(addr, (uint128 *)&data) == IO_MEM_ACCESS_OK) {
+		return PPC_MMU_OK;
+	} else {
+		return PPC_MMU_FATAL;
+	}
+}
+
 inline int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 {
 	if (addr < gMemorySize) {
@@ -613,6 +660,19 @@ inline int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
 		return PPC_MMU_OK;
 	}
 	return io_mem_write(addr, data, 1);
+}
+
+inline int FASTCALL ppc_write_effective_qword(uint32 addr, Vector_t data)
+{
+	uint32 p;
+	int r;
+
+	addr &= ~0x0f;
+
+	if (!((r=ppc_effective_to_physical(addr, PPC_MMU_WRITE, p)))) {
+		return ppc_write_physical_qword(p, data);
+	}
+	return r;
 }
 
 inline int FASTCALL ppc_write_effective_dword(uint32 addr, uint64 data)
@@ -1380,6 +1440,191 @@ void ppc_opc_lwzx()
 	}
 }
 
+/*      lvx	     Load Vector Indexed
+ *      v.127
+ */
+void ppc_opc_lvx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	Vector_t r;
+
+	int ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+
+	int ret = ppc_read_effective_qword(ea, r);
+	if (ret == PPC_MMU_OK) {
+		gCPU.vr[vrD] = r;
+	}
+}
+
+/*      lvxl	    Load Vector Index LRU
+ *      v.128
+ */
+void ppc_opc_lvxl()
+{
+	ppc_opc_lvx();
+	/* This instruction should hint to the cache that the value won't be
+	 *   needed again in memory anytime soon.  We don't emulate the cache,
+	 *   so this is effectively exactly the same as lvx.
+	 */
+}
+
+/*      lvebx	   Load Vector Element Byte Indexed
+ *      v.119
+ */
+void ppc_opc_lvebx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint8 r;
+	ea = (rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB];
+	int ret = ppc_read_effective_byte(ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_B(gCPU.vr[vrD], ea & 0xf) = r;
+	}
+}
+
+/*      lvehx	   Load Vector Element Half Word Indexed
+ *      v.121
+ */
+void ppc_opc_lvehx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint16 r;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~1;
+	int ret = ppc_read_effective_half(ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_H(gCPU.vr[vrD], (ea & 0xf) >> 1) = r;
+	}
+}
+
+/*      lvewx	   Load Vector Element Word Indexed
+ *      v.122
+ */
+void ppc_opc_lvewx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint32 r;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~3;
+	int ret = ppc_read_effective_word(ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_W(gCPU.vr[vrD], (ea & 0xf) >> 2) = r;
+	}
+}
+
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+static byte lvsl_helper[] = {
+	0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19, 0x18,
+	0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11, 0x10,
+	0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08,
+	0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00
+};
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+static byte lvsl_helper[] = {
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+	0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+};
+#else
+#error Endianess not supported!
+#endif
+
+/*
+ *      lvsl	    Load Vector for Shift Left
+ *      v.123
+ */
+void ppc_opc_lvsl()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	memmove(&gCPU.vr[vrD], lvsl_helper+0x10-(ea & 0xf), 16);
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(&gCPU.vr[vrD], lvsl_helper+(ea & 0xf), 16);
+#else
+#error Endianess not supported!
+#endif
+}
+
+/*
+ *      lvsr	    Load Vector for Shift Right
+ *      v.125
+ */
+void ppc_opc_lvsr()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	memmove(&gCPU.vr[vrD], lvsl_helper+(ea & 0xf), 16);
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(&gCPU.vr[vrD], lvsl_helper+0x10-(ea & 0xf), 16);
+#else
+#error Endianess not supported!
+#endif
+}
+
+/*
+ *      dst	     Data Stream Touch
+ *      v.115
+ */
+void ppc_opc_dst()
+{
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+}
+
 /*
  *	stb		Store Byte
  *	.632
@@ -1815,4 +2060,110 @@ void ppc_opc_stwx()
 	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
 	ppc_write_effective_word((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB], gCPU.gpr[rS]) != PPC_MMU_FATAL;
 }
- 
+
+/*      stvx	    Store Vector Indexed
+ *      v.134
+ */
+void ppc_opc_stvx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+
+	int ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
+
+	ppc_write_effective_qword(ea, gCPU.vr[vrS]) != PPC_MMU_FATAL;
+}
+
+/*      stvxl	   Store Vector Indexed LRU
+ *      v.135
+ */
+void ppc_opc_stvxl()
+{
+	ppc_opc_stvx();
+	/* This instruction should hint to the cache that the value won't be
+	 *   needed again in memory anytime soon.  We don't emulate the cache,
+	 *   so this is effectively exactly the same as lvx.
+	 */
+}
+
+/*      stvebx	  Store Vector Element Byte Indexed
+ *      v.131
+ */
+void ppc_opc_stvebx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = (rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB];
+	ppc_write_effective_byte(ea, VECT_B(gCPU.vr[vrS], ea & 0xf));
+}
+
+/*      stvehx	  Store Vector Element Half Word Indexed
+ *      v.132
+ */
+void ppc_opc_stvehx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~1;
+	ppc_write_effective_half(ea, VECT_H(gCPU.vr[vrS], (ea & 0xf) >> 1));
+}
+
+/*      stvewx	  Store Vector Element Word Indexed
+ *      v.133
+ */
+void ppc_opc_stvewx()
+{
+#ifndef __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(gCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]) & ~3;
+	ppc_write_effective_word(ea, VECT_W(gCPU.vr[vrS], (ea & 0xf) >> 2));
+}
+
+/*      dstst	   Data Stream Touch for Store
+ *      v.117
+ */
+void ppc_opc_dstst()
+{
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+}
+
+/*      dss	     Data Stream Stop
+ *      v.114
+ */
+void ppc_opc_dss()
+{
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+}

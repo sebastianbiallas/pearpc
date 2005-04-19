@@ -60,6 +60,30 @@ extern "C" void FASTCALL io_mem_write64_glue(uint32 addr, uint64 data)
 //	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
 	io_mem_write64(addr, data);
 }
+
+extern "C" void FASTCALL io_mem_read128_glue(uint32 addr, uint128 *data)
+{
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+	io_mem_read128(addr, data);
+}
+
+extern "C" void FASTCALL io_mem_read128_native_glue(uint32 addr, uint128 *data)
+{
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+	io_mem_read128_native(addr, data);
+}
+
+extern "C" void FASTCALL io_mem_write128_glue(uint32 addr, uint128 *data)
+{
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+	io_mem_write128(addr, data);
+}
+
+extern "C" void FASTCALL io_mem_write128_native_glue(uint32 addr, uint128 *data)
+{
+//	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
+	io_mem_write128_native(addr, data);
+}
  
 void io_init()
 {

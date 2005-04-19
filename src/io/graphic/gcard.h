@@ -45,10 +45,14 @@ void FASTCALL gcard_write_1(uint32 addr, uint32 data);
 void FASTCALL gcard_write_2(uint32 addr, uint32 data);
 void FASTCALL gcard_write_4(uint32 addr, uint32 data);
 void FASTCALL gcard_write_8(uint32 addr, uint64 data);
+void FASTCALL gcard_write_16(uint32 addr, uint128 *data);
+void FASTCALL gcard_write_16_native(uint32 addr, uint128 *data);
 void FASTCALL gcard_read_1(uint32 addr, uint32 &data);
 void FASTCALL gcard_read_2(uint32 addr, uint32 &data);
 void FASTCALL gcard_read_4(uint32 addr, uint32 &data);
 void FASTCALL gcard_read_8(uint32 addr, uint64 &data);
+void FASTCALL gcard_read_16(uint32 addr, uint128 *data);
+void FASTCALL gcard_read_16_native(uint32 addr, uint128 *data);
 
 static inline void gcard_write(uint32 addr, uint32 data, int size) 
 {
@@ -92,6 +96,26 @@ static inline void gcard_write64(uint32 addr, uint64 data)
 static inline void gcard_read64(uint32 addr, uint64 &data) 
 {
 	    gcard_read_8(addr, data);
+}
+
+static inline void gcard_write128(uint32 addr, uint128 *data) 
+{
+	    gcard_write_16(addr, data);
+}
+
+static inline void gcard_write128_native(uint32 addr, uint128 *data) 
+{
+	    gcard_write_16_native(addr, data);
+}
+
+static inline void gcard_read128(uint32 addr, uint128 *data) 
+{
+	    gcard_read_16(addr, data);
+}
+
+static inline void gcard_read128_native(uint32 addr, uint128 *data) 
+{
+	    gcard_read_16_native(addr, data);
 }
 
 void gcard_raise_interrupt();

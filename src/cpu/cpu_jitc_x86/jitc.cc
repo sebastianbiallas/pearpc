@@ -386,6 +386,7 @@ extern "C" NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 basea
 			/* nothing to do */
 		} else if (flow == flowEndBlock) {
 			jitcClobberAll();
+
 			gJITC.checkedPriviledge = false;
 			gJITC.checkedFloat = false;
 			gJITC.checkedVector = false;
@@ -565,6 +566,16 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 		}
 	}
 
+	for (int i=XMM0; i<=XMM_SENTINEL; i++) {
+		gJITC.LRUvregs[i] = (NativeVectorReg)(i-1);
+		gJITC.MRUvregs[i] = (NativeVectorReg)(i+1);
+	}
+
+	gJITC.LRUvregs[XMM0] = XMM_SENTINEL;
+	gJITC.MRUvregs[XMM_SENTINEL] = XMM0;
+
+	gJITC.nativeVectorReg = VECTREG_NO;
+
 	/*
 	 *	Note that REG_NO=-1 and PPC_REG_NO=0 so this works 
 	 *	by accident.
@@ -572,7 +583,19 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 	memset(gJITC.clientReg, REG_NO, sizeof gJITC.clientReg);	
 	memset(gJITC.nativeReg, PPC_REG_NO, sizeof gJITC.nativeReg);
 	memset(gJITC.nativeRegState, rsUnused, sizeof gJITC.nativeRegState);
-	
+
+	memset(gJITC.n2cVectorReg, PPC_REG_NO, sizeof gJITC.n2cVectorReg);
+	memset(gJITC.c2nVectorReg, VECTREG_NO, sizeof gJITC.c2nVectorReg);
+	memset(gJITC.nativeVectorRegState, rsUnused, sizeof gJITC.nativeVectorRegState);
+
+	/*
+	 *	This -1 register is to be read-only, and only used when
+	 *		needed, and must ALWAYS stay this way!
+	 *
+	 *	It's absolutely fundamental to doing NOT's with SSE
+	 */
+	memset(&gCPU.vr[JITC_VECTOR_NEG1], 0xff, sizeof gCPU.vr[0]);
+
 	memset(gJITC.tlb_code_eff, 0xff, sizeof gJITC.tlb_code_eff);
 	memset(gJITC.tlb_data_read_eff, 0xff, sizeof gJITC.tlb_data_read_eff);
 	memset(gJITC.tlb_data_write_eff, 0xff, sizeof gJITC.tlb_data_write_eff);

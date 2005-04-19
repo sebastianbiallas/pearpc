@@ -121,6 +121,14 @@ void ppc_opc_lwz();
 void ppc_opc_lwzu();
 void ppc_opc_lwzux();
 void ppc_opc_lwzx();
+void ppc_opc_lvx();             /* for altivec support */
+void ppc_opc_lvxl();
+void ppc_opc_lvebx();
+void ppc_opc_lvehx();
+void ppc_opc_lvewx();
+void ppc_opc_lvsl();
+void ppc_opc_lvsr();
+void ppc_opc_dst();
 
 void ppc_opc_stb();
 void ppc_opc_stbu();
@@ -149,6 +157,13 @@ void ppc_opc_stwcx_();
 void ppc_opc_stwu();
 void ppc_opc_stwux();
 void ppc_opc_stwx();
+void ppc_opc_stvx();            /* for altivec support */
+void ppc_opc_stvxl();
+void ppc_opc_stvebx();
+void ppc_opc_stvehx();
+void ppc_opc_stvewx();
+void ppc_opc_dstst();
+void ppc_opc_dss();
 
 #include "jitc_types.h"
 
@@ -184,6 +199,14 @@ JITCFlow ppc_opc_gen_lwz();
 JITCFlow ppc_opc_gen_lwzu();
 JITCFlow ppc_opc_gen_lwzux();
 JITCFlow ppc_opc_gen_lwzx();
+JITCFlow ppc_opc_gen_lvx();             /* for altivec support */
+JITCFlow ppc_opc_gen_lvxl();
+JITCFlow ppc_opc_gen_lvebx();
+JITCFlow ppc_opc_gen_lvehx();
+JITCFlow ppc_opc_gen_lvewx();
+JITCFlow ppc_opc_gen_lvsl();
+JITCFlow ppc_opc_gen_lvsr();
+JITCFlow ppc_opc_gen_dst();
 
 JITCFlow ppc_opc_gen_stb();
 JITCFlow ppc_opc_gen_stbu();
@@ -212,6 +235,13 @@ JITCFlow ppc_opc_gen_stwcx_();
 JITCFlow ppc_opc_gen_stwu();
 JITCFlow ppc_opc_gen_stwux();
 JITCFlow ppc_opc_gen_stwx();
+JITCFlow ppc_opc_gen_stvx();            /* for altivec support */
+JITCFlow ppc_opc_gen_stvxl();
+JITCFlow ppc_opc_gen_stvebx();
+JITCFlow ppc_opc_gen_stvehx();
+JITCFlow ppc_opc_gen_stvewx();
+JITCFlow ppc_opc_gen_dstst();
+JITCFlow ppc_opc_gen_dss();
 
 #endif
 

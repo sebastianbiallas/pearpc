@@ -58,6 +58,8 @@ void x86GetCaps(X86CPUCaps &caps)
 	caps.rdtsc = id2.features & (1<<4);
 	caps.cmov = id2.features & (1<<15);
 	caps.mmx = id2.features & (1<<23);
+	caps._3dnow = id2.features & (1<<31);
+	caps._3dnow2 = id2.features & (1<<30);
 	caps.sse = id2.features & (1<<25);
 	caps.sse2 = id2.features & (1<<26);
 	caps.sse3 = id2.features2 & (1<<0);
@@ -488,6 +490,7 @@ void FASTCALL jitcFlushAll()
 {
 	jitcClobberCarryAndFlags();
 	jitcFlushRegister();
+	jitcFlushVectorRegister();
 }
 
 /*
@@ -498,6 +501,7 @@ void FASTCALL jitcClobberAll()
 	jitcClobberCarryAndFlags();
 	jitcClobberRegister();
 	jitcFloatRegisterClobberAll();
+	jitcTrashVectorRegister();
 }
 
 /*
@@ -507,10 +511,30 @@ void FASTCALL jitcClobberAll()
  */          
 void FASTCALL jitcInvalidateAll()
 {
+#if 0
+	for (int i=EAX; i<=EDI; i++) {
+		if(gJITC.nativeRegState[i] != rsDirty) {
+			printf("!!! Unflushed register invalidated!\n");
+		}
+	}
+#endif
+
 	memset(gJITC.nativeReg, PPC_REG_NO, sizeof gJITC.nativeReg);
 	memset(gJITC.nativeRegState, rsUnused, sizeof gJITC.nativeRegState);
 	memset(gJITC.clientReg, REG_NO, sizeof gJITC.clientReg);
 	gJITC.nativeCarryState = gJITC.nativeFlagsState = rsUnused;
+
+	for (int i=XMM0; i<=XMM7; i++) {
+		if(gJITC.nativeVectorRegState[i] == rsDirty) {
+			printf("!!! Unflushed vector register invalidated! (XMM%u)\n", i);
+		}
+	}
+
+	memset(gJITC.n2cVectorReg, PPC_VECTREG_NO, sizeof gJITC.n2cVectorReg);
+	memset(gJITC.c2nVectorReg, VECTREG_NO, sizeof gJITC.c2nVectorReg);
+	memset(gJITC.nativeVectorRegState, rsUnused, sizeof gJITC.nativeVectorRegState);
+
+	gJITC.nativeVectorReg = VECTREG_NO;
 }
 
 /*
@@ -928,6 +952,12 @@ void FASTCALL asmSimpleMODRMRegReg(uint8 opc, NativeReg reg1, NativeReg reg2)
 	jitcEmit(instr, sizeof(instr));
 }
 
+void FASTCALL asmSimpleMODRMRegReg16(uint8 opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x66, opc, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
 void FASTCALL asmSimpleMODRMRegReg8(uint8 opc, NativeReg8 reg1, NativeReg8 reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
@@ -969,9 +999,52 @@ void FASTCALL asmTESTRegImm(NativeReg reg1, uint32 imm)
 	}
 }
 
+void FASTCALL asmTESTRegImm16(NativeReg reg1, uint16 imm)
+{
+	if (reg1 <= EBX) {
+		if (imm <= 0xff) {
+			// test al, 1
+			if (reg1 == EAX) {
+				byte instr[2] = {0xa8, imm};
+				jitcEmit(instr, sizeof(instr));
+			} else {
+				byte instr[3] = {0xf6, 0xc0+reg1, imm};
+				jitcEmit(instr, sizeof(instr));
+			}
+			return;
+		} else if (!(imm & 0xffff00ff)) {
+			// test ah, 1
+			byte instr[3] = {0xf6, 0xc4+reg1, (imm>>8)};
+			jitcEmit(instr, sizeof(instr));
+			return;
+		}
+	}
+	// test eax, 1001
+	if (reg1 == EAX) {
+		byte instr[4];
+		instr[0] = 0x66;
+		instr[1] = 0xa9;
+		*((uint16 *)&instr[2]) = imm;
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[5];
+		instr[0] = 0x66;
+		instr[1] = 0xf7;
+		instr[2] = 0xc0+reg1;
+		*((uint16 *)&instr[3]) = imm;
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
 void FASTCALL asmSimpleALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[2] = {0x03+(opc<<3), 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void FASTCALL asmSimpleALURegReg16(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x66, 0x03+(opc<<3), 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
@@ -1002,6 +1075,31 @@ void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 	        break;
 	default:
 		asmSimpleALURegReg(opc, reg1, reg2);
+	}	
+}
+
+void FASTCALL asmALURegReg16(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+{
+	switch (opc) {
+	case X86_MOV: 
+		asmSimpleMODRMRegReg16(0x8b, reg1, reg2);
+	        break;
+	case X86_TEST:
+		asmSimpleMODRMRegReg16(0x85, reg1, reg2);
+	        break;
+	case X86_XCHG:
+		if (reg1 == EAX) {
+			byte instr[2] = { 0x66, 0x90+reg2 };
+			jitcEmit(instr, sizeof instr);
+		} else if (reg2 == EAX) {
+			byte instr[2] = { 0x66, 0x90+reg1 };
+			jitcEmit(instr, sizeof instr);
+		} else {
+			asmSimpleMODRMRegReg16(0x87, reg1, reg2);
+		}
+	        break;
+	default:
+		asmSimpleALURegReg16(opc, reg1, reg2);
 	}	
 }
 
@@ -1083,6 +1181,29 @@ void FASTCALL asmSimpleALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
 	}
 }
 
+void FASTCALL asmSimpleALURegImm16(X86ALUopc opc, NativeReg reg1, uint32 imm)
+{
+	if (imm <= 0x7f || imm >= 0xffffff80) {
+		byte instr[3] = {0x83, 0xc0+(opc<<3)+reg1, imm};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		if (reg1 == EAX) {
+			byte instr[4];
+			instr[0] = 0x66;
+			instr[1] = 0x05+(opc<<3);
+			*((uint16 *)&instr[2]) = imm;
+			jitcEmit(instr, sizeof(instr));
+		} else {
+			byte instr[5];
+			instr[0] = 0x66;
+			instr[1] = 0x81;
+			instr[2] = 0xc0+(opc<<3)+reg1;
+			*((uint16 *)&instr[3]) = imm;
+			jitcEmit(instr, sizeof(instr));
+		}
+	}
+}
+
 void FASTCALL asmALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
 {
 	switch (opc) {
@@ -1111,11 +1232,48 @@ void FASTCALL asmALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
 	}
 }
 
+void FASTCALL asmALURegImm16(X86ALUopc opc, NativeReg reg1, uint32 imm)
+{
+	switch (opc) {
+	case X86_MOV:
+		if (imm == 0) {
+			asmALURegReg16(X86_XOR, reg1, reg1);
+		} else {
+			asmMOVRegImm16_NoFlags(reg1, imm);
+		}
+		break;
+	case X86_XCHG:
+		// internal error
+		break;
+	case X86_TEST:
+		asmTESTRegImm16(reg1, imm);
+		break;
+	case X86_CMP:
+//		if (imm == 0) {
+//			asmALURegReg16(X86_OR, reg1, reg1);
+//		} else {
+			asmSimpleALURegImm16(opc, reg1, imm);
+//		}
+		break;
+	default:
+		asmSimpleALURegImm16(opc, reg1, imm);
+	}
+}
+
 void FASTCALL asmMOVRegImm_NoFlags(NativeReg reg1, uint32 imm)
 {
 	byte instr[5];
 	instr[0] = 0xb8+reg1;
 	*((uint32 *)&instr[1]) = imm;
+	jitcEmit(instr, sizeof(instr));
+}
+
+void FASTCALL asmMOVRegImm16_NoFlags(NativeReg reg1, uint16 imm)
+{
+	byte instr[4];
+	instr[0] = 0x66;
+	instr[1] = 0xb8+reg1;
+	*((uint16 *)&instr[2]) = imm;
 	jitcEmit(instr, sizeof(instr));
 }
 
@@ -1151,6 +1309,40 @@ void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1)
 	jitcEmit(instr, 2);
 }
 
+void FASTCALL asmALUReg16(X86ALUopc1 opc, NativeReg reg1)
+{
+	byte instr[3];
+	instr[0] = 0x66;
+
+	switch (opc) {
+	case X86_NOT:
+		instr[1] = 0xf7;
+		instr[2] = 0xd0+reg1;
+		break;
+	case X86_NEG:
+		instr[1] = 0xf7;
+		instr[2] = 0xd8+reg1;
+		break;
+	case X86_MUL:
+		instr[1] = 0xf7;
+		instr[2] = 0xe0+reg1;
+		break;
+	case X86_IMUL:
+		instr[1] = 0xf7;
+		instr[2] = 0xe8+reg1;
+		break;
+	case X86_DIV:
+		instr[1] = 0xf7;
+		instr[2] = 0xf0+reg1;
+		break;
+	case X86_IDIV:
+		instr[1] = 0xf7;
+		instr[2] = 0xf8+reg1;
+		break;
+	}
+	jitcEmit(instr, 3);
+}
+
 void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 {
 	byte instr[15];
@@ -1172,6 +1364,28 @@ void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 	jitcEmit(instr, len+1);
 }
 
+void FASTCALL asmALUMemReg16(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
+{
+	byte instr[16];
+	instr[0] = 0x66;
+	switch (opc) {
+	case X86_MOV:
+		instr[1] = 0x89;
+		break;
+	case X86_XCHG:
+		instr[1] = 0x87;
+		break;
+	case X86_TEST:
+		instr[1] = 0x85;
+		break;
+	default:
+		instr[1] = 0x01+(opc<<3);
+	}
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg2<<3);
+	jitcEmit(instr, len+2);
+}
+
 void FASTCALL asmSimpleALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm)
 {
 	byte instr[15];
@@ -1187,6 +1401,26 @@ void FASTCALL asmSimpleALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm
 		instr[1] |= (opc<<3);
 		*((uint32 *)&instr[len+1]) = imm;
 		jitcEmit(instr, len+5);
+	}
+}
+
+void FASTCALL asmSimpleALUMemImm16(X86ALUopc opc, byte *modrm, int len, uint32 imm)
+{
+	byte instr[16];
+	instr[0] = 0x66;
+
+	if (imm <= 0x7f || imm >= 0xffffff80) {
+		instr[0] = 0x83;
+		memcpy(&instr[1], modrm, len);
+		instr[1] |= (opc<<3);
+		instr[len+1] = imm;
+		jitcEmit(instr, len+2);
+	} else {
+		instr[1] = 0x81;
+		memcpy(&instr[2], modrm, len);
+		instr[2] |= (opc<<3);
+		*((uint16 *)&instr[len+2]) = imm;
+		jitcEmit(instr, len+4);
 	}
 }
 
@@ -1215,6 +1449,33 @@ void FASTCALL asmALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm)
 	}
 }
 
+void FASTCALL asmALUMemImm16(X86ALUopc opc, byte *modrm, int len, uint16 imm)
+{
+	byte instr[16];
+	instr[0] = 0x66;
+
+	switch (opc) {
+	case X86_MOV: {
+		instr[1] = 0xc7;
+		memcpy(&instr[2], modrm, len);
+		*((uint16 *)&instr[len+2]) = imm;
+		jitcEmit(instr, len+4);
+		break;
+	}
+	case X86_XCHG:
+		// internal error
+		break;
+	case X86_TEST:
+		instr[1] = 0xf7;
+		memcpy(&instr[2], modrm, len);
+		*((uint16 *)&instr[len+2]) = imm;
+		jitcEmit(instr, len+4);
+		break;
+	default:
+		asmSimpleALUMemImm16(opc, modrm, len, imm);
+	}
+}
+
 void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
 {
 	byte instr[15];
@@ -1236,6 +1497,30 @@ void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
 	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg1<<3);
 	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmALURegMem16(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
+{
+	byte instr[16];
+	instr[0] = 0x66;
+	switch (opc) {
+	case X86_MOV:
+		instr[1] = 0x8b;
+		break;
+	case X86_XCHG:
+		// XCHG is symmetric
+		instr[1] = 0x87;
+		break;
+	case X86_TEST:
+		// TEST is symmetric
+		instr[1] = 0x85;
+		break;
+	default:
+		instr[1] = 0x03+(opc<<3);
+	}
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg1<<3);
+	jitcEmit(instr, len+2);
 }
 
 void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg8 reg1, byte *modrm, int len)
@@ -1323,6 +1608,22 @@ void FASTCALL asmMOVDMemReg(uint32 disp, NativeReg reg1)
 	}
 }
 
+void FASTCALL asmMOVDMemReg16(uint32 disp, NativeReg reg1)
+{
+	byte instr[7];
+	instr[0] = 0x66;
+	if (reg1==EAX) {
+		instr[1] = 0xa3;
+		*((uint32 *)&instr[2]) = disp;
+		jitcEmit(instr, 6);
+	} else {
+		instr[1] = 0x89;
+		instr[2] = 0x05 | (reg1 << 3);
+		*((uint32 *)&instr[3]) = disp;
+		jitcEmit(instr, 7);
+	}
+}
+
 void FASTCALL asmMOVRegDMem(NativeReg reg1, uint32 disp)
 {
 	byte instr[6];
@@ -1335,6 +1636,22 @@ void FASTCALL asmMOVRegDMem(NativeReg reg1, uint32 disp)
 		instr[1] = 0x05 | (reg1 << 3);
 		*((uint32 *)&instr[2]) = disp;
 		jitcEmit(instr, 6);
+	}
+}
+
+void FASTCALL asmMOVRegDMem16(NativeReg reg1, uint32 disp)
+{
+	byte instr[7];
+	instr[0] = 0x66;
+	if (reg1==EAX) {
+		instr[1] = 0xa1;
+		*((uint32 *)&instr[2]) = disp;
+		jitcEmit(instr, 6);
+	} else {
+		instr[1] = 0x8b;
+		instr[2] = 0x05 | (reg1 << 3);
+		*((uint32 *)&instr[3]) = disp;
+		jitcEmit(instr, 7);
 	}
 }
 
@@ -1441,6 +1758,28 @@ void FASTCALL asmMOVxxRegReg16(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
 	jitcEmit(instr, sizeof(instr));
 }
 
+void FASTCALL asmMOVxxRegMem8(X86MOVxx opc, NativeReg reg1, byte *modrm, int len)
+{
+	byte instr[16] = { 0x0f };
+
+	instr[1] = opc;
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg1 << 3);
+
+	jitcEmit(instr, len+2);
+}
+
+void FASTCALL asmMOVxxRegMem16(X86MOVxx opc, NativeReg reg1, byte *modrm, int len)
+{
+	byte instr[16] = { 0x0f };
+
+	instr[1] = opc+1;
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg1 << 3);
+
+	jitcEmit(instr, len+2);
+}
+
 void FASTCALL asmSETReg8(X86FlagTest flags, NativeReg8 reg1)
 {
 	byte instr[3] = {0x0f, 0x90+flags, 0xc0+reg1};
@@ -1470,6 +1809,24 @@ void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
 	}
 }
 
+void FASTCALL asmCMOVRegMem(X86FlagTest flags, NativeReg reg1, byte *modrm, int len)
+{
+	if (gJITC.hostCPUCaps.cmov) {
+		byte instr[16] = {0x0f, 0x40+flags };
+		memcpy(&instr[2], modrm, len);
+		instr[2] |= (reg1<<3);
+		jitcEmit(instr, len+2);
+	} else {
+		byte instr[17] = {
+			0x70+(flags ^ 1), 1 + len, 	// jnCC $+2
+			0x8b, 				// mov	reg1, *
+		};
+		memcpy(&instr[3], modrm, len);
+		instr[3] |= (reg1<<3);
+		jitcEmit(instr, len+3);
+	}
+}
+
 void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
 {
 	if (imm == 1) {
@@ -1485,6 +1842,42 @@ void FASTCALL asmShiftRegCL(X86ShiftOpc opc, NativeReg reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[2] = {0xd3, 0xc0+opc+reg1};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void FASTCALL asmShiftReg16Imm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
+{
+	if (imm == 1) {
+		byte instr[3] = {0x66, 0xd1, 0xc0+opc+reg1};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[4] = {0x66, 0xc1, 0xc0+opc+reg1, imm};
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
+void FASTCALL asmShiftReg16CL(X86ShiftOpc opc, NativeReg reg1)
+{
+	// 0xd3 [ModR/M]
+	byte instr[3] = {0x66, 0xd3, 0xc0+opc+reg1};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void FASTCALL asmShiftReg8Imm(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
+{
+	if (imm == 1) {
+		byte instr[2] = {0xd0, 0xc0+opc+reg1};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[3] = {0xc0, 0xc0+opc+reg1, imm};
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
+void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1)
+{
+	// 0xd3 [ModR/M]
+	byte instr[2] = {0xd2, 0xc0+opc+reg1};
 	jitcEmit(instr, sizeof(instr));
 }
 
@@ -1646,6 +2039,32 @@ void FASTCALL asmSimple(X86SimpleOpc simple)
 
 void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti)
 {
+	byte instr[2];
+
+	memcpy(instr, &op, 2);
+	instr[1] += sti;
+
+	jitcEmit(instr, 2);
+}
+
+void FASTCALL asmFICompMem(X86FloatICompOp op, byte *modrm, int len)
+{
+	byte instr[16];
+
+	instr[0] = op;
+	memcpy(&instr[1], modrm, len);
+	instr[1] |= 2<<3;
+	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFICompPMem(X86FloatICompOp op, byte *modrm, int len)
+{
+	byte instr[16];
+
+	instr[0] = op;
+	memcpy(&instr[1], modrm, len);
+	instr[1] |= 3<<3;
+	jitcEmit(instr, len+1);
 }
 
 void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm, int len)
@@ -1746,6 +2165,22 @@ void FASTCALL asmFLDSTi(NativeFloatReg sti)
 	jitcEmit(instr, sizeof instr);
 }
 
+void FASTCALL asmFILD16(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xdf;
+	memcpy(instr+1, modrm, len);
+	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFILD(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xdb;
+	memcpy(instr+1, modrm, len);
+	jitcEmit(instr, len+1);
+}
+
 void FASTCALL asmFSTSingleMem(byte *modrm, int len)
 {
 	byte instr[15];
@@ -1803,6 +2238,15 @@ void FASTCALL asmFISTPMem(byte *modrm, int len)
 	jitcEmit(instr, len+1);
 }
 
+void FASTCALL asmFISTPMem64(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xdf;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 7<<3;
+	jitcEmit(instr, len+1);
+}
+
 void FASTCALL asmFISTTPMem(byte *modrm, int len)
 {
 	byte instr[15];
@@ -1828,4 +2272,689 @@ void FASTCALL asmFSTCWMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= 7<<3;
 	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFSTSWMem(byte *modrm, int len)
+{
+	byte instr[15];
+	instr[0] = 0xdd;
+	memcpy(instr+1, modrm, len);
+	instr[1] |= 7<<3;
+	jitcEmit(instr, len+1);
+}
+
+void FASTCALL asmFSTSW_EAX(void)
+{
+	byte instr[15] = { 0xdf, 0xe0 };
+	jitcEmit(instr, 2);
+}
+
+/*
+ *	Maps one client vector register to one native vector register
+ *	Will never emit any code.
+ */
+static inline void FASTCALL jitcMapVectorRegister(NativeVectorReg nreg, JitcVectorReg creg)
+{
+	//printf("*** map: XMM%u (vr%u)\n", nreg, creg);
+	gJITC.n2cVectorReg[nreg] = creg;
+	gJITC.c2nVectorReg[creg] = nreg;
+
+	gJITC.nativeVectorRegState[nreg] = rsMapped;
+}
+
+/*
+ *	Unmaps the native vector register from any client vector register
+ *	Will never emit any code.
+ */
+static inline void FASTCALL jitcUnmapVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	if (nreg != VECTREG_NO && creg != PPC_VECTREG_NO) {
+		//printf("*** unmap: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+
+		gJITC.n2cVectorReg[nreg] = PPC_VECTREG_NO;
+		gJITC.c2nVectorReg[creg] = VECTREG_NO;
+
+		gJITC.nativeVectorRegState[nreg] = rsUnused;
+	}
+}
+
+/*
+ *	Marks the native vector register as dirty.
+ *	Does *not* touch native vector register.
+ *	Will not produce code.
+ */
+void FASTCALL jitcDirtyVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	//printf("*** dirty(%u) with creg = %u\n", nreg, creg);
+
+	if (creg == JITC_VECTOR_NEG1 || creg == PPC_VECTREG_NO) {
+		//printf("*** dirty: %u = %u or %u\n", creg, JITC_VECTOR_NEG1, PPC_REG_NO);
+		return;
+	}
+
+	if (gJITC.nativeVectorRegState[nreg] == rsUnused) {
+		printf("!!! Attemped dirty of an anonymous vector register!\n");
+		return;
+	}
+
+	if (creg == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	gJITC.nativeVectorRegState[nreg] = rsDirty;
+}
+
+/*
+ *	Marks the native vector register as non-dirty.
+ *	Does *not* flush native vector register.
+ *	Will not produce code.
+ */
+static inline void FASTCALL jitcUndirtyVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] > rsMapped) {
+		//printf("*** undirty: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+
+		gJITC.nativeVectorRegState[nreg] = rsMapped;
+	}
+}
+
+/*
+ *	Loads a native vector register with its mapped value.
+ *	Does not alter the native vector register's markings.
+ *	Will always emit an load.
+ */
+static inline void FASTCALL jitcLoadVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	if (creg == JITC_VECTOR_NEG1 && gJITC.hostCPUCaps.sse2) {
+		//printf("*** load neg1: XMM%u\n", nreg);
+
+		/* On a P4, we can load -1 far faster with logic */
+		asmPALURegRegv(PALUD(X86_PCMPEQ), nreg, nreg);
+		return;
+	}
+
+	//printf("*** load: XMM%u (vr%u)\n", nreg, creg);
+	asmMOVAPSRegvDMem(nreg, (uint32)&gCPU.vr[creg]);
+}
+
+/*
+ *	Stores a native vector register to its mapped client vector register.
+ *	Does not alter the native vector register's markings.
+ *	Will always emit a store.
+ */
+static inline void FASTCALL jitcStoreVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	if (creg == JITC_VECTOR_NEG1 || creg == PPC_VECTREG_NO)
+		return;
+
+	//printf("*** store: XMM%u (vr%u)\n", nreg, creg);
+
+	asmMOVAPSDMemRegv((uint32)&gCPU.vr[creg], nreg);
+}
+
+/*
+ *	Returns the native vector register that is mapped to the client
+ *		vector register.
+ *	Will never emit any code.
+ */
+NativeVectorReg FASTCALL jitcGetClientVectorRegisterMapping(JitcVectorReg creg)
+{
+	return gJITC.c2nVectorReg[creg];
+}
+
+/*
+ *	Makes the vector register the least recently used vector register.
+ *	Will never emit any code.
+ */
+static inline void FASTCALL jitcDiscardVectorRegister(NativeVectorReg nreg)
+{
+	NativeVectorReg lreg, mreg;
+
+	mreg = gJITC.MRUvregs[nreg];
+	lreg = gJITC.LRUvregs[nreg];
+
+	// remove from the list
+	gJITC.MRUvregs[lreg] = mreg;
+	gJITC.LRUvregs[mreg] = lreg;
+
+	mreg = gJITC.MRUvregs[XMM_SENTINEL];
+
+	// insert into the list in the LRU spot
+	gJITC.LRUvregs[nreg] = XMM_SENTINEL;
+	gJITC.MRUvregs[nreg] = mreg;
+
+	gJITC.LRUvregs[mreg] = nreg;
+	gJITC.MRUvregs[XMM_SENTINEL] = nreg;
+}
+
+/*
+ *	Makes the vector register the most recently used vector register.
+ *	Will never emit any code.
+ */
+void FASTCALL jitcTouchVectorRegister(NativeVectorReg nreg)
+{
+	NativeVectorReg lreg, mreg;
+
+	mreg = gJITC.MRUvregs[nreg];
+	lreg = gJITC.LRUvregs[nreg];
+
+	// remove from the list
+	gJITC.MRUvregs[lreg] = mreg;
+	gJITC.LRUvregs[mreg] = lreg;
+
+	lreg = gJITC.LRUvregs[XMM_SENTINEL];
+
+	// insert into the list in the LRU spot
+	gJITC.MRUvregs[nreg] = XMM_SENTINEL;
+	gJITC.LRUvregs[nreg] = lreg;
+
+	gJITC.MRUvregs[lreg] = nreg;
+	gJITC.LRUvregs[XMM_SENTINEL] = nreg;
+}
+
+/*
+ *	Unmaps a native vector register, and marks it least recently used.
+ *	Will not emit any code.
+ */
+void FASTCALL jitcDropSingleVectorRegister(NativeVectorReg nreg)
+{
+	jitcDiscardVectorRegister(nreg);
+	jitcUnmapVectorRegister(nreg);
+}
+
+int FASTCALL jitcAssertFlushedVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO && gJITC.nativeVectorRegState[nreg] == rsDirty) {
+		printf("!!! Unflushed vector XMM%u (vr%u)!\n", nreg, creg);
+		return 1;
+	}
+	return 0;
+}
+int FASTCALL jitcAssertFlushedVectorRegisters()
+{
+	int ret = 0;
+
+	for (JitcVectorReg i=0; i<32; i++)
+		ret |= jitcAssertFlushedVectorRegister(i);
+
+	return ret;
+}
+
+void FASTCALL jitcShowVectorRegisterStatus(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		int status = gJITC.nativeVectorRegState[nreg];
+		char *text;
+
+		if (status == rsUnused)
+			text = "unused";
+		else if (status == rsMapped)
+			text = "mapped";
+		else if (status == rsDirty)
+			text = "dirty";
+		else
+			text = "unknown";
+
+		//printf("*** vr%u => XMM%u (%s)\n", creg, nreg, text);
+	} else {
+		//printf("*** vr%u => memory\n", creg);
+	}
+}
+
+/*
+ *	If the native vector register is marked dirty, then it writes that
+ *		value out to the client vector register store.
+ *	Will produce a store, if the native vector register is dirty.
+ */
+static inline void FASTCALL jitcFlushSingleVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] == rsDirty) {
+		//printf("*** flush: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+		jitcStoreVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Flushes the register, frees it, and makes it least recently used.
+ *	Will produce a store, if the native vector register was dirty.
+ */
+static inline void FASTCALL jitcTrashSingleVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] > rsUnused) {
+		//printf("*** trash: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+	}
+
+	jitcFlushSingleVectorRegister(nreg);
+	jitcDropSingleVectorRegister(nreg);
+}
+
+/*
+ *	Flushes the register, frees it, and makes it most recently used.
+ *	Will produce a store, if the native vector register was dirty.
+ */
+static inline void FASTCALL jitcClobberSingleVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] > rsUnused) {
+		//printf("*** clobber: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+	}
+
+	jitcFlushSingleVectorRegister(nreg);
+	jitcTouchVectorRegister(nreg);
+	jitcUnmapVectorRegister(nreg);
+}
+
+/*
+ *	Allocates a native vector register.
+ *	If hint is non-zero, then it indicates that the value is unlikely
+ *		to be re-used soon, so to keep it at the end of the LRU.
+ *	To use hints, pass hint == the number of temporary registers
+ *	May produce a store, if no native vector registers are available.
+ */
+NativeVectorReg FASTCALL jitcAllocVectorRegister(int hint)
+{
+	NativeVectorReg nreg = gJITC.MRUvregs[XMM_SENTINEL];
+
+	if (hint >= XMM_SENTINEL) {
+		nreg = gJITC.LRUvregs[nreg];
+
+		jitcTrashSingleVectorRegister(nreg);
+	} else if (hint) {
+		for (int i=1; i<hint; i++) {
+			nreg = gJITC.MRUvregs[nreg];
+		}
+
+		jitcTrashSingleVectorRegister(nreg);
+	} else {
+		jitcClobberSingleVectorRegister(nreg);
+	}
+
+	return nreg;
+}
+
+/*
+ *	Returns native vector register that contains value of client
+ *		register or allocates new vector register which maps to
+ *		the client register.
+ *	Marks the register dirty.
+ *
+ *	May produce a store, if no registers are available.
+ *	Will never produce a load.
+ */
+NativeVectorReg FASTCALL jitcMapClientVectorRegisterDirty(JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg == VECTREG_NO) {
+		nreg = jitcAllocVectorRegister(hint);
+
+		jitcMapVectorRegister(nreg, creg);
+	} else if (hint) {
+		jitcDiscardVectorRegister(nreg);
+	} else {
+		jitcTouchVectorRegister(nreg);
+	}
+
+	jitcDirtyVectorRegister(nreg);
+
+	return nreg;
+}
+
+/*
+ *	Returns native vector register that contains the value of the
+ *		client vector register, or allocates new register, and
+ *		loads this value into it.
+ *
+ *	May produce a store, if no register are available.
+ *	May produce a load, if client vector register isn't mapped.
+ */
+NativeVectorReg FASTCALL jitcGetClientVectorRegister(JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg == VECTREG_NO) {
+		nreg = jitcAllocVectorRegister(hint);
+		jitcMapVectorRegister(nreg, creg);
+
+		jitcLoadVectorRegister(nreg);
+	} else if (hint) {
+		jitcDiscardVectorRegister(nreg);
+	} else {
+		jitcTouchVectorRegister(nreg);
+	}
+
+	return nreg;
+}
+
+/*
+ *	Returns native vector register that contains the value of the
+ *		client vector register, or allocates new register, and
+ *		loads this value into it.
+ *	Will mark the native vector register as dirty.
+ *
+ *	May produce a store, if no register are available.
+ *	May produce a load, if client vector register isn't mapped.
+ */
+NativeVectorReg FASTCALL jitcGetClientVectorRegisterDirty(JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = jitcGetClientVectorRegister(creg, hint);
+
+	jitcDirtyVectorRegister(nreg);
+
+	return nreg;
+}
+
+/*
+ *	Flushes native vector register(s).
+ *	Resets dirty flags.
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcFlushVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcFlushSingleVectorRegister((NativeVectorReg)i);
+			jitcUndirtyVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcFlushSingleVectorRegister(nreg);
+		jitcUndirtyVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Flushes native vector register(s).
+ *	Doesn't reset dirty flags.
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcFlushVectorRegisterDirty(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcFlushSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcFlushSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Clobbers native vector register(s).
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcClobberVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcClobberSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcClobberSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Trashes native vector register(s).
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcTrashVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcTrashSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcTrashSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Drops native vector register(s).
+ *	Will not produce any code.
+ */
+void FASTCALL jitcDropVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcDropSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcDropSingleVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcFlushClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcFlushSingleVectorRegister(nreg);
+		jitcUndirtyVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcTrashClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcTrashSingleVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcClobberClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcClobberSingleVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcDropClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcDropSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Renames a native vector register to a different client register.
+ *	Will not emit a load.
+ *	May emit a reg->reg move, if the vector register was in memory.
+ *	May emit a store, if the vector register was dirty
+ */
+NativeVectorReg FASTCALL jitcRenameVectorRegisterDirty(NativeVectorReg reg, JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg == reg) {
+		/*	That's weird... it's already mapped...	*/
+	} else if (nreg != VECTREG_NO) {
+		/*	It's already in a register, so rather than losing
+		 *	reg pool depth, just move the value.
+		 */
+		asmALUPSRegRegv(X86_MOVAPS, nreg, reg);
+	} else {
+		/*	Otherwise, only the source register is in the reg
+		 *	pool, so flush it, then remap it.
+	 	*/
+		JitcVectorReg reg2 = gJITC.n2cVectorReg[reg];
+
+		if (reg2 != VECTREG_NO) {
+			jitcFlushSingleVectorRegister(reg);
+			jitcUnmapVectorRegister(reg);
+		}
+
+		nreg = reg;
+		jitcMapVectorRegister(nreg, creg);
+	}
+
+	if (hint) jitcDiscardVectorRegister(nreg);
+	else      jitcTouchVectorRegister(nreg);
+
+	jitcDirtyVectorRegister(nreg);
+
+	return nreg;
+}
+
+void asmMOVAPSRegvDMem(NativeVectorReg reg, uint32 disp)
+{
+	byte instr[6] = { 0x0f, 0x28 };
+
+	instr[2] = 0x05 | (reg << 3);
+	*((uint32 *)&instr[3]) = disp;
+
+	jitcEmit(instr, 7);
+}
+
+void asmMOVAPSDMemRegv(uint32 disp, NativeVectorReg reg)
+{
+	byte instr[6] = { 0x0f, 0x29 };
+
+	instr[2] = 0x05 | (reg << 3);
+	*((uint32 *)&instr[3]) = disp;
+
+	jitcEmit(instr, 7);
+}
+
+void asmMOVUPSRegvDMem(NativeVectorReg reg, uint32 disp)
+{
+	byte instr[6] = { 0x0f, 0x10 };
+
+	instr[2] = 0x05 | (reg << 3);
+	*((uint32 *)&instr[3]) = disp;
+
+	jitcEmit(instr, 7);
+}
+
+void asmMOVUPSDMemRegv(uint32 disp, NativeVectorReg reg)
+{
+	byte instr[6] = { 0x0f, 0x11 };
+
+	instr[2] = 0x05 | (reg << 3);
+	*((uint32 *)&instr[3]) = disp;
+
+	jitcEmit(instr, 7);
+}
+
+void asmMOVSSRegvDMem(NativeVectorReg reg, uint32 disp)
+{
+	byte instr[6] = { 0xf3, 0x0f, 0x10 };
+
+	instr[3] = 0x05 | (reg << 3);
+	*((uint32 *)&instr[4]) = disp;
+
+	jitcEmit(instr, 8);
+}
+
+void asmMOVSSDMemRegv(uint32 disp, NativeVectorReg reg)
+{
+	byte instr[6] = { 0xf3, 0x0f, 0x11 };
+
+	instr[3] = 0x05 | (reg << 3);
+	*((uint32 *)&instr[4]) = disp;
+ 
+	jitcEmit(instr, 8);
+}
+
+void asmALUPSRegRegv(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
+{
+	byte instr[4] = { 0x0f };
+
+	instr[1] = opc;
+	instr[2] = 0xc0 + (reg1 << 3) + reg2;
+
+	jitcEmit(instr, 3);
+}
+
+void asmALUPSRegvMem(X86ALUPSopc opc, NativeVectorReg reg1, byte *modrm, int len)
+{
+	byte instr[16] = { 0x0f };
+
+	instr[1] = opc;
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg1 << 3);
+
+	jitcEmit(instr, len+2);
+}
+
+void asmPALURegRegv(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
+{
+	byte instr[5] = { 0x66, 0x0f };
+
+	instr[2] = opc;
+	instr[3] = 0xc0 + (reg1 << 3) + reg2;
+
+	jitcEmit(instr, 4);
+}
+
+void asmPALURegvMem(X86PALUopc opc, NativeVectorReg reg1, byte *modrm, int len)
+{
+	byte instr[5] = { 0x66, 0x0f };
+
+	instr[2] = opc;
+	memcpy(&instr[3], modrm, len);
+	instr[3] |= (reg1 << 3);
+
+	jitcEmit(instr, len+3);
+}
+
+void asmSHUFPSRegRegv(NativeVectorReg reg1, NativeVectorReg reg2, int order)
+{
+	byte instr[5] = { 0x0f, 0xc6, 0xc0+(reg1<<3)+reg2, order };
+
+	jitcEmit(instr, 4);
+}
+
+void asmSHUFPSRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order)
+{
+	byte instr[16] = { 0x0f, 0xc6 };
+
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg1 << 3);
+	instr[len+2] = order;
+
+	jitcEmit(instr, len+3);
+}
+
+void asmPSHUFDRegRegv(NativeVectorReg reg1, NativeVectorReg reg2, int order)
+{
+	byte instr[6] = { 0x66, 0x0f, 0x70, 0xc0+(reg1<<3)+reg2, order };
+
+	jitcEmit(instr, 5);
+}
+
+void asmPSHUFDRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order)
+{
+	byte instr[5] = { 0x66, 0x0f, 0x70 };
+
+	memcpy(&instr[3], modrm, len);
+	instr[3] |= (reg1 << 3);
+	instr[len+3] = order;
+
+	jitcEmit(instr, len+4);
 }

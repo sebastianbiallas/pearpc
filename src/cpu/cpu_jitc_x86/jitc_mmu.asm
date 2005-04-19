@@ -144,16 +144,24 @@ extern io_mem_read_glue
 extern io_mem_write_glue
 extern io_mem_read64_glue
 extern io_mem_write64_glue
+extern io_mem_read128_glue
+extern io_mem_write128_glue
+extern io_mem_read128_native_glue
+extern io_mem_write128_native_glue
 global ppc_effective_to_physical_code, ppc_effective_to_physical_data
 global ppc_write_effective_byte_asm
 global ppc_write_effective_half_asm
 global ppc_write_effective_word_asm
 global ppc_write_effective_dword_asm
+global ppc_write_effective_qword_asm
+global ppc_write_effective_qword_sse_asm
 global ppc_read_effective_byte_asm
 global ppc_read_effective_half_z_asm
 global ppc_read_effective_half_s_asm
 global ppc_read_effective_word_asm
 global ppc_read_effective_dword_asm
+global ppc_read_effective_qword_asm
+global ppc_read_effective_qword_sse_asm
 global ppc_mmu_tlb_invalidate_all_asm
 global ppc_mmu_tlb_invalidate_entry_asm
 global ppc_opc_lswi_asm
@@ -1025,6 +1033,69 @@ ppc_write_effective_dword_asm:
 	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;	uint32 FASTCALL ppc_effective_write_qword()
+;;
+;;	IN	eax: address to translate
+;;		edx: address from which to get the values to be written
+;;		esi: current client pc offset
+;;
+;;	WILL NOT RETURN ON EXCEPTION!
+;;
+ppc_write_effective_qword_asm:
+	mov	[gCPU+pc_ofs], esi
+	and	eax, 0xfffffff0
+	push	edx
+
+	push	8			; roll back 8 bytes in case of exception
+	call	ppc_effective_to_physical_data_write
+
+	cmp	eax, [gMemorySize]
+	pop	edx
+	jae	.mmio
+
+	add	eax, [gMemory]
+
+	mov	ebx, [edx]
+	mov	ecx, [edx+4]
+	mov	edi, [edx+8]
+	mov	esi, [edx+12]
+
+	bswap	ebx
+	bswap	ecx
+	bswap	edi
+	bswap	esi
+
+	mov	[eax+12], ebx
+	mov	[eax+8], ecx
+	mov	[eax+4], edi
+	mov	[eax], esi
+	ret
+.mmio:
+	call	io_mem_write128_glue
+	ret
+
+ppc_write_effective_qword_sse_asm:
+	mov	[gCPU+pc_ofs], esi
+	and	eax, 0xfffffff0
+	push	edx
+
+	push	8			; roll back 8 bytes in case of exception
+	call	ppc_effective_to_physical_data_write
+
+	cmp	eax, [gMemorySize]
+	pop	edx
+	jae	.mmio
+
+	add	eax, [gMemory]
+
+	movaps	[eax], xmm0
+	ret
+.mmio:
+	movaps	[edx], xmm0
+	call	io_mem_write128_native_glue
+	ret
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_byte()
 ;;
 ;;	IN	eax: address to translate
@@ -1393,6 +1464,102 @@ ppc_read_effective_dword_asm:
 		inc	eax
 		dec	ebx
 	jnz	.overlapped_mmio_2_loop
+	ret
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;	uint32 FASTCALL ppc_read_effective_qword()
+;;
+;;	IN	eax: address to translate
+;;		edx: address to store the qword
+;;		esi: current client pc offset
+;;
+;;	WILL NOT RETURN ON EXCEPTION!
+;;
+ppc_read_effective_qword_asm:
+	mov	[gCPU+pc_ofs], esi
+	and	eax, 0xfffffff0
+	push	edx
+
+	push	8			; roll back 8 bytes in case of exception
+	call	ppc_effective_to_physical_data_read
+
+	cmp	eax, [gMemorySize]
+	pop	edx
+	jae	.mmio
+
+	add	eax, [gMemory]
+
+	mov	ebx, [eax]
+	mov	ecx, [eax+4]
+	mov	edi, [eax+8]
+	mov	esi, [eax+12]
+
+	bswap	ebx
+	bswap	ecx
+	bswap	edi
+	bswap	esi
+
+	mov	[edx+12], ebx
+	mov	[edx+8], ecx
+	mov	[edx+4], edi
+	mov	[edx], esi
+	ret
+.mmio:
+	call	io_mem_read128_glue
+	ret
+
+ppc_read_effective_qword_sse_asm:
+	mov	[gCPU+pc_ofs], esi
+	and	eax, 0xfffffff0
+	push	edx
+
+	push	8			; roll back 8 bytes in case of exception
+	call	ppc_effective_to_physical_data_read
+
+	cmp	eax, [gMemorySize]
+	pop	edx
+	jae	.mmio
+
+	add	eax, [gMemory]
+
+	movaps	xmm0, [eax]
+
+	mov	ebx, [eax]
+	mov	ecx, [eax+4]
+	mov	edi, [eax+8]
+	mov	esi, [eax+12]
+
+	bswap	ebx
+	bswap	ecx
+	bswap	edi
+	bswap	esi
+
+	mov	[edx+12], ebx
+	mov	[edx+8], ecx
+	mov	[edx+4], edi
+	mov	[edx], esi
+	ret
+.mmio:
+	push	edx
+	call	io_mem_read128_native_glue
+	pop	edx
+
+	movaps	xmm0, [edx]
+
+	mov	eax, [edx]
+	mov	ebx, [edx+4]
+	mov	edi, [edx+8]
+	mov	esi, [edx+12]
+
+	bswap	eax
+	bswap	ebx
+	bswap	edi
+	bswap	esi
+
+	mov	[edx+12], esi
+	mov	[edx+8], edi
+	mov	[edx+4], ebx
+	mov	[edx], eax
 	ret
 
 align 16

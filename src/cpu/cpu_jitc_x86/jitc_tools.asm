@@ -3,6 +3,7 @@
 ;	jitc_tools.asm
 ;
 ;	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+;	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License version 2 as
@@ -126,6 +127,7 @@ extern cpu_doze
 
 global ppc_isi_exception_asm, ppc_dsi_exception_asm, ppc_dsi_exception_special_asm
 global ppc_sc_exception_asm, ppc_no_fpu_exception_asm
+global ppc_no_vec_exception_asm
 global ppc_program_exception_asm
 ;;global ppc_flush_carry_and_flags_asm, 
 global ppc_flush_flags_asm
@@ -625,6 +627,28 @@ ppc_no_fpu_exception_asm:
 	xor	eax, eax
 	mov	[gCPU+current_code_base], eax
 	mov	eax, 0x800	; entry of no fpu exception
+	ppc_new_pc_intern
+
+align 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;	IN:
+;;          esi: pc_ofs
+;;
+;;	does not return, so call this per JMP
+ppc_no_vec_exception_asm:
+	mov	edx, esi
+	mov	[gCPU+pc_ofs], esi
+	mov	eax, [gCPU+msr]
+	add	edx, [gCPU+current_code_base]
+	and	eax, 0x87c0ffff
+	mov	[gCPU+srr0], edx
+	mov	[gCPU+srr1], eax
+	xor	eax, eax
+	call	ppc_set_msr_asm
+	xor	eax, eax
+	mov	[gCPU+current_code_base], eax
+	mov	eax, 0xf20	; entry of no vec exception
 	ppc_new_pc_intern
 
 align 16

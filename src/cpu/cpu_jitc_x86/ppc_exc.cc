@@ -3,6 +3,7 @@
  *	ppc_exc.cc
  *
  *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -66,6 +67,11 @@ bool FASTCALL ppc_exception(uint32 type, uint32 flags, uint32 a)
 	case PPC_EXC_NO_FPU: { // .284
 		gCPU.srr[0] = gCPU.pc;
 		gCPU.srr[1] = gCPU.msr & 0x87c0ffff;
+		break;
+	}
+	case PPC_EXC_NO_VEC: {
+		gCPU.srr[0] = gCPU.pc;
+		gCPU.srr[1] = gCPU.msr & 0x0000ff73;
 		break;
 	}
 	case PPC_EXC_PROGRAM: { // .283

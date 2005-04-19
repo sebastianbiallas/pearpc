@@ -158,6 +158,46 @@ static inline int io_mem_read64(uint32 addr, uint64 &data)
 	return IO_MEM_ACCESS_FATAL;
 }
 
+static inline int io_mem_write128(uint32 addr, uint128 *data)
+{
+	if ((addr >= IO_GCARD_FRAMEBUFFER_PA_START) && (addr < (IO_GCARD_FRAMEBUFFER_PA_END))) {
+		gcard_write128(addr, data);
+		return IO_MEM_ACCESS_OK;
+	}
+	IO_CORE_ERR("no one is responsible for address %08x (write128: %016q%016q from %08x)\n", addr, data->h, data->l, ppc_cpu_get_pc(0));
+	return IO_MEM_ACCESS_FATAL;
+}
+
+static inline int io_mem_write128_native(uint32 addr, uint128 *data)
+{
+	if ((addr >= IO_GCARD_FRAMEBUFFER_PA_START) && (addr < (IO_GCARD_FRAMEBUFFER_PA_END))) {
+		gcard_write128_native(addr, data);
+		return IO_MEM_ACCESS_OK;
+	}
+	IO_CORE_ERR("no one is responsible for address %08x (write128: %016q%016q from %08x)\n", addr, data->h, data->l, ppc_cpu_get_pc(0));
+	return IO_MEM_ACCESS_FATAL;
+}
+
+static inline int io_mem_read128(uint32 addr, uint128 *data)
+{
+	if ((addr >= IO_GCARD_FRAMEBUFFER_PA_START) && (addr < (IO_GCARD_FRAMEBUFFER_PA_END))) {
+		gcard_read128(addr, data);
+		return IO_MEM_ACCESS_OK;
+	}
+	IO_CORE_ERR("no one is responsible for address %08x (read128 from %08x)\n", addr, ppc_cpu_get_pc(0));
+	return IO_MEM_ACCESS_FATAL;
+}
+
+static inline int io_mem_read128_native(uint32 addr, uint128 *data)
+{
+	if ((addr >= IO_GCARD_FRAMEBUFFER_PA_START) && (addr < (IO_GCARD_FRAMEBUFFER_PA_END))) {
+		gcard_read128_native(addr, data);
+		return IO_MEM_ACCESS_OK;
+	}
+	IO_CORE_ERR("no one is responsible for address %08x (read128 from %08x)\n", addr, ppc_cpu_get_pc(0));
+	return IO_MEM_ACCESS_FATAL;
+}
+
 void io_init();
 void io_done();
 void io_init_config();

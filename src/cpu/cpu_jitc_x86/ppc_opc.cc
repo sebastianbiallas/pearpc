@@ -3,6 +3,7 @@
  *	ppc_opc.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -103,6 +104,7 @@ void ppc_opc_gen_check_privilege()
 	if (!gJITC.checkedPriviledge) {
 		jitcClobberCarryAndFlags();
 		jitcFloatRegisterClobberAll();
+		jitcFlushVectorRegister();
 		NativeReg msr = jitcGetClientRegisterMapping(PPC_MSR);
 		if (msr == REG_NO) {
 			asmTESTDMemImm((uint32)&gCPU.msr, MSR_PR);
@@ -208,6 +210,7 @@ JITCFlow ppc_opc_gen_bcx()
 	PPC_OPC_TEMPL_B(gJITC.current_opc, BO, BI, BD);
 	NativeAddress fixup = NULL;
 	jitcFloatRegisterClobberAll();
+	jitcFlushVectorRegister();
 	if (!(BO & 16)) {
 		// only branch if condition
 		if (BO & 4) {
@@ -360,6 +363,7 @@ JITCFlow ppc_opc_gen_bcctrx()
 	uint32 BO, BI, BD;
 	PPC_OPC_TEMPL_XL(gJITC.current_opc, BO, BI, BD);
 	jitcFloatRegisterClobberAll();
+	jitcFlushVectorRegister();
 	if (BO & 16) {
 		// branch always
 		jitcClobberCarryAndFlags();
@@ -423,6 +427,7 @@ JITCFlow ppc_opc_gen_bclrx()
 		PPC_OPC_ERR("not impl.: bclrx + BO&4\n");
 	}
 	jitcFloatRegisterClobberAll();
+	jitcFlushVectorRegister();
 	if (BO & 16) {
 		// branch always
 		jitcClobberCarryAndFlags();
@@ -751,7 +756,7 @@ JITCFlow ppc_opc_gen_mfmsr()
 
 void FASTCALL blbl(uint32 a)
 {
-	PPC_OPC_ERR("invalid spr @%08x\n", a);
+	PPC_OPC_WARN("invalid spr @%08x\n", a);
 }
 
 /*
@@ -768,6 +773,11 @@ void ppc_opc_mfspr()
 		case 1: gCPU.gpr[rD] = gCPU.xer | (gCPU.xer_ca ? XER_CA : 0); return;
 		case 8: gCPU.gpr[rD] = gCPU.lr; return;
 		case 9: gCPU.gpr[rD] = gCPU.ctr; return;
+		}
+	case 8:	// altivec makes this user visible
+		if (spr1 == 0) {
+			gCPU.gpr[rD] = gCPU.vrsave; 
+			return;
 		}
 	}
 	if (gCPU.msr & MSR_PR) {
@@ -817,6 +827,36 @@ void ppc_opc_mfspr()
 		case 31: gCPU.gpr[rD] = gCPU.dbatl[3]; return;
 		}
 		break;
+	case 29:
+		switch (spr1) {
+		case 16:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 17:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 18:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 24:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 25:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 26:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 28:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 29:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 30:
+			gCPU.gpr[rD] = 0;
+			return;
+		}
 	case 31:
 		switch (spr1) {
 		case 16:
@@ -826,6 +866,12 @@ void ppc_opc_mfspr()
 		case 17:
 			PPC_OPC_WARN("read from spr %d:%d (HID1) not supported!\n", spr1, spr2);
 			gCPU.gpr[rD] = gCPU.hid[1];
+			return;
+		case 22:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 23:
+			gCPU.gpr[rD] = 0;
 			return;
 		case 25:
 			PPC_OPC_WARN("read from spr %d:%d (L2CR) not supported! (from %08x)\n", spr1, spr2, gCPU.pc);
@@ -849,6 +895,7 @@ void ppc_opc_mfspr()
 			return;
 		}
 	}
+	fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
 	SINGLESTEP("invalid mfspr\n");
 }
 
@@ -872,6 +919,11 @@ JITCFlow ppc_opc_gen_mfspr()
 		}
 		case 8: move_reg(PPC_GPR(rD), PPC_LR); return flowContinue;
 		case 9: move_reg(PPC_GPR(rD), PPC_CTR); return flowContinue;
+		}
+	case 8:
+		if (spr1 == 0) {
+			move_reg(PPC_GPR(rD), PPC_VRSAVE); 
+			return flowContinue;
 		}
 	}
 	ppc_opc_gen_check_privilege();
@@ -933,10 +985,25 @@ JITCFlow ppc_opc_gen_mfspr()
 		case 31: move_reg(PPC_GPR(rD), PPC_DBATL(3)); return flowContinue;
 		}
 		break;
+	case 29:
+		switch (spr1) {
+		case 16: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 17: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 18: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 24: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 25: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 26: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 28: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 29: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 30: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		}
+		break;
 	case 31:
 		switch (spr1) {
 		case 16: move_reg(PPC_GPR(rD), PPC_HID0); return flowContinue;
 		case 17: move_reg(PPC_GPR(rD), PPC_HID1); return flowContinue;
+		case 22: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
+		case 23: move_reg0(PPC_GPR(rD)); return flowContinue; //g4
 		case 25: move_reg0(PPC_GPR(rD)); return flowContinue;
 		case 27: move_reg0(PPC_GPR(rD)); return flowContinue;
 		case 28: move_reg0(PPC_GPR(rD)); return flowContinue;
@@ -944,10 +1011,11 @@ JITCFlow ppc_opc_gen_mfspr()
 		case 30: move_reg0(PPC_GPR(rD)); return flowContinue;
 		}
 	}
+	//fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
 	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
 	asmJMP((NativeAddress)blbl);
 	return flowContinue;
-	PPC_OPC_ERR("unknown spr %d:%d\n", spr1, spr2);
+	PPC_OPC_ERR("unknown mfspr %d:%d\n", spr1, spr2);
 	return flowEndBlockUnreachable;
 }
 /*
@@ -1288,6 +1356,11 @@ void ppc_opc_mtspr()
 		case 8:	gCPU.lr = gCPU.gpr[rS]; return;
 		case 9:	gCPU.ctr = gCPU.gpr[rS]; return;
 		}
+	case 8:
+		if (spr1 == 0) {
+			gCPU.vrsave = gCPU.gpr[rS]; 
+			return;
+		}
 	}
 	if (gCPU.msr & MSR_PR) {
 		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
@@ -1383,11 +1456,22 @@ void ppc_opc_mtspr()
 			return;
 		}
 		break;
+	case 29:
+		switch(spr1) {
+		case 17: return;
+		case 24: return;
+		case 25: return;
+		case 26: return;
+		}
 	case 31:
 		switch (spr1) {
 		case 16:
 //			PPC_OPC_WARN("write(%08x) to spr %d:%d (HID0) not supported! @%08x\n", gCPU.gpr[rS], spr1, spr2, gCPU.pc);
 			gCPU.hid[0] = gCPU.gpr[rS];
+			return;
+		case 17:
+			PPC_OPC_WARN("write(%08x) to spr %d:%d (HID1) not supported! @%08x\n", gCPU.gpr[rS], spr1, spr2, gCPU.pc);
+			gCPU.hid[1] = gCPU.gpr[rS];
 			return;
 		case 18:
 			PPC_OPC_ERR("write(%08x) to spr %d:%d (IABR) not supported!\n", gCPU.gpr[rS], spr1, spr2);
@@ -1407,8 +1491,10 @@ void ppc_opc_mtspr()
 		case 30:
 //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM3) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
+		case 31: return;
 		}
 	}
+	fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
 	SINGLESTEP("unknown mtspr\n");
 }
 
@@ -1450,6 +1536,11 @@ JITCFlow ppc_opc_gen_mtspr()
 		}
 		case 8:	move_reg(PPC_LR, PPC_GPR(rS)); return flowContinue;
 		case 9:	move_reg(PPC_CTR, PPC_GPR(rS)); return flowContinue;
+		}
+	case 8:
+		if (spr1 == 0) {
+			move_reg(PPC_VRSAVE, PPC_GPR(rS)); 
+			return flowContinue;
 		}
 	}
 	ppc_opc_gen_check_privilege();
@@ -1548,22 +1639,33 @@ JITCFlow ppc_opc_gen_mtspr()
 		asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 		return flowEndBlockUnreachable;
 	}
+	case 29:
+		switch (spr1) {
+		case 17: return flowContinue; //g4
+		case 24: return flowContinue; //g4
+		case 25: return flowContinue; //g4
+		case 26: return flowContinue; //g4
+		}
 	case 31:
 		switch (spr1) {
 		case 16: move_reg(PPC_HID0, PPC_GPR(rS)); return flowContinue;
+		case 17: return flowContinue; //g4
 		case 18: return flowContinue;
-		case 21: return flowContinue;
+		case 21: return flowContinue; //g4
+		case 22: return flowContinue;
 		case 27: return flowContinue;
 		case 28: return flowContinue;
 		case 29: return flowContinue;
 		case 30: return flowContinue;
+		case 31: return flowContinue; //g4
 		}
 	}
 	invalid:
+	//fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
 	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
 	asmJMP((NativeAddress)blbl);
 	return flowContinue;
-	PPC_OPC_ERR("unknown spr %d:%d\n", spr1, spr2);
+	PPC_OPC_ERR("unknown mtspr %d:%d\n", spr1, spr2);
 	return flowEndBlockUnreachable;
 }
 /*
@@ -1904,4 +2006,17 @@ JITCFlow ppc_opc_gen_twi()
 		// TRAP never
 		return flowContinue;
 	}
+}
+
+/*      dcba	    Data Cache Block Allocate
+ *      .???
+ */
+void ppc_opc_dcba()
+{
+	// FIXME: check addr
+}
+JITCFlow ppc_opc_gen_dcba()
+{
+	// FIXME: check addr
+	return flowContinue;
 }

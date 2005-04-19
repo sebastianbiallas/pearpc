@@ -53,6 +53,7 @@
 #	define UNUSED		__attribute__((unused))
 #	define DEPRECATED	__attribute__((deprecated))
 #	define NORETURN		__attribute__((noreturn))
+#	define ALIGN_STRUCT(n)	__attribute__((aligned(n)))
 #else
 #	error "you're not using the GNU C compiler :-( please add the macros and conditionals for your compiler"
 #endif /* !__GNUC__ */
@@ -69,6 +70,19 @@
 
 #ifndef NULL
 #	define NULL 0
+#endif
+
+//FIXME: configure somehow (?)
+#ifndef UINT128
+#	define UINT128
+typedef struct uint128 {
+	uint64 l;
+	uint64 h;
+} uint128;
+typedef struct sint128 {
+	sint64 l;
+	sint64 h;
+} sint128;
 #endif
 
 #endif

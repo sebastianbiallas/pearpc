@@ -1,0 +1,161 @@
+ PearPC AltiVec ChangeLog
+=========================
+
+2005-04-14:
+	- Head merge
+	- Fixed a bug with vcvtuxs that was causing problems with high
+		levels of font smoothing in OSX.
+
+2005-04-10:
+	- OOPS, I had disabled all of the implementations... fixed that
+	- FIXED BUGS: vcmpequhx, vcmpequbx, vcmpgtuhx
+	- FIXED BUG: vcmpgtuhx (this is UH, not SH)
+	- FIXED BUG: vcmpgtuhx, vcmpequhx on conditions where the status
+		flags weren't getting set, the whole half word was not being
+		properly setup (just one byte of it)
+	- FIXED BUG: vpkswss wasn't flushing and droping client registers
+	- SCALAR: vpkuhus, vavgub
+	- This completes the instructions executed by QuickTime playing
+		movies off the Apple Trailer page
+
+2005-04-09:
+	- Removed the vectorized lvx/stvx pair.  There are better ways to
+		accelerate memcopy/memset than to hurt general AltiVec
+		performance.
+	- Reimplemented saturation functions to use less code-space
+	- Implemented the asmFCompSTi() function
+	- Leaving the Neg1 vector in a vector register
+	- SCALAR: vmuleub, vmulesb, vmulesh, vmuloub, vmulosb, vmulosh,
+		vsububm, vsubuwm, vsubcuw, vsubsbs, vsubuhs, vsubshs,
+		vsubuws, vsubsws, vmrglw, vupkhsb, vupklsb, vmhaddshs,
+		vpkshus, vcmpequhx, vcmpgtuhx, vpkswss, vcmpequbx
+	- VECTORIZED: vmrglw
+	- FIXED BUGS: vrfin, vrfip, vrfim, vctsxs, vctuxs, vcfsx, vmrghw
+	- This completes the entirety of the instructions executed during
+		boot up to desktop to quit. (Also all XBench instructions)
+	- DISABLED: vcmpequhx, vcmpequbx, vcmpgtuhx (some small error)
+
+2005-04-05:
+	- Fixed a bug in vctsxs that was preventing it from working.
+	- Reimplemented the *_effective_qword_asm functions, this has produced
+		a slight increase in vector performance, but more so an
+		increase in memory movement functions.
+	- Implemented a new set of functions *_effective_qword_sse_asm, these
+		allow for significant improvements in memory copying. (on my
+		machine this is from 308 raw, 373 altivec, 377 faster)
+		This unforunately decreases overall AltiVec performance.
+	- SCALAR: vctsxs, vctuxs, vfrin, vfrip, vfriz
+	- VECTORIZED: lvx, stvx
+
+2005-03-13:
+	- Fixed a bug with the vector register bookkeeping, which was causing
+		odd errors, and incompatibilities.
+	- SCALAR: vsrb, vsrh, vsrw, vslb, vslh, vslw, vsrab, vsrah, vsraw,
+		vrlb, vmrghw, vspltb, vsplth, vspltw, vpkuhum, vpkuwum,
+		vaddubm, vadduhm, vadduwm, vaddubs, vadduhs, vsubuhm, vsububs,
+		vmuleuh, vmulouh, vmladduhm, vmhraddshs, vmsummbm, vmaxub,
+		vrfim, vlogefp, vexptefp
+	- VECTORIZED: vaddfp, vsubfp, vmaddfp, vnmsubfp, vmrghw, vspltw,
+		vmaxfp, vminfp, vrsqrtefp
+	- Removed FIXME in lvsr's vectorization.  Bookkeeping bug-fixes took
+		care of this.
+	- lvx and stvx are now using a much faster algorithm for getting
+		everything ready, and don't rely on any 64-bit access.
+		This means we remove any need to check for mem-page overlaps.
+
+2004-12-30:
+	- HEAD merge
+
+2004-09-17:
+	- lvsl's vectorization has a FIXME to fix weird graphics bugs that I
+		get.  It's between lvsl, and vspltisw, which are both
+		not codependant instructions, so likely the problem exists
+		in some exception that is failing to flush the vector registers
+		properly.
+
+2004-09-08:
+	- Switched to using ALIGN_STRUCT() macro from Sebastian
+	- VECTORIZED: vrefp, lvsl, lvsr
+
+2004-08-24:
+	- From info from Sebastian jitcClobberAll() now clobbers
+		vector registers.
+	- Fixed wrong Flush/Drop function calls in vpkpx and vsubuhm, this
+		now fixes the vec_Copy in vperm for sure.
+	- Added ALIGN16 macro so that the vector registers are always
+		properly aligned.
+	- Modified the MSR_RFI_SAVE_MASK so that it keeps the MSR_VEC value.
+		It now conforms sufficiently to the AltiVec specs.
+	- Fixed bug with *SHUF* functions in x86asm.cc
+	- SCALAR: vaddubm, vadduwm, vmrghb, vmrglb, vmrglh
+	- VECTORIZED: vsplisw, vspltish, vspltisb
+	- weird bug in interaction of vspltisb and vaddubm.
+		Without flushing all vector registers, vaddubm will produce
+		visual artifacts.  I have no idea why.
+
+2004-08-17:
+	- Fixed a bug with vsel that was added when the last bug was fixed
+	- Working on a head merge
+
+2004-08-15:
+	- Added 16-bit operand opcode support to x86asm.cc
+	- vsubuhm now has vrA == vrD again special cased with 16-bit math
+	- new vperm implementation, should increase speed by performing
+		two permutations at a time.
+	- fixed a bug in vsel where vrA == vrC and vrC were not in a register
+	- isolated vsubuhm and vperm as the root symptoms of the vec_Copy()
+		usage for vperm bug.  I still have no clue why it's broken.
+
+2004-08-13:
+	- Fixed a serious bug in vsubuhm, when vrA == vrD
+	- "ported" a fix from the head branch, to fix some problems some
+		people were experiencing.
+
+2004-08-03:
+	- NEG1 special casing now puts NEG1 in a register
+	- NOT special casing doesn't work with NEG1 in a register
+	- COPY special casing doesn't seem to work right with vperm
+	- Removed the "unknown mtspr/mfspr" messages
+
+2004-07-26:
+	- Started ChangeLog
+	- Vector Register Allocator for XMM registers
+	- COPY special casing: scalar, vectorized
+	- ZERO special casing: scalar, vectorized
+	- NEG1 special casing: scalar, vectorized (SSE2 optimizable)
+	- NOT special casing: scalar, vectorized
+	- Switched (X-Y) to (NEG(Y)+X) to (NOT(Y)+X+1)
+
+Instruction Completion Status:
+	*** MMU
+	- lvx: scalar (vectorization not possible without MMU)
+	- lvebx: scalar (vectorization not possible?)
+	- lvehx: scalar (vectorization not possible?)
+	- lvewx: scalar (vectorization not possible?)
+	- lvsl: scalar
+	- lvsr: scalar
+	- stvwx: scalar (vectorization not possible without MMU)
+	- stvebx: scalar (vecorization not possible?)
+	- stvehx: scalar (vectorization not possible?)
+
+	*** ALU MOST COMMON
+	- vperm: scalar (vectorization not possible)
+	- vsldoi: scalar
+	- vspltisb: scalar, special-case vectorization
+	- vspltish: scalar, special-case vectorization
+	- vspltisw: scalar, special-case vectorization
+	- mfvscr: scalar, vectorized
+	- mtvscr: scalar, vectorized
+	- vor: scalar, vectorized
+	- vxor: scalar, vectorized
+
+	*** ALU OFTEN USED
+	- vsel: scalar, vectorized
+	- vand: scalar, vectorized
+	- vandc: scalar, vectorized
+	- vnor: scalar, vectorized
+	- vsubcuw: interpreted, scalar special case
+	- vrlb: scalar
+	- vsubuhm: scalar
+	- vpkpx: scalar
+	- vmrghh: scalar

@@ -141,6 +141,34 @@ void FASTCALL gcard_write_8(uint32 addr, uint64 data)
 	damageFrameBuffer(addr);
 }
 
+void FASTCALL gcard_write_16(uint32 addr, uint128 *data)
+{
+	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	uint8 *src = (uint8 *)data;
+
+	for (int i=0; i<16; i++) {
+		gFrameBuffer[addr+15-i] = src[i];
+	}
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(gFrameBuffer+addr, data, 16);
+#else
+#error Unsupported endianess
+#endif
+	//*(uint64*)(gFrameBuffer+addr) = MAYBE_PPC_DWORD_TO_BE(data->h);
+	//*(uint64*)(gFrameBuffer+addr+8) = MAYBE_PPC_DWORD_TO_BE(data->l);
+	damageFrameBuffer(addr);
+}
+
+void FASTCALL gcard_write_16_native(uint32 addr, uint128 *data)
+{
+	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
+
+	memmove(gFrameBuffer+addr, data, 16);
+
+	damageFrameBuffer(addr);
+}
+
 void FASTCALL gcard_read_1(uint32 addr, uint32 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
@@ -163,6 +191,31 @@ void FASTCALL gcard_read_8(uint32 addr, uint64 &data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
 	data = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(gFrameBuffer+addr));
+}
+
+void FASTCALL gcard_read_16(uint32 addr, uint128 *data)
+{
+	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	uint8 *store = (uint8 *)data;
+
+	for (int i=0; i<16; i++) {
+		store[i] = gFrameBuffer[addr+15-i];
+	}
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(data, gFrameBuffer+addr, 16);
+#else
+#error Unsupported endianess
+#endif
+	//data->h = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(gFrameBuffer+addr));
+	//data->l = MAYBE_PPC_DWORD_TO_BE(*(uint64*)(gFrameBuffer+addr+8));
+}
+
+void FASTCALL gcard_read_16_native(uint32 addr, uint128 *data)
+{
+	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
+
+	memmove(data, gFrameBuffer+addr, 16);
 }
 
 static bool gVBLon = false;

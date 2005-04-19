@@ -130,6 +130,8 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 				insn.op[opidx++].reg = value;
 			} else if ((operand->flags & PPC_OPERAND_FPR) != 0) {
 				insn.op[opidx++].freg = value;
+			} else if ((operand->flags & PPC_OPERAND_VR) != 0) {
+				insn.op[opidx++].vreg = value;
 			} else if ((operand->flags & PPC_OPERAND_RELATIVE) != 0) {
 				insn.op[opidx++].rel.mem = addr.addr32.offset + value;
 			} else if ((operand->flags & PPC_OPERAND_ABSOLUTE) != 0) {
@@ -250,6 +252,8 @@ char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
 				is += sprintf(is, "%sr%d", cs_default, ppc_insn->op[opidx].reg);
 			} else if ((flags & PPC_OPERAND_FPR) != 0) {
 				is += sprintf(is, "%sf%d", cs_default, ppc_insn->op[opidx].freg);
+			} else if ((flags & PPC_OPERAND_VR) != 0) {
+				is += sprintf(is, "%svr%d", cs_default, ppc_insn->op[opidx].vreg);
 			} else if ((flags & PPC_OPERAND_RELATIVE) != 0) {
 				CPU_ADDR caddr;
 				caddr.addr32.offset = (uint32)ppc_insn->op[opidx].mem.disp;

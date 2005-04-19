@@ -3,6 +3,7 @@
  *	ppc_cpu.h
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -31,6 +32,18 @@
 #define PPC_CLOCK_FREQUENCY	PPC_MHz(200)
 #define PPC_BUS_FREQUENCY	(PPC_CLOCK_FREQUENCY/5)
 #define PPC_TIMEBASE_FREQUENCY	(PPC_BUS_FREQUENCY/4)
+
+typedef union Vector_t {
+        uint64 d[2];
+        sint64 sd[2];
+        float f[4];
+        uint32 w[4];
+        sint32 sw[4];
+        uint16 h[8];
+        sint16 sh[8];
+        uint8 b[16];
+        sint8 sb[16];
+} Vector_t;
 
 struct PPC_CPU_State {
 	// offsetof first entry of this structure must not be 0
@@ -110,14 +123,26 @@ struct PPC_CPU_State {
 	uint32 x87cw;
 	uint32 pc_ofs;
 	uint32 current_code_base;
+
+	// for altivec
+	uint32 vscr;
+	uint32 vrsave;  // spr 256
+	uint32 vtemp;
+	uint64 vtemp64;
+	uint32 vfcw;	// floating point control word store for vect unit
+	uint32 vfcw_save;	// floating point control word save
+	Vector_t vr[36] ALIGN_STRUCT(16);	// <-- this MUST be 16-byte aligned!
 } PACKED;
 
 enum PPC_Register {
 	PPC_REG_NO = 0,
 	PPC_GPR0 = offsetof(PPC_CPU_State, gpr),
 	PPC_FPR1 = offsetof(PPC_CPU_State, fpr),
+	PPC_VR = offsetof(PPC_CPU_State, vr),
 	PPC_CR = offsetof(PPC_CPU_State, cr),
 	PPC_FPSCR = offsetof(PPC_CPU_State, fpscr),
+	PPC_VSCR = offsetof(PPC_CPU_State, vscr),
+	PPC_VRSAVE = offsetof(PPC_CPU_State, vrsave),
 	PPC_XER = offsetof(PPC_CPU_State, xer),
 	PPC_LR = offsetof(PPC_CPU_State, lr),
 	PPC_CTR = offsetof(PPC_CPU_State, ctr),
@@ -151,6 +176,11 @@ enum PPC_CRx {
 #define PPC_FPR(n) ((PPC_Register)(offsetof(PPC_CPU_State, fpr)+(n)*sizeof (uint64)))
 #define PPC_FPR_U(n) ((PPC_Register)(offsetof(PPC_CPU_State, fpr)+4+(n)*sizeof (uint64)))
 #define PPC_FPR_L(n) ((PPC_Register)(offsetof(PPC_CPU_State, fpr)+(n)*sizeof (uint64)))
+#define PPC_VR(n) ((PPC_Register)((n)*sizeof (Vector_t)))
+#define PPC_VR_3(n) ((PPC_Register)(offsetof(PPC_CPU_State, vr)+12+(n)*sizeof (Vector_t)))
+#define PPC_VR_2(n) ((PPC_Register)(offsetof(PPC_CPU_State, vr)+8+(n)*sizeof (Vector_t)))
+#define PPC_VR_1(n) ((PPC_Register)(offsetof(PPC_CPU_State, vr)+4+(n)*sizeof (Vector_t)))
+#define PPC_VR_0(n) ((PPC_Register)(offsetof(PPC_CPU_State, vr)+(n)*sizeof (Vector_t)))
 #define PPC_SR(n) ((PPC_Register)(offsetof(PPC_CPU_State, sr)+(n)*sizeof (uint32)))
 #define PPC_SPRG(n) ((PPC_Register)(offsetof(PPC_CPU_State, sprg)+(n)*sizeof (uint32)))
 #define PPC_IBATU(n) ((PPC_Register)(offsetof(PPC_CPU_State, ibatu)+(n)*sizeof (uint32)))
@@ -254,6 +284,14 @@ FPSCR bits: .70
 #define FPSCR_RN_MINF 3 
 
 /*
+VSCR bits:
+        sat = summary saturation
+        nj = non-java floating-point mode
+*/
+#define VSCR_SAT 1
+#define VSCR_NJ (1<<16)
+
+/*
 xer bits:
 0 so
 1 ov
@@ -316,7 +354,7 @@ msr: .83
 //#define PPC_CPU_UNSUPPORTED_MSR_BITS (/*MSR_POW|*/MSR_ILE|MSR_BE|MSR_IP|MSR_LE)
 #define PPC_CPU_UNSUPPORTED_MSR_BITS (~(MSR_POW | MSR_UNKNOWN | MSR_UNKNOWN2 | MSR_VEC | MSR_EE | MSR_PR | MSR_FP | MSR_ME | MSR_FE0 | MSR_SE | MSR_FE1 | MSR_IR | MSR_DR | MSR_RI))
 
-#define MSR_RFI_SAVE_MASK (0xff73)
+#define MSR_RFI_SAVE_MASK (0x87c0ff73) // was ff73
 
 /*
 BAT Register: .88

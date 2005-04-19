@@ -3,6 +3,7 @@
  *	ppc_mmu.h
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -120,6 +121,14 @@ void ppc_opc_lwz();
 void ppc_opc_lwzu();
 void ppc_opc_lwzux();
 void ppc_opc_lwzx();
+void ppc_opc_lvx();             /* for altivec support */
+void ppc_opc_lvxl();
+void ppc_opc_lvebx();
+void ppc_opc_lvehx();
+void ppc_opc_lvewx();
+void ppc_opc_lvsl();
+void ppc_opc_lvsr();
+void ppc_opc_dst();
 
 void ppc_opc_stb();
 void ppc_opc_stbu();
@@ -148,6 +157,13 @@ void ppc_opc_stwcx_();
 void ppc_opc_stwu();
 void ppc_opc_stwux();
 void ppc_opc_stwx();
+void ppc_opc_stvx();            /* for altivec support */
+void ppc_opc_stvxl();
+void ppc_opc_stvebx();
+void ppc_opc_stvehx();
+void ppc_opc_stvewx();
+void ppc_opc_dstst();
+void ppc_opc_dss();
 
 #endif
 

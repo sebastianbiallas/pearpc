@@ -34,6 +34,18 @@
 #define PPC_BUS_FREQUENCY PPC_MHz(10)
 #define PPC_TIMEBASE_FREQUENCY (PPC_CLOCK_FREQUENCY / TB_TO_PTB_FACTOR)
 
+typedef union Vector_t {
+	uint64 d[2];
+	sint64 sd[2];
+	float f[4];
+	uint32 w[4];
+	sint32 sw[4];
+	uint16 h[8];
+	sint16 sh[8];
+	uint8 b[16];
+	sint8 sb[16];
+} Vector_t;
+
 struct PPC_CPU_State {	
 	// * uisa
 	uint32 gpr[32];
@@ -96,6 +108,11 @@ struct PPC_CPU_State {
 	uint64 pdec;	// more precise version of dec
 	uint64 ptb;	// more precise version of tb
 
+	// for altivec
+	uint32 vscr;
+	uint32 vrsave;	// spr 256
+	Vector_t vr[36];		// <--- this MUST be 16-byte alligned
+	uint32 vtemp;
 };
 
 extern PPC_CPU_State gCPU;
@@ -181,6 +198,14 @@ FPSCR bits: .70
 #define FPSCR_RN_ZERO 1
 #define FPSCR_RN_PINF 2
 #define FPSCR_RN_MINF 3 
+
+/*
+VSCR bits:
+        sat = summary saturation
+        nj = non-java floating-point mode
+*/
+#define VSCR_SAT 1
+#define VSCR_NJ (1<<16)
 
 /*
 xer bits:

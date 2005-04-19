@@ -85,6 +85,12 @@ struct NativeRegType {
 	NativeRegType *lessRU;	// points to a register which was used less recently
 };
 
+struct NativeVectorRegType {
+	NativeVectorReg reg;
+	NativeVectorRegType *moreRU;	// points to a register which was used more recently
+	NativeVectorRegType *lessRU;	// points to a register which was used less recently
+};
+
 enum RegisterState {
 	rsUnused = 0,
 	rsMapped = 1,
@@ -180,10 +186,10 @@ struct JITC {
 	int FPUPrecision;
 	
 	/*
-	 *	Only used for the LRU list
+	 *      Only used for the LRU list
 	 */
 	NativeRegType *nativeRegsList[8];
-		 
+	 
 	/*
 	 *	Points to the least/most recently used register
 	 */
@@ -228,6 +234,23 @@ struct JITC {
 	uint64	destroy_write;
 	uint64	destroy_oopages;
 	uint64	destroy_ootc;
+
+	/*
+	 *	If nativeVectorReg[i] is set, it indicates to which client
+	 *	vector register this native vector register corrensponds.
+	 */
+	JitcVectorReg n2cVectorReg[9];
+	NativeVectorReg c2nVectorReg[36];
+
+	RegisterState nativeVectorRegState[9];
+
+	/*
+	 *	Only used for the LRU list.
+	 *	Subscript 8 is the sentinel.
+	 */
+	NativeVectorReg LRUvregs[9];
+	NativeVectorReg MRUvregs[9];
+	int nativeVectorReg;
 };
 extern JITC gJITC;
 
@@ -245,6 +268,7 @@ void jitc_done();
 static UNUSED void ppc_opc_gen_interpret(ppc_opc_function func) 
 {
 	jitcClobberAll();
+
 	byte modrm[6];
 	asmALUMemImm(X86_MOV, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.current_opc), gJITC.current_opc);
 	asmCALL((NativeAddress)func);

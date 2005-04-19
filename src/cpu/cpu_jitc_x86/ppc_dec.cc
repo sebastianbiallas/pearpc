@@ -3,6 +3,7 @@
  *	ppc_dec.cc
  *
  *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -18,16 +19,19 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+
 #include <cstring>
 
 #include "system/types.h"
 #include "debug/tracers.h"
+#include "cpu/cpu.h"
 #include "ppc_alu.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
 #include "ppc_esc.h"
 #include "ppc_exc.h"
 #include "ppc_fpu.h"
+#include "ppc_vec.h"
 #include "ppc_mmu.h"
 #include "ppc_opc.h"
 #include "jitc_asm.h"
@@ -117,6 +121,7 @@ static JITCFlow ppc_opc_gen_special()
 	}
 	if (gJITC.pc == (gPromOSIEntry&0xfff) && gJITC.current_opc == PROM_MAGIC_OPCODE) {
 		jitcClobberAll();
+
 		asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
 		asmALURegImm(X86_ADD, EAX, gJITC.pc);
 		asmMOVDMemReg((uint32)&gCPU.pc, EAX);
@@ -291,6 +296,7 @@ static void ppc_opc_init_group2()
 	ppc_opc_table_group2[695] = ppc_opc_stfsux;
 	ppc_opc_table_group2[725] = ppc_opc_stswi;
 	ppc_opc_table_group2[727] = ppc_opc_stfdx;
+	ppc_opc_table_group2[758] = ppc_opc_dcba;
 	ppc_opc_table_group2[759] = ppc_opc_stfdux;
 	ppc_opc_table_group2[790] = ppc_opc_lhbrx;
 	ppc_opc_table_group2[792] = ppc_opc_srawx;
@@ -384,6 +390,7 @@ static void ppc_opc_init_group2()
 	ppc_opc_table_gen_group2[695] = ppc_opc_gen_stfsux;
 	ppc_opc_table_gen_group2[725] = ppc_opc_gen_stswi;
 	ppc_opc_table_gen_group2[727] = ppc_opc_gen_stfdx;
+	ppc_opc_table_gen_group2[758] = ppc_opc_gen_dcba;
 	ppc_opc_table_gen_group2[759] = ppc_opc_gen_stfdux;
 	ppc_opc_table_gen_group2[790] = ppc_opc_gen_lhbrx;
 	ppc_opc_table_gen_group2[792] = ppc_opc_gen_srawx;
@@ -395,6 +402,41 @@ static void ppc_opc_init_group2()
 	ppc_opc_table_gen_group2[982] = ppc_opc_gen_icbi;
 	ppc_opc_table_gen_group2[983] = ppc_opc_gen_stfiwx;
 	ppc_opc_table_gen_group2[1014] = ppc_opc_gen_dcbz;
+
+	if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
+		/* Added for Altivec support */
+		ppc_opc_table_group2[6] = ppc_opc_lvsl;
+		ppc_opc_table_group2[7] = ppc_opc_lvebx;
+		ppc_opc_table_group2[38] = ppc_opc_lvsr;
+		ppc_opc_table_group2[39] = ppc_opc_lvehx;
+		ppc_opc_table_group2[71] = ppc_opc_lvewx;
+		ppc_opc_table_group2[103] = ppc_opc_lvx;
+		ppc_opc_table_group2[135] = ppc_opc_stvebx;
+		ppc_opc_table_group2[167] = ppc_opc_stvehx;
+		ppc_opc_table_group2[199] = ppc_opc_stvewx;
+		ppc_opc_table_group2[231] = ppc_opc_stvx;
+		ppc_opc_table_group2[342] = ppc_opc_dst;
+		ppc_opc_table_group2[359] = ppc_opc_lvxl;
+		ppc_opc_table_group2[374] = ppc_opc_dstst;
+		ppc_opc_table_group2[487] = ppc_opc_stvxl;
+		ppc_opc_table_group2[822] = ppc_opc_dss;
+
+		ppc_opc_table_gen_group2[6] = ppc_opc_gen_lvsl;
+		ppc_opc_table_gen_group2[7] = ppc_opc_gen_lvebx;
+		ppc_opc_table_gen_group2[38] = ppc_opc_gen_lvsr;
+		ppc_opc_table_gen_group2[39] = ppc_opc_gen_lvehx;
+		ppc_opc_table_gen_group2[71] = ppc_opc_gen_lvewx;
+		ppc_opc_table_gen_group2[103] = ppc_opc_gen_lvx;
+		ppc_opc_table_gen_group2[135] = ppc_opc_gen_stvebx;
+		ppc_opc_table_gen_group2[167] = ppc_opc_gen_stvehx;
+		ppc_opc_table_gen_group2[199] = ppc_opc_gen_stvewx;
+		ppc_opc_table_gen_group2[231] = ppc_opc_gen_stvx;
+		ppc_opc_table_gen_group2[342] = ppc_opc_gen_dst;
+		ppc_opc_table_gen_group2[359] = ppc_opc_gen_lvxl;
+		ppc_opc_table_gen_group2[374] = ppc_opc_gen_dstst;
+		ppc_opc_table_gen_group2[487] = ppc_opc_gen_stvxl;
+		ppc_opc_table_gen_group2[822] = ppc_opc_gen_dss;
+	}
 }
 
 // main opcode 31
@@ -541,12 +583,401 @@ static JITCFlow ppc_opc_gen_group_f2()
 	return ppc_opc_gen_invalid();
 }
 
+ppc_opc_function ppc_opc_table_groupv[965];
+ppc_opc_gen_function ppc_opc_table_gen_groupv[965];
+
+static void ppc_opc_init_groupv()
+{
+	for (uint i=0; i<(sizeof ppc_opc_table_groupv / sizeof ppc_opc_table_groupv[0]);i++) {
+		ppc_opc_table_groupv[i] = ppc_opc_invalid;
+		ppc_opc_table_gen_groupv[i] = ppc_opc_gen_invalid;
+	}
+	ppc_opc_table_groupv[0] = ppc_opc_vaddubm;
+	ppc_opc_table_groupv[1] = ppc_opc_vmaxub;
+	ppc_opc_table_groupv[2] = ppc_opc_vrlb;
+	ppc_opc_table_groupv[4] = ppc_opc_vmuloub;
+	ppc_opc_table_groupv[5] = ppc_opc_vaddfp;
+	ppc_opc_table_groupv[6] = ppc_opc_vmrghb;
+	ppc_opc_table_groupv[7] = ppc_opc_vpkuhum;
+	ppc_opc_table_groupv[32] = ppc_opc_vadduhm;
+	ppc_opc_table_groupv[33] = ppc_opc_vmaxuh;
+	ppc_opc_table_groupv[34] = ppc_opc_vrlh;
+	ppc_opc_table_groupv[36] = ppc_opc_vmulouh;
+	ppc_opc_table_groupv[37] = ppc_opc_vsubfp;
+	ppc_opc_table_groupv[38] = ppc_opc_vmrghh;
+	ppc_opc_table_groupv[39] = ppc_opc_vpkuwum;
+	ppc_opc_table_groupv[42] = ppc_opc_vpkpx;
+	ppc_opc_table_groupv[64] = ppc_opc_vadduwm;
+	ppc_opc_table_groupv[65] = ppc_opc_vmaxuw;
+	ppc_opc_table_groupv[66] = ppc_opc_vrlw;
+	ppc_opc_table_groupv[70] = ppc_opc_vmrghw;
+	ppc_opc_table_groupv[71] = ppc_opc_vpkuhus;
+	ppc_opc_table_groupv[103] = ppc_opc_vpkuwus;
+	ppc_opc_table_groupv[129] = ppc_opc_vmaxsb;
+	ppc_opc_table_groupv[130] = ppc_opc_vslb;
+	ppc_opc_table_groupv[132] = ppc_opc_vmulosb;
+	ppc_opc_table_groupv[133] = ppc_opc_vrefp;
+	ppc_opc_table_groupv[134] = ppc_opc_vmrglb;
+	ppc_opc_table_groupv[135] = ppc_opc_vpkshus;
+	ppc_opc_table_groupv[161] = ppc_opc_vmaxsh;
+	ppc_opc_table_groupv[162] = ppc_opc_vslh;
+	ppc_opc_table_groupv[164] = ppc_opc_vmulosh;
+	ppc_opc_table_groupv[165] = ppc_opc_vrsqrtefp;
+	ppc_opc_table_groupv[166] = ppc_opc_vmrglh;
+	ppc_opc_table_groupv[167] = ppc_opc_vpkswus;
+	ppc_opc_table_groupv[192] = ppc_opc_vaddcuw;
+	ppc_opc_table_groupv[193] = ppc_opc_vmaxsw;
+	ppc_opc_table_groupv[194] = ppc_opc_vslw;
+	ppc_opc_table_groupv[197] = ppc_opc_vexptefp;
+	ppc_opc_table_groupv[198] = ppc_opc_vmrglw;
+	ppc_opc_table_groupv[199] = ppc_opc_vpkshss;
+	ppc_opc_table_groupv[226] = ppc_opc_vsl;
+	ppc_opc_table_groupv[229] = ppc_opc_vlogefp;
+	ppc_opc_table_groupv[231] = ppc_opc_vpkswss;
+	ppc_opc_table_groupv[256] = ppc_opc_vaddubs;
+	ppc_opc_table_groupv[257] = ppc_opc_vminub;
+	ppc_opc_table_groupv[258] = ppc_opc_vsrb;
+	ppc_opc_table_groupv[260] = ppc_opc_vmuleub;
+	ppc_opc_table_groupv[261] = ppc_opc_vrfin;
+	ppc_opc_table_groupv[262] = ppc_opc_vspltb;
+	ppc_opc_table_groupv[263] = ppc_opc_vupkhsb;
+	ppc_opc_table_groupv[288] = ppc_opc_vadduhs;
+	ppc_opc_table_groupv[289] = ppc_opc_vminuh;
+	ppc_opc_table_groupv[290] = ppc_opc_vsrh;
+	ppc_opc_table_groupv[292] = ppc_opc_vmuleuh;
+	ppc_opc_table_groupv[293] = ppc_opc_vrfiz;
+	ppc_opc_table_groupv[294] = ppc_opc_vsplth;
+	ppc_opc_table_groupv[295] = ppc_opc_vupkhsh;
+	ppc_opc_table_groupv[320] = ppc_opc_vadduws;
+	ppc_opc_table_groupv[321] = ppc_opc_vminuw;
+	ppc_opc_table_groupv[322] = ppc_opc_vsrw;
+	ppc_opc_table_groupv[325] = ppc_opc_vrfip;
+	ppc_opc_table_groupv[326] = ppc_opc_vspltw;
+	ppc_opc_table_groupv[327] = ppc_opc_vupklsb;
+	ppc_opc_table_groupv[354] = ppc_opc_vsr;
+	ppc_opc_table_groupv[357] = ppc_opc_vrfim;
+	ppc_opc_table_groupv[359] = ppc_opc_vupklsh;
+	ppc_opc_table_groupv[384] = ppc_opc_vaddsbs;
+	ppc_opc_table_groupv[385] = ppc_opc_vminsb;
+	ppc_opc_table_groupv[386] = ppc_opc_vsrab;
+	ppc_opc_table_groupv[388] = ppc_opc_vmulesb;
+	ppc_opc_table_groupv[389] = ppc_opc_vcfux;
+	ppc_opc_table_groupv[390] = ppc_opc_vspltisb;
+	ppc_opc_table_groupv[391] = ppc_opc_vpkpx;
+	ppc_opc_table_groupv[416] = ppc_opc_vaddshs;
+	ppc_opc_table_groupv[417] = ppc_opc_vminsh;
+	ppc_opc_table_groupv[418] = ppc_opc_vsrah;
+	ppc_opc_table_groupv[420] = ppc_opc_vmulesh;
+	ppc_opc_table_groupv[421] = ppc_opc_vcfsx;
+	ppc_opc_table_groupv[422] = ppc_opc_vspltish;
+	ppc_opc_table_groupv[423] = ppc_opc_vupkhpx;
+	ppc_opc_table_groupv[448] = ppc_opc_vaddsws;
+	ppc_opc_table_groupv[449] = ppc_opc_vminsw;
+	ppc_opc_table_groupv[450] = ppc_opc_vsraw;
+	ppc_opc_table_groupv[453] = ppc_opc_vctuxs;
+	ppc_opc_table_groupv[454] = ppc_opc_vspltisw;
+	ppc_opc_table_groupv[485] = ppc_opc_vctsxs;
+	ppc_opc_table_groupv[487] = ppc_opc_vupklpx;
+	ppc_opc_table_groupv[512] = ppc_opc_vsububm;
+	ppc_opc_table_groupv[513] = ppc_opc_vavgub;
+	ppc_opc_table_groupv[514] = ppc_opc_vand;
+	ppc_opc_table_groupv[517] = ppc_opc_vmaxfp;
+	ppc_opc_table_groupv[518] = ppc_opc_vslo;
+	ppc_opc_table_groupv[544] = ppc_opc_vsubuhm;
+	ppc_opc_table_groupv[545] = ppc_opc_vavguh;
+	ppc_opc_table_groupv[546] = ppc_opc_vandc;
+	ppc_opc_table_groupv[549] = ppc_opc_vminfp;
+	ppc_opc_table_groupv[550] = ppc_opc_vsro;
+	ppc_opc_table_groupv[576] = ppc_opc_vsubuwm;
+	ppc_opc_table_groupv[577] = ppc_opc_vavguw;
+	ppc_opc_table_groupv[578] = ppc_opc_vor;
+	ppc_opc_table_groupv[610] = ppc_opc_vxor;
+	ppc_opc_table_groupv[641] = ppc_opc_vavgsb;
+	ppc_opc_table_groupv[642] = ppc_opc_vnor;
+	ppc_opc_table_groupv[673] = ppc_opc_vavgsh;
+	ppc_opc_table_groupv[704] = ppc_opc_vsubcuw;
+	ppc_opc_table_groupv[705] = ppc_opc_vavgsw;
+	ppc_opc_table_groupv[768] = ppc_opc_vsububs;
+	ppc_opc_table_groupv[770] = ppc_opc_mfvscr;
+	ppc_opc_table_groupv[772] = ppc_opc_vsum4ubs;
+	ppc_opc_table_groupv[800] = ppc_opc_vsubuhs;
+	ppc_opc_table_groupv[802] = ppc_opc_mtvscr;
+	ppc_opc_table_groupv[804] = ppc_opc_vsum4shs;
+	ppc_opc_table_groupv[832] = ppc_opc_vsubuws;
+	ppc_opc_table_groupv[836] = ppc_opc_vsum2sws;
+	ppc_opc_table_groupv[896] = ppc_opc_vsubsbs;
+	ppc_opc_table_groupv[900] = ppc_opc_vsum4sbs;
+	ppc_opc_table_groupv[928] = ppc_opc_vsubshs;
+	ppc_opc_table_groupv[960] = ppc_opc_vsubsws;
+	ppc_opc_table_groupv[964] = ppc_opc_vsumsws;
+
+	ppc_opc_table_gen_groupv[0] = ppc_opc_gen_vaddubm;
+	ppc_opc_table_gen_groupv[1] = ppc_opc_gen_vmaxub;
+	ppc_opc_table_gen_groupv[2] = ppc_opc_gen_vrlb;
+	ppc_opc_table_gen_groupv[4] = ppc_opc_gen_vmuloub;
+	ppc_opc_table_gen_groupv[5] = ppc_opc_gen_vaddfp;
+	ppc_opc_table_gen_groupv[6] = ppc_opc_gen_vmrghb;
+	ppc_opc_table_gen_groupv[7] = ppc_opc_gen_vpkuhum;
+	ppc_opc_table_gen_groupv[32] = ppc_opc_gen_vadduhm;
+	ppc_opc_table_gen_groupv[33] = ppc_opc_gen_vmaxuh;
+	ppc_opc_table_gen_groupv[34] = ppc_opc_gen_vrlh;
+	ppc_opc_table_gen_groupv[36] = ppc_opc_gen_vmulouh;
+	ppc_opc_table_gen_groupv[37] = ppc_opc_gen_vsubfp;
+	ppc_opc_table_gen_groupv[38] = ppc_opc_gen_vmrghh;
+	ppc_opc_table_gen_groupv[39] = ppc_opc_gen_vpkuwum;
+	ppc_opc_table_gen_groupv[42] = ppc_opc_gen_vpkpx;
+	ppc_opc_table_gen_groupv[64] = ppc_opc_gen_vadduwm;
+	ppc_opc_table_gen_groupv[65] = ppc_opc_gen_vmaxuw;
+	ppc_opc_table_gen_groupv[66] = ppc_opc_gen_vrlw;
+	ppc_opc_table_gen_groupv[70] = ppc_opc_gen_vmrghw;
+	ppc_opc_table_gen_groupv[71] = ppc_opc_gen_vpkuhus;
+	ppc_opc_table_gen_groupv[103] = ppc_opc_gen_vpkuwus;
+	ppc_opc_table_gen_groupv[129] = ppc_opc_gen_vmaxsb;
+	ppc_opc_table_gen_groupv[130] = ppc_opc_gen_vslb;
+	ppc_opc_table_gen_groupv[132] = ppc_opc_gen_vmulosb;
+	ppc_opc_table_gen_groupv[133] = ppc_opc_gen_vrefp;
+	ppc_opc_table_gen_groupv[134] = ppc_opc_gen_vmrglb;
+	ppc_opc_table_gen_groupv[135] = ppc_opc_gen_vpkshus;
+	ppc_opc_table_gen_groupv[161] = ppc_opc_gen_vmaxsh;
+	ppc_opc_table_gen_groupv[162] = ppc_opc_gen_vslh;
+	ppc_opc_table_gen_groupv[164] = ppc_opc_gen_vmulosh;
+	ppc_opc_table_gen_groupv[165] = ppc_opc_gen_vrsqrtefp;
+	ppc_opc_table_gen_groupv[166] = ppc_opc_gen_vmrglh;
+	ppc_opc_table_gen_groupv[167] = ppc_opc_gen_vpkswus;
+	ppc_opc_table_gen_groupv[192] = ppc_opc_gen_vaddcuw;
+	ppc_opc_table_gen_groupv[193] = ppc_opc_gen_vmaxsw;
+	ppc_opc_table_gen_groupv[194] = ppc_opc_gen_vslw;
+	ppc_opc_table_gen_groupv[197] = ppc_opc_gen_vexptefp;
+	ppc_opc_table_gen_groupv[198] = ppc_opc_gen_vmrglw;
+	ppc_opc_table_gen_groupv[199] = ppc_opc_gen_vpkshss;
+	ppc_opc_table_gen_groupv[226] = ppc_opc_gen_vsl;
+	ppc_opc_table_gen_groupv[229] = ppc_opc_gen_vlogefp;
+	ppc_opc_table_gen_groupv[231] = ppc_opc_gen_vpkswss;
+	ppc_opc_table_gen_groupv[256] = ppc_opc_gen_vaddubs;
+	ppc_opc_table_gen_groupv[257] = ppc_opc_gen_vminub;
+	ppc_opc_table_gen_groupv[258] = ppc_opc_gen_vsrb;
+	ppc_opc_table_gen_groupv[260] = ppc_opc_gen_vmuleub;
+	ppc_opc_table_gen_groupv[261] = ppc_opc_gen_vrfin;
+	ppc_opc_table_gen_groupv[262] = ppc_opc_gen_vspltb;
+	ppc_opc_table_gen_groupv[263] = ppc_opc_gen_vupkhsb;
+	ppc_opc_table_gen_groupv[288] = ppc_opc_gen_vadduhs;
+	ppc_opc_table_gen_groupv[289] = ppc_opc_gen_vminuh;
+	ppc_opc_table_gen_groupv[290] = ppc_opc_gen_vsrh;
+	ppc_opc_table_gen_groupv[292] = ppc_opc_gen_vmuleuh;
+	ppc_opc_table_gen_groupv[293] = ppc_opc_gen_vrfiz;
+	ppc_opc_table_gen_groupv[294] = ppc_opc_gen_vsplth;
+	ppc_opc_table_gen_groupv[295] = ppc_opc_gen_vupkhsh;
+	ppc_opc_table_gen_groupv[320] = ppc_opc_gen_vadduws;
+	ppc_opc_table_gen_groupv[321] = ppc_opc_gen_vminuw;
+	ppc_opc_table_gen_groupv[322] = ppc_opc_gen_vsrw;
+	ppc_opc_table_gen_groupv[325] = ppc_opc_gen_vrfip;
+	ppc_opc_table_gen_groupv[326] = ppc_opc_gen_vspltw;
+	ppc_opc_table_gen_groupv[327] = ppc_opc_gen_vupklsb;
+	ppc_opc_table_gen_groupv[354] = ppc_opc_gen_vsr;
+	ppc_opc_table_gen_groupv[357] = ppc_opc_gen_vrfim;
+	ppc_opc_table_gen_groupv[359] = ppc_opc_gen_vupklsh;
+	ppc_opc_table_gen_groupv[384] = ppc_opc_gen_vaddsbs;
+	ppc_opc_table_gen_groupv[385] = ppc_opc_gen_vminsb;
+	ppc_opc_table_gen_groupv[386] = ppc_opc_gen_vsrab;
+	ppc_opc_table_gen_groupv[388] = ppc_opc_gen_vmulesb;
+	ppc_opc_table_gen_groupv[389] = ppc_opc_gen_vcfux;
+	ppc_opc_table_gen_groupv[390] = ppc_opc_gen_vspltisb;
+	ppc_opc_table_gen_groupv[391] = ppc_opc_gen_vpkpx;
+	ppc_opc_table_gen_groupv[416] = ppc_opc_gen_vaddshs;
+	ppc_opc_table_gen_groupv[417] = ppc_opc_gen_vminsh;
+	ppc_opc_table_gen_groupv[418] = ppc_opc_gen_vsrah;
+	ppc_opc_table_gen_groupv[420] = ppc_opc_gen_vmulesh;
+	ppc_opc_table_gen_groupv[421] = ppc_opc_gen_vcfsx;
+	ppc_opc_table_gen_groupv[422] = ppc_opc_gen_vspltish;
+	ppc_opc_table_gen_groupv[423] = ppc_opc_gen_vupkhpx;
+	ppc_opc_table_gen_groupv[448] = ppc_opc_gen_vaddsws;
+	ppc_opc_table_gen_groupv[449] = ppc_opc_gen_vminsw;
+	ppc_opc_table_gen_groupv[450] = ppc_opc_gen_vsraw;
+	ppc_opc_table_gen_groupv[453] = ppc_opc_gen_vctuxs;
+	ppc_opc_table_gen_groupv[454] = ppc_opc_gen_vspltisw;
+	ppc_opc_table_gen_groupv[485] = ppc_opc_gen_vctsxs;
+	ppc_opc_table_gen_groupv[487] = ppc_opc_gen_vupklpx;
+	ppc_opc_table_gen_groupv[512] = ppc_opc_gen_vsububm;
+	ppc_opc_table_gen_groupv[513] = ppc_opc_gen_vavgub;
+	ppc_opc_table_gen_groupv[514] = ppc_opc_gen_vand;
+	ppc_opc_table_gen_groupv[517] = ppc_opc_gen_vmaxfp;
+	ppc_opc_table_gen_groupv[518] = ppc_opc_gen_vslo;
+	ppc_opc_table_gen_groupv[544] = ppc_opc_gen_vsubuhm;
+	ppc_opc_table_gen_groupv[545] = ppc_opc_gen_vavguh;
+	ppc_opc_table_gen_groupv[546] = ppc_opc_gen_vandc;
+	ppc_opc_table_gen_groupv[549] = ppc_opc_gen_vminfp;
+	ppc_opc_table_gen_groupv[550] = ppc_opc_gen_vsro;
+	ppc_opc_table_gen_groupv[576] = ppc_opc_gen_vsubuwm;
+	ppc_opc_table_gen_groupv[577] = ppc_opc_gen_vavguw;
+	ppc_opc_table_gen_groupv[578] = ppc_opc_gen_vor;
+	ppc_opc_table_gen_groupv[610] = ppc_opc_gen_vxor;
+	ppc_opc_table_gen_groupv[641] = ppc_opc_gen_vavgsb;
+	ppc_opc_table_gen_groupv[642] = ppc_opc_gen_vnor;
+	ppc_opc_table_gen_groupv[673] = ppc_opc_gen_vavgsh;
+	ppc_opc_table_gen_groupv[704] = ppc_opc_gen_vsubcuw;
+	ppc_opc_table_gen_groupv[705] = ppc_opc_gen_vavgsw;
+	ppc_opc_table_gen_groupv[768] = ppc_opc_gen_vsububs;
+	ppc_opc_table_gen_groupv[770] = ppc_opc_gen_mfvscr;
+	ppc_opc_table_gen_groupv[772] = ppc_opc_gen_vsum4ubs;
+	ppc_opc_table_gen_groupv[800] = ppc_opc_gen_vsubuhs;
+	ppc_opc_table_gen_groupv[802] = ppc_opc_gen_mtvscr;
+	ppc_opc_table_gen_groupv[804] = ppc_opc_gen_vsum4shs;
+	ppc_opc_table_gen_groupv[832] = ppc_opc_gen_vsubuws;
+	ppc_opc_table_gen_groupv[836] = ppc_opc_gen_vsum2sws;
+	ppc_opc_table_gen_groupv[896] = ppc_opc_gen_vsubsbs;
+	ppc_opc_table_gen_groupv[900] = ppc_opc_gen_vsum4sbs;
+	ppc_opc_table_gen_groupv[928] = ppc_opc_gen_vsubshs;
+	ppc_opc_table_gen_groupv[960] = ppc_opc_gen_vsubsws;
+	ppc_opc_table_gen_groupv[964] = ppc_opc_gen_vsumsws;
+
+	/* Put any MMX/SSE/SSE2 optimizations here under conditional
+	 *   of a CPU caps.
+	 */
+}
+
+// main opcode 04
+static void ppc_opc_group_v()
+{
+	uint32 ext = PPC_OPC_EXT(gCPU.current_opc);
+#ifndef  __VEC_EXC_OFF__
+	if ((gCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(PPC_EXC_NO_VEC);
+		return;
+	}
+#endif
+	switch(ext & 0x1f) {
+		case 16:
+			if (gCPU.current_opc & PPC_OPC_Rc)
+				return ppc_opc_vmhraddshs();
+			else
+				return ppc_opc_vmhaddshs();
+		case 17:	return ppc_opc_vmladduhm();
+		case 18:
+			if (gCPU.current_opc & PPC_OPC_Rc)
+				return ppc_opc_vmsummbm();
+			else
+				return ppc_opc_vmsumubm();
+		case 19:
+			if (gCPU.current_opc & PPC_OPC_Rc)
+				return ppc_opc_vmsumuhs();
+			else
+				return ppc_opc_vmsumuhm();
+		case 20:
+			if (gCPU.current_opc & PPC_OPC_Rc)
+				return ppc_opc_vmsumshs();
+			else
+				return ppc_opc_vmsumshm();
+		case 21:
+			if (gCPU.current_opc & PPC_OPC_Rc)
+				return ppc_opc_vperm();
+			else
+				return ppc_opc_vsel();
+		case 22:	return ppc_opc_vsldoi();
+		case 23:
+			if (gCPU.current_opc & PPC_OPC_Rc)
+				return ppc_opc_vnmsubfp();
+			else
+				return ppc_opc_vmaddfp();
+	}
+	switch(ext & 0x1ff)
+	{
+		case 3: return ppc_opc_vcmpequbx();
+		case 35: return ppc_opc_vcmpequhx();
+		case 67: return ppc_opc_vcmpequwx();
+		case 99: return ppc_opc_vcmpeqfpx();
+		case 227: return ppc_opc_vcmpgefpx();
+		case 259: return ppc_opc_vcmpgtubx();
+		case 291: return ppc_opc_vcmpgtuhx();
+		case 323: return ppc_opc_vcmpgtuwx();
+		case 355: return ppc_opc_vcmpgtfpx();
+		case 387: return ppc_opc_vcmpgtsbx();
+		case 419: return ppc_opc_vcmpgtshx();
+		case 451: return ppc_opc_vcmpgtswx();
+		case 483: return ppc_opc_vcmpbfpx();
+	}
+
+	if (ext >= (sizeof ppc_opc_table_groupv / sizeof ppc_opc_table_groupv[0])) {
+		return ppc_opc_invalid();
+	}
+	return ppc_opc_table_groupv[ext]();
+}
+
+// main opcode 04
+static JITCFlow ppc_opc_gen_group_v()
+{
+	uint32 ext = PPC_OPC_EXT(gJITC.current_opc);
+	int vrS = (gJITC.current_opc >> 21) & 0x1f;
+
+	ppc_opc_gen_check_vec();
+
+	if (vrS == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	switch(ext & 0x1f) {
+		case 16:
+			if (gJITC.current_opc & PPC_OPC_Rc)
+				return ppc_opc_gen_vmhraddshs();
+			else
+				return ppc_opc_gen_vmhaddshs();
+		case 17:	return ppc_opc_gen_vmladduhm();
+		case 18:
+			if (gJITC.current_opc & PPC_OPC_Rc)
+				return ppc_opc_gen_vmsummbm();
+			else
+				return ppc_opc_gen_vmsumubm();
+		case 19:
+			if (gJITC.current_opc & PPC_OPC_Rc)
+				return ppc_opc_gen_vmsumuhs();
+			else
+				return ppc_opc_gen_vmsumuhm();
+		case 20:
+			if (gJITC.current_opc & PPC_OPC_Rc)
+				return ppc_opc_gen_vmsumshs();
+			else
+				return ppc_opc_gen_vmsumshm();
+		case 21:
+			if (gJITC.current_opc & PPC_OPC_Rc)
+				return ppc_opc_gen_vperm();
+			else
+				return ppc_opc_gen_vsel();
+		case 22:	return ppc_opc_gen_vsldoi();
+		case 23:
+			if (gJITC.current_opc & PPC_OPC_Rc)
+				return ppc_opc_gen_vnmsubfp();
+			else
+				return ppc_opc_gen_vmaddfp();
+	}
+	switch(ext & 0x1ff)
+	{
+		case 3: return ppc_opc_gen_vcmpequbx();
+		case 35: return ppc_opc_gen_vcmpequhx();
+		case 67: return ppc_opc_gen_vcmpequwx();
+		case 99: return ppc_opc_gen_vcmpeqfpx();
+		case 227: return ppc_opc_gen_vcmpgefpx();
+		case 259: return ppc_opc_gen_vcmpgtubx();
+		case 291: return ppc_opc_gen_vcmpgtuhx();
+		case 323: return ppc_opc_gen_vcmpgtuwx();
+		case 355: return ppc_opc_gen_vcmpgtfpx();
+		case 387: return ppc_opc_gen_vcmpgtsbx();
+		case 419: return ppc_opc_gen_vcmpgtshx();
+		case 451: return ppc_opc_gen_vcmpgtswx();
+		case 483: return ppc_opc_gen_vcmpbfpx();
+	}
+
+	if (ext >= (sizeof ppc_opc_table_gen_groupv / sizeof ppc_opc_table_gen_groupv[0])) {
+		return ppc_opc_gen_invalid();
+	}
+	return ppc_opc_table_gen_groupv[ext]();
+}
+
+
 static ppc_opc_function ppc_opc_table_main[64] = {
 	&ppc_opc_special,	//  0
 	&ppc_opc_invalid,	//  1
 	&ppc_opc_invalid,	//  2  (tdi on 64 bit platforms)
 	&ppc_opc_twi,		//  3
-	&ppc_opc_invalid,	//  4
+	&ppc_opc_invalid,	//  4  (altivec)
 	&ppc_opc_invalid,	//  5
 	&ppc_opc_invalid,	//  6
 	&ppc_opc_mulli,		//  7
@@ -612,7 +1043,7 @@ static ppc_opc_gen_function ppc_opc_table_gen_main[64] = {
 	&ppc_opc_gen_invalid,	//  1
 	&ppc_opc_gen_invalid,	//  2  (tdi on 64 bit platforms)
 	&ppc_opc_gen_twi,	//  3
-	&ppc_opc_gen_invalid,	//  4
+	&ppc_opc_gen_invalid,	//  4  (altivec)
 	&ppc_opc_gen_invalid,	//  5
 	&ppc_opc_gen_invalid,	//  6
 	&ppc_opc_gen_mulli,	//  7
@@ -680,13 +1111,36 @@ void FASTCALL ppc_exec_opc()
 	ppc_opc_table_main[mainopc]();
 }
 
+static uint32 last_instr = 0, instr_report = 0, instr_count = 0;
+
 JITCFlow FASTCALL ppc_gen_opc()
 {
 	uint32 mainopc = PPC_OPC_MAIN(gJITC.current_opc);
+
+	/*if (instr_report) {
+		uint32 ext = PPC_OPC_EXT(gJITC.current_opc);
+		uint32 rD, rA, rB, rC;
+		PPC_OPC_TEMPL_A(gJITC.current_opc, rD, rA, rB, rC);
+
+		printf("*** (%08x) %08x (%i, %i) (%i, %i, %i, %i)\n", instr_count++, gJITC.current_opc, mainopc, ext, rD, rA, rB, rC);
+	} else {
+		if (last_instr == 0x7c00004c && gJITC.current_opc == 0x10e0038c) {
+			instr_report = 1;
+		}
+
+		last_instr = gJITC.current_opc;
+	}*/
+
 	return ppc_opc_table_gen_main[mainopc]();
 }
 
 void ppc_dec_init()
 {
 	ppc_opc_init_group2();
+	if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
+		ht_printf("[PPC/VEC] Vector Address: %08x\n", (uint32)&gCPU.vr[0]);
+		ppc_opc_table_main[4] = ppc_opc_group_v;
+		ppc_opc_table_gen_main[4] = ppc_opc_gen_group_v;
+		ppc_opc_init_groupv();
+	}
 }

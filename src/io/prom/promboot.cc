@@ -375,6 +375,9 @@ bool mapped_load_elf(File &f)
 
 		// turn on address translation
 		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+		if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
+			ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP | MSR_VEC);
+		}
 		ppc_cpu_set_pc(0, entry);
 		
 		ppc_cpu_set_gpr(0, 1, stack-(4096+32));
@@ -492,6 +495,9 @@ bool mapped_load_xcoff(File &f, uint disp_ofs)
 		IO_PROM_TRACE("real_entrypoint = %08x\n", real_entrypoint);
 		// turn on address translation
 		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+		if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
+			ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP | MSR_VEC);
+		}
 		ppc_cpu_set_pc(0, real_entrypoint);
 		
 		ppc_cpu_set_gpr(0, 1, stack-(4096+32));
@@ -829,6 +835,9 @@ bool mapped_load_flat(const char *filename, uint fileofs, uint filesize, uint va
 	free(p);
 
 	ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+	if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
+		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP | MSR_VEC);
+	}
 	ppc_cpu_set_pc(0, pc);
 		
 	ppc_cpu_set_gpr(0, 1, stackea+stacksize/2);
@@ -898,6 +907,9 @@ bool mapped_load_direct(File &f, uint vaddr, uint pc)
 	free(p);
 
 	ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
+	if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
+		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP | MSR_VEC);
+	}
 	ppc_cpu_set_pc(0, pc);
 		
 	ppc_cpu_set_gpr(0, 1, stackea+stacksize/2);

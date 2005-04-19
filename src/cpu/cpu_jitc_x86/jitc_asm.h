@@ -30,12 +30,16 @@ extern "C" void ppc_write_effective_byte_asm();
 extern "C" void ppc_write_effective_half_asm();
 extern "C" void ppc_write_effective_word_asm();
 extern "C" void ppc_write_effective_dword_asm();
+extern "C" void ppc_write_effective_qword_asm();
+extern "C" void ppc_write_effective_qword_sse_asm();
 
 extern "C" void ppc_read_effective_byte_asm();
 extern "C" void ppc_read_effective_half_z_asm();
 extern "C" void ppc_read_effective_half_s_asm();
 extern "C" void ppc_read_effective_word_asm();
 extern "C" void ppc_read_effective_dword_asm();
+extern "C" void ppc_read_effective_qword_asm();
+extern "C" void ppc_read_effective_qword_sse_asm();
 
 extern "C" void ppc_opc_stswi_asm();
 extern "C" void ppc_opc_lswi_asm();
@@ -46,8 +50,8 @@ extern "C" void ppc_dsi_exception_asm();
 extern "C" void ppc_dsi_exception_special_asm();
 extern "C" void ppc_program_exception_asm();
 extern "C" void ppc_no_fpu_exception_asm();
+extern "C" void ppc_no_vec_exception_asm();
 extern "C" void ppc_sc_exception_asm();
-extern "C" void ppc_flush_carry_and_flags_asm();
 extern "C" void ppc_flush_flags_asm();
 extern "C" void ppc_flush_flags_signed_even_asm();
 extern "C" void ppc_flush_flags_signed_odd_asm();

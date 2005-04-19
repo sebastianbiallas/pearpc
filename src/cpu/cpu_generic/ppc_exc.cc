@@ -3,6 +3,7 @@
  *	ppc_exc.cc
  *
  *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Daniel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -16,6 +17,11 @@
  *	You should have received a copy of the GNU General Public License
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
+/*	Pages marked: v.???
+ *	From: IBM PowerPC MicroProcessor Family: Altivec(tm) Technology...
+ *		Programming Environments Manual
  */
 
 #include "tools/snprintf.h"
@@ -65,6 +71,11 @@ bool FASTCALL ppc_exception(uint32 type, uint32 flags, uint32 a)
 		break;
 	}
 	case PPC_EXC_NO_FPU: { // .284
+		gCPU.srr[0] = gCPU.pc;
+		gCPU.srr[1] = gCPU.msr & 0x87c0ffff;
+		break;
+	}
+	case PPC_EXC_NO_VEC: {	// v.41
 		gCPU.srr[0] = gCPU.pc;
 		gCPU.srr[1] = gCPU.msr & 0x87c0ffff;
 		break;

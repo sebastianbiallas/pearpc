@@ -32,6 +32,7 @@ struct ppcdis_operand {
 		int reg;    // general register
 		int freg;   // float register
 		int creg;   // condition register
+		int vreg;   // vector register
 		uint32 imm;
 		struct {
 			uint32 disp;

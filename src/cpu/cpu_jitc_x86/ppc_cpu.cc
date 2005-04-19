@@ -241,5 +241,5 @@ bool ppc_cpu_init()
 
 void ppc_cpu_init_config()
 {
-	gConfig->acceptConfigEntryIntDef("cpu_pvr", 0x88302);
+	gConfig->acceptConfigEntryIntDef("cpu_pvr", 0x000c0201);
 }

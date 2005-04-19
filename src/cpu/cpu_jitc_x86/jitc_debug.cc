@@ -131,6 +131,14 @@ void jitcDebugInit()
 		s->assignFormat("fr%d (upper)", i);
 		symbols->insert(new KeyValue(new UInt((uint)&gCPU.fpr[i]+4), s));
 	}
+	for (int i=0; i<32; i++) {
+		String *s;
+		for (int j=0; j<4; j++) {
+			s = new String();
+			s->assignFormat("vr%d (%d)", i, j);
+			symbols->insert(new KeyValue(new UInt((uint)&gCPU.vr[i]+4*j), s));
+		}
+	}
 	for (int i=0; i<4; i++) {
 		String *s = new String();
 		s->assignFormat("ibatl%d", i);
@@ -177,8 +185,10 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.dar), new String("dar")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.dec), new String("dec")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.pvr), new String("pvr")));
+	symbols->insert(new KeyValue(new UInt((uint)&gCPU.vrsave), new String("vrsave")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.reserve), new String("reserve")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.temp), new String("tmp")));
+	symbols->insert(new KeyValue(new UInt((uint)&gCPU.vtemp), new String("vtmp")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.current_code_base), new String("current_code_base")));
 	symbols->insert(new KeyValue(new UInt((uint)&gCPU.current_opc), new String("current_opc")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_write_effective_byte_asm), new String("ppc_write_effective_byte_asm")));

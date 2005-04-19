@@ -3,6 +3,7 @@
  *	ppc_opc.cc
  *
  *	Copyright (C) 2003 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004 Dainel Foesch (dfoesch@cs.nmsu.edu)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -330,6 +331,11 @@ void ppc_opc_mfspr()
 		case 8: gCPU.gpr[rD] = gCPU.lr; return;
 		case 9: gCPU.gpr[rD] = gCPU.ctr; return;
 		}
+	case 8: // altivec made this spr unpriviledged
+		if (spr1 == 0) {
+			gCPU.gpr[rD] = gCPU.vrsave; 
+			return;
+		}
 	}
 	if (gCPU.msr & MSR_PR) {
 		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
@@ -390,6 +396,36 @@ void ppc_opc_mfspr()
 		case 31: gCPU.gpr[rD] = gCPU.dbatl[3]; return;
 		}
 		break;
+	case 29:
+		switch (spr1) {
+		case 16:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 17:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 18:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 24:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 25:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 26:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 28:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 29:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 30:
+			gCPU.gpr[rD] = 0;
+			return;
+		}
 	case 31:
 		switch (spr1) {
 		case 16:
@@ -399,6 +435,12 @@ void ppc_opc_mfspr()
 		case 17:
 			PPC_OPC_WARN("read from spr %d:%d (HID1) not supported!\n", spr1, spr2);
 			gCPU.gpr[rD] = gCPU.hid[1];
+			return;
+		case 22:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 23:
+			gCPU.gpr[rD] = 0;
 			return;
 		case 25:
 			PPC_OPC_WARN("read from spr %d:%d (L2CR) not supported! (from %08x)\n", spr1, spr2, gCPU.pc);
@@ -422,6 +464,7 @@ void ppc_opc_mfspr()
 			return;
 		}
 	}
+	fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
 	SINGLESTEP("invalid mfspr\n");
 }
 /*
@@ -593,6 +636,11 @@ void ppc_opc_mtspr()
 		case 8:	gCPU.lr = gCPU.gpr[rS]; return;
 		case 9:	gCPU.ctr = gCPU.gpr[rS]; return;
 		}
+	case 8:	//altivec makes this register unpriviledged
+		if (spr1 == 0) {
+			gCPU.vrsave = gCPU.gpr[rS]; 
+			return;
+		}
 	}
 	if (gCPU.msr & MSR_PR) {
 		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
@@ -688,12 +736,20 @@ void ppc_opc_mtspr()
 			return;
 		}
 		break;
+	case 29:
+		switch(spr1) {
+		case 17: return;
+		case 24: return;
+		case 25: return;
+		case 26: return;
+		}
 	case 31:
 		switch (spr1) {
 		case 16:
 //			PPC_OPC_WARN("write(%08x) to spr %d:%d (HID0) not supported! @%08x\n", gCPU.gpr[rS], spr1, spr2, gCPU.pc);
 			gCPU.hid[0] = gCPU.gpr[rS];
 			return;
+		case 17: return;
 		case 18:
 			PPC_OPC_ERR("write(%08x) to spr %d:%d (IABR) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
@@ -712,8 +768,10 @@ void ppc_opc_mtspr()
 		case 30:
 //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM3) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
+		case 31: return;
 		}
 	}
+	fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
 	SINGLESTEP("unknown mtspr\n");
 }
 /*
@@ -870,3 +928,10 @@ void ppc_opc_twi()
 	}
 }
 
+/*	dcba		Data Cache Block Allocate
+ *	.???
+ */
+void ppc_opc_dcba()
+{
+	/* NO-OP */
+}

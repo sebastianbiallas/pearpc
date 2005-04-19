@@ -85,11 +85,13 @@ prom_driver_graphic = "video.x"
 ## CPU Config
 ##
 ##	Processor Version Register
-##	Defaults to 0x00088302
+##	Defaults to 0x00088302 (G3)
+##	Set to 0x000c0000 to enable G4 emulation
 ##	Only change if you know want you are doing
 ##
 
 #cpu_pvr = 0x00088302
+#cpu_pvr = 0x000c0000
 
 
 ##
