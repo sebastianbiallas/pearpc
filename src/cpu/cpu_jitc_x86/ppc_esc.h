@@ -37,6 +37,7 @@
 #define PPC_INTERN_BCOPY		5
 #define PPC_INTERN_BCOPY_PHYS		6
 #define PPC_INTERN_BCOPY_PHYSVIR	7
+#define PPC_INTERN_COPY_PAGE		8
 
 
 void FASTCALL ppc_escape_vm(uint32 func, uint32 *esp, uint32 client_pc);

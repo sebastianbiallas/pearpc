@@ -330,6 +330,18 @@ static void escape_bcopy_phys(uint32 *stack, uint32 client_pc)
 	memcpy(dst, src, size);
 }
 
+static void escape_copy_page(uint32 *stack, uint32 client_pc)
+{
+	// copy_page(src [r4], dest [r5])
+	uint32 source = gCPU.gpr[4];
+	uint32 dest = gCPU.gpr[5];
+	byte *dst = memory_handle_phys(dest << 12);
+	if (!dst) return;
+	byte *src = memory_handle_phys(source << 12);
+	if (!src) return;
+	memcpy(dst, src, 4096);	
+}
+
 static ppc_escape_function escape_functions[] = {
 	escape_version,
 	
@@ -340,6 +352,7 @@ static ppc_escape_function escape_functions[] = {
 	escape_bcopy,
 	escape_bcopy_phys,
 	escape_bcopy_phys,
+	escape_copy_page,
 };
 
 void FASTCALL ppc_escape_vm(uint32 func, uint32 *stack, uint32 client_pc)
