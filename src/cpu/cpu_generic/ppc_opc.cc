@@ -436,6 +436,12 @@ void ppc_opc_mfspr()
 			PPC_OPC_WARN("read from spr %d:%d (HID1) not supported!\n", spr1, spr2);
 			gCPU.gpr[rD] = gCPU.hid[1];
 			return;
+		case 18:
+			gCPU.gpr[rD] = 0;
+			return;
+		case 21:
+			gCPU.gpr[rD] = 0;
+			return;
 		case 22:
 			gCPU.gpr[rD] = 0;
 			return;

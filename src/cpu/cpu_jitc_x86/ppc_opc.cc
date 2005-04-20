@@ -754,9 +754,9 @@ JITCFlow ppc_opc_gen_mfmsr()
 	return flowContinue;
 }
 
-void FASTCALL blbl(uint32 a)
+void FASTCALL unknown_spr_warning(uint32 a, uint32 spr1, uint32 spr2)
 {
-	PPC_OPC_WARN("invalid spr @%08x\n", a);
+	PPC_OPC_WARN("invalid spr %d:%d  @%08x\n", spr1, spr2, a);
 }
 
 /*
@@ -1016,12 +1016,13 @@ JITCFlow ppc_opc_gen_mfspr()
 		case 31: move_reg0(PPC_GPR(rD)); return flowContinue;
 		}
 	}
-	//fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
+	move_reg0(PPC_GPR(rD));
+	jitcClobberAll();
 	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
-	asmJMP((NativeAddress)blbl);
-	return flowContinue;
-	PPC_OPC_ERR("unknown mfspr %d:%d\n", spr1, spr2);
-	return flowEndBlockUnreachable;
+	asmALURegImm(X86_MOV, EDX, spr1);
+	asmALURegImm(X86_MOV, ECX, spr2);
+	asmCALL((NativeAddress)unknown_spr_warning);
+	return flowEndBlock;
 }
 /*
  *	mfsr		Move from Segment Register
@@ -1484,6 +1485,12 @@ void ppc_opc_mtspr()
 		case 21:
 			PPC_OPC_ERR("write(%08x) to spr %d:%d (DABR) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
+		case 22:
+			PPC_OPC_ERR("write(%08x) to spr %d:%d (?) not supported!\n", gCPU.gpr[rS], spr1, spr2);
+			return;
+		case 23:
+			PPC_OPC_ERR("write(%08x) to spr %d:%d (?) not supported!\n", gCPU.gpr[rS], spr1, spr2);
+			return;
 		case 27:
 			PPC_OPC_WARN("write(%08x) to spr %d:%d (ICTC) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
@@ -1496,7 +1503,8 @@ void ppc_opc_mtspr()
 		case 30:
 //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM3) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
-		case 31: return;
+		case 31: 
+			return;
 		}
 	}
 	fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
@@ -1658,6 +1666,7 @@ JITCFlow ppc_opc_gen_mtspr()
 		case 18: return flowContinue;
 		case 21: return flowContinue; //g4
 		case 22: return flowContinue;
+		case 23: return flowContinue;
 		case 27: return flowContinue;
 		case 28: return flowContinue;
 		case 29: return flowContinue;
@@ -1666,11 +1675,10 @@ JITCFlow ppc_opc_gen_mtspr()
 		}
 	}
 	invalid:
-	//fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
 	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
-	asmJMP((NativeAddress)blbl);
-	return flowContinue;
-	PPC_OPC_ERR("unknown mtspr %d:%d\n", spr1, spr2);
+	asmALURegImm(X86_MOV, EDX, spr1);
+	asmALURegImm(X86_MOV, ECX, spr2);
+	asmCALL((NativeAddress)unknown_spr_warning);
 	return flowEndBlockUnreachable;
 }
 /*
