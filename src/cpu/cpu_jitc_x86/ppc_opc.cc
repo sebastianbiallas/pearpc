@@ -894,6 +894,11 @@ void ppc_opc_mfspr()
 			gCPU.gpr[rD] = 0;
 			return;
 		}
+		case 31:
+//			PPC_OPC_WARN("read from spr %d:%d (???) not supported!\n", spr1, spr2);
+			gCPU.gpr[rD] = 0;
+			return;
+		}
 	}
 	fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
 	SINGLESTEP("invalid mfspr\n");
@@ -1009,6 +1014,7 @@ JITCFlow ppc_opc_gen_mfspr()
 		case 28: move_reg0(PPC_GPR(rD)); return flowContinue;
 		case 29: move_reg0(PPC_GPR(rD)); return flowContinue;
 		case 30: move_reg0(PPC_GPR(rD)); return flowContinue;
+		case 31: move_reg0(PPC_GPR(rD)); return flowContinue;
 		}
 	}
 	//fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);

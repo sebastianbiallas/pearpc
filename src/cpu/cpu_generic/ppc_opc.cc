@@ -463,6 +463,11 @@ void ppc_opc_mfspr()
 			gCPU.gpr[rD] = 0;
 			return;
 		}
+		case 31:
+//			PPC_OPC_WARN("read from spr %d:%d (???) not supported!\n", spr1, spr2);
+			gCPU.gpr[rD] = 0;
+			return;
+		}
 	}
 	fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
 	SINGLESTEP("invalid mfspr\n");
