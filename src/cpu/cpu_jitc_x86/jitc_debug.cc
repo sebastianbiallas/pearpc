@@ -23,6 +23,7 @@
 #include <cstring>
 
 #include "tools/data.h"
+#include "tools/str.h"
 
 #include "debug/x86dis.h"
 #include "debug/ppcdis.h"
