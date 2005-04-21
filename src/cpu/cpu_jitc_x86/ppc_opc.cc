@@ -766,6 +766,11 @@ JITCFlow ppc_opc_gen_mfmsr()
 	return flowContinue;
 }
 
+void FASTCALL unknown_tbr_warning(uint32 a, uint32 spr1, uint32 spr2)
+{
+	PPC_OPC_WARN("invalid tbr %d:%d  @%08x\n", spr1, spr2, a);
+}
+
 void FASTCALL unknown_spr_warning(uint32 a, uint32 spr1, uint32 spr2)
 {
 	PPC_OPC_WARN("invalid spr %d:%d  @%08x\n", spr1, spr2, a);
@@ -1112,7 +1117,31 @@ void ppc_opc_mftb()
 }
 JITCFlow ppc_opc_gen_mftb()
 {
-	ppc_opc_gen_interpret(ppc_opc_mftb);
+	int rD, spr1, spr2;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, rD, spr1, spr2);
+	switch (spr2) {
+	case 8:
+		switch (spr1) {
+		case 12:
+			jitcClobberAll();
+			asmCALL((NativeAddress)ppc_get_cpu_timebase);
+			jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EAX);
+			return flowContinue;
+							
+		case 13:
+			jitcClobberAll();
+			asmCALL((NativeAddress)ppc_get_cpu_timebase);
+			jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
+			return flowContinue;
+		}
+		break;
+	}
+	move_reg0(PPC_GPR(rD));
+	jitcClobberAll();
+	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
+	asmALURegImm(X86_MOV, EDX, spr1);
+	asmALURegImm(X86_MOV, ECX, spr2);
+	asmCALL((NativeAddress)unknown_tbr_warning);
 	return flowEndBlock;
 }
 /*
@@ -1408,9 +1437,9 @@ void ppc_opc_mtspr()
 		case 17: gCPU.sprg[1] = gCPU.gpr[rS]; return;
 		case 18: gCPU.sprg[2] = gCPU.gpr[rS]; return;
 		case 19: gCPU.sprg[3] = gCPU.gpr[rS]; return;
+		case 28: writeTBL(gCPU.gpr[rS]); return;
+		case 29: writeTBU(gCPU.gpr[rS]); return;
 /*		case 26: gCPU.gpr[rD] = gCPU.ear; return;
-		case 28: TB (lower)
-		case 29: TB (upper)
 		case 31: gCPU.gpr[rD] = gCPU.pvr; return;*/
 		}
 		break;
@@ -1596,6 +1625,16 @@ JITCFlow ppc_opc_gen_mtspr()
 		case 17: move_reg(PPC_SPRG(1), PPC_GPR(rS)); return flowContinue;
 		case 18: move_reg(PPC_SPRG(2), PPC_GPR(rS)); return flowContinue;
 		case 19: move_reg(PPC_SPRG(3), PPC_GPR(rS)); return flowContinue;
+		case 28:
+			jitcGetClientRegister(PPC_GPR(rS), NATIVE_REG | EAX);
+			jitcClobberAll();
+			asmCALL((NativeAddress)writeTBL);
+			return flowContinue;
+		case 29:
+			jitcGetClientRegister(PPC_GPR(rS), NATIVE_REG | EAX);
+			jitcClobberAll();
+			asmCALL((NativeAddress)writeTBU);
+			return flowContinue;
 		}
 		break;
 	case 16: {
