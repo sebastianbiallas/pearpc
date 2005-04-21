@@ -184,7 +184,7 @@ void	ppc_cpu_set_pc(int cpu, uint32 newvalue)
 
 uint32	ppc_cpu_get_pc(int cpu)
 {
-	return gCPU.pc;
+	return gCPU.pc_ofs + gCPU.current_code_base;
 }
 
 uint32	ppc_cpu_get_pvr(int cpu)

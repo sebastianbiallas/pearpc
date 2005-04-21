@@ -1036,6 +1036,7 @@ JITCFlow ppc_opc_gen_mfspr()
 	move_reg0(PPC_GPR(rD));
 	jitcClobberAll();
 	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
+	asmALURegImm(X86_ADD, EAX, gJITC.pc);
 	asmALURegImm(X86_MOV, EDX, spr1);
 	asmALURegImm(X86_MOV, ECX, spr2);
 	asmCALL((NativeAddress)unknown_spr_warning);
@@ -1726,11 +1727,13 @@ JITCFlow ppc_opc_gen_mtspr()
 		}
 	}
 	invalid:
+	jitcClobberAll();
 	asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
+	asmALURegImm(X86_ADD, EAX, gJITC.pc);
 	asmALURegImm(X86_MOV, EDX, spr1);
 	asmALURegImm(X86_MOV, ECX, spr2);
 	asmCALL((NativeAddress)unknown_spr_warning);
-	return flowEndBlockUnreachable;
+	return flowEndBlock;
 }
 /*
  *	mtsr		Move to Segment Register
