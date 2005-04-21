@@ -246,7 +246,7 @@ void prom_service_setprop(prom_args *pa)
 			}
 			pa->args[4] = len;
 		} else {
-			if (!buf) IO_PROM_ERR("setprop null bla\n");
+			if (!buf && len) IO_PROM_ERR("setprop null bla\n");
 			pa->args[4] = prop->setValue(buf, len);
 		}
 	} else {

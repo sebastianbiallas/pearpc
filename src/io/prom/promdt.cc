@@ -940,32 +940,41 @@ PromPropMemory::PromPropMemory(const char *name, const void *aBuf, int aSize)
 
 PromPropMemory::~PromPropMemory()
 {
-	free(buf);
+	if (buf) free(buf);
 }
 
 uint32 PromPropMemory::getValueLen()
 {
-	return size;
+	return buf ? size : 0;
 }
 
 uint32 PromPropMemory::getValue(uint32 aBuf, uint32 buflen)
 {
-	uint32 s = MIN(buflen, (uint32)size);
-	uint32 phys;
-	ppc_prom_effective_to_physical(phys, aBuf);
-	ppc_dma_write(phys, buf, s);
-	return s;
+	if (buf) {
+		uint32 s = MIN(buflen, (uint32)size);
+		uint32 phys;
+		ppc_prom_effective_to_physical(phys, aBuf);
+		ppc_dma_write(phys, buf, s);
+		return s;
+	} else {
+		return 0;
+	}
 }
 
 uint32 PromPropMemory::setValue(uint32 aBuf, uint32 buflen)
 {
-	uint32 phys;
-	ppc_prom_effective_to_physical(phys, aBuf);
-	size = buflen;
-	free(buf);
-	buf = malloc(size);
-	ppc_dma_read(buf, phys, size);
-	return size;
+	if (buf) free(buf);
+	if (aBuf) {
+		uint32 phys;
+		ppc_prom_effective_to_physical(phys, aBuf);
+		size = buflen;
+		buf = malloc(size);
+		ppc_dma_read(buf, phys, size);
+		return size;
+	} else {
+		buf = NULL;
+		return 0;
+	}
 }
 
 /*
@@ -979,12 +988,12 @@ PromPropString::PromPropString(const char *aName, const char *aValue)
 
 PromPropString::~PromPropString()
 {
-	free(value);
+	if (value) free(value);
 }
 
 uint32 PromPropString::getValueLen()
 {
-	return strlen(value)+1;
+	return value ? (strlen(value)+1) : 0;
 }
 
 uint32 PromPropString::getValue(uint32 buf, uint32 buflen)
@@ -1006,13 +1015,18 @@ uint32 PromPropString::getValue(uint32 buf, uint32 buflen)
 
 uint32 PromPropString::setValue(uint32 buf, uint32 buflen)
 {
-	free(value);
-	String bufchar;
-	prom_get_string(bufchar, buf);
-	value = (char*)malloc(buflen+1);
-	memcpy(value, bufchar.contentChar(), buflen);
-	value[buflen] = 0;
-	return buflen;
+	if (value) free(value);
+	if (buf) {
+		String bufchar;
+		prom_get_string(bufchar, buf);
+		value = (char*)malloc(buflen+1);
+		memcpy(value, bufchar.contentChar(), buflen);
+		value[buflen] = 0;
+		return buflen;
+	} else {
+		value = NULL;
+		return 0;
+	}
 }
 
 /*******************************************************************************
