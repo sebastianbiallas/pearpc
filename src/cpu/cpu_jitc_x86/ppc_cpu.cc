@@ -53,6 +53,7 @@ uint64 gClientClockFrequency;
 uint64 gClientBusFrequency;
 uint64 gClientTimeBaseFrequency;
 uint64 gStartHostCLKTicks;
+uint64 gTBreadITB;
 int gHostClockScale;
 
 uint64 ppc_get_cpu_ideal_timebase()
@@ -68,9 +69,15 @@ uint64 ppc_get_cpu_ideal_timebase()
 
 uint64 ppc_get_cpu_timebase()
 {
-	// FIXME: once "mttb" is implemented, keep track of modified TB register
-	//        So for now, itb = tb.
-	return ppc_get_cpu_ideal_timebase();
+	uint64 ticks = sys_get_hiresclk_ticks();
+	if (gHostClockScale < 0) {
+		gCPU.tb += (ticks - gTBreadITB) >> (-gHostClockScale);
+	} else {
+		gCPU.tb += (ticks - gTBreadITB) << gHostClockScale;
+	}
+
+	gTBreadITB = ticks;
+	return gCPU.tb;
 }
 
 sys_timer gDECtimer;

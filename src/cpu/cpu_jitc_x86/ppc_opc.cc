@@ -71,6 +71,18 @@ static void FASTCALL writeDEC(uint32 newdec)
 	gDECwriteITB = ppc_get_cpu_ideal_timebase();
 }
 
+static void FASTCALL writeTBL(uint32 newtbl)
+{
+	uint64 tbBase = ppc_get_cpu_timebase();
+	gCPU.tb = (tbBase & 0xffffffff00000000ULL) | (uint64)newtbl;
+}
+									
+static void FASTCALL writeTBU(uint32 newtbu)
+{
+	uint64 tbBase = ppc_get_cpu_timebase();
+	gCPU.tb = ((uint64)newtbu << 32) | (tbBase & 0xffffffff);
+}
+
 void ppc_set_msr(uint32 newmsr)
 {
 /*	if ((newmsr & MSR_EE) && !(gCPU.msr & MSR_EE)) {
