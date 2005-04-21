@@ -658,7 +658,7 @@ int record_init_string(record* r, UInt16 type, char* name, record* parent)
     hfsp_cat_entry* entry = &r->record;
     UInt16	    ptype = parent->record.type;
 
-    memset(r, 0, sizeof *r));   // **** Debugging only
+    memset(r, 0, sizeof *r);   // **** Debugging only
 
     r->tree	    = parent->tree;
     r->node_index   = 0;
