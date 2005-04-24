@@ -2,7 +2,7 @@
  *	PearPC
  *	ppc_alu.cc
  *
- *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2003-2005 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -1207,7 +1207,6 @@ JITCFlow ppc_opc_gen_crxor()
 	if (crA == crB) {
 		asmANDDMemImm((uint32)&gCPU.cr, ~(1<<(31-crD)));
 	} else {
-		PPC_ALU_WARN("crxor untested!\n");
 		// crD = crA ? (crB ? 0 : 1) : (crB ? 1 : 0) 
 		asmTESTDMemImm((uint32)&gCPU.cr, 1<<(31-crA));
 		NativeAddress nocrA = asmJxxFixup(X86_Z);
