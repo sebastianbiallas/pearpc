@@ -152,7 +152,8 @@ bool SystemKeyboard::convertStringToKeycode(int &keycode, const String &s)
 	return true;
 }
 
-static char chrs[0x7f] = {
+/* FIXME: need proper keymaps */
+static char lchrs[0x7f] = {
 'a','s','d','f','h','g','z','x','c','v',
 0,'b','q','w','e','r','y','t','1','2',
 '3','4','6','5','=','9','7','-','8','0',']',
@@ -168,10 +169,31 @@ static char chrs[0x7f] = {
 0,0,0,
 };
 
+static char uchrs[0x7f] = {
+'A','S','D','F','H','G','Z','X','C','V',
+0,'B','Q','W','E','R','Y','T','!','@',
+'#','$','^','%','+','(','&','_','*',')','}',
+'O','U','{','I','P',13,'L','J','"','K',
+':','|','<','?','N','M','>',9,32,
+'~',8,0,27,0,0,0,0,0,0,
+0,0,0,0,0,'.',0,'*',0,'+',
+0,0,0,0,0,'/',13,0,'-',0,
+0,0,'0','1','2','3','4','5','6','7',
+0,'8','9',0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,
+0,0,0,
+};
+
 bool SystemKeyboard::adbKeyToAscii(char &chr, int adbcode)
 {
 	adbcode &= 0x7f;
-	chr = chrs[adbcode];
+
+	if (mShift)
+		chr = uchrs[adbcode];
+	else
+		chr = lchrs[adbcode];
+
 	return chr != 0;
 }
 

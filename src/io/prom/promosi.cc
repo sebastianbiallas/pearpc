@@ -25,6 +25,7 @@
 #include "system/arch/sysendian.h"
 #include "cpu/cpu.h"
 #include "cpu/mem.h"
+#include "system/sysclk.h"
 #include "promdt.h"
 #include "prommem.h"
 #include "promosi.h"
@@ -246,8 +247,11 @@ void prom_service_setprop(prom_args *pa)
 			}
 			pa->args[4] = len;
 		} else {
-			if (!buf && len) IO_PROM_ERR("setprop null bla\n");
-			pa->args[4] = prop->setValue(buf, len);
+			//if (!buf && len) IO_PROM_ERR("setprop null bla\n");
+			if (buf && len)
+				pa->args[4] = prop->setValue(buf, len);
+			else
+				pa->args[4] = prop->setValue(NULL, 0);
 		}
 	} else {
 		pa->args[4] = 0;
@@ -466,9 +470,13 @@ void prom_service_interpret(prom_args *pa)
 	prom_get_string(arg, pa->args[0]);
 	IO_PROM_TRACE("interpret(%d, %08x, %08x, %08x, %08x, '%y' ...)\n", strlen(arg), pa->args[1], pa->args[2], pa->args[3], pa->args[4], &arg);
 	switch (strlen(arg)) {
-	case 6:
+	case 6: {
 		// " 10 ms"
+		void prom_service_milliseconds(prom_args *pa);
+		uint32 start = (prom_service_milliseconds(pa), pa->args[0]);
+		while ((prom_service_milliseconds(pa),pa->args[0]) < start+10);
 		break;
+	}
 	case 32: {
 		// GetPackageProperty
 		uint32 phandle = pa->args[1];
@@ -552,9 +560,11 @@ void prom_service_set_symbol_lookup(prom_args *pa)
 }
 void prom_service_milliseconds(prom_args *pa)
 {
+	static uint32 start  = (sys_get_hiresclk_ticks() / (sys_get_hiresclk_ticks_per_second()/1000));
 	//; of_milliseconds(int *ms)
+	uint32 millis = (uint32)(sys_get_hiresclk_ticks() / (sys_get_hiresclk_ticks_per_second()/1000)) - start;
 	IO_PROM_TRACE("milliseconds()\n");
-	pa->args[0] = 0;
+	pa->args[0] = millis;
 	IO_PROM_TRACE("= %08x\n", pa->args[0]);
 }
 
@@ -604,6 +614,7 @@ prom_service_desc prom_service_table[] = {
 	{"set-symbol-lookup", &prom_service_set_symbol_lookup}, //; of_set_symbol_lookup(void *sym_to_value, void *value_to_sym)
 /* 6.3.2.7 Time */
 	{"milliseconds", &prom_service_milliseconds}, //; of_milliseconds(int *ms)
+	{"get-msecs",    &prom_service_milliseconds}, //; of_milliseconds(int *ms)
 	{NULL, NULL}
 };
 

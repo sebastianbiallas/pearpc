@@ -289,7 +289,7 @@ static bool init_page_create(uint32 ea, uint32 pa)
 /*
  *	ELF
  */
-#define ELF_LOAD_ADDRESS 0x20000
+#define ELF_LOAD_ADDRESS 0x00800000
 bool mapped_load_elf(File &f)
 {
 	String fn;

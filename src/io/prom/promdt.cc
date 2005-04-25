@@ -492,12 +492,16 @@ PromInstanceKBD::PromInstanceKBD(PromNode *type, const String &param)
 uint32 PromInstanceKBD::read(uint32 buf, int length)
 {
 	uint32 phys;
+
 	if (ppc_prom_effective_to_physical(phys, buf)) {
 		uint32 key;
 		char chr;
-		if (cuda_prom_get_key(key) && !(key & 0x80) && SystemKeyboard::adbKeyToAscii(chr, key)) {
-			ppc_dma_write(phys, &chr, 1);
-			return 1;
+		if (cuda_prom_get_key(key) 
+		    && !(key & 0x80)	// ignore KeyUp events
+		    && gKeyboard->adbKeyToAscii(chr, key)) 
+		{
+		  ppc_dma_write(phys, &chr, 1);
+		  return 1;
 		}
 	}
 	return 0;
@@ -950,7 +954,7 @@ uint32 PromPropMemory::getValueLen()
 
 uint32 PromPropMemory::getValue(uint32 aBuf, uint32 buflen)
 {
-	if (buf) {
+	if (buf && buflen && aBuf) {
 		uint32 s = MIN(buflen, (uint32)size);
 		uint32 phys;
 		ppc_prom_effective_to_physical(phys, aBuf);
@@ -964,7 +968,7 @@ uint32 PromPropMemory::getValue(uint32 aBuf, uint32 buflen)
 uint32 PromPropMemory::setValue(uint32 aBuf, uint32 buflen)
 {
 	if (buf) free(buf);
-	if (aBuf) {
+	if (aBuf && buflen) {
 		uint32 phys;
 		ppc_prom_effective_to_physical(phys, aBuf);
 		size = buflen;
@@ -998,7 +1002,7 @@ uint32 PromPropString::getValueLen()
 
 uint32 PromPropString::getValue(uint32 buf, uint32 buflen)
 {
-	if (buflen) {
+	if (value && buflen && buf) {
 		buflen--;
 		uint slen = strlen(value);
 		uint s = MIN(buflen, slen);
@@ -1016,7 +1020,7 @@ uint32 PromPropString::getValue(uint32 buf, uint32 buflen)
 uint32 PromPropString::setValue(uint32 buf, uint32 buflen)
 {
 	if (value) free(value);
-	if (buf) {
+	if (buf && buflen) {
 		String bufchar;
 		prom_get_string(bufchar, buf);
 		value = (char*)malloc(buflen+1);

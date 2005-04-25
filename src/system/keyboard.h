@@ -175,9 +175,9 @@ public:
 	virtual void	setKeybLEDs(int leds) = 0;
 	virtual bool	handleEvent(const SystemEvent &ev);
 	virtual void	reset();
+	virtual	bool	adbKeyToAscii(char &chr, int adbcode);
 	static	bool	convertKeycodeToString(String &result, int keycode);
 	static	bool	convertStringToKeycode(int &keycode, const String &s);
-	static	bool	adbKeyToAscii(char &chr, int adbcode);
 	bool		setKeyConfig(KeyboardCharacteristics keyConfig);
 	KeyboardCharacteristics &getKeyConfig();
 private:
