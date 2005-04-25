@@ -219,7 +219,8 @@ int initDevice()
 
 	/* allocate tun device */ 
 	if ((mFD = ::open(devicePath(), O_RDWR)) < 0) {
-		throw new MsgfException("Failed to open %s", devicePath());
+		const char *err = ::strerror(errno);
+		throw new MsgfException("Failed to open %s (%s)", devicePath(), err);
 	}
 
 	struct ifreq ifr;
@@ -233,8 +234,9 @@ int initDevice()
 
 	::strncpy(ifr.ifr_name, mIfName, IFNAMSIZ);
 	if (::ioctl(mFD, TUNSETIFF, &ifr) < 0) {
+		const char *err = ::strerror(errno);
 		::close(mFD);
-		throw new MsgException("TUNSETIFF failed.");
+		throw new MsgfException("TUNSETIFF failed (%s).", err);
 	}
 
 	/* don't checksum */
