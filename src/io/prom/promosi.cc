@@ -448,7 +448,10 @@ void prom_service_boot(prom_args *pa)
 void prom_service_enter(prom_args *pa)
 {
 	//; of_enter(void)
-	IO_PROM_ERR("enter()\n");
+	uint64 start = sys_get_hiresclk_ticks();
+	uint64 end = start+(sys_get_hiresclk_ticks_per_second()*3);
+	while (sys_get_hiresclk_ticks() < end);
+	//IO_PROM_ERR("enter()\n");
 }
 void prom_service_exit(prom_args *pa)
 {
