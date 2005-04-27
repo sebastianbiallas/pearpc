@@ -523,6 +523,7 @@ void prom_service_interpret(prom_args *pa)
 		pa->args[5] = IO_GCARD_FRAMEBUFFER_PA_START;
 //		gSinglestep = true;
 		break;
+	case 1967:
 	case 1644:
 		// Init SLW
 		pa->args[1] = 0;
@@ -544,7 +545,7 @@ void prom_service_interpret(prom_args *pa)
 		pa->args[2] = 0;
 		break;
 	default: 		
-		IO_PROM_ERR("unknown interpret size %d \n", strlen(arg));
+		IO_PROM_ERR("unknown interpret size %d\ninterpret: %y\n", strlen(arg), &arg);
 		break;
 	}
 }
