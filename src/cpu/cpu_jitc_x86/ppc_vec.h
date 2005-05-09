@@ -92,13 +92,16 @@ static UNUSED void ppc_opc_gen_check_vec()
 		jitcFloatRegisterClobberAll();
 		jitcFlushVectorRegister();
 		jitcClobberCarryAndFlags();
+
 		NativeReg r1 = jitcGetClientRegister(PPC_MSR);
-		asmALURegImm(X86_TEST, r1, MSR_VEC);
+		asmALU(X86_TEST, r1, MSR_VEC);
 		NativeAddress fixup = asmJxxFixup(X86_NZ);
+
 		jitcFlushRegisterDirty();
-		asmALURegImm(X86_MOV, ESI, gJITC.pc);
+		asmALU(X86_MOV, ESI, gJITC.pc);
 		asmJMP((NativeAddress)ppc_no_vec_exception_asm);
-		asmResolveFixup(fixup, asmHERE());
+
+		asmResolveFixup(fixup);
 		gJITC.checkedVector = true;
 	}
 #endif

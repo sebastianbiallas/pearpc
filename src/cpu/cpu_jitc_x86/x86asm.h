@@ -25,6 +25,9 @@
 #include "ppc_cpu.h"
 #include "jitc_types.h"
 
+typedef byte modrm_o[8];
+typedef byte *modrm_p;
+
 enum NativeReg {
 	EAX = 0,
 	ECX = 1,
@@ -35,6 +38,18 @@ enum NativeReg {
 	ESI = 6,
 	EDI = 7,
 	REG_NO = 0xffffffff,
+};
+
+enum NativeReg16 {
+	AX = 0,
+	CX = 1,
+	DX = 2,
+	BX = 3,
+	SP = 4,	// don't mess with me, buddy
+	BP = 5,
+	SI = 6,
+	DI = 7,
+	REG16_NO = 0xffffffff,
 };
 
 enum NativeReg8 {
@@ -177,7 +192,8 @@ enum X86FlagTest {
 
 NativeAddress FASTCALL asmHERE();
 
-void FASTCALL asmNOP(int n);
+#ifndef X86ASM_V2_ONLY
+/* Begin: X86Asm v1.0 */
 void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2);
 void FASTCALL asmALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm);
 void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2);
@@ -212,7 +228,54 @@ void FASTCALL asmMOVxxRegReg8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2);
 void FASTCALL asmMOVxxRegReg16(X86MOVxx opc, NativeReg reg1, NativeReg reg2);
 void FASTCALL asmMOVxxRegMem8(X86MOVxx opc, NativeReg reg1, byte *modrm, int len);
 void FASTCALL asmMOVxxRegMem16(X86MOVxx opc, NativeReg reg1, byte *modrm, int len);
+/* END: X86Asm v1.0 */
+#endif // X86ASM_V2_ONLY
+
+/* BEGIN: X86Asm v2.0 */
+void FASTCALL asmNOP(int n);	// v2.0 also
+void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, NativeReg reg2);
+void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, uint32 imm);
+void FASTCALL asmALU(X86ALUopc opc, modrm_p modrm, NativeReg reg2);
+void FASTCALL asmALU_D(X86ALUopc opc, modrm_p modrm, uint32 imm);
+void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, modrm_p modrm);
+void FASTCALL asmALU(X86ALUopc1 opc, NativeReg reg1);
+                                                                                
+void FASTCALL asmALU(X86ALUopc opc, NativeReg16 reg1, NativeReg16 reg2);
+void FASTCALL asmALU(X86ALUopc opc, NativeReg16 reg1, uint16 imm);
+void FASTCALL asmALU(X86ALUopc opc, modrm_p modrm, NativeReg16 reg2);
+void FASTCALL asmALU_W(X86ALUopc opc, modrm_p modrm, uint16 imm);
+void FASTCALL asmALU(X86ALUopc opc, NativeReg16 reg1, modrm_p modrm);
+void FASTCALL asmALU(X86ALUopc1 opc, NativeReg16 reg1);
+                                                                                
+void FASTCALL asmMOV_NoFlags(NativeReg reg1, uint32 imm);
+void FASTCALL asmMOV_NoFlags(NativeReg16 reg1, uint16 imm);
+void FASTCALL asmCMOV(X86FlagTest flags, NativeReg reg1, NativeReg reg2);
+void FASTCALL asmCMOV(X86FlagTest flags, NativeReg reg1, modrm_p modrm);
+                                                                                
+void FASTCALL asmSET(X86FlagTest flags, NativeReg8 reg1);
+void FASTCALL asmSET(X86FlagTest flags, modrm_p modrm);
+                                                                                
+void FASTCALL asmALU(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2);
+void FASTCALL asmALU(X86ALUopc opc, NativeReg8 reg1, uint8 imm);
+void FASTCALL asmALU(X86ALUopc opc, NativeReg8 reg1, modrm_p modrm);
+void FASTCALL asmALU(X86ALUopc opc, modrm_p modrm, NativeReg8 reg2);
+void FASTCALL asmALU_B(X86ALUopc opc, modrm_p modrm, uint8 imm);
+                                                                                
+void FASTCALL asmMOV(const void *disp, NativeReg reg1);
+void FASTCALL asmMOV(const void *disp, NativeReg16 reg1);
+void FASTCALL asmMOV(NativeReg reg1, const void *disp);
+void FASTCALL asmMOV(NativeReg16 reg1, const void *disp);
+                                                                                
+void FASTCALL asmTEST(const void *disp, uint32 imm);
+void FASTCALL asmAND(const void *disp, uint32 imm);
+void FASTCALL asmOR(const void *disp, uint32 imm);
+                                                                                
+void FASTCALL asmMOVxx(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2);
+void FASTCALL asmMOVxx(X86MOVxx opc, NativeReg reg1, NativeReg16 reg2);
+void FASTCALL asmMOVxx_B(X86MOVxx opc, NativeReg reg1, modrm_p modrm);
+void FASTCALL asmMOVxx_W(X86MOVxx opc, NativeReg reg1, modrm_p modrm);
 void FASTCALL asmSimple(X86SimpleOpc simple);
+/* End: X86Asm v2.0 */
 
 enum X86ShiftOpc {
 	X86_ROL = 0x00,
@@ -246,8 +309,17 @@ void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1);
 void FASTCALL asmINCReg(NativeReg reg1);
 void FASTCALL asmDECReg(NativeReg reg1);
 
+#ifndef X86ASM_V2_ONLY
+/* Begin: X86Asm v1.0 */
 void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm);
 void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2);
+/* End: X86Asm v1.0 */
+#endif // X86ASM_V2_ONLY
+
+/* Begin: X86Asm v2.0 */
+void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm);
+void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2);
+/* End: X86Asm v2.0 */
 
 void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len);
 void FASTCALL asmBTxRegImm(X86BitTest opc, NativeReg reg1, int value);
@@ -261,7 +333,7 @@ NativeAddress FASTCALL asmJMPFixup();
 NativeAddress FASTCALL asmJxxFixup(X86FlagTest flags);
 void FASTCALL asmCALL(NativeAddress to);
  
-void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to);
+void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to=0);
 
 enum NativeFloatReg {
 	Float_ST0=0,
@@ -505,23 +577,24 @@ void FASTCALL jitcTrashClientVectorRegister(JitcVectorReg creg);
 void FASTCALL jitcClobberClientVectorRegister(JitcVectorReg creg);
 void FASTCALL jitcDropClientVectorRegister(JitcVectorReg creg);
 
-void asmMOVAPSRegvDMem(NativeVectorReg reg, uint32 disp);
-void asmMOVAPSDMemRegv(uint32 disp, NativeVectorReg reg);
-void asmMOVUPSRegvDMem(NativeVectorReg reg, uint32 disp);
-void asmMOVUPSDMemRegv(uint32 disp, NativeVectorReg reg);
-void asmMOVSSRegvDMem(NativeVectorReg reg, uint32 disp);
-void asmMOVSSDMemRegv(uint32 disp, NativeVectorReg reg);
+void asmMOVAPS(NativeVectorReg reg, const void *disp);
+void asmMOVAPS(const void *disp, NativeVectorReg reg);
+void asmMOVUPS(NativeVectorReg reg, const void *disp);
+void asmMOVUPS(const void *disp, NativeVectorReg reg);
+void asmMOVSS(NativeVectorReg reg, const void *disp);
+void asmMOVSS(const void *disp, NativeVectorReg reg);
 
-void asmALUPSRegRegv(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
-void asmALUPSRegvMem(X86ALUPSopc opc, NativeVectorReg reg1, byte *modrm, int len);
-void asmPALURegRegv(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
-void asmPALURegvMem(X86PALUopc opc, NativeVectorReg reg1, byte *modrm, int len);
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, modrm_p modrm);
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, modrm_p modrm);
 
-void asmSHUFPSRegRegv(NativeVectorReg reg1, NativeVectorReg reg2, int order);
-void asmSHUFPSRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order);
-void asmPSHUFDRegRegv(NativeVectorReg reg1, NativeVectorReg reg2, int order);
-void asmPSHUFDRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order);
+void asmSHUFPS(NativeVectorReg reg1, NativeVectorReg reg2, int order);
+void asmSHUFPS(NativeVectorReg reg1, modrm_p modrm, int order);
+void asmPSHUFD(NativeVectorReg reg1, NativeVectorReg reg2, int order);
+void asmPSHUFD(NativeVectorReg reg1, modrm_p modrm, int order);
 
+#ifndef X86ASM_V2_ONLY
 /*
  *	reg1 must not be ESP
  */
@@ -632,5 +705,141 @@ static inline int x86_mem_sib(byte *modrm, NativeReg reg1, int factor, NativeReg
 	return x86_mem_sib_r(modrm, reg1, factor, reg2, disp);
 }
 
+#endif // X86ASM_V2_ONLY
+
+/*
+ *	reg1 must not be ESP
+ */
+static inline modrm_p x86_mem2_r(modrm_o modrm, NativeReg reg, uint32 disp)
+{
+	if (((uint32)(disp) > 0x7f) && ((uint32)(disp) < 0xffffff80)) {
+/*		if (reg == ESP) {
+			modrm[0] = 6;
+			modrm[1] = 0x84;
+			modrm[2] = 0x24;
+			*((uint32 *)&modrm[3]) = disp;
+			return modrm;
+		}*/
+		modrm[0] = 5;
+		modrm[1] = 0x80+reg;
+		*((uint32 *)&modrm[2]) = disp;
+		return modrm;
+	} else if (reg == EBP) {
+		modrm[0] = 2;
+		modrm[1] = 0x45;
+		modrm[2] = disp;
+		return modrm;
+/*	} else if (reg == ESP) {
+		if (disp) {
+			modrm[0] = 3;
+			modrm[1] = 0x44;
+			modrm[2] = 0x24;
+			modrm[3] = disp;
+			return modrm;
+		} else {
+			modrm[0] = 2;
+			modrm[1] = 0x04;
+			modrm[2] = 0x24;
+			return modrm;
+		} */
+	} else if (disp) {
+		modrm[0] = 2;
+		modrm[1] = 0x40+reg;
+		modrm[2] = disp;
+		return modrm;
+	} else {
+		modrm[0] = 1;
+		modrm[1] = reg;
+		return modrm;
+	}
+}
+
+static inline modrm_p x86_mem2(modrm_o modrm, NativeReg reg, uint32 disp=0)
+{		
+	if (reg == REG_NO) {
+		modrm[0] = 5;
+		modrm[1] = 0x05;
+		*((uint32 *)&modrm[2]) = disp;
+		return modrm;
+	} else return x86_mem2_r(modrm, reg, disp);
+}
+
+static inline modrm_p x86_mem2(modrm_o modrm, NativeReg reg, const void *disp)
+{		
+	return x86_mem2(modrm, reg, (uint32)disp);
+}
+
+static inline modrm_p x86_mem2(modrm_o modrm, const void *disp)
+{		
+	modrm[0] = 5;
+	modrm[1] = 0x05;
+	*((uint32 *)&modrm[2]) = (uint32)disp;
+	return modrm;
+}
+
+/*
+ *	reg1, reg2 must not be ESP
+ */
+static inline modrm_p x86_mem2_sib_r(modrm_o modrm, NativeReg reg1, int factor, NativeReg reg2, uint32 disp=0)
+{
+	switch (factor) {
+		case 1:
+		case 4:
+		case 8: // ok
+			break;
+		case 2: if (reg1 == REG_NO) {
+				// [eax+eax] is shorter than [eax*2+0]
+				reg1 = reg2;
+				factor = 1;
+			}
+			break;
+		case 3:
+		case 5:
+		case 9: // [eax*(2^n+1)] -> [eax+eax*2^n]
+			if (reg1 != REG_NO) { /* internal error */ }
+			reg1 = reg2;
+			factor--;
+			break;
+		default: 
+			/* internal error */
+			break;
+	}
+	//                       0     1     2  3     4  5  6  7     8
+	const byte factors[9] = {0, 0x00, 0x40, 0, 0x80, 0, 0, 0, 0xc0};
+	if (reg1 == REG_NO) {
+		// [eax*4+disp]
+		modrm[0] = 6;
+		modrm[1] = 0x04;
+		modrm[2] = factors[factor]+(reg2<<3)+EBP;
+		*((uint32 *)&modrm[3]) = disp;
+		return modrm;
+	} else if (((uint32)(disp) > 0x7f) && ((uint32)(disp) < 0xffffff80)) {
+		modrm[0] = 6;
+		modrm[1] = 0x84;
+		modrm[2] = factors[factor]+(reg2<<3)+reg1;
+		*((uint32 *)&modrm[3]) = disp;
+		return modrm;
+	} else if (disp || reg1 == EBP) {
+		modrm[0] = 3;
+		modrm[1] = 0x44;
+		modrm[2] = factors[factor]+(reg2<<3)+reg1;
+		modrm[3] = disp;
+		return modrm;
+	} else {
+		modrm[0] = 2;
+		modrm[1] = 0x04;
+		modrm[2] = factors[factor]+(reg2<<3)+reg1;
+		return modrm;
+	}
+}
+
+/*
+ *	reg1, reg2 must not be ESP
+ */
+static inline modrm_p x86_mem2(modrm_o modrm, NativeReg reg1, int factor, NativeReg reg2, uint32 disp=0)
+{
+	if (reg2 == REG_NO) return x86_mem2(modrm, reg1, disp);
+	return x86_mem2_sib_r(modrm, reg1, factor, reg2, disp);
+}
 
 #endif

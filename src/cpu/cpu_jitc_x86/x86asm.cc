@@ -524,7 +524,7 @@ void FASTCALL jitcInvalidateAll()
 	memset(gJITC.clientReg, REG_NO, sizeof gJITC.clientReg);
 	gJITC.nativeCarryState = gJITC.nativeFlagsState = rsUnused;
 
-	for (int i=XMM0; i<=XMM7; i++) {
+	for (unsigned int i=XMM0; i<=XMM7; i++) {
 		if(gJITC.nativeVectorRegState[i] == rsDirty) {
 			printf("!!! Unflushed vector register invalidated! (XMM%u)\n", i);
 		}
@@ -946,25 +946,25 @@ void FASTCALL asmNOP(int n)
 	jitcEmit(instr, n);	
 }
 
-void FASTCALL asmSimpleMODRMRegReg(uint8 opc, NativeReg reg1, NativeReg reg2)
+static void FASTCALL asmSimpleMODRM(uint8 opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmSimpleMODRMRegReg16(uint8 opc, NativeReg reg1, NativeReg reg2)
+static void FASTCALL asmSimpleMODRM(uint8 opc, NativeReg16 reg1, NativeReg16 reg2)
 {
 	byte instr[3] = {0x66, opc, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmSimpleMODRMRegReg8(uint8 opc, NativeReg8 reg1, NativeReg8 reg2)
+static void FASTCALL asmSimpleMODRM(uint8 opc, NativeReg8 reg1, NativeReg8 reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmTESTRegImm(NativeReg reg1, uint32 imm)
+static void FASTCALL asmTEST_D(NativeReg reg1, uint32 imm)
 {
 	if (reg1 <= EBX) {
 		if (imm <= 0xff) {
@@ -999,12 +999,12 @@ void FASTCALL asmTESTRegImm(NativeReg reg1, uint32 imm)
 	}
 }
 
-void FASTCALL asmTESTRegImm16(NativeReg reg1, uint16 imm)
+static void FASTCALL asmTEST_W(NativeReg16 reg1, uint16 imm)
 {
-	if (reg1 <= EBX) {
+	if (reg1 <= BX) {
 		if (imm <= 0xff) {
 			// test al, 1
-			if (reg1 == EAX) {
+			if (reg1 == AX) {
 				byte instr[2] = {0xa8, imm};
 				jitcEmit(instr, sizeof(instr));
 			} else {
@@ -1020,7 +1020,7 @@ void FASTCALL asmTESTRegImm16(NativeReg reg1, uint16 imm)
 		}
 	}
 	// test eax, 1001
-	if (reg1 == EAX) {
+	if (reg1 == AX) {
 		byte instr[4];
 		instr[0] = 0x66;
 		instr[1] = 0xa9;
@@ -1036,33 +1036,33 @@ void FASTCALL asmTESTRegImm16(NativeReg reg1, uint16 imm)
 	}
 }
 
-void FASTCALL asmSimpleALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+static void FASTCALL asmSimpleALU(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[2] = {0x03+(opc<<3), 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmSimpleALURegReg16(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+static void FASTCALL asmSimpleALU(X86ALUopc opc, NativeReg16 reg1, NativeReg16 reg2)
 {
 	byte instr[3] = {0x66, 0x03+(opc<<3), 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmSimpleALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
+static void FASTCALL asmSimpleALU(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
 {
 	byte instr[2] = {0x02+(opc<<3), 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
 
 
-void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 {
 	switch (opc) {
 	case X86_MOV: 
-		asmSimpleMODRMRegReg(0x8b, reg1, reg2);
+		asmSimpleMODRM(0x8b, reg1, reg2);
 	        break;
 	case X86_TEST:
-		asmSimpleMODRMRegReg(0x85, reg1, reg2);
+		asmSimpleMODRM(0x85, reg1, reg2);
 	        break;
 	case X86_XCHG:
 		if (reg1 == EAX) {
@@ -1070,57 +1070,69 @@ void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 		} else if (reg2 == EAX) {
 			jitcEmit1(0x90+reg1);
 		} else {
-			asmSimpleMODRMRegReg(0x87, reg1, reg2);
+			asmSimpleMODRM(0x87, reg1, reg2);
 		}
 	        break;
 	default:
-		asmSimpleALURegReg(opc, reg1, reg2);
+		asmSimpleALU(opc, reg1, reg2);
 	}	
 }
+void FASTCALL asmALURegReg(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+{
+	asmALU(opc, reg1, reg2);
+}
 
-void FASTCALL asmALURegReg16(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+void FASTCALL asmALU(X86ALUopc opc, NativeReg16 reg1, NativeReg16 reg2)
 {
 	switch (opc) {
 	case X86_MOV: 
-		asmSimpleMODRMRegReg16(0x8b, reg1, reg2);
+		asmSimpleMODRM(0x8b, reg1, reg2);
 	        break;
 	case X86_TEST:
-		asmSimpleMODRMRegReg16(0x85, reg1, reg2);
+		asmSimpleMODRM(0x85, reg1, reg2);
 	        break;
 	case X86_XCHG:
-		if (reg1 == EAX) {
+		if (reg1 == AX) {
 			byte instr[2] = { 0x66, 0x90+reg2 };
 			jitcEmit(instr, sizeof instr);
-		} else if (reg2 == EAX) {
+		} else if (reg2 == AX) {
 			byte instr[2] = { 0x66, 0x90+reg1 };
 			jitcEmit(instr, sizeof instr);
 		} else {
-			asmSimpleMODRMRegReg16(0x87, reg1, reg2);
+			asmSimpleMODRM(0x87, reg1, reg2);
 		}
 	        break;
 	default:
-		asmSimpleALURegReg16(opc, reg1, reg2);
+		asmSimpleALU(opc, reg1, reg2);
 	}	
 }
+void FASTCALL asmALURegReg16(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+{
+	asmALU(opc, (NativeReg16)reg1, (NativeReg16)reg2);
+}
 
-void FASTCALL asmALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
+void FASTCALL asmALU(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
 {
 	switch (opc) {
 	case X86_MOV: 
-		asmSimpleMODRMRegReg8(0x8a, reg1, reg2);
+		asmSimpleMODRM(0x8a, reg1, reg2);
 	        break;
 	case X86_TEST:
-		asmSimpleMODRMRegReg8(0x84, reg1, reg2);
+		asmSimpleMODRM(0x84, reg1, reg2);
 	        break;
 	case X86_XCHG:
-		asmSimpleMODRMRegReg8(0x86, reg1, reg2);
+		asmSimpleMODRM(0x86, reg1, reg2);
 	        break;
 	default:
-		asmSimpleALURegReg8(opc, reg1, reg2);
+		asmSimpleALU(opc, reg1, reg2);
 	}	
 }
+void FASTCALL asmALURegReg8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
+{
+	asmALU(opc, reg1, reg2);
+}
 
-void FASTCALL asmALURegImm8(X86ALUopc opc, NativeReg8 reg1, uint8 imm)
+void FASTCALL asmALU(X86ALUopc opc, NativeReg8 reg1, uint8 imm)
 {
 	byte instr[5];	
 	switch (opc) {
@@ -1159,8 +1171,12 @@ void FASTCALL asmALURegImm8(X86ALUopc opc, NativeReg8 reg1, uint8 imm)
 	}
 	}
 }
+void FASTCALL asmALURegImm8(X86ALUopc opc, NativeReg8 reg1, uint8 imm)
+{
+	asmALU(opc, reg1, imm);
+}
 
-void FASTCALL asmSimpleALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
+static void FASTCALL asmSimpleALU(X86ALUopc opc, NativeReg reg1, uint32 imm)
 {
 	if (imm <= 0x7f || imm >= 0xffffff80) {
 		byte instr[3] = {0x83, 0xc0+(opc<<3)+reg1, imm};
@@ -1181,13 +1197,13 @@ void FASTCALL asmSimpleALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
 	}
 }
 
-void FASTCALL asmSimpleALURegImm16(X86ALUopc opc, NativeReg reg1, uint32 imm)
+static void FASTCALL asmSimpleALU(X86ALUopc opc, NativeReg16 reg1, uint32 imm)
 {
 	if (imm <= 0x7f || imm >= 0xffffff80) {
 		byte instr[3] = {0x83, 0xc0+(opc<<3)+reg1, imm};
 		jitcEmit(instr, sizeof(instr));
 	} else {
-		if (reg1 == EAX) {
+		if (reg1 == AX) {
 			byte instr[4];
 			instr[0] = 0x66;
 			instr[1] = 0x05+(opc<<3);
@@ -1204,71 +1220,83 @@ void FASTCALL asmSimpleALURegImm16(X86ALUopc opc, NativeReg reg1, uint32 imm)
 	}
 }
 
+void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, uint32 imm)
+{
+	switch (opc) {
+	case X86_MOV:
+		if (imm == 0) {
+			asmALU(X86_XOR, reg1, reg1);
+		} else {
+			asmMOV_NoFlags(reg1, imm);
+		}
+		break;
+	case X86_XCHG:
+		// internal error
+		break;
+	case X86_TEST:
+		asmTEST_D(reg1, imm);
+		break;
+	case X86_CMP:
+//		if (imm == 0) {
+//			asmALU(X86_OR, reg1, reg1);
+//		} else {
+			asmSimpleALU(opc, reg1, imm);
+//		}
+		break;
+	default:
+		asmSimpleALU(opc, reg1, imm);
+	}
+}
 void FASTCALL asmALURegImm(X86ALUopc opc, NativeReg reg1, uint32 imm)
 {
-	switch (opc) {
-	case X86_MOV:
-		if (imm == 0) {
-			asmALURegReg(X86_XOR, reg1, reg1);
-		} else {
-			asmMOVRegImm_NoFlags(reg1, imm);
-		}
-		break;
-	case X86_XCHG:
-		// internal error
-		break;
-	case X86_TEST:
-		asmTESTRegImm(reg1, imm);
-		break;
-	case X86_CMP:
-//		if (imm == 0) {
-//			asmALURegReg(X86_OR, reg1, reg1);
-//		} else {
-			asmSimpleALURegImm(opc, reg1, imm);
-//		}
-		break;
-	default:
-		asmSimpleALURegImm(opc, reg1, imm);
-	}
+	asmALU(opc, reg1, imm);
 }
 
-void FASTCALL asmALURegImm16(X86ALUopc opc, NativeReg reg1, uint32 imm)
+void FASTCALL asmALU(X86ALUopc opc, NativeReg16 reg1, uint16 imm)
 {
 	switch (opc) {
 	case X86_MOV:
 		if (imm == 0) {
-			asmALURegReg16(X86_XOR, reg1, reg1);
+			asmALU(X86_XOR, reg1, reg1);
 		} else {
-			asmMOVRegImm16_NoFlags(reg1, imm);
+			asmMOV_NoFlags(reg1, imm);
 		}
 		break;
 	case X86_XCHG:
 		// internal error
 		break;
 	case X86_TEST:
-		asmTESTRegImm16(reg1, imm);
+		asmTEST_W(reg1, imm);
 		break;
 	case X86_CMP:
 //		if (imm == 0) {
-//			asmALURegReg16(X86_OR, reg1, reg1);
+//			asmALU(X86_OR, reg1, reg1);
 //		} else {
-			asmSimpleALURegImm16(opc, reg1, imm);
+			asmSimpleALU(opc, reg1, imm);
 //		}
 		break;
 	default:
-		asmSimpleALURegImm16(opc, reg1, imm);
+		asmSimpleALU(opc, reg1, imm);
 	}
 }
+void FASTCALL asmALURegImm16(X86ALUopc opc, NativeReg reg1, uint32 imm)
+{
+	asmALU(opc, (NativeReg16)reg1, imm);
+}
 
-void FASTCALL asmMOVRegImm_NoFlags(NativeReg reg1, uint32 imm)
+void FASTCALL asmMOV_NoFlags(NativeReg reg1, uint32 imm)
 {
 	byte instr[5];
 	instr[0] = 0xb8+reg1;
 	*((uint32 *)&instr[1]) = imm;
 	jitcEmit(instr, sizeof(instr));
 }
+void FASTCALL asmMOVRegImm_NoFlags(NativeReg reg1, uint32 imm)
+{
+	asmMOV_NoFlags(reg1, imm);
+}
 
-void FASTCALL asmMOVRegImm16_NoFlags(NativeReg reg1, uint16 imm)
+void FASTCALL asmMOV_NoFlags(NativeReg16 reg1, uint16 imm)
 {
 	byte instr[4];
 	instr[0] = 0x66;
@@ -1276,8 +1304,12 @@ void FASTCALL asmMOVRegImm16_NoFlags(NativeReg reg1, uint16 imm)
 	*((uint16 *)&instr[2]) = imm;
 	jitcEmit(instr, sizeof(instr));
 }
+void FASTCALL asmMOVRegImm16_NoFlags(NativeReg reg1, uint16 imm)
+{
+	asmMOV_NoFlags((NativeReg16)reg1, imm);
+}
 
-void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1)
+void FASTCALL asmALU(X86ALUopc1 opc, NativeReg reg1)
 {
 	byte instr[2];
 	switch (opc) {
@@ -1308,8 +1340,12 @@ void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1)
 	}
 	jitcEmit(instr, 2);
 }
+void FASTCALL asmALUReg(X86ALUopc1 opc, NativeReg reg1)
+{
+	asmALU(opc, reg1);
+}
 
-void FASTCALL asmALUReg16(X86ALUopc1 opc, NativeReg reg1)
+void FASTCALL asmALU(X86ALUopc1 opc, NativeReg16 reg1)
 {
 	byte instr[3];
 	instr[0] = 0x66;
@@ -1342,10 +1378,37 @@ void FASTCALL asmALUReg16(X86ALUopc1 opc, NativeReg reg1)
 	}
 	jitcEmit(instr, 3);
 }
+void FASTCALL asmALUReg16(X86ALUopc1 opc, NativeReg reg1)
+{
+	asmALU(opc, (NativeReg16)reg1);
+}
 
 void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 {
 	byte instr[15];
+
+	switch (opc) {
+	case X86_MOV:
+		instr[0] = 0x89;
+		break;
+	case X86_XCHG:
+		instr[0] = 0x87;
+		break;
+	case X86_TEST:
+		instr[0] = 0x85;
+		break;
+	default:
+		instr[0] = 0x01+(opc<<3);
+	}
+	memcpy(&instr[1], modrm, len);
+	instr[1] |= (reg2<<3);
+	jitcEmit(instr, len+1);
+}
+void FASTCALL asmALU(X86ALUopc opc, modrm_p modrm, NativeReg reg2)
+{
+	byte instr[15];
+	int len = modrm++[0];
+
 	switch (opc) {
 	case X86_MOV:
 		instr[0] = 0x89;
@@ -1367,6 +1430,30 @@ void FASTCALL asmALUMemReg(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 void FASTCALL asmALUMemReg16(X86ALUopc opc, byte *modrm, int len, NativeReg reg2)
 {
 	byte instr[16];
+
+	instr[0] = 0x66;
+	switch (opc) {
+	case X86_MOV:
+		instr[1] = 0x89;
+		break;
+	case X86_XCHG:
+		instr[1] = 0x87;
+		break;
+	case X86_TEST:
+		instr[1] = 0x85;
+		break;
+	default:
+		instr[1] = 0x01+(opc<<3);
+	}
+	memcpy(&instr[2], modrm, len);
+	instr[2] |= (reg2<<3);
+	jitcEmit(instr, len+2);
+}
+void FASTCALL asmALU(X86ALUopc opc, modrm_p modrm, NativeReg16 reg2)
+{
+	byte instr[16];
+	int len = modrm++[0];
+
 	instr[0] = 0x66;
 	switch (opc) {
 	case X86_MOV:
@@ -1386,9 +1473,11 @@ void FASTCALL asmALUMemReg16(X86ALUopc opc, byte *modrm, int len, NativeReg reg2
 	jitcEmit(instr, len+2);
 }
 
-void FASTCALL asmSimpleALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm)
+
+static void FASTCALL asmSimpleALU_D(X86ALUopc opc, byte *modrm, int len, uint32 imm)
 {
 	byte instr[15];
+
 	if (imm <= 0x7f || imm >= 0xffffff80) {
 		instr[0] = 0x83;
 		memcpy(&instr[1], modrm, len);
@@ -1404,12 +1493,13 @@ void FASTCALL asmSimpleALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm
 	}
 }
 
-void FASTCALL asmSimpleALUMemImm16(X86ALUopc opc, byte *modrm, int len, uint32 imm)
+static void FASTCALL asmSimpleALU_W(X86ALUopc opc, byte *modrm, int len, uint16 imm)
 {
 	byte instr[16];
+
 	instr[0] = 0x66;
 
-	if (imm <= 0x7f || imm >= 0xffffff80) {
+	if (imm <= 0x7f || imm >= 0xff80) {
 		instr[0] = 0x83;
 		memcpy(&instr[1], modrm, len);
 		instr[1] |= (opc<<3);
@@ -1445,8 +1535,15 @@ void FASTCALL asmALUMemImm(X86ALUopc opc, byte *modrm, int len, uint32 imm)
 		jitcEmit(instr, len+5);
 		break;
 	default:
-		asmSimpleALUMemImm(opc, modrm, len, imm);
+		asmSimpleALU_D(opc, modrm, len, imm);
 	}
+}
+
+void FASTCALL asmALU_D(X86ALUopc opc, modrm_p modrm, uint32 imm)
+{
+	int len = modrm++[0];
+
+	asmALUMemImm(opc, modrm, len, imm);
 }
 
 void FASTCALL asmALUMemImm16(X86ALUopc opc, byte *modrm, int len, uint16 imm)
@@ -1472,8 +1569,14 @@ void FASTCALL asmALUMemImm16(X86ALUopc opc, byte *modrm, int len, uint16 imm)
 		jitcEmit(instr, len+4);
 		break;
 	default:
-		asmSimpleALUMemImm16(opc, modrm, len, imm);
+		asmSimpleALU_W(opc, modrm, len, imm);
 	}
+}
+void FASTCALL asmALU_W(X86ALUopc opc, modrm_p modrm, uint16 imm)
+{
+	int len = modrm++[0];
+
+	asmALUMemImm16(opc, modrm, len, imm);
 }
 
 void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
@@ -1497,6 +1600,12 @@ void FASTCALL asmALURegMem(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
 	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg1<<3);
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmALURegMem(opc, reg1, modrm, len);
 }
 
 void FASTCALL asmALURegMem16(X86ALUopc opc, NativeReg reg1, byte *modrm, int len)
@@ -1522,6 +1631,12 @@ void FASTCALL asmALURegMem16(X86ALUopc opc, NativeReg reg1, byte *modrm, int len
 	instr[2] |= (reg1<<3);
 	jitcEmit(instr, len+2);
 }
+void FASTCALL asmALU(X86ALUopc opc, NativeReg16 reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmALURegMem16(opc, (NativeReg)reg1, modrm, len);
+}
 
 void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg8 reg1, byte *modrm, int len)
 {
@@ -1545,6 +1660,12 @@ void FASTCALL asmALURegMem8(X86ALUopc opc, NativeReg8 reg1, byte *modrm, int len
 	instr[1] |= (reg1<<3);
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmALU(X86ALUopc opc, NativeReg8 reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmALURegMem8(opc, reg1, modrm, len);
+}
 
 void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg8 reg2)
 {
@@ -1565,6 +1686,12 @@ void FASTCALL asmALUMemReg8(X86ALUopc opc, byte *modrm, int len, NativeReg8 reg2
 	memcpy(&instr[1], modrm, len);
 	instr[1] |= (reg2<<3);
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmALU(X86ALUopc opc, modrm_p modrm, NativeReg8 reg2)
+{
+	int len = modrm++[0];
+
+	asmALUMemReg8(opc, modrm, len, reg2);
 }
 
 void FASTCALL asmALUMemImm8(X86ALUopc opc, byte *modrm, int len, uint8 imm)
@@ -1592,170 +1719,212 @@ void FASTCALL asmALUMemImm8(X86ALUopc opc, byte *modrm, int len, uint8 imm)
 	instr[len+1] = imm;
 	jitcEmit(instr, len+2);
 }
+void FASTCALL asmALU_B(X86ALUopc opc, modrm_p modrm, uint8 imm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmMOVDMemReg(uint32 disp, NativeReg reg1)
+	asmALUMemImm8(opc, modrm, len, imm);
+}
+
+void FASTCALL asmMOV(const void *disp, NativeReg reg1)
 {
 	byte instr[6];
 	if (reg1==EAX) {
 		instr[0] = 0xa3;
-		*((uint32 *)&instr[1]) = disp;
+		*((uint32 *)&instr[1]) = (uint32)disp;
 		jitcEmit(instr, 5);
 	} else {
 		instr[0] = 0x89;
 		instr[1] = 0x05 | (reg1 << 3);
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		jitcEmit(instr, 6);
 	}
 }
+void FASTCALL asmMOVDMemReg(uint32 disp, NativeReg reg1)
+{
+	asmMOV((const void *)disp, reg1);
+}
 
-void FASTCALL asmMOVDMemReg16(uint32 disp, NativeReg reg1)
+void FASTCALL asmMOV(const void *disp, NativeReg16 reg1)
 {
 	byte instr[7];
 	instr[0] = 0x66;
-	if (reg1==EAX) {
+	if (reg1==AX) {
 		instr[1] = 0xa3;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		jitcEmit(instr, 6);
 	} else {
 		instr[1] = 0x89;
 		instr[2] = 0x05 | (reg1 << 3);
-		*((uint32 *)&instr[3]) = disp;
+		*((uint32 *)&instr[3]) = (uint32)disp;
 		jitcEmit(instr, 7);
 	}
 }
+void FASTCALL asmMOVDMemReg16(uint32 disp, NativeReg reg1)
+{
+	asmMOV((const void *)disp, (NativeReg16)reg1);
+}
 
-void FASTCALL asmMOVRegDMem(NativeReg reg1, uint32 disp)
+void FASTCALL asmMOV(NativeReg reg1, const void *disp)
 {
 	byte instr[6];
 	if (reg1==EAX) {
 		instr[0] = 0xa1;
-		*((uint32 *)&instr[1]) = disp;
+		*((uint32 *)&instr[1]) = (uint32)disp;
 		jitcEmit(instr, 5);
 	} else {
 		instr[0] = 0x8b;
 		instr[1] = 0x05 | (reg1 << 3);
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		jitcEmit(instr, 6);
 	}
 }
+void FASTCALL asmMOVRegDMem(NativeReg reg1, uint32 disp)
+{
+	asmMOV(reg1, (const void *)disp);
+}
 
-void FASTCALL asmMOVRegDMem16(NativeReg reg1, uint32 disp)
+void FASTCALL asmMOV(NativeReg16 reg1, const void *disp)
 {
 	byte instr[7];
 	instr[0] = 0x66;
-	if (reg1==EAX) {
+	if (reg1==AX) {
 		instr[1] = 0xa1;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		jitcEmit(instr, 6);
 	} else {
 		instr[1] = 0x8b;
 		instr[2] = 0x05 | (reg1 << 3);
-		*((uint32 *)&instr[3]) = disp;
+		*((uint32 *)&instr[3]) = (uint32)disp;
 		jitcEmit(instr, 7);
 	}
 }
+void FASTCALL asmMOVRegDMem16(NativeReg reg1, uint32 disp)
+{
+	asmMOV((NativeReg16)reg1, (const void *)disp);
+}
 
-void FASTCALL asmTESTDMemImm(uint32 disp, uint32 imm)
+void FASTCALL asmTEST(const void *disp, uint32 imm)
 {
 	byte instr[15];
 	instr[1] = 0x05;
 	if (!(imm & 0xffffff00)) {
 		instr[0] = 0xf6;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		instr[6] = imm;
 	} else if (!(imm & 0xffff00ff)) {
 		instr[0] = 0xf6;
-		*((uint32 *)&instr[2]) = disp+1;
+		*((uint32 *)&instr[2]) = (uint32)disp+1;
 		instr[6] = imm >> 8;
 	} else if (!(imm & 0xff00ffff)) {
 		instr[0] = 0xf6;
-		*((uint32 *)&instr[2]) = disp+2;
+		*((uint32 *)&instr[2]) = (uint32)disp+2;
 		instr[6] = imm >> 16;
 	} else if (!(imm & 0x00ffffff)) {
 		instr[0] = 0xf6;
-		*((uint32 *)&instr[2]) = disp+3;
+		*((uint32 *)&instr[2]) = (uint32)disp+3;
 		instr[6] = imm >> 24;
 	} else {
 		instr[0] = 0xf7;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		*((uint32 *)&instr[6]) = imm;
 		jitcEmit(instr, 10);
 		return;
 	}
 	jitcEmit(instr, 7);
 }
+void FASTCALL asmTESTDMemImm(uint32 disp, uint32 imm)
+{
+	asmTEST((const void *)disp, imm);
+}
 
-void FASTCALL asmANDDMemImm(uint32 disp, uint32 imm)
+void FASTCALL asmAND(const void *disp, uint32 imm)
 {
 	byte instr[15];
 	instr[1] = 0x25;
 	if ((imm & 0xffffff00)==0xffffff00) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		instr[6] = imm;
 	} else if ((imm & 0xffff00ff)==0xffff00ff) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp+1;
+		*((uint32 *)&instr[2]) = (uint32)disp+1;
 		instr[6] = imm >> 8;
 	} else if ((imm & 0xff00ffff)==0xff00ffff) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp+2;
+		*((uint32 *)&instr[2]) = (uint32)disp+2;
 		instr[6] = imm >> 16;
 	} else if ((imm & 0x00ffffff)==0x00ffffff) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp+3;
+		*((uint32 *)&instr[2]) = (uint32)disp+3;
 		instr[6] = imm >> 24;
 	} else {
 		instr[0] = 0x81;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		*((uint32 *)&instr[6]) = imm;
 		jitcEmit(instr, 10);
 		return;
 	}
 	jitcEmit(instr, 7);
 }
+void FASTCALL asmANDDMemImm(uint32 disp, uint32 imm)
+{
+	asmAND((const void *)disp, imm);
+}
 
-void FASTCALL asmORDMemImm(uint32 disp, uint32 imm)
+void FASTCALL asmOR(const void *disp, uint32 imm)
 {
 	byte instr[15];
 	instr[1] = 0x0d;
 	if (!(imm & 0xffffff00)) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		instr[6] = imm;
 	} else if (!(imm & 0xffff00ff)) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp+1;
+		*((uint32 *)&instr[2]) = (uint32)disp+1;
 		instr[6] = imm >> 8;
 	} else if (!(imm & 0xff00ffff)) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp+2;
+		*((uint32 *)&instr[2]) = (uint32)disp+2;
 		instr[6] = imm >> 16;
 	} else if (!(imm & 0x00ffffff)) {
 		instr[0] = 0x80;
-		*((uint32 *)&instr[2]) = disp+3;
+		*((uint32 *)&instr[2]) = (uint32)disp+3;
 		instr[6] = imm >> 24;
 	} else {
 		instr[0] = 0x81;
-		*((uint32 *)&instr[2]) = disp;
+		*((uint32 *)&instr[2]) = (uint32)disp;
 		*((uint32 *)&instr[6]) = imm;
 		jitcEmit(instr, 10);
 		return;
 	}
 	jitcEmit(instr, 7);
 }
+void FASTCALL asmORDMemImm(uint32 disp, uint32 imm)
+{
+	asmOR((const void *)disp, imm);
+}
 
 
-void FASTCALL asmMOVxxRegReg8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2)
+void FASTCALL asmMOVxx(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2)
 {
 	byte instr[3] = {0x0f, opc, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
 }
+void FASTCALL asmMOVxxRegReg8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2)
+{
+	asmMOVxx(opc, reg1, reg2);
+}
 
-void FASTCALL asmMOVxxRegReg16(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
+void FASTCALL asmMOVxx(X86MOVxx opc, NativeReg reg1, NativeReg16 reg2)
 {
 	byte instr[3] = {0x0f, opc+1, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
+}
+void FASTCALL asmMOVxxRegReg16(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
+{
+	asmMOVxx(opc, reg1, (NativeReg16)reg2);
 }
 
 void FASTCALL asmMOVxxRegMem8(X86MOVxx opc, NativeReg reg1, byte *modrm, int len)
@@ -1768,6 +1937,12 @@ void FASTCALL asmMOVxxRegMem8(X86MOVxx opc, NativeReg reg1, byte *modrm, int len
 
 	jitcEmit(instr, len+2);
 }
+void FASTCALL asmMOVxx_B(X86MOVxx opc, NativeReg reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmMOVxxRegMem8(opc, reg1, modrm, len);
+}
 
 void FASTCALL asmMOVxxRegMem16(X86MOVxx opc, NativeReg reg1, byte *modrm, int len)
 {
@@ -1779,11 +1954,21 @@ void FASTCALL asmMOVxxRegMem16(X86MOVxx opc, NativeReg reg1, byte *modrm, int le
 
 	jitcEmit(instr, len+2);
 }
+void FASTCALL asmMOVxx_W(X86MOVxx opc, NativeReg reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmSETReg8(X86FlagTest flags, NativeReg8 reg1)
+	asmMOVxxRegMem16(opc, reg1, modrm, len);
+}
+
+void FASTCALL asmSET(X86FlagTest flags, NativeReg8 reg1)
 {
 	byte instr[3] = {0x0f, 0x90+flags, 0xc0+reg1};
 	jitcEmit(instr, sizeof(instr));
+}
+void FASTCALL asmSETReg8(X86FlagTest flags, NativeReg8 reg1)
+{
+	asmSET(flags, reg1);
 }
 
 void FASTCALL asmSETMem(X86FlagTest flags, byte *modrm, int len)
@@ -1794,8 +1979,14 @@ void FASTCALL asmSETMem(X86FlagTest flags, byte *modrm, int len)
 	memcpy(instr+2, modrm, len);
 	jitcEmit(instr, len+2);
 }
+void FASTCALL asmSET(X86FlagTest flags, modrm_p modrm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
+	asmSETMem(flags, modrm, len);
+}
+
+void FASTCALL asmCMOV(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
 {
 	if (gJITC.hostCPUCaps.cmov) {
 		byte instr[3] = {0x0f, 0x40+flags, 0xc0+(reg1<<3)+reg2};
@@ -1807,6 +1998,10 @@ void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
 		};
 		jitcEmit(instr, sizeof instr);
 	}
+}
+void FASTCALL asmCMOVRegReg(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
+{
+	asmCMOV(flags, reg1, reg2);
 }
 
 void FASTCALL asmCMOVRegMem(X86FlagTest flags, NativeReg reg1, byte *modrm, int len)
@@ -1825,6 +2020,12 @@ void FASTCALL asmCMOVRegMem(X86FlagTest flags, NativeReg reg1, byte *modrm, int 
 		instr[3] |= (reg1<<3);
 		jitcEmit(instr, len+3);
 	}
+}
+void FASTCALL asmCMOV(X86FlagTest flags, NativeReg reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmCMOVRegMem(flags, reg1, modrm, len);
 }
 
 void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
@@ -1881,7 +2082,7 @@ void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1)
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm)
+void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm)
 {
 	if (imm <= 0x7f || imm >= 0xffffff80) {	
 		byte instr[3] = {0x6b, 0xc0+(reg1<<3)+reg2, imm};
@@ -1893,10 +2094,20 @@ void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm)
 	}
 }
 
-void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2)
+void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2)
 {
 	byte instr[3] = {0x0f, 0xaf, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
+}
+
+void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm)
+{
+	asmIMUL(reg1, reg2, imm);
+}
+
+void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2)
+{
+	asmIMUL(reg1, reg2);
 }
 
 void FASTCALL asmINCReg(NativeReg reg1)
@@ -2016,6 +2227,9 @@ void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to)
 	 *	yes, I also didn't believe this could be real code until
 	 *	I had written it.
 	 */
+	if (to == 0) {
+		to = gJITC.currentPage->tcp;
+	}
 	*((uint32 *)at) = (uint32)(to - ((uint32)at+4));
 }
 
@@ -2375,12 +2589,12 @@ static inline void FASTCALL jitcLoadVectorRegister(NativeVectorReg nreg)
 		//printf("*** load neg1: XMM%u\n", nreg);
 
 		/* On a P4, we can load -1 far faster with logic */
-		asmPALURegRegv(PALUD(X86_PCMPEQ), nreg, nreg);
+		asmPALU(PALUD(X86_PCMPEQ), nreg, nreg);
 		return;
 	}
 
 	//printf("*** load: XMM%u (vr%u)\n", nreg, creg);
-	asmMOVAPSRegvDMem(nreg, (uint32)&gCPU.vr[creg]);
+	asmMOVAPS(nreg, &gCPU.vr[creg]);
 }
 
 /*
@@ -2397,7 +2611,7 @@ static inline void FASTCALL jitcStoreVectorRegister(NativeVectorReg nreg)
 
 	//printf("*** store: XMM%u (vr%u)\n", nreg, creg);
 
-	asmMOVAPSDMemRegv((uint32)&gCPU.vr[creg], nreg);
+	asmMOVAPS(&gCPU.vr[creg], nreg);
 }
 
 /*
@@ -2797,7 +3011,7 @@ NativeVectorReg FASTCALL jitcRenameVectorRegisterDirty(NativeVectorReg reg, Jitc
 		/*	It's already in a register, so rather than losing
 		 *	reg pool depth, just move the value.
 		 */
-		asmALUPSRegRegv(X86_MOVAPS, nreg, reg);
+		asmALUPS(X86_MOVAPS, nreg, reg);
 	} else {
 		/*	Otherwise, only the source register is in the reg
 		 *	pool, so flush it, then remap it.
@@ -2821,67 +3035,67 @@ NativeVectorReg FASTCALL jitcRenameVectorRegisterDirty(NativeVectorReg reg, Jitc
 	return nreg;
 }
 
-void asmMOVAPSRegvDMem(NativeVectorReg reg, uint32 disp)
+void asmMOVAPS(NativeVectorReg reg, const void *disp)
 {
-	byte instr[6] = { 0x0f, 0x28 };
+	byte instr[8] = { 0x0f, 0x28 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = disp;
+	*((uint32 *)&instr[3]) = (uint32)disp;
 
 	jitcEmit(instr, 7);
 }
 
-void asmMOVAPSDMemRegv(uint32 disp, NativeVectorReg reg)
+void asmMOVAPS(const void *disp, NativeVectorReg reg)
 {
-	byte instr[6] = { 0x0f, 0x29 };
+	byte instr[8] = { 0x0f, 0x29 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = disp;
+	*((uint32 *)&instr[3]) = (uint32)disp;
 
 	jitcEmit(instr, 7);
 }
 
-void asmMOVUPSRegvDMem(NativeVectorReg reg, uint32 disp)
+void asmMOVUPS(NativeVectorReg reg, const void *disp)
 {
-	byte instr[6] = { 0x0f, 0x10 };
+	byte instr[8] = { 0x0f, 0x10 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = disp;
+	*((uint32 *)&instr[3]) = (uint32)disp;
 
 	jitcEmit(instr, 7);
 }
 
-void asmMOVUPSDMemRegv(uint32 disp, NativeVectorReg reg)
+void asmMOVUPS(const void *disp, NativeVectorReg reg)
 {
-	byte instr[6] = { 0x0f, 0x11 };
+	byte instr[8] = { 0x0f, 0x11 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = disp;
+	*((uint32 *)&instr[3]) = (uint32)disp;
 
 	jitcEmit(instr, 7);
 }
 
-void asmMOVSSRegvDMem(NativeVectorReg reg, uint32 disp)
+void asmMOVSS(NativeVectorReg reg, const void *disp)
 {
-	byte instr[6] = { 0xf3, 0x0f, 0x10 };
+	byte instr[10] = { 0xf3, 0x0f, 0x10 };
 
 	instr[3] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[4]) = disp;
+	*((uint32 *)&instr[4]) = (uint32)disp;
 
 	jitcEmit(instr, 8);
 }
 
-void asmMOVSSDMemRegv(uint32 disp, NativeVectorReg reg)
+void asmMOVSS(const void *disp, NativeVectorReg reg)
 {
-	byte instr[6] = { 0xf3, 0x0f, 0x11 };
+	byte instr[10] = { 0xf3, 0x0f, 0x11 };
 
 	instr[3] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[4]) = disp;
+	*((uint32 *)&instr[4]) = (uint32)disp;
  
 	jitcEmit(instr, 8);
 }
 
-void asmALUPSRegRegv(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
 {
 	byte instr[4] = { 0x0f };
 
@@ -2891,9 +3105,10 @@ void asmALUPSRegRegv(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2
 	jitcEmit(instr, 3);
 }
 
-void asmALUPSRegvMem(X86ALUPSopc opc, NativeVectorReg reg1, byte *modrm, int len)
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, modrm_p modrm)
 {
 	byte instr[16] = { 0x0f };
+	int len = modrm++[0];
 
 	instr[1] = opc;
 	memcpy(&instr[2], modrm, len);
@@ -2902,7 +3117,7 @@ void asmALUPSRegvMem(X86ALUPSopc opc, NativeVectorReg reg1, byte *modrm, int len
 	jitcEmit(instr, len+2);
 }
 
-void asmPALURegRegv(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
 {
 	byte instr[5] = { 0x66, 0x0f };
 
@@ -2912,9 +3127,10 @@ void asmPALURegRegv(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
 	jitcEmit(instr, 4);
 }
 
-void asmPALURegvMem(X86PALUopc opc, NativeVectorReg reg1, byte *modrm, int len)
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, modrm_p modrm)
 {
 	byte instr[5] = { 0x66, 0x0f };
+	int len = modrm++[0];
 
 	instr[2] = opc;
 	memcpy(&instr[3], modrm, len);
@@ -2923,16 +3139,17 @@ void asmPALURegvMem(X86PALUopc opc, NativeVectorReg reg1, byte *modrm, int len)
 	jitcEmit(instr, len+3);
 }
 
-void asmSHUFPSRegRegv(NativeVectorReg reg1, NativeVectorReg reg2, int order)
+void asmSHUFPS(NativeVectorReg reg1, NativeVectorReg reg2, int order)
 {
 	byte instr[5] = { 0x0f, 0xc6, 0xc0+(reg1<<3)+reg2, order };
 
 	jitcEmit(instr, 4);
 }
 
-void asmSHUFPSRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order)
+void asmSHUFPS(NativeVectorReg reg1, modrm_p modrm, int order)
 {
 	byte instr[16] = { 0x0f, 0xc6 };
+	int len = modrm++[0];
 
 	memcpy(&instr[2], modrm, len);
 	instr[2] |= (reg1 << 3);
@@ -2941,16 +3158,17 @@ void asmSHUFPSRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order)
 	jitcEmit(instr, len+3);
 }
 
-void asmPSHUFDRegRegv(NativeVectorReg reg1, NativeVectorReg reg2, int order)
+void asmPSHUFD(NativeVectorReg reg1, NativeVectorReg reg2, int order)
 {
 	byte instr[6] = { 0x66, 0x0f, 0x70, 0xc0+(reg1<<3)+reg2, order };
 
 	jitcEmit(instr, 5);
 }
 
-void asmPSHUFDRegvMem(NativeVectorReg reg1, byte *modrm, int len, int order)
+void asmPSHUFD(NativeVectorReg reg1, modrm_p modrm, int order)
 {
 	byte instr[5] = { 0x66, 0x0f, 0x70 };
+	int len = modrm++[0];
 
 	memcpy(&instr[3], modrm, len);
 	instr[3] |= (reg1 << 3);

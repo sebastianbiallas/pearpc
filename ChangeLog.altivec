@@ -1,6 +1,13 @@
  PearPC AltiVec ChangeLog
 =========================
 
+2005-05-08:
+	- Some Bug fixes in x86asm.cc concerning modrm's and *SHUF*
+		instructions.
+	- Revamped x86asm interface for the AltiVec code, it now is fully
+		consistent with the newer interface design.  There is no
+		older interface design access for the SSE/SSE2 code generation.
+
 2005-04-14:
 	- Head merge
 	- Fixed a bug with vcvtuxs that was causing problems with high

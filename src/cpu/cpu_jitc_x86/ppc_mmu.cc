@@ -2826,8 +2826,8 @@ JITCFlow ppc_opc_gen_lvsl()
 
 		NativeVectorReg reg1 = jitcMapClientVectorRegisterDirty(vrD);
 
-		asmALUPSRegvMem(X86_MOVAPS, reg1, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper_full));
+		asmALUPS(X86_MOVAPS, reg1,
+			x86_mem2(modrm, regA, (uint32)&lvsl_helper_full));
 	} else {
 		asmALUReg(X86_NOT, regA);
 		jitcDropClientVectorRegister(vrD);
@@ -2899,8 +2899,8 @@ JITCFlow ppc_opc_gen_lvsr()
 
 		NativeVectorReg reg1 = jitcMapClientVectorRegisterDirty(vrD);
 
-		asmALUPSRegvMem(X86_MOVAPS, reg1, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsr_helper_full));
+		asmALUPS(X86_MOVAPS, reg1,
+			x86_mem2(modrm, regA, (uint32)&lvsr_helper_full));
 	} else {
 		jitcDropClientVectorRegister(vrD);
 		jitcAssertFlushedVectorRegister(vrD);

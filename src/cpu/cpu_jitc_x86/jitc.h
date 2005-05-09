@@ -267,10 +267,11 @@ void jitc_done();
 
 static UNUSED void ppc_opc_gen_interpret(ppc_opc_function func) 
 {
+	modrm_o modrm;
+
 	jitcClobberAll();
 
-	byte modrm[6];
-	asmALUMemImm(X86_MOV, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.current_opc), gJITC.current_opc);
+	asmALU_D(X86_MOV, x86_mem2(modrm, &gCPU.current_opc), gJITC.current_opc);
 	asmCALL((NativeAddress)func);
 }
 
