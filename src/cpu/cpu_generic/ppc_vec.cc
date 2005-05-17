@@ -25,6 +25,17 @@
 
 #include <math.h>
 
+/*
+ *	FIXME: put somewhere appropriate
+ */
+#ifndef HAS_LOG2
+#define log2(x) log(x)/log(2)
+#endif /* HAS_LOG2 */ 
+
+#ifndef HAS_EXP2
+#define exp2(x)	pow(2, x)
+#endif /* HAS_EXP2 */
+
 #include "debug/tracers.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
