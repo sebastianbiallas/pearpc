@@ -33,6 +33,8 @@
 #endif /* HAS_EXP2 */
 
 #define X86ASM_V2_ONLY
+#define ASSERT_FLUSHED(vrA)
+//#define ASSERT_FLUSHED(vrA)	jitcAssertFlushedVectorRegister(vrA)
 
 #include "debug/tracers.h"
 #include "ppc_cpu.h"
@@ -178,6 +180,11 @@ static inline sint32 SATURATE_SW(sint64 val)
 	return val;
 }
 
+static inline void vec_raise_saturate(void)
+{
+	asmOR(&gCPU.vscr, VSCR_SAT);
+}
+
 static inline void vec_saturateSB(NativeReg reg, NativeReg reg2)
 {
 	jitcClobberCarryAndFlags();
@@ -196,7 +203,7 @@ static inline void vec_saturateSB(NativeReg reg, NativeReg reg2)
 	asmResolveFixup(skip2);
 
 	asmALU(X86_MOV, reg, reg2);
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	vec_raise_saturate();
 
 	asmResolveFixup(skip3);
 }
@@ -219,7 +226,7 @@ static inline void vec_saturateSUB(NativeReg reg, NativeReg reg2)
 	asmResolveFixup(skip2);
 
 	asmALU(X86_MOV, reg, reg2);
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	vec_raise_saturate();
 
 	asmResolveFixup(skip3);
 }
@@ -234,7 +241,7 @@ static inline void vec_saturateUB(NativeReg8 reg)
 	asmSET(X86_S, reg);
 	asmALU(X86_SUB, reg, 1);
 
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	vec_raise_saturate();
 
 	asmResolveFixup(skip1);
 }
@@ -258,7 +265,7 @@ static inline void vec_saturateSH(NativeReg reg, NativeReg reg2)
 	asmResolveFixup(skip2);
 
 	asmALU(X86_MOV, reg, reg2);
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	vec_raise_saturate();
 
 	asmResolveFixup(skip3);
 }
@@ -281,7 +288,7 @@ static inline void vec_saturateSUH(NativeReg reg, NativeReg reg2)
 	asmResolveFixup(skip2);
 
 	asmALU(X86_MOV, reg, reg2);
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	vec_raise_saturate();
 
 	asmResolveFixup(skip3);
 }
@@ -297,7 +304,7 @@ static inline void vec_saturateUH(NativeReg8 reg)
 	asmMOVxx(X86_MOVZX, (NativeReg)reg, reg);
 	asmALU(X86_SUB, (NativeReg)reg, 1);
 
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	vec_raise_saturate();
 
 	asmResolveFixup(skip1);
 }
@@ -306,7 +313,7 @@ static inline void vec_getByte(NativeReg8 dest, int src, NativeReg r, int i)
 {
 	modrm_o modrm;
 
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmALU(X86_MOV, dest, x86_mem2(modrm, r, &(gCPU.vr[src].b[i])));
 }
@@ -315,7 +322,7 @@ static inline void vec_setByte(int dest, NativeReg r, int i, NativeReg8 src)
 {
 	modrm_o modrm;
 
-	jitcAssertFlushedVectorRegister(dest);
+	ASSERT_FLUSHED(dest);
 
 	asmALU(X86_MOV, x86_mem2(modrm, r, &(gCPU.vr[dest].b[i])), src);
 }
@@ -324,7 +331,7 @@ static inline void vec_getByteZ(NativeReg dest, int src, int i)
 {
 	modrm_o modrm;
 
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmMOVxx_B(X86_MOVZX, dest, x86_mem2(modrm, &(gCPU.vr[src].b[i])));
 }
@@ -333,21 +340,21 @@ static inline void vec_getByteS(NativeReg dest, int src, int i)
 {
 	modrm_o modrm;
 
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmMOVxx_B(X86_MOVSX, dest, x86_mem2(modrm, &(gCPU.vr[src].b[i])));
 }
 
 static inline void vec_getHalf(NativeReg16 dest, int src, int i)
 {
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmMOV(dest, &(gCPU.vr[src].b[i]));
 }
 
 static inline void vec_setHalf(int dest, int i, NativeReg16 src)
 {
-	jitcAssertFlushedVectorRegister(dest);
+	ASSERT_FLUSHED(dest);
 
 	asmMOV(&(gCPU.vr[dest].b[i]), src);
 }
@@ -356,7 +363,7 @@ static inline void vec_getHalfZ(NativeReg dest, int src, int i)
 {
 	modrm_o modrm;
 
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmMOVxx_W(X86_MOVZX, dest, x86_mem2(modrm, &(gCPU.vr[src].b[i])));
 }
@@ -365,21 +372,21 @@ static inline void vec_getHalfS(NativeReg dest, int src, int i)
 {
 	modrm_o modrm;
 
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmMOVxx_W(X86_MOVSX, dest, x86_mem2(modrm, &(gCPU.vr[src].b[i])));
 }
 
 static inline void vec_getWord(NativeReg dest, int src, int i)
 {
-	jitcAssertFlushedVectorRegister(src);
+	ASSERT_FLUSHED(src);
 
 	asmMOV(dest, &(gCPU.vr[src].b[i]));
 }
 
 static inline void vec_setWord(int dest, int i, NativeReg src)
 {
-	jitcAssertFlushedVectorRegister(dest);
+	ASSERT_FLUSHED(dest);
 
 	asmMOV(&(gCPU.vr[dest].b[i]), src);
 }
@@ -502,50 +509,86 @@ static inline void vec_Not(int dest, int src)
 
 static inline void vec_SelectiveLoadByte(X86FlagTest flags, NativeReg8 reg1, NativeReg reg2, int vrA, int vrB)
 {
-	byte instr[32];
-	byte modrm = 0x80|(reg1<<3)|reg2;
+	modrm_o modrm;
 
-	instr[0] = 0x70+flags;			// jCC $+8
-	instr[1] = 8;
+	NativeAddress skip = asmJxxFixup(flags);
+	asmALU(X86_MOV, (NativeReg)reg1,
+		x86_mem2(modrm, reg2, &(gCPU.vr[vrA].b[16])));
 
-	instr[2] = 0x8a;			// movb reg1, vrA(reg2)
-	instr[3] = modrm;
-	*((uint32 *)&instr[4]) = (uint32)&gCPU.vr[vrA]+16;
+	NativeAddress end = asmJMPFixup();
 
-	instr[8] = 0xeb;			// jmp $+6
-	instr[9] = 6;
+	asmResolveFixup(skip);
+	asmALU(X86_MOV, (NativeReg)reg1,
+		x86_mem2(modrm, reg2, &(gCPU.vr[vrB].b[16])));
 
-	instr[10] = 0x8a;			// movb reg1, vrB(reg2)
-	instr[11] = modrm;
-	*((uint32 *)&instr[12]) = (uint32)&gCPU.vr[vrB]+16;
-
-	jitcEmit(instr, 16);
+	asmResolveFixup(end);
 }
 
-static inline void vec_PermutePair(NativeReg8 reg1, NativeReg reg2, NativeReg reg3, NativeReg reg4, int vrA, int vrB)
+static inline void vec_PermuteQuad(NativeReg8 reg1, NativeReg reg2, NativeReg8 regT, NativeReg regA, NativeReg regB, int vrA, int vrB, int vrD, int i)
 {
+	modrm_o modrm;
+
+	asmMOVxx(X86_MOVSX, regA, reg1);
+	asmMOVxx(X86_MOVSX, regB, RL2RH(reg1));
+
 	if (gJITC.hostCPUCaps.cmov) {
-		modrm_o modrm;
+		asmALU(X86_TEST, reg2, 0x10);
+		asmCMOV(X86_Z, (NativeReg)regT,
+			x86_mem2(modrm, regA, &(gCPU.vr[vrA].b[16])));
+		asmCMOV(X86_NZ, (NativeReg)regT,
+			x86_mem2(modrm, regA, &(gCPU.vr[vrB].b[16])));
 
-		asmALU(X86_TEST, reg1, 0x10);
-		asmCMOV(X86_Z, reg4,
-			x86_mem2(modrm, reg2, &(gCPU.vr[vrA].b[16])));
-		asmCMOV(X86_NZ, reg4,
-			x86_mem2(modrm, reg2, &(gCPU.vr[vrB].b[16])));
+		vec_setByte(vrD, REG_NO, i, regT);
 
-		asmALU(X86_TEST, RL2RH(reg1), 0x10);
-		asmCMOV(X86_Z, (NativeReg)reg1,
-			x86_mem2(modrm, reg3, &(gCPU.vr[vrA].b[15])));
-		asmCMOV(X86_NZ, (NativeReg)reg1,
-			x86_mem2(modrm, reg3, &(gCPU.vr[vrB].b[15])));
+		asmALU(X86_TEST, reg2, 0x1000);
+		asmCMOV(X86_Z, (NativeReg)regT,
+			x86_mem2(modrm, regB, &(gCPU.vr[vrA].b[16])));
+		asmCMOV(X86_NZ, (NativeReg)regT,
+			x86_mem2(modrm, regB, &(gCPU.vr[vrB].b[16])));
 
-		asmALU(X86_MOV, reg1, (NativeReg8)reg4);
+		vec_setByte(vrD, REG_NO, i+1, regT);
+
+		asmShift(X86_SHR, (NativeReg)reg1, 16);
+
+		asmMOVxx(X86_MOVSX, regA, reg1);
+		asmMOVxx(X86_MOVSX, regB, RL2RH(reg1));
+
+		asmALU(X86_TEST, reg2, 0x100000);
+		asmCMOV(X86_Z, (NativeReg)regT,
+			x86_mem2(modrm, regA, &(gCPU.vr[vrA].b[16])));
+		asmCMOV(X86_NZ, (NativeReg)regT,
+			x86_mem2(modrm, regA, &(gCPU.vr[vrB].b[16])));
+
+		vec_setByte(vrD, REG_NO, i+2, regT);
+
+		asmALU(X86_TEST, reg2, 0x10000000);
+		asmCMOV(X86_Z, (NativeReg)regT,
+			x86_mem2(modrm, regB, &(gCPU.vr[vrA].b[16])));
+		asmCMOV(X86_NZ, (NativeReg)regT,
+			x86_mem2(modrm, regB, &(gCPU.vr[vrB].b[16])));
+
+		vec_setByte(vrD, REG_NO, i+3, regT);
 	} else {
-		asmALU(X86_TEST, reg1, 0x10);
-		vec_SelectiveLoadByte(X86_NZ, reg1, reg2, vrA, vrB);
+		asmALU(X86_TEST, reg2, 0x10);
+		vec_SelectiveLoadByte(X86_NZ, regT, regA, vrA, vrB);
+		vec_setByte(vrD, REG_NO, i, regT);
 
-		asmALU(X86_TEST, RL2RH(reg1), 0x10);
-		vec_SelectiveLoadByte(X86_NZ, RL2RH(reg1), reg3, vrA, vrB);
+		asmALU(X86_TEST, reg2, 0x1000);
+		vec_SelectiveLoadByte(X86_NZ, regT, regB, vrA, vrB);
+		vec_setByte(vrD, REG_NO, i+1, regT);
+
+		asmShift(X86_SHR, (NativeReg)reg1, 16);
+
+		asmMOVxx(X86_MOVSX, regA, reg1);
+		asmMOVxx(X86_MOVSX, regB, RL2RH(reg1));
+
+		asmALU(X86_TEST, reg2, 0x100000);
+		vec_SelectiveLoadByte(X86_NZ, regT, regA, vrA, vrB);
+		vec_setByte(vrD, REG_NO, i+2, regT);
+
+		asmALU(X86_TEST, reg2, 0x10000000);
+		vec_SelectiveLoadByte(X86_NZ, regT, regB, vrA, vrB);
+		vec_setByte(vrD, REG_NO, i+3, regT);
 	}
 }
 
@@ -584,31 +627,28 @@ JITCFlow ppc_opc_gen_vperm()
 
 	jitcClobberCarryAndFlags();
 	NativeReg8 reg1 = (NativeReg8)jitcAllocRegister(NATIVE_REG_8);
-	NativeReg reg4 = REG_NO;
-
-	if (gJITC.hostCPUCaps.cmov) {
-		reg4 = jitcAllocRegister(NATIVE_REG_8);
-	}
-
+	NativeReg8 regT = (NativeReg8)jitcAllocRegister(NATIVE_REG_8);
 	NativeReg reg2 = jitcAllocRegister();
-	NativeReg reg3 = jitcAllocRegister();
+	NativeReg regA = jitcAllocRegister();
+	NativeReg regB = jitcAllocRegister();
 
 	vrTMP = ((vrD == vrA) || (vrD == vrB)) ? vrT : vrD;
 	jitcDropClientVectorRegister(vrTMP);
 
-	for (int i=0; i<16; i+=2) {
-		vec_getHalf((NativeReg16)reg1, vrC, i);
+	for (int i=0; i<16; i+=4) {
+		vec_getWord((NativeReg)reg1, vrC, i);
 
-		asmMOVxx(X86_MOVZX, reg2, reg1);
-		asmMOVxx(X86_MOVZX, reg3, RL2RH(reg1));
-		asmALU(X86_AND, reg2, 0x0f);
-		asmALU(X86_AND, reg3, 0x0f);
-		asmALU(X86_NOT, reg2);
-		asmALU(X86_NOT, reg3);
+		asmALU(X86_MOV, reg2, (NativeReg)reg1);
 
-		vec_PermutePair(reg1, reg2, reg3, reg4, vrA, vrB);
+		asmALU(X86_AND, (NativeReg)reg1, 0x0f0f0f0f);
+		asmALU(X86_NOT, (NativeReg)reg1);
 
-		vec_setHalf(vrTMP, i, (NativeReg16)reg1);
+		// reg1 = original map (selector mask)
+		// reg2 = negative offsets - 1
+		// regT = spare use register (must be 8-bit)
+		// regA = spare use register
+		// regB = spare use register
+		vec_PermuteQuad(reg1, reg2, regT, regA, regB, vrA, vrB, vrTMP, i);
 	}
 
 	if (vrTMP == vrT) {
@@ -623,19 +663,13 @@ JITCFlow ppc_opc_gen_vperm()
 
 			vec_getWord((NativeReg)reg1, vrT, 0);
 			vec_getWord(reg2, vrT, 4);
-			vec_getWord(reg3, vrT, 8);
-			if (reg4 != REG_NO)
-				vec_getWord(reg4, vrT, 12);
+			vec_getWord(regA, vrT, 8);
+			vec_getWord(regB, vrT,12);
 
 			vec_setWord(vrD, 0, (NativeReg)reg1);
 			vec_setWord(vrD, 4, reg2);
-			vec_setWord(vrD, 8, reg3);
-			if (reg4 != REG_NO) {
-				vec_setWord(vrD, 12, reg4);
-			} else {
-				vec_getWord(reg2, vrT, 12);
-				vec_setWord(vrD, 12, reg2);
-			}
+			vec_setWord(vrD, 8, regA);
+			vec_setWord(vrD,12, regB);
 		}
 	}
 
@@ -789,7 +823,7 @@ JITCFlow ppc_opc_gen_vsrb()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU(X86_AND, CL, 0x7);
-		asmShiftReg8CL(X86_SHR, reg);
+		asmShiftCL(X86_SHR, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -832,7 +866,7 @@ JITCFlow ppc_opc_gen_vsrh()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU(X86_AND, CL, 0x0f);
-		asmShiftReg16CL(X86_SHR, (NativeReg)reg);
+		asmShiftCL(X86_SHR, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -875,7 +909,7 @@ JITCFlow ppc_opc_gen_vsrw()
 		vec_getWord(ECX, vrB, i);
 
 		// this instruction auto-masks to 0x1f
-		asmShiftRegCL(X86_SHR, reg);
+		asmShiftCL(X86_SHR, reg);
 
 		vec_setWord(vrD, i, reg);
 	}
@@ -918,7 +952,7 @@ JITCFlow ppc_opc_gen_vsrab()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU(X86_AND, CL, 0x7);
-		asmShiftReg8CL(X86_SAR, reg);
+		asmShiftCL(X86_SAR, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -961,7 +995,7 @@ JITCFlow ppc_opc_gen_vsrah()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU(X86_AND, CL, 0x0f);
-		asmShiftReg16CL(X86_SAR, (NativeReg)reg);
+		asmShiftCL(X86_SAR, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -1003,7 +1037,7 @@ JITCFlow ppc_opc_gen_vsraw()
 		vec_getWord(ECX, vrB, i);
 
 		// this instruction auto-masks to 0x1f
-		asmShiftRegCL(X86_SAR, reg);
+		asmShiftCL(X86_SAR, reg);
 
 		vec_setWord(vrD, i, reg);
 	}
@@ -1046,7 +1080,7 @@ JITCFlow ppc_opc_gen_vslb()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU(X86_AND, CL, 0x7);
-		asmShiftReg8CL(X86_SHL, reg);
+		asmShiftCL(X86_SHL, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -1089,7 +1123,7 @@ JITCFlow ppc_opc_gen_vslh()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU(X86_AND, CL, 0x0f);
-		asmShiftReg16CL(X86_SHL, (NativeReg)reg);
+		asmShiftCL(X86_SHL, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -1132,7 +1166,7 @@ JITCFlow ppc_opc_gen_vslw()
 		vec_getWord(ECX, vrB, i);
 
 		// this instruction auto-masks to 0x1f
-		asmShiftRegCL(X86_SHL, reg);
+		asmShiftCL(X86_SHL, reg);
 
 		vec_setWord(vrD, i, reg);
 	}
@@ -1444,7 +1478,7 @@ JITCFlow ppc_opc_gen_vrlb()
 		vec_getByte(reg, vrA, REG_NO, i);
 		vec_getByte(CL, vrB, REG_NO, i);
 
-		asmShiftReg8CL(X86_ROL, reg);
+		asmShiftCL(X86_ROL, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -2034,7 +2068,7 @@ JITCFlow ppc_opc_gen_vspltb()
 	asmALU(X86_MOV, RL2RH(reg1), (NativeReg8)reg1);
 
 	asmALU(X86_MOV, reg2, reg1);
-	asmShiftRegImm(X86_SHL, reg2, 16);
+	asmShift(X86_SHL, reg2, 16);
 	asmALU(X86_OR, reg1, reg2);
 
 	vec_setWord(vrD,  0, reg1);
@@ -2092,7 +2126,7 @@ JITCFlow ppc_opc_gen_vsplth()
 	vec_getHalfZ(reg1, vrB, (7 - (uimm & 0x7)) << 1);
 
 	asmALU(X86_MOV, reg2, reg1);
-	asmShiftRegImm(X86_SHL, reg2, 16);
+	asmShift(X86_SHL, reg2, 16);
 	asmALU(X86_OR, reg1, reg2);
 
 	vec_setWord(vrD,  0, reg1);
@@ -2629,9 +2663,9 @@ static inline void ppc_opc_gen_helper_vpkpx(NativeReg reg1, NativeReg reg2, Nati
 	asmALU(X86_AND, reg2, 0x0000f800);
 	asmALU(X86_AND, reg3, 0x01f80000);
 
-	asmShiftRegImm(X86_SHR, reg1, 3);
-	asmShiftRegImm(X86_SHR, reg2, 6);
-	asmShiftRegImm(X86_SHR, reg3, 9);
+	asmShift(X86_SHR, reg1, 3);
+	asmShift(X86_SHR, reg2, 6);
+	asmShift(X86_SHR, reg3, 9);
 
 	asmALU(X86_OR, reg1, reg2);
 	asmALU(X86_OR, reg1, reg3);
@@ -3289,6 +3323,21 @@ JITCFlow ppc_opc_gen_vupklsh()
 	return flowEndBlock;
 }
 
+static inline void helper_gen_vaddubm(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_AND, reg, modrmb);
+	asmALU(X86_XOR, reg2, modrmb);
+
+	asmShift(X86_SHL, reg, 1);
+	asmALU(X86_AND, reg2, 0xfefefefe);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x01010100);
+}
+
 /*	vaddubm		Vector Add Unsigned Byte Modulo
  *	v.141
  */
@@ -3311,7 +3360,7 @@ JITCFlow ppc_opc_gen_vaddubm()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
-	modrm_o modrm;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -3324,41 +3373,57 @@ JITCFlow ppc_opc_gen_vaddubm()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg8 reg = (NativeReg8)jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
+	NativeReg reg2 = jitcAllocRegister();
 
-	if (vrA == vrD) {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf((NativeReg16)reg, vrB, i);
+	if ((vrA == vrD) || (vrB == vrD)) {
+		int vrS = vrB;
 
-			asmALU(X86_ADD,
-				x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
-			asmALU(X86_ADD,
-				x86_mem2(modrm, &(gCPU.vr[vrD].b[i+1])), RL2RH(reg));
+		if (vrD == vrB) {
+			vrS = vrA;
 		}
-	} else if (vrB == vrD) {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf((NativeReg16)reg, vrA, i);
 
-			asmALU(X86_ADD,
-				x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
-			asmALU(X86_ADD, 
-				x86_mem2(modrm, &(gCPU.vr[vrD].b[i+1])), RL2RH(reg));
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrD].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrS].b[i]));
+
+			helper_gen_vaddubm(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_SUB, reg2, modrmb);
+			asmALU(X86_SUB, modrma, reg2);
 		}
 	} else {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf((NativeReg16)reg, vrA, i);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-			asmALU(X86_ADD, reg,
-				x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
-			asmALU(X86_ADD, RL2RH(reg),
-				x86_mem2(modrm, &(gCPU.vr[vrB].b[i+1])));
+			helper_gen_vaddubm(reg, reg2, modrma, modrmb);
 
-			vec_setHalf(vrD, i, (NativeReg16)reg);
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_SUB, reg, reg2);
+			asmALU(X86_ADD, reg, modrma);
+
+			vec_setWord(vrD, i, reg);
 		}
 	}
 
 	return flowContinue;
 #endif
+}
+
+static inline void helper_gen_vadduhm(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_AND, reg, modrmb);
+	asmALU(X86_XOR, reg2, modrmb);
+
+	asmShift(X86_SHL, reg, 1);
+	asmALU(X86_AND, reg2, 0xfffefffe);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x00010000);
 }
 
 /*	vadduhm		Vector Add Unsigned Half Word Modulo
@@ -3383,7 +3448,7 @@ JITCFlow ppc_opc_gen_vadduhm()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
-	modrm_o modrm;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -3396,32 +3461,41 @@ JITCFlow ppc_opc_gen_vadduhm()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg16 reg = (NativeReg16)jitcAllocRegister();
+	NativeReg reg = jitcAllocRegister();
+	NativeReg reg2 = jitcAllocRegister();
 
-	if (vrA == vrD) {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf(reg, vrB, i);
+	if ((vrA == vrD) || (vrB == vrD)) {
+		int vrS = vrB;
 
-			asmALU(X86_ADD, x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
+		if (vrD == vrB) {
+			vrS = vrA;
 		}
-	} else if (vrB == vrD) {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf(reg, vrA, i);
 
-			asmALU(X86_ADD, x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrD].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrS].b[i]));
+
+			helper_gen_vadduhm(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_SUB, reg2, modrmb);
+			asmALU(X86_SUB, modrma, reg2);
 		}
 	} else {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf(reg, vrA, i);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-			asmALU(X86_ADD, reg, x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
+			helper_gen_vadduhm(reg, reg2, modrma, modrmb);
 
-			vec_setHalf(vrD, i, reg);
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_SUB, reg, reg2);
+			asmALU(X86_ADD, reg, modrma);
+
+			vec_setWord(vrD, i, reg);
 		}
 	}
 
 	return flowContinue;
-
 #endif
 }
 
@@ -3460,9 +3534,15 @@ JITCFlow ppc_opc_gen_vadduwm()
 		return flowContinue;
 	}
 
-	if (vrA == vrD) {
+	if ((vrA == vrD) || (vrB == vrD)) {
+		int vrS = vrB;
+
+		if (vrD == vrB) {
+			vrS = vrA;
+		}
+
 		for (int i=0; i<16; i += 4) {
-			vec_getWord(reg, vrB, i);
+			vec_getWord(reg, vrS, i);
 
 			asmALU(X86_ADD,
 				x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
@@ -3537,6 +3617,30 @@ JITCFlow ppc_opc_gen_vaddcuw()
 	return flowEndBlock;
 }
 
+static inline void helper_gen_vaddubs(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_XOR, reg, modrmb);
+	asmALU(X86_AND, reg2, modrmb);
+
+	asmShift(X86_SHR, reg, 1);
+	asmALU(X86_AND, reg, 0x7f7f7f7f);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x80808080);
+
+	asmShift(X86_SHR, reg2, 7);
+	asmALU(X86_ADD, reg2, 0x7f7f7f7f);
+	asmALU(X86_XOR, reg2, 0x7f7f7f7f);
+	NativeAddress skip = asmJxxFixup(X86_Z);
+
+	vec_raise_saturate();
+
+	asmResolveFixup(skip);
+}
+
 /*	vaddubs		Vector Add Unsigned Byte Saturate
  *	v.142
  */
@@ -3559,6 +3663,7 @@ JITCFlow ppc_opc_gen_vaddubs()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -3571,17 +3676,41 @@ JITCFlow ppc_opc_gen_vaddubs()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg reg = jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
 	NativeReg reg2 = jitcAllocRegister();
 
-	for (int i=0; i<16; i++) {
-		vec_getByteZ(reg, vrA, i);
-		vec_getByteZ(reg2, vrB, i);
+	if ((vrA == vrD) || (vrB == vrD)) {
+		int vrS = vrB;
 
-		asmALU(X86_ADD, reg, reg2);
-		vec_saturateUB((NativeReg8)reg);
+		if (vrD == vrB) {
+			vrS = vrA;
+		}
 
-		vec_setByte(vrD, REG_NO, i, (NativeReg8)reg);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrD].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrS].b[i]));
+
+			helper_gen_vaddubs(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_SUB, reg, reg2);
+			asmALU(X86_ADD, modrma, reg);
+			asmALU(X86_OR, modrma, reg2);
+		}
+	} else {
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+			helper_gen_vaddubs(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_SUB, reg, reg2);
+			asmALU(X86_ADD, reg, modrma);
+			asmALU(X86_OR, reg, reg2);
+
+			vec_setWord(vrD, i, reg);
+		}
 	}
 
 	return flowContinue;
@@ -3609,6 +3738,30 @@ JITCFlow ppc_opc_gen_vaddsbs()
 	return flowEndBlock;
 }
 
+static inline void helper_gen_vadduhs(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_XOR, reg, modrmb);
+	asmALU(X86_AND, reg2, modrmb);
+
+	asmShift(X86_SHR, reg, 1);
+	asmALU(X86_AND, reg, 0x7fff7fff);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x80008000);
+
+	asmShift(X86_SHR, reg2, 15);
+	asmALU(X86_ADD, reg2, 0x7fff7fff);
+	asmALU(X86_XOR, reg2, 0x7fff7fff);
+	NativeAddress skip = asmJxxFixup(X86_Z);
+
+	vec_raise_saturate();
+
+	asmResolveFixup(skip);
+}
+
 /*	vadduhs		Vector Add Unsigned Half Word Saturate
  *	v.144
  */
@@ -3631,6 +3784,7 @@ JITCFlow ppc_opc_gen_vadduhs()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -3643,17 +3797,41 @@ JITCFlow ppc_opc_gen_vadduhs()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg reg = jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
 	NativeReg reg2 = jitcAllocRegister();
 
-	for (int i=0; i<16; i += 2) {
-		vec_getHalfZ(reg, vrA, i);
-		vec_getHalfZ(reg2, vrB, i);
+	if ((vrA == vrD) || (vrB == vrD)) {
+		int vrS = vrB;
 
-		asmALU(X86_ADD, reg, reg2);
-		vec_saturateUH((NativeReg8)reg);
+		if (vrD == vrB) {
+			vrS = vrA;
+		}
 
-		vec_setHalf(vrD, i, (NativeReg16)reg);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrD].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrS].b[i]));
+
+			helper_gen_vadduhs(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_SUB, reg, reg2);
+			asmALU(X86_ADD, modrma, reg);
+			asmALU(X86_OR, modrma, reg2);
+		}
+	} else {
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+			helper_gen_vadduhs(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_SUB, reg, reg2);
+			asmALU(X86_ADD, reg, modrma);
+			asmALU(X86_OR, reg, reg2);
+
+			vec_setWord(vrD, i, reg);
+		}
 	}
 
 	return flowContinue;
@@ -3789,6 +3967,22 @@ JITCFlow ppc_opc_gen_vaddsws()
 	return flowEndBlock;
 }
 
+static inline void helper_gen_vsububm(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_NOT, reg);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_AND, reg, modrmb);
+	asmALU(X86_XOR, reg2, modrmb);
+
+	asmShift(X86_SHL, reg, 1);
+	asmALU(X86_AND, reg2, 0xfefefefe);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x01010100);
+}
+
 /*	vsububm		Vector Subtract Unsigned Byte Modulo
  *	v.265
  */
@@ -3811,7 +4005,7 @@ JITCFlow ppc_opc_gen_vsububm()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
-	modrm_o modrm;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -3824,33 +4018,53 @@ JITCFlow ppc_opc_gen_vsububm()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg8 reg = (NativeReg8)jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
+	NativeReg reg2 = jitcAllocRegister();
 
 	if (vrA == vrD) {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf((NativeReg16)reg, vrB, i);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-			asmALU(X86_SUB,
-				x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
-			asmALU(X86_SUB,
-				x86_mem2(modrm, &(gCPU.vr[vrD].b[i+1])), RL2RH(reg));
+			helper_gen_vsububm(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_SUB, reg2, modrmb);
+			asmALU(X86_ADD, modrma, reg2);
 		}
 	} else {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf((NativeReg16)reg, vrA, i);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-			asmALU(X86_SUB, reg,
-				x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
-			asmALU(X86_SUB, RL2RH(reg),
-				x86_mem2(modrm, &(gCPU.vr[vrB].b[i+1])));
+			helper_gen_vsububm(reg, reg2, modrma, modrmb);
 
-			vec_setHalf(vrD, i, (NativeReg16)reg);
+			asmALU(X86_SUB, reg2, modrmb);
+			asmALU(X86_ADD, reg2, modrma);
+
+			vec_setWord(vrD, i, reg2);
 		}
 	}
 
 	return flowContinue;
 #endif
 }
+
+static inline void helper_gen_vsubuhm(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_NOT, reg);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_AND, reg, modrmb);
+	asmALU(X86_XOR, reg2, modrmb);
+
+	asmShift(X86_SHL, reg, 1);
+	asmALU(X86_AND, reg2, 0xfffefffe);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x00010000);
+}
+
 
 /*	vsubuhm		Vector Subtract Unsigned Half Word Modulo
  *	v.267
@@ -3874,7 +4088,7 @@ JITCFlow ppc_opc_gen_vsubuhm()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
-	modrm_o modrm;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -3885,21 +4099,31 @@ JITCFlow ppc_opc_gen_vsubuhm()
 	jitcFlushClientVectorRegister(vrA);
 	jitcFlushClientVectorRegister(vrB);
 	jitcDropClientVectorRegister(vrD);
-	NativeReg16 reg = (NativeReg16)jitcAllocRegister();
+
+	NativeReg reg = jitcAllocRegister();
+	NativeReg reg2 = jitcAllocRegister();
 
 	if (vrA == vrD) {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf(reg, vrB, i);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-			asmALU(X86_SUB, x86_mem2(modrm, &(gCPU.vr[vrD].b[i])), reg);
+			helper_gen_vsubuhm(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_SUB, reg2, modrmb);
+			asmALU(X86_ADD, modrma, reg2);
 		}
 	} else {
-		for (int i=0; i<16; i += 2) {
-			vec_getHalf(reg, vrA, i);
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-			asmALU(X86_SUB, reg, x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
+			helper_gen_vsubuhm(reg, reg2, modrma, modrmb);
 
-			vec_setHalf(vrD, i, reg);
+			asmALU(X86_SUB, reg2, modrmb);
+			asmALU(X86_ADD, reg2, modrma);
+
+			vec_setWord(vrD, i, reg2);
 		}
 	}
 
@@ -4059,6 +4283,31 @@ JITCFlow ppc_opc_gen_vsubcuw()
 #endif
 }
 
+static inline void helper_gen_vsububs(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_NOT, reg);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_XOR, reg, modrmb);
+	asmALU(X86_AND, reg2, modrmb);
+
+	asmShift(X86_SHR, reg, 1);
+	asmALU(X86_AND, reg, 0x7f7f7f7f);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x80808080);
+
+	asmShift(X86_SHR, reg2, 7);
+	asmALU(X86_ADD, reg2, 0x7f7f7f7f);
+	asmALU(X86_XOR, reg2, 0x7f7f7f7f);
+	NativeAddress skip = asmJxxFixup(X86_Z);
+
+	vec_raise_saturate();
+
+	asmResolveFixup(skip);
+}
+
 /*	vsububs		Vector Subtract Unsigned Byte Saturate
  *	v.266
  */
@@ -4082,6 +4331,7 @@ JITCFlow ppc_opc_gen_vsububs()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -4094,17 +4344,37 @@ JITCFlow ppc_opc_gen_vsububs()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg reg = jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
 	NativeReg reg2 = jitcAllocRegister();
 
-	for (int i=0; i<16; i++) {
-		vec_getByteZ(reg, vrA, i);
-		vec_getByteZ(reg2, vrB, i);
+	if (vrA == vrD) {
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrD].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-		asmALU(X86_SUB, reg, reg2);
-		vec_saturateUB((NativeReg8)reg);
+			helper_gen_vsububs(reg, reg2, modrma, modrmb);
 
-		vec_setByte(vrD, REG_NO, i, (NativeReg8)reg);
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_OR, reg, reg2);
+
+			asmALU(X86_OR, modrma, reg2);
+			asmALU(X86_SUB, modrma, reg);
+		}
+	} else {
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+			helper_gen_vsububs(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_OR, reg, reg2);
+
+			asmALU(X86_OR, reg2, modrma);
+			asmALU(X86_SUB, reg2, reg);
+
+			vec_setWord(vrD, i, reg2);
+		}
 	}
 
 	return flowContinue;
@@ -4163,6 +4433,31 @@ JITCFlow ppc_opc_gen_vsubsbs()
 #endif
 }
 
+static inline void helper_gen_vsubuhs(NativeReg reg, NativeReg reg2, modrm_p modrma, modrm_p modrmb)
+{
+	asmALU(X86_MOV, reg, modrma);
+	asmALU(X86_NOT, reg);
+	asmALU(X86_MOV, reg2, reg);
+
+	asmALU(X86_XOR, reg, modrmb);
+	asmALU(X86_AND, reg2, modrmb);
+
+	asmShift(X86_SHR, reg, 1);
+	asmALU(X86_AND, reg, 0x7fff7fff);
+
+	asmALU(X86_ADD, reg2, reg);
+	asmALU(X86_AND, reg2, 0x80008000);
+
+	asmShift(X86_SHR, reg2, 15);
+	asmALU(X86_ADD, reg2, 0x7fff7fff);
+	asmALU(X86_XOR, reg2, 0x7fff7fff);
+	NativeAddress skip = asmJxxFixup(X86_Z);
+
+	vec_raise_saturate();
+
+	asmResolveFixup(skip);
+}
+
 /*	vsubuhs		Vector Subtract Unsigned Half Word Saturate
  *	v.268
  */
@@ -4186,6 +4481,7 @@ JITCFlow ppc_opc_gen_vsubuhs()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -4198,17 +4494,37 @@ JITCFlow ppc_opc_gen_vsubuhs()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg reg = jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
 	NativeReg reg2 = jitcAllocRegister();
 
-	for (int i=0; i<16; i += 2) {
-		vec_getHalfZ(reg, vrA, i);
-		vec_getHalfZ(reg2, vrB, i);
+	if (vrA == vrD) {
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrD].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
 
-		asmALU(X86_SUB, reg, reg2);
-		vec_saturateUH((NativeReg8)reg);
+			helper_gen_vsubuhs(reg, reg2, modrma, modrmb);
 
-		vec_setHalf(vrD, i, (NativeReg16)reg);
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_OR, reg, reg2);
+
+			asmALU(X86_OR, modrma, reg2);
+			asmALU(X86_SUB, modrma, reg);
+		}
+	} else {
+		for (int i=0; i<16; i += 4) {
+			x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+			x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+			helper_gen_vsubuhs(reg, reg2, modrma, modrmb);
+
+			asmALU(X86_MOV, reg, modrmb);
+			asmALU(X86_OR, reg, reg2);
+
+			asmALU(X86_OR, reg2, modrma);
+			asmALU(X86_SUB, reg2, reg);
+
+			vec_setWord(vrD, i, reg2);
+		}
 	}
 
 	return flowContinue;
@@ -4860,7 +5176,7 @@ JITCFlow ppc_opc_gen_vmhaddshs()
 		vec_getHalfS(reg2, vrB, i);
 
 		asmIMUL(reg1, reg2);
-		asmShiftRegImm(X86_SAR, reg1, 15);
+		asmShift(X86_SAR, reg1, 15);
 
 		vec_getHalfS(reg2, vrC, i);
 		asmALU(X86_ADD, reg1, reg2);
@@ -4981,7 +5297,7 @@ JITCFlow ppc_opc_gen_vmhraddshs()
 
 		asmIMUL(reg1, reg2);
 		asmALU(X86_ADD, reg1, 0x4000);
-		asmShiftRegImm(X86_SAR, reg1, 15);
+		asmShift(X86_SAR, reg1, 15);
 
 		vec_getHalfS(reg2, vrC, i);
 		asmALU(X86_ADD, reg1, reg2);
@@ -5409,6 +5725,7 @@ JITCFlow ppc_opc_gen_vavgub()
 	return flowEndBlock;
 #else
 	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
 
 	if (SSE2_AVAIL) {
@@ -5421,18 +5738,31 @@ JITCFlow ppc_opc_gen_vavgub()
 	jitcDropClientVectorRegister(vrD);
 
 	jitcClobberCarryAndFlags();
-	NativeReg reg = jitcAllocRegister(NATIVE_REG_8);
+	NativeReg reg = jitcAllocRegister();
 	NativeReg reg2 = jitcAllocRegister();
+	NativeReg reg3 = jitcAllocRegister();
 
-	for (int i=0; i<16; i++) {
-		vec_getByteZ(reg, vrA, i);
-		vec_getByteZ(reg2, vrB, i);
+	for (int i=0; i<16; i += 4) {
+		x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+		x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+		asmALU(X86_MOV, reg, modrma);
+		asmALU(X86_MOV, reg2, modrmb);
+		asmALU(X86_MOV, reg3, reg);
+
+		asmALU(X86_OR, reg3, reg2);
+		asmALU(X86_AND, reg3, 0x01010101);
+
+		asmShift(X86_SHR, reg, 1);
+		asmShift(X86_SHR, reg2, 1);
+
+		asmALU(X86_AND, reg, 0x7f7f7f7f);
+		asmALU(X86_AND, reg2, 0x7f7f7f7f);
 
 		asmALU(X86_ADD, reg, reg2);
-		asmALU(X86_ADD, reg, 1);
-		asmShiftRegImm(X86_SHR, reg, 1);
+		asmALU(X86_ADD, reg, reg3);
 
-		vec_setByte(vrD, REG_NO, i, (NativeReg8)reg);
+		vec_setWord(vrD, i, reg);
 	}
 
 	return flowContinue;
@@ -5458,8 +5788,53 @@ void ppc_opc_vavguh()
 }
 JITCFlow ppc_opc_gen_vavguh()
 {
+#if 0
 	ppc_opc_gen_interpret(ppc_opc_vavguh);
 	return flowEndBlock;
+#else
+	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
+
+	if (SSE2_AVAIL) {
+		commutative_operation(X86_PAVGW, vrD, vrA, vrB);
+		return flowContinue;
+	}
+
+	jitcFlushClientVectorRegister(vrA);
+	jitcFlushClientVectorRegister(vrB);
+	jitcDropClientVectorRegister(vrD);
+
+	jitcClobberCarryAndFlags();
+	NativeReg reg = jitcAllocRegister();
+	NativeReg reg2 = jitcAllocRegister();
+	NativeReg reg3 = jitcAllocRegister();
+
+	for (int i=0; i<16; i += 4) {
+		x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+		x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+		asmALU(X86_MOV, reg, modrma);
+		asmALU(X86_MOV, reg2, modrmb);
+		asmALU(X86_MOV, reg3, reg);
+
+		asmALU(X86_OR, reg3, reg2);
+		asmALU(X86_AND, reg3, 0x00010001);
+
+		asmShift(X86_SHR, reg, 1);
+		asmShift(X86_SHR, reg2, 1);
+
+		asmALU(X86_AND, reg, 0x7fff7fff);
+		asmALU(X86_AND, reg2, 0x7fff7fff);
+
+		asmALU(X86_ADD, reg, reg2);
+		asmALU(X86_ADD, reg, reg3);
+
+		vec_setWord(vrD, i, reg);
+	}
+
+	return flowContinue;
+#endif
 }
 
 /*	vavguw		Vector Average Unsigned Word
@@ -5481,8 +5856,45 @@ void ppc_opc_vavguw()
 }
 JITCFlow ppc_opc_gen_vavguw()
 {
+#if 0
 	ppc_opc_gen_interpret(ppc_opc_vavguw);
 	return flowEndBlock;
+#else
+	int vrD, vrA, vrB;
+	modrm_o modrma, modrmb;
+	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, vrA, vrB);
+
+	jitcFlushClientVectorRegister(vrA);
+	jitcFlushClientVectorRegister(vrB);
+	jitcDropClientVectorRegister(vrD);
+
+	jitcClobberCarryAndFlags();
+	NativeReg reg = jitcAllocRegister();
+	NativeReg reg2 = jitcAllocRegister();
+	NativeReg reg3 = jitcAllocRegister();
+
+	for (int i=0; i<16; i += 4) {
+		x86_mem2(modrma, &(gCPU.vr[vrA].b[i]));
+		x86_mem2(modrmb, &(gCPU.vr[vrB].b[i]));
+
+		asmALU(X86_MOV, reg, modrma);
+		asmALU(X86_MOV, reg2, modrmb);
+		asmALU(X86_MOV, reg3, reg);
+
+		asmALU(X86_OR, reg3, reg2);
+		asmALU(X86_AND, reg3, 0x00000001);
+
+		asmShift(X86_SHR, reg, 1);
+		asmShift(X86_SHR, reg2, 1);
+
+		asmALU(X86_ADD, reg, reg2);
+		asmALU(X86_ADD, reg, reg3);
+
+		vec_setWord(vrD, i, reg);
+	}
+
+	return flowContinue;
+#endif
 }
 
 /*	vavgsb		Vector Average Signed Byte
@@ -6643,7 +7055,7 @@ JITCFlow ppc_opc_gen_vctsxs()
 		asmALU_D(X86_MOV, dest_modrm, -2147483648);
 
 		asmResolveFixup(skip1);
-		asmOR(x86_mem2(modrm, &gCPU.vscr), VSCR_SAT);
+		vec_raise_saturate();
 
 		asmResolveFixup(skip_end);
  	}
@@ -6749,7 +7161,7 @@ JITCFlow ppc_opc_gen_vctuxs()
 		asmALU_D(X86_MOV, dest_modrm, 0);
 
 		asmResolveFixup(skip1);
-		asmOR(x86_mem2(modrm, &gCPU.vscr), VSCR_SAT);
+		vec_raise_saturate();
 
 		asmResolveFixup(skip_end);
  	}

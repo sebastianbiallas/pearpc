@@ -2028,7 +2028,7 @@ void FASTCALL asmCMOV(X86FlagTest flags, NativeReg reg1, modrm_p modrm)
 	asmCMOVRegMem(flags, reg1, modrm, len);
 }
 
-void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
 {
 	if (imm == 1) {
 		byte instr[2] = {0xd1, 0xc0+opc+reg1};
@@ -2038,15 +2038,23 @@ void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
 		jitcEmit(instr, sizeof(instr));
 	}
 }
+void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
+{
+	asmShift(opc, reg1, imm);
+}
 
-void FASTCALL asmShiftRegCL(X86ShiftOpc opc, NativeReg reg1)
+void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[2] = {0xd3, 0xc0+opc+reg1};
 	jitcEmit(instr, sizeof(instr));
 }
+void FASTCALL asmShiftRegCL(X86ShiftOpc opc, NativeReg reg1)
+{
+	asmShiftCL(opc, reg1);
+}
 
-void FASTCALL asmShiftReg16Imm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg16 reg1, uint32 imm)
 {
 	if (imm == 1) {
 		byte instr[3] = {0x66, 0xd1, 0xc0+opc+reg1};
@@ -2056,15 +2064,23 @@ void FASTCALL asmShiftReg16Imm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
 		jitcEmit(instr, sizeof(instr));
 	}
 }
+void FASTCALL asmShiftReg16Imm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
+{
+	asmShift(opc, (NativeReg16)reg1, imm);
+}
 
-void FASTCALL asmShiftReg16CL(X86ShiftOpc opc, NativeReg reg1)
+void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg16 reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[3] = {0x66, 0xd3, 0xc0+opc+reg1};
 	jitcEmit(instr, sizeof(instr));
 }
+void FASTCALL asmShiftReg16CL(X86ShiftOpc opc, NativeReg reg1)
+{
+	asmShiftCL(opc, (NativeReg16)reg1);
+}
 
-void FASTCALL asmShiftReg8Imm(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
 {
 	if (imm == 1) {
 		byte instr[2] = {0xd0, 0xc0+opc+reg1};
@@ -2074,12 +2090,20 @@ void FASTCALL asmShiftReg8Imm(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
 		jitcEmit(instr, sizeof(instr));
 	}
 }
+void FASTCALL asmShiftReg8Imm(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
+{
+	asmShift(opc, reg1, imm);
+}
 
-void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1)
+void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg8 reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[2] = {0xd2, 0xc0+opc+reg1};
 	jitcEmit(instr, sizeof(instr));
+}
+void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1)
+{
+	asmShiftCL(opc, reg1);
 }
 
 void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm)

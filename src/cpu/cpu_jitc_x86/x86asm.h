@@ -300,6 +300,8 @@ enum X86BitSearch {
 	X86_BSR  = 0xbd,
 };
 
+#ifndef X86ASM_V2_ONLY
+/* Begin: X86Asm v1.0 */
 void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm);
 void FASTCALL asmShiftRegCL(X86ShiftOpc opc, NativeReg reg1);
 void FASTCALL asmShiftReg16Imm(X86ShiftOpc opc, NativeReg reg1, uint32 imm);
@@ -309,14 +311,21 @@ void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1);
 void FASTCALL asmINCReg(NativeReg reg1);
 void FASTCALL asmDECReg(NativeReg reg1);
 
-#ifndef X86ASM_V2_ONLY
-/* Begin: X86Asm v1.0 */
 void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm);
 void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2);
 /* End: X86Asm v1.0 */
 #endif // X86ASM_V2_ONLY
 
 /* Begin: X86Asm v2.0 */
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg reg1, uint32 imm);
+void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg reg1);
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg16 reg1, uint32 imm);
+void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg16 reg1);
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm);
+void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg8 reg1);
+void FASTCALL asmINC(NativeReg reg1);
+void FASTCALL asmDEC(NativeReg reg1);
+
 void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm);
 void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2);
 /* End: X86Asm v2.0 */

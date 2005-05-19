@@ -1,6 +1,15 @@
  PearPC AltiVec ChangeLog
 =========================
 
+2005-05-18:
+	- Revamped asmShift* operations for x86asm v2.0 interface
+	- Removed the jitcAssertVectorRegisterFlushed() calls (can be
+		re-enabled at compile-time.)
+	- SCALAR (reimplemented): vperm, vaddubm, vadduhm, vsububm, vsubuhm,
+		vaddubs, vadduhs, vsububs, vsubuhs, vavgub
+	- SCALAR: vavguh, vavguw
+	- VECTORIZED: vavguh
+
 2005-05-08:
 	- Some Bug fixes in x86asm.cc concerning modrm's and *SHUF*
 		instructions.
