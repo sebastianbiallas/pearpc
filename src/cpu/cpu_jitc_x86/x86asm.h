@@ -25,6 +25,11 @@
 #include "ppc_cpu.h"
 #include "jitc_types.h"
 
+/* FSCAKE is also defined in FreeBSD's sys/param.h */
+#ifdef FSCALE 
+#undef FSCALE 
+#endif /* FSCALE */
+		
 typedef byte modrm_o[8];
 typedef byte *modrm_p;
 
