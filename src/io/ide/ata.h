@@ -48,7 +48,7 @@ public:
 		ATADeviceFile(const char *name, const char *filename);
 	virtual ~ATADeviceFile();
 
-	virtual bool	seek(int blockno);
+	virtual bool	seek(uint32 blockno);
 	virtual void	flush();
 	virtual int	readBlock(byte *buf);
 	virtual int	writeBlock(byte *buf);

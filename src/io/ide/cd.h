@@ -101,7 +101,7 @@ public:
 
 	virtual	uint32	getCapacity();
 		bool	changeDataSource(const char *file);
-	virtual	bool	seek(int blockno);
+	virtual	bool	seek(uint32 blockno);
 	virtual	void	flush();
 	virtual	int	readBlock(byte *buf);
 	virtual	int	readTOC(byte *buf, bool msf, uint8 starttrack, int len,
@@ -175,7 +175,7 @@ public:
 	virtual	uint32	getCapacity();
 
 	/// Sets the current seek position to the specified block
-	virtual	bool	seek(int blockno);
+	virtual	bool	seek(uint32 blockno);
 
 	/// Flushes the write buffer (empty function here)
 	virtual	void	flush();

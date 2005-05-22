@@ -301,10 +301,10 @@ uint32 CDROMDeviceFile::getCapacity()
 	return mCapacity;
 }
 
-bool CDROMDeviceFile::seek(int blockno)
+bool CDROMDeviceFile::seek(uint32 blockno)
 {
 	curLBA = blockno;
-	sys_fseek(mFile, blockno*2048);
+	sys_fseek(mFile, (uint64)blockno * 2048);
 	return true;
 }
 
@@ -592,7 +592,7 @@ uint32 CDROMDeviceSCSI::getCapacity()
 /// @date 07/17/2004
 /// @param blockno The sector to seek to
 /// @return true on successful execution, else false
-bool CDROMDeviceSCSI::seek(int blockno)
+bool CDROMDeviceSCSI::seek(uint32 blockno)
 {
 	curLBA = blockno;
 	return true;

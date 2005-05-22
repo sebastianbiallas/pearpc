@@ -84,9 +84,9 @@ ATADeviceFile::~ATADeviceFile()
 {
 }
 
-bool ATADeviceFile::seek(int blockno)
+bool ATADeviceFile::seek(uint32 blockno)
 {
-	sys_fseek(mFile, 512*((uint64)blockno));
+	sys_fseek(mFile, 512 * (uint64)blockno);
 	return true;
 }
 
