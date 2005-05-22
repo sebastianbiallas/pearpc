@@ -2,7 +2,7 @@
  *	PearPC
  *	info.h
  *
- *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2003-2005 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,7 @@
 #define APPVERSION_IN_NUMBERS 0,0,4,0
 
 #define EMULATOR_MODEL "PowerPC ("APPNAME" "APPVERSION")"
-#define COPYRIGHT "(c) 2003, 2004 Sebastian Biallas <sb@biallas.net>"
+#define COPYRIGHT "(c) 2003-2005 Sebastian Biallas <sb@biallas.net>"
 
 //#define PPC_CPU_ENABLE_SINGLESTEP
 
