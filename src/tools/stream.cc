@@ -81,7 +81,7 @@ void Stream::addEventListener(StreamEventListener *l, StreamEvent mask)
 */
 void Stream::checkAccess(IOAccessMode mask)
 {
-	if (mAccessMode & mask != mask) throw new IOException(EACCES);
+	if (mAccessMode & mask != mask) throw IOException(EACCES);
 }
 
 /**
@@ -204,7 +204,7 @@ void Stream::readx(void *buf, uint size)
 	if (read(buf, size) != size) {
 //		FileOfs sz = f ? f->getSize() : mkfofs(0);
 //		ht_printf("readx failed, ofs = 0x%qx, size = %d (file size 0x%qx)\n", t, size, sz);
-		throw new IOException(EIO);
+		throw IOException(EIO);
 	}	    
 }
 /*
@@ -242,7 +242,7 @@ uint Stream::write(const void *buf, uint size)
  */
 void Stream::writex(const void *buf, uint size)
 {
-	if (write(buf, size) != size) throw new IOException(EIO);
+	if (write(buf, size) != size) throw IOException(EIO);
 }
 
 /*
@@ -366,7 +366,7 @@ void File::del(uint size)
 {
 	FileOfs t = tell();
 	FileOfs o = t+size;
-	if (o > getSize()) throw new IOException(EINVAL);
+	if (o > getSize()) throw IOException(EINVAL);
 	FileOfs s = getSize()-o;
 	fileMove(this, o, t, s);
 	truncate(getSize()-size);
@@ -383,7 +383,7 @@ void File::del(uint size)
  */
 void File::extend(FileOfs newsize)
 {
-	if (getSize() > newsize) throw new IOException(EINVAL);
+	if (getSize() > newsize) throw IOException(EINVAL);
 	if (getSize() == newsize) return;
 
 	FileOfs save_ofs = tell();
@@ -392,7 +392,7 @@ void File::extend(FileOfs newsize)
 	IOAccessMode oldmode = getAccessMode();
 	if (!(oldmode & IOAM_WRITE)) {
 		int f = setAccessMode(oldmode | IOAM_WRITE);
-		if (f) throw new IOException(f);
+		if (f) throw IOException(f);
 	}
 
 	FileOfs s = getSize();
@@ -414,7 +414,7 @@ void File::extend(FileOfs newsize)
 		int f = setAccessMode(oldmode);
 		if (f) e = f;
 	}
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 	seek(save_ofs);
 }
 
@@ -475,7 +475,7 @@ void File::pstat(pstat_t &s) const
  */
 void File::seek(FileOfs offset)
 {
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 
 /**
@@ -497,10 +497,10 @@ FileOfs File::tell() const
  */
 void File::truncate(FileOfs newsize)
 {
-	if (getSize() < newsize) throw new IOException(EINVAL);
+	if (getSize() < newsize) throw IOException(EINVAL);
 	if (getSize() == newsize) return;
 
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 
 /**
@@ -633,7 +633,7 @@ LocalFileFD::LocalFileFD(const String &aFilename, IOAccessMode am, FileOpenMode 
 	fd = -1;
 	own_fd = false;
 	int e = setAccessMode(am);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 	mOpenMode = FOM_EXISTS;
 }
 
@@ -648,7 +648,7 @@ LocalFileFD::LocalFileFD(int f, bool own_f, IOAccessMode am)
 	own_fd = own_f;
 	offset = 0;
 	int e = File::setAccessMode(am);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 }
 
 LocalFileFD::~LocalFileFD()
@@ -678,14 +678,14 @@ FileOfs LocalFileFD::getSize() const
 
 uint LocalFileFD::read(void *buf, uint size)
 {
-	if (!(getAccessMode() & IOAM_READ)) throw new IOException(EACCES);
+	if (!(getAccessMode() & IOAM_READ)) throw IOException(EACCES);
 	errno = 0;
 	uint r = ::read(fd, buf, size);
 	int e = errno;
 	if (e) {
 		off_t r = ::lseek(fd, 0, SEEK_SET);
 		offset = r;
-		if (e != EAGAIN) throw new IOException(e);
+		if (e != EAGAIN) throw IOException(e);
 		return 0;
 	} else {
 		offset += r;
@@ -698,7 +698,7 @@ void LocalFileFD::seek(FileOfs o)
 	if (o == offset) return;
 	off_t r = ::lseek(fd, o, SEEK_SET);
 	offset = r;
-	if (offset != o) throw new IOException(EIO);
+	if (offset != o) throw IOException(EIO);
 }
 
 int LocalFileFD::setAccessMode(IOAccessMode am)
@@ -706,7 +706,7 @@ int LocalFileFD::setAccessMode(IOAccessMode am)
 	IOAccessMode orig_access_mode = getAccessMode();
 	int e = setAccessModeInternal(am);
 	if (e && setAccessModeInternal(orig_access_mode))
-		throw new IOException(e);
+		throw IOException(e);
 	return e;
 }
 
@@ -717,7 +717,7 @@ int LocalFileFD::setAccessModeInternal(IOAccessMode am)
 	if (fd >= 0) {
 		// must own fd to change its access mode cause we can't
 		// reopen a fd. right ?
-		if (!own_fd) throw new NotImplementedException(HERE);
+		if (!own_fd) throw NotImplementedException(HERE);
 		// FIXME: race condition here, how to reopen a fd atomically ?
 		close(fd);
 		fd = -1;
@@ -773,7 +773,7 @@ void LocalFileFD::truncate(FileOfs newsize)
 	errno = 0;
 	int e = sys_truncate_fd(fd, newsize);
 	if (errno) e = errno;
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 }
 
 int LocalFileFD::vcntl(uint cmd, va_list vargs)
@@ -797,14 +797,14 @@ int LocalFileFD::vcntl(uint cmd, va_list vargs)
 
 uint LocalFileFD::write(const void *buf, uint size)
 {
-	if (!(getAccessMode() & IOAM_WRITE)) throw new IOException(EACCES);
+	if (!(getAccessMode() & IOAM_WRITE)) throw IOException(EACCES);
 	errno = 0;
 	uint r = ::write(fd, buf, size);
 	int e = errno;
 	if (e) {
 		off_t r = ::lseek(fd, 0, SEEK_SET);
 		offset = r;
-		if (e != EAGAIN) throw new IOException(e);
+		if (e != EAGAIN) throw IOException(e);
 		return 0;
 	} else {
 		offset += r;
@@ -828,7 +828,7 @@ LocalFile::LocalFile(const String &aFilename, IOAccessMode am, FileOpenMode om)
 	own_file = false;
 	offset = 0;
 	int e = setAccessMode(am);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 	mOpenMode = FOM_EXISTS;
 }
 
@@ -842,7 +842,7 @@ LocalFile::LocalFile(FILE *f, bool own_f, IOAccessMode am)
 	file = f;
 	own_file = own_f;
 	int e = LocalFile::setAccessMode(am);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 }
 
 LocalFile::~LocalFile()
@@ -878,10 +878,10 @@ void LocalFile::pstat(pstat_t &s) const
 
 uint LocalFile::read(void *buf, uint size)
 {
-	if (!(getAccessMode() & IOAM_READ)) throw new IOException(EACCES);
+	if (!(getAccessMode() & IOAM_READ)) throw IOException(EACCES);
 	errno = 0;
 	uint r = fread(buf, 1, size, file);
-	if (errno) throw new IOException(errno);
+	if (errno) throw IOException(errno);
 	offset += r;
 	return r;
 }
@@ -890,7 +890,7 @@ void LocalFile::seek(FileOfs o)
 {
 	if (o == offset) return;
 	int e = fseek(file, o, SEEK_SET);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 	offset = o;					// unreliable for DJGPP
 }
 
@@ -899,7 +899,7 @@ int LocalFile::setAccessMode(IOAccessMode am)
 	IOAccessMode orig_access_mode = getAccessMode();
 	int e = setAccessModeInternal(am);
 	if (e && setAccessModeInternal(orig_access_mode))
-		throw new IOException(e);
+		throw IOException(e);
 	return e;
 }
 
@@ -965,7 +965,7 @@ void LocalFile::truncate(FileOfs newsize)
 		if (errno) e = errno;
 	}
 	if (!e) e = setAccessMode(old_am);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 }
 
 int LocalFile::vcntl(uint cmd, va_list vargs)
@@ -992,10 +992,10 @@ int LocalFile::vcntl(uint cmd, va_list vargs)
 
 uint LocalFile::write(const void *buf, uint size)
 {
-	if (!(getAccessMode() & IOAM_WRITE)) throw new IOException(EACCES);
+	if (!(getAccessMode() & IOAM_WRITE)) throw IOException(EACCES);
 	errno = 0;
 	uint r = fwrite(buf, 1, size, file);
-	if (errno) throw new IOException(errno);
+	if (errno) throw IOException(errno);
 	offset += r;
 	return r;
 }
@@ -1098,7 +1098,7 @@ CroppedFile::CroppedFile(File *file, bool own_file, FileOfs aCropStart)
 
 void CroppedFile::extend(FileOfs newsize)
 {
-	throw new IOException(ENOSYS);
+	throw IOException(ENOSYS);
 }
 
 String &CroppedFile::getDesc(String &result) const
@@ -1147,7 +1147,7 @@ void CroppedFile::seek(FileOfs offset)
 {
 /*	if (mHasCropSize) {
 ...
-		if (offset>mCropStart) throw new IOException(EIO);
+		if (offset>mCropStart) throw IOException(EIO);
 	}*/
 	FileLayer::seek(offset+mCropStart);
 }
@@ -1155,14 +1155,14 @@ void CroppedFile::seek(FileOfs offset)
 FileOfs CroppedFile::tell() const
 {
 	FileOfs offset = FileLayer::tell();
-	if (offset<mCropStart) throw new IOException(EIO);
+	if (offset<mCropStart) throw IOException(EIO);
 	return offset - mCropStart;
 }
 
 void CroppedFile::truncate(FileOfs newsize)
 {
 	// not implemented because not considered safe
-	throw new IOException(ENOSYS);
+	throw IOException(ENOSYS);
 }
 
 uint CroppedFile::write(const void *buf, uint size)
@@ -1185,7 +1185,7 @@ NullFile::NullFile() : File()
 
 void NullFile::extend(FileOfs newsize)
 {
-	if (newsize!=0) throw new IOException(EINVAL);
+	if (newsize!=0) throw IOException(EINVAL);
 }
 
 String &NullFile::getDesc(String &result) const
@@ -1212,7 +1212,7 @@ uint NullFile::read(void *buf, uint size)
 
 void NullFile::seek(FileOfs offset)
 {
-	if (offset!=0) throw new IOException(EINVAL);
+	if (offset!=0) throw IOException(EINVAL);
 }
 
 int NullFile::setAccessMode(IOAccessMode am)
@@ -1227,7 +1227,7 @@ FileOfs NullFile::tell() const
 
 void NullFile::truncate(FileOfs newsize)
 {
-	if (newsize!=0) throw new IOException(EINVAL);
+	if (newsize!=0) throw IOException(EINVAL);
 }
 
 uint NullFile::write(const void *buf, uint size)
@@ -1256,7 +1256,7 @@ MemoryFile::MemoryFile(FileOfs o, uint size, IOAccessMode mode) : File()
 
 	pos = 0;
 	int e = setAccessMode(mode);
-	if (e) throw new IOException(e);
+	if (e) throw IOException(e);
 }
 
 MemoryFile::~MemoryFile()
@@ -1272,8 +1272,8 @@ byte *MemoryFile::getBufPtr() const
 void MemoryFile::extend(FileOfs newsize)
 {
 	// MemoryFiles may not be > 2G
-	if (newsize > 0x7fffffff) throw new IOException(EINVAL);
-	if (newsize < getSize()) throw new IOException(EINVAL);
+	if (newsize > 0x7fffffff) throw IOException(EINVAL);
+	if (newsize < getSize()) throw IOException(EINVAL);
 	if (newsize == getSize()) return;
 	while (bufsize<newsize) extendBuf();
 	memset(buf+dsize, 0, newsize-dsize);
@@ -1336,7 +1336,7 @@ void MemoryFile::resizeBuf(uint newsize)
 
 void MemoryFile::seek(FileOfs o)
 {
-	if (o<ofs) throw new IOException(EINVAL);
+	if (o<ofs) throw IOException(EINVAL);
 	pos = o-ofs;
 }
 
@@ -1480,6 +1480,6 @@ char *getstrw(Stream *stream)
 void putstrw(Stream *stream, const char *str)
 {
 	/* FIXME: someone implement me ? */
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 

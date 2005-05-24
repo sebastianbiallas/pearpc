@@ -807,8 +807,7 @@ uint32 PromInstanceDiskFile::seek(uint64 pos)
 {
 	try {
 	    	mFile->seek(pos);
-	} catch (IOException *x) {
-		delete x;
+	} catch (const IOException &x) {
 	}
 	return 0;
 }

@@ -220,7 +220,7 @@ int initDevice()
 	/* allocate tun device */ 
 	if ((mFD = ::open(devicePath(), O_RDWR)) < 0) {
 		const char *err = ::strerror(errno);
-		throw new MsgfException("Failed to open %s (%s)", devicePath(), err);
+		throw MsgfException("Failed to open %s (%s)", devicePath(), err);
 	}
 
 	struct ifreq ifr;
@@ -228,7 +228,7 @@ int initDevice()
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
 	if (::strlen(mIfName)+1 > IFNAMSIZ) {
-		throw new MsgfException("Interface name too long (%d > %d bytes)"
+		throw MsgfException("Interface name too long (%d > %d bytes)"
 			" in '%y'\n", ::strlen(mIfName)+1, IFNAMSIZ, &mIfName);
 	}
 
@@ -236,7 +236,7 @@ int initDevice()
 	if (::ioctl(mFD, TUNSETIFF, &ifr) < 0) {
 		const char *err = ::strerror(errno);
 		::close(mFD);
-		throw new MsgfException("TUNSETIFF failed (%s).", err);
+		throw MsgfException("TUNSETIFF failed (%s).", err);
 	}
 
 	/* don't checksum */
@@ -245,7 +245,7 @@ int initDevice()
 	/* Configure device */
 	if (execIFConfigScript("up", mIfName)) {
 		::close(mFD);
-		throw new MsgException("error executing ifconfig.");
+		throw MsgException("error executing ifconfig.");
 	}
 	return 0;
 }
@@ -291,7 +291,7 @@ LinuxEthTunDevice(const char *netif_prefix)
 	}
 	// FIXME:There is more than 10 interfaces taken at this time.  What should we do ?
 	if (mIfName == (String)"") 
-		throw new MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
+		throw MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
 }
 
 }; // end of LinuxEthTunDevice
@@ -310,7 +310,7 @@ BeOSEthTunDevice(const char *netif_name)
 {
 	int s = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s < 0)
-		throw new MsgfException("Can't get a socket to enumerate interfaces.");
+		throw MsgfException("Can't get a socket to enumerate interfaces.");
 	for (int counter = 0; counter < 10; counter++) {
 		String ifName;
 		ifreq_t ifr;
@@ -326,7 +326,7 @@ BeOSEthTunDevice(const char *netif_name)
 	close(s);
 	// FIXME:There is more than 10 interfaces taken at this time.  What should we do ?
 	if (mIfName == (String)"") 
-		throw new MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
+		throw MsgfException("There are already 10 interfaces configured.  We don't support more than that currently.");
 }
 
 virtual const char *devicePath()
@@ -425,7 +425,7 @@ int initDevice()
 {
 	/* allocate tun device */ 
 	if ((mFD = ::open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
-		throw new MsgException("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded?");
+		throw MsgException("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded?");
 	}
 	return 0;
 }
@@ -453,7 +453,7 @@ EthTunDevice *createEthernetTunnel()
 
 EthTunDevice *createEthernetTunnel()
 {
-	throw new MsgException("Your system has no support for ethernet tunnels.");
+	throw MsgException("Your system has no support for ethernet tunnels.");
 }
 
 #endif

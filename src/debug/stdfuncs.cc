@@ -120,11 +120,11 @@ static Function *create##NAME() { return new NAME(); }
 /* integer functions */
 declareIntOperator2(MulFuncInt, return new SInt64(arg0 * arg1); );
 declareIntOperator2(DivFuncInt,
-	if (!arg1) throw new MsgException("division by zero");
+	if (!arg1) throw MsgException("division by zero");
 	return new SInt64(arg0 / arg1);
 );
 declareIntOperator2(RemFuncInt,
-	if (!arg1) throw new MsgException("division by zero");
+	if (!arg1) throw MsgException("division by zero");
 	return new SInt64(arg0 % arg1);
 );
 declareIntOperator2(AddFuncInt, return new SInt64(arg0 + arg1); );
@@ -190,7 +190,7 @@ declareIntOperator2(BinCoeffFuncInt,
 );
 
 declareIntOperator1(FacFuncInt,
-	if (arg0 < 0) throw new MsgException("invalid argument (must be >= 0)");
+	if (arg0 < 0) throw MsgException("invalid argument (must be >= 0)");
 	// 0! = 1!
 	if (arg0 == 0) arg0 = 1;
 	uint64 r = arg0;
@@ -204,7 +204,7 @@ declareIntOperator1(NegateFuncInt, return new SInt64(-arg0); );
 /* float functions */
 declareFloatOperator2(MulFuncFloat, return new Float(arg0 * arg1); );
 declareFloatOperator2(DivFuncFloat,
-	if (!arg1) throw new MsgException("division by zero");
+	if (!arg1) throw MsgException("division by zero");
 	return new Float(arg0 / arg1);
 );
 declareFloatOperator2(AddFuncFloat, return new Float(arg0 + arg1); );
@@ -253,7 +253,7 @@ class MiniIf: public PFunction {
 public:
 virtual	EvalType getReturnType() const
 {
-	if (mArgs.count() != 3) throw new MsgException("exactly 3 parameters required");
+	if (mArgs.count() != 3) throw MsgException("exactly 3 parameters required");
 	EvalType arg1t = ((Function *)mArgs[1])->getReturnType();
 	EvalType arg2t = ((Function *)mArgs[2])->getReturnType();
 	if ((arg1t == ET_STRING) || (arg2t == ET_STRING)) return ET_STRING;
@@ -263,7 +263,7 @@ virtual	EvalType getReturnType() const
 
 virtual	SInt64 *evalInteger() const
 {
-	if (mArgs.count() != 3) throw new MsgException("exactly 3 parameters required");
+	if (mArgs.count() != 3) throw MsgException("exactly 3 parameters required");
 	sint64 arg0 = ((Function *)mArgs[0])->evalInteger()->value;
 	return new SInt64(arg0 ?
 		((Function *)mArgs[1])->evalInteger()->value :
@@ -272,7 +272,7 @@ virtual	SInt64 *evalInteger() const
 
 virtual	Float *evalFloat() const
 {
-	if (mArgs.count() != 3) throw new MsgException("exactly 3 parameters required");
+	if (mArgs.count() != 3) throw MsgException("exactly 3 parameters required");
 	sint64 arg0 = ((Function *)mArgs[0])->evalInteger()->value;
 	return new Float(arg0 ?
 		((Function *)mArgs[1])->evalFloat()->value :
@@ -281,7 +281,7 @@ virtual	Float *evalFloat() const
 
 virtual	String *evalString() const
 {
-	if (mArgs.count() != 3) throw new MsgException("exactly 3 parameters required");
+	if (mArgs.count() != 3) throw MsgException("exactly 3 parameters required");
 	sint64 arg0 = ((Function *)mArgs[0])->evalInteger()->value;
 	return new String(arg0 ?
 		((Function *)mArgs[1])->evalString() :

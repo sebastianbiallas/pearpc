@@ -47,7 +47,7 @@ virtual FileOfs getSize() const
 
 virtual void seek(FileOfs offset)
 {
-	if (!id.promSeek(offset)) throw new IOException(EIO);
+	if (!id.promSeek(offset)) throw IOException(EIO);
 	tel = offset;
 }
 

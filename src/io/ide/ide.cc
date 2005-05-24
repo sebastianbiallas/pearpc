@@ -1986,7 +1986,7 @@ void ide_init()
 		const char *imgkey = imgkeys[DISK];
 		if (gConfig->getConfigInt(instkey)) {
 			const char *masterslave[] = {"master", "slave"};
-			if (!gConfig->haveKey(imgkey)) throw new MsgfException("no disk image specified for ide%d %s.", 0, masterslave[DISK]);
+			if (!gConfig->haveKey(imgkey)) throw MsgfException("no disk image specified for ide%d %s.", 0, masterslave[DISK]);
 			String img, tmp, ext;
 			gConfig->getConfigString(imgkey, img);
 			if (gConfig->haveKey(typekey)) {

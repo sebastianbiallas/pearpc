@@ -150,7 +150,7 @@ ForthVM::~ForthVM()
 void ForthVM::emitFCode(uint32 fcode)
 {
 	if (fcode > 0xfff || (fcode >= 0x01 && fcode <= 0x0f)) {
-		throw new ForthInterpreterException(mErrorPos, "internal: broken fcode %x", fcode);
+		throw ForthInterpreterException(mErrorPos, "internal: broken fcode %x", fcode);
 	}
 	if (fcode > 0xff) {
 		emitFCodeByte(fcode>>8);
@@ -165,7 +165,7 @@ void ForthVM::emitFCodeByte(byte b)
 
 byte ForthVM::getFCodeByte()
 {
-	if (mFCodeBufferIdx >= mFCodeBuffer->length()) throw new ForthRunException(mErrorPos, "unexpected end of program");
+	if (mFCodeBufferIdx >= mFCodeBuffer->length()) throw ForthRunException(mErrorPos, "unexpected end of program");
 	return (*mFCodeBuffer)[mFCodeBufferIdx++];
 }
 
@@ -250,7 +250,7 @@ void ForthVM::interprete(Stream &in, Stream &out)
 		int i=0;
 		mErrorPos.copy(mPos);
 		do {
-			if (i==sizeof mCurToken) throw new ForthInterpreterException(mErrorPos, "token too long");
+			if (i==sizeof mCurToken) throw ForthInterpreterException(mErrorPos, "token too long");
 			mCurToken[i++] = currentChar;
 			if (!getChar()) break;
 			if (currentChar==9 || currentChar==10 || currentChar==13 || currentChar==' ') {
@@ -267,7 +267,7 @@ void ForthVM::interprete(Stream &in, Stream &out)
 				fw->interprete(*this);
 			}
 		} else {
-			throw new ForthInterpreterException(mErrorPos, "unkown word '%s'", mCurToken);
+			throw ForthInterpreterException(mErrorPos, "unkown word '%s'", mCurToken);
 		}
 	}
 }
@@ -284,7 +284,7 @@ uint32 ForthVM::dataPop()
 {
 	UInt *u = (UInt*)datastack->pop();
 	if (!u) {
-		throw new ForthRunException(mErrorPos, "Stack underflow");
+		throw ForthRunException(mErrorPos, "Stack underflow");
 	}
 	return u->value;
 }
@@ -298,7 +298,7 @@ uint32 ForthVM::dataGet(uint n)
 {
 	UInt *u;
 	if (datastack->isEmpty() || !((u = (UInt*)(*datastack)[datastack->count() - n - 1]))) {
-		throw new ForthRunException(mErrorPos, "Stack underflow");
+		throw ForthRunException(mErrorPos, "Stack underflow");
 	}
 	return u->value;	
 }
@@ -316,7 +316,7 @@ uint32 ForthVM::dataDepth()
 void *ForthVM::dataStr(uint32 u, bool exc)
 {
 	void *p = NULL;//prom_mem_eaptr(u);
-	if (!p) throw new ForthRunException(mErrorPos, "invalid address");
+	if (!p) throw ForthRunException(mErrorPos, "invalid address");
 	return p;
 }
 
@@ -332,7 +332,7 @@ uint32 ForthVM::codePop()
 {
 	UInt *u = (UInt*)codestack->pop();
 	if (!u) {
-		throw new ForthRunException(mErrorPos, "Codestack underflow");
+		throw ForthRunException(mErrorPos, "Codestack underflow");
 	}
 	return u->value;
 }
@@ -346,7 +346,7 @@ uint32 ForthVM::codeGet(uint n)
 {
 	UInt *u;
 	if (codestack->isEmpty() || !((u = (UInt*)(*codestack)[codestack->count() - n - 1]))) {
-		throw new ForthRunException(mErrorPos, "Codestack underflow");
+		throw ForthRunException(mErrorPos, "Codestack underflow");
 	}
 	return u->value;
 }
@@ -392,17 +392,17 @@ int ForthWord::compareTo(const Object *obj) const
 
 void ForthWord::compile(ForthVM &vm)
 {
-	throw new ForthInterpreterException(vm.mErrorPos, "internal: no compile method for '%s'", mName);
+	throw ForthInterpreterException(vm.mErrorPos, "internal: no compile method for '%s'", mName);
 }
 
 uint32 ForthWord::getExecToken(ForthVM &vm)
 {
-	throw new ForthInterpreterException(vm.mErrorPos, "cannot tick '%s'", mName);
+	throw ForthInterpreterException(vm.mErrorPos, "cannot tick '%s'", mName);
 }
 
 void ForthWord::interprete(ForthVM &vm)
 {
-	throw new ForthInterpreterException(vm.mErrorPos, "internal: no interprete method for %s", mName);
+	throw ForthInterpreterException(vm.mErrorPos, "internal: no interprete method for %s", mName);
 }
 
 int ForthWord::toString(char *buf, int buflen) const
@@ -477,7 +477,7 @@ String &ForthWordString::get(ForthVM &vm, String &s)
 	s = "";
 	if (vm.currentChar == 10 || vm.currentChar == 13) return s;
 	while (1) {
-		if (!vm.getChar()) throw new ForthInterpreterException(vm.mErrorPos, "unterminated string");
+		if (!vm.getChar()) throw ForthInterpreterException(vm.mErrorPos, "unterminated string");
 		switch (mFwst) {
 		case fwstString:
 		case fwstStringPrint:

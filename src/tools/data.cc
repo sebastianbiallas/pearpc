@@ -74,7 +74,7 @@ void Object::done()
 int Object::compareTo(const Object *obj) const
 {
 #ifdef HAVE_HT_OBJECTS
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 #else
 	return 1;
 #endif
@@ -108,7 +108,7 @@ int Object::toString(char *buf, int buflen) const
 Object *Object::clone() const
 {
 #ifdef HAVE_HT_OBJECTS
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 #else
 	return NULL;
 #endif
@@ -675,7 +675,7 @@ int LinkedList::compareObjects(const Object *a, const Object *b) const
 void LinkedList::forceSetByIdx(int idx, Object *obj)
 {
 	// FIXME:
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 
 Object *LinkedList::get(ObjHandle h) const
@@ -818,7 +818,7 @@ void LinkedList::insertAt(ObjHandle h, Object *obj)
 bool LinkedList::moveTo(ObjHandle from, ObjHandle to)
 {
 	// FIXME:
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 
 bool LinkedList::set(ObjHandle h, Object *obj)
@@ -1091,7 +1091,7 @@ Object *BinaryTree::get(ObjHandle h) const
 uint BinaryTree::getObjIdx(ObjHandle h) const
 {
 	// FIXME: implement it
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 
 ObjHandle BinaryTree::findByIdx(int i) const
@@ -2045,7 +2045,7 @@ int MemArea::compareTo(const Object *obj) const
 
 int MemArea::toString(char *buf, int buflen) const
 {
-	throw new NotImplementedException(HERE);
+	throw NotImplementedException(HERE);
 }
 
 #ifdef HAVE_HT_OBJECTS

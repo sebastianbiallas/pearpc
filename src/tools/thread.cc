@@ -111,7 +111,7 @@ void Thread::terminate(void *ret)
 		setState(threadFinished);
 		sys_exit_thread(ret);
 	} else {
-		throw new MsgException("Arrrrrrg. Please read the docu. You musn't call terminate() from outside the thread.");
+		throw MsgException("Arrrrrrg. Please read the docu. You musn't call terminate() from outside the thread.");
 	}
 }
 

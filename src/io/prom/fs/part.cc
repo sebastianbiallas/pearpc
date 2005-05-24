@@ -220,7 +220,7 @@ PartitionMapFDisk::PartitionMapFDisk(File *aDevice, uint aDeviceBlocksize)
 	uint blocksize = aDeviceBlocksize;
 	if (blocksize <= 1) blocksize = 512;
 	aDevice->seek(0);
-	if (aDevice->read(buffer, blocksize) != blocksize) throw new Exception();
+	if (aDevice->read(buffer, blocksize) != blocksize) throw Exception();
 
 	IO_PROM_FS_TRACE("# boot head sect cyl. type head sect cyl. start size\n"); 
 //	IO_PROM_FS_TRACE("1  12   12   12   12   12   12   12   12  1234  1234\n"); 
@@ -335,11 +335,11 @@ PartitionMapApple::PartitionMapApple(File *aDevice, uint aDeviceBlocksize)
 	uint blocksize = mDeviceBlocksize;
 	/*if (blocksize <= 1)*/ blocksize = 512;
 	aDevice->seek(0);
-	if (aDevice->read(buffer, blocksize) != blocksize) throw new Exception();
+	if (aDevice->read(buffer, blocksize) != blocksize) throw Exception();
 
 	createHostStructx(apple_part, sizeof *apple_part, ApplePartition_struct, big_endian);
 
-	if (apple_part->signature != APPLE_DRIVER_MAGIC) throw new Exception();
+	if (apple_part->signature != APPLE_DRIVER_MAGIC) throw Exception();
 
 	IO_PROM_FS_TRACE("New Apple partition map, (physical) blocksize %d/0x%08x\n", blocksize, blocksize);
 	int map_size = 1;
@@ -351,7 +351,7 @@ PartitionMapApple::PartitionMapApple(File *aDevice, uint aDeviceBlocksize)
 
 		createHostStructx(apple_part, sizeof *apple_part, ApplePartition_struct, big_endian);
 
-		if (apple_part->signature != APPLE_PARTITION_MAGIC) throw new Exception();
+		if (apple_part->signature != APPLE_PARTITION_MAGIC) throw Exception();
 
 		if (block == 1) map_size = apple_part->map_count;
 
@@ -443,10 +443,10 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 	
 		try {
 			return new PartitionMapApple(aDevice, aDeviceBlocksize);
-		} catch (Exception *e) {
+		} catch (const Exception &e) {
 			String s;
-			IO_PROM_FS_TRACE("exception probing Apple partitions: %y\n", &e->reason(s));
-			delete e;
+			e.reason(s);
+			IO_PROM_FS_TRACE("exception probing Apple partitions: %y\n", &s);
 		}
 	}
 	if (blocksize >= 512 && buffer[510] == 0x55 && buffer[511] == 0xaa) {
@@ -454,10 +454,10 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 	
 		try {
 			return new PartitionMapFDisk(aDevice, aDeviceBlocksize);
-		} catch (Exception *e) {
+		} catch (const Exception &e) {
 			String s;
-			IO_PROM_FS_TRACE("exception probing fdisk partitions: %y\n", &e->reason(s));
-			delete e;
+			e.reason(s);
+			IO_PROM_FS_TRACE("exception probing fdisk partitions: %y\n", &s);
 		}
 	}
 	// look for raw partitions
@@ -467,22 +467,22 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 			IO_PROM_FS_TRACE("this looks like a single HFS partition to me...\n");
 	
 			try {
-			return new PartitionMapAppleSingle(aDevice, aDeviceBlocksize, "Apple_HFS");
-			} catch (Exception *e) {
+				return new PartitionMapAppleSingle(aDevice, aDeviceBlocksize, "Apple_HFS");
+			} catch (const Exception &e) {
 				String s;
-				IO_PROM_FS_TRACE("exception probing HFS partition: %y\n", &e->reason(s));
-				delete e;
+				e.reason(s);
+				IO_PROM_FS_TRACE("exception probing HFS partition: %y\n", &s);
 			}
 		}
 		if (signature[0] == 0x48 && (signature[1] == 0x2b || signature[2] == 0x58)) {
 			IO_PROM_FS_TRACE("this looks like a single HFS+ partition to me...\n");
 
 			try {
-			return new PartitionMapAppleSingle(aDevice, aDeviceBlocksize, "Apple_HFS");
-			} catch (Exception *e) {
+				return new PartitionMapAppleSingle(aDevice, aDeviceBlocksize, "Apple_HFS");
+			} catch (const Exception &e) {
 				String s;
-				IO_PROM_FS_TRACE("exception probing HFS+ partition: %y\n", &e->reason(s));
-				delete e;
+				e.reason(s);
+				IO_PROM_FS_TRACE("exception probing HFS+ partition: %y\n", &s);
 			}
 		}
 	}
@@ -492,11 +492,11 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 			IO_PROM_FS_TRACE("this looks like a single ext2 partition to me...\n");
 	
 			try {
-			return new PartitionMapFDiskSingle(aDevice, aDeviceBlocksize, "ext2");
-			} catch (Exception *e) {
+				return new PartitionMapFDiskSingle(aDevice, aDeviceBlocksize, "ext2");
+			} catch (const Exception &e) {
 				String s;
-				IO_PROM_FS_TRACE("exception probing ext2 partition: %y\n", &e->reason(s));
-				delete e;
+				e.reason(s);
+				IO_PROM_FS_TRACE("exception probing ext2 partition: %y\n", &s);
 			}
 		}
 	}

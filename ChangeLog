@@ -15,6 +15,7 @@ version 0.4pre (not yet released):
 	- Work-around for graphic errors in Mac OS X 10.1
 	- POSIX/Linux: fall back to 1 GHz if /proc/cpuinfo doesn't provide cpu frequency
 	- 3c90x emulation fixed
+	- some PROM fixed for yaboot
 	- alteration of x86asm interface to be more programmer friendly
 
 version 0.3.1 (released 5. September 2004):

@@ -211,8 +211,7 @@ extern "C" unsigned long hfsp_os_seek(void **priv, unsigned long offset, int blk
 	try {
 		FileOfs s = dh->mStart + (offset << blksize_bits);
 		dh->mDevice->seek(s);
-	} catch (IOException *x) {
-		delete x;
+	} catch (const IOException &x) {
 		return (unsigned long)-1;
 	}
 //	FileOfs t = dh->mDevice->tell();

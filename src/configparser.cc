@@ -40,17 +40,17 @@ ConfigEntry::~ConfigEntry()
 
 ConfigType ConfigEntry::getType() const
 {
-	throw new Exception();
+	throw Exception();
 }
 
 int ConfigEntry::asInt() const
 {
-	throw new MsgfException("cannot interprete config entry %y as integer", mName);
+	throw MsgfException("cannot interprete config entry %y as integer", mName);
 }
 
 String &ConfigEntry::asString(String &result) const
 {
-	throw new MsgfException("cannot interprete config entry %y as string", mName);
+	throw MsgfException("cannot interprete config entry %y as string", mName);
 }
 
 int ConfigEntry::compareTo(const Object *obj) const
@@ -152,25 +152,25 @@ ConfigParser::~ConfigParser()
 void ConfigParser::acceptConfigEntryInt(const String &mName, bool mandatory)
 {
 	ConfigEntry *entry = new ConfigEntryInt(mName, mandatory);
-	if (!entries->insert(entry)) throw new MsgfException("duplicate config entry '%y'", &mName);
+	if (!entries->insert(entry)) throw MsgfException("duplicate config entry '%y'", &mName);
 }
 
 void ConfigParser::acceptConfigEntryString(const String &mName, bool mandatory)
 {
 	ConfigEntry *entry = new ConfigEntryString(mName, mandatory);
-	if (!entries->insert(entry)) throw new MsgfException("duplicate config entry '%y'", &mName);
+	if (!entries->insert(entry)) throw MsgfException("duplicate config entry '%y'", &mName);
 }
 
 void ConfigParser::acceptConfigEntryIntDef(const String &mName, int d)
 {
 	ConfigEntry *entry = new ConfigEntryInt(mName, d, 0);
-	if (!entries->insert(entry)) throw new MsgfException("duplicate config entry '%y'", &mName);
+	if (!entries->insert(entry)) throw MsgfException("duplicate config entry '%y'", &mName);
 }
 
 void ConfigParser::acceptConfigEntryStringDef(const String &mName, const String &d)
 {
 	ConfigEntry *entry = new ConfigEntryString(mName, d);
-	if (!entries->insert(entry)) throw new MsgfException("duplicate config entry '%y'", &mName);
+	if (!entries->insert(entry)) throw MsgfException("duplicate config entry '%y'", &mName);
 }
 
 bool ConfigParser::skipWhite(Stream &in)
@@ -206,7 +206,7 @@ void ConfigParser::loadConfig(Stream &in)
 	read(in);
 	foreach(ConfigEntry, e, *entries, {
 		if (e->mMandatory && !e->isInitialized()) {
-			throw new MsgfException("config entry '%y' is not set.", e->mName);
+			throw MsgfException("config entry '%y' is not set.", e->mName);
 		}
 	});
 }
@@ -237,24 +237,24 @@ void ConfigParser::read(Stream &in)
 		}
 		byte m = mapchar[cur];
 		String ident;
-		if (m != 'A' && m != '_') throw new MsgfException("invalid character '%c' (%02x) in line %d.", cur, cur, line);
+		if (m != 'A' && m != '_') throw MsgfException("invalid character '%c' (%02x) in line %d.", cur, cur, line);
 		do {
 			ident += cur;
-			if (!in.read(&cur, 1)) throw new MsgfException("syntax error in line %d.", line);
+			if (!in.read(&cur, 1)) throw MsgfException("syntax error in line %d.", line);
 			m = mapchar[cur];
 		} while (m == 'A' || m == '0' || m == '_');
 		
 		ConfigEntry *e = getEntry(ident);
-		if (!e) throw new MsgfException("unknown identifier '%y' in line %d.", &ident, line);
-		if (e->isSet()) throw new MsgfException("config entry '%y' is already set in line %d.", e->mName, line);
+		if (!e) throw MsgfException("unknown identifier '%y' in line %d.", &ident, line);
+		if (e->isSet()) throw MsgfException("config entry '%y' is already set in line %d.", e->mName, line);
 		
-		if (!skipWhite(in)) throw new MsgfException("%s expected in line %d.", "'='", line);
-		if (cur != '=') throw new MsgfException("%s expected in line %d.", "'='", line);
-		if (!in.read(&cur, 1) || !skipWhite(in)) throw new MsgfException("syntax error in line %d.", line);
+		if (!skipWhite(in)) throw MsgfException("%s expected in line %d.", "'='", line);
+		if (cur != '=') throw MsgfException("%s expected in line %d.", "'='", line);
+		if (!in.read(&cur, 1) || !skipWhite(in)) throw MsgfException("syntax error in line %d.", line);
 		m = mapchar[cur];
 		
 		if (e->getType() == configTypeInt) {
-			if (m != '0') throw new MsgfException("%s expected in line %d.", "integer", line);
+			if (m != '0') throw MsgfException("%s expected in line %d.", "integer", line);
 			String n;
 			do {
 				n += cur;
@@ -269,19 +269,19 @@ void ConfigParser::read(Stream &in)
 					n += cur;
 					if (!in.read(&cur, 1)) cur = ' ';
 				} else {
-					throw new MsgfException("%s expected in line %d.", "integer", line);
+					throw MsgfException("%s expected in line %d.", "integer", line);
 				}
 			}
 			uint64 u;
-			if (!n.toInt64(u)) throw new MsgfException("%s expected in line %d.", "integer", line);
+			if (!n.toInt64(u)) throw MsgfException("%s expected in line %d.", "integer", line);
 			((ConfigEntryInt *)e)->set(u);
 		} else {
-			if (m != '"') throw new MsgfException("%s expected in line %d.", "'\"'", line);
+			if (m != '"') throw MsgfException("%s expected in line %d.", "'\"'", line);
 			String s;
 			int oldline = line;
 			do {
 				s += cur;
-				if (!in.read(&cur, 1)) throw new MsgfException("unterminated string in line %d (starts in line %d).", line, oldline);
+				if (!in.read(&cur, 1)) throw MsgfException("unterminated string in line %d (starts in line %d).", line, oldline);
 				m = mapchar[cur];
 				if (m == '\n') line++;
 			} while (m != '"');
@@ -291,7 +291,7 @@ void ConfigParser::read(Stream &in)
 		}
 		if (!skipWhite(in)) return;
 		if (cur == '#') continue;
-		if (cur != '\n') throw new MsgfException("syntax error in line %d.", line);
+		if (cur != '\n') throw MsgfException("syntax error in line %d.", line);
 	}
 }
 
@@ -305,8 +305,8 @@ int ConfigParser::getConfigInt(const String &name)
 {
 	ConfigEntry empty(name, false);
 	ConfigEntry *entry = (ConfigEntry *)entries->get(entries->find(&empty));
-	if (!entry) throw new MsgfException("unknown entry '%y'", &name);
-	if (!entry->isInitialized()) throw new MsgfException("%y is not set!", &name);
+	if (!entry) throw MsgfException("unknown entry '%y'", &name);
+	if (!entry->isInitialized()) throw MsgfException("%y is not set!", &name);
 	return entry->asInt();
 }
 
@@ -314,8 +314,8 @@ String &ConfigParser::getConfigString(const String &name, String &result)
 {
 	ConfigEntry empty(name, false);
 	ConfigEntry *entry = (ConfigEntry *)entries->get(entries->find(&empty));
-	if (!entry) throw new MsgfException("unknown entry '%y'", &name);
-	if (!entry->isInitialized()) throw new MsgfException("%y is not set!", &name);
+	if (!entry) throw MsgfException("unknown entry '%y'", &name);
+	if (!entry->isInitialized()) throw MsgfException("%y is not set!", &name);
 	return entry->asString(result);
 }
 

@@ -234,7 +234,7 @@ int initDevice()
 	printm("Enumerating TAP devices...\n");
 	rc = get_device_guid(device_guid, sizeof device_guid, NULL, 0);
 	if (rc != 0) {
-		throw new MsgException("Could not locate any installed TAP-WIN32 devices.");
+		throw MsgException("Could not locate any installed TAP-WIN32 devices.");
 	}
 
 	//Open Windows TAP-Win32 adapter
@@ -253,7 +253,7 @@ int initDevice()
 		0);
 
 	if (handle == INVALID_HANDLE_VALUE || handle == NULL) {
-		throw new MsgException("Opening TAP connection failed");
+		throw MsgException("Opening TAP connection failed");
 	}
 
 	mFile = handle;
@@ -284,11 +284,11 @@ int initDevice()
       			} else {
 				char errmsg[ERRORMSG_SIZE];
 				getErrorString(errmsg, sizeof errmsg, GetLastError());
-				throw new MsgfException("Could not get driver version info: %s\n", errmsg);
+				throw MsgfException("Could not get driver version info: %s\n", errmsg);
 			}
 		}
     		if (!(info[0] > TAP_WIN32_MIN_MAJOR || (info[0] == TAP_WIN32_MIN_MAJOR && info[1] >= TAP_WIN32_MIN_MINOR))) {
-      			throw new MsgfException("ERROR:  This version of PearPC requires a TAP-Win32 driver that is at least version %d.%d\n"
+      			throw MsgfException("ERROR:  This version of PearPC requires a TAP-Win32 driver that is at least version %d.%d\n"
       						"Please install an updated version from http://prdownloads.sourceforge.net/openvpn/openvpn-2.0_beta2-install.exe\n",
 			   			TAP_WIN32_MIN_MAJOR,
 	   					TAP_WIN32_MIN_MINOR);
@@ -300,7 +300,7 @@ int initDevice()
 		if (CloseHandle(handle) != 1) {
 			printm("Error closing handle.\n");
 		}
-		throw new MsgfException("Setting Media Status to connected failed (handle is %d)\n", handle);
+		throw MsgfException("Setting Media Status to connected failed (handle is %d)\n", handle);
 	}
 	return 0;
 }

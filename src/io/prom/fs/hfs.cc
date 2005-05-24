@@ -358,7 +358,7 @@ HFSFileSystem::HFSFileSystem(File *device, int partnum)
 	dh.mDevice = mDevice;
 	dh.mStart = 0;
 	hfshandle = hfs_mount(&dh, partnum-1, HFS_MODE_RDONLY);
-	if (!hfshandle) throw new MsgException("couldn't mount HFS file system");
+	if (!hfshandle) throw MsgException("couldn't mount HFS file system");
 }
 
 HFSFileSystem::~HFSFileSystem()

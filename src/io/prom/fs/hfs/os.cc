@@ -192,8 +192,7 @@ unsigned long hfs_os_seek(void **priv, unsigned long offset)
 	try {
 		FileOfs s = dh->mStart + (offset << HFS_BLOCKSZ_BITS);
 		dh->mDevice->seek(s);
-	} catch (IOException *x) {
-		delete x;
+	} catch (const IOException &x) {
 		return (unsigned long)-1;
 	}
 /*	FileOfs t = dh->mDevice->tell();*/

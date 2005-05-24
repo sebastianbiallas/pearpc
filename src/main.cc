@@ -166,9 +166,9 @@ void testforth()
 				in.write(buf, strlen(buf));
 				in.seek(0);
 				vm.interprete(in, in);
-			} catch (ForthException *fe) {
+			} catch (const ForthException &fe) {
 				String res;
-				fe->reason(res);
+				fe.reason(res);
 				ht_printf("exception: %y\n", &res);
 			}
 		} while (1);
@@ -253,9 +253,9 @@ int main(int argc, char *argv[])
 			config = new LocalFile(argv[1]);
 			gConfig->loadConfig(*config);
 			delete config;
-		} catch (Exception *e) {
+		} catch (const Exception &e) {
 			String res;
-			e->reason(res);
+			e.reason(res);
 			ht_printf("%s: %y\n", argv[1], &res);
 			usage();
 			exit(1);
@@ -438,9 +438,9 @@ int main(int argc, char *argv[])
 	} catch (std::exception &e) {
 		ht_printf("main() caught exception: %s\n", e.what());
 		return 1;
-	} catch (Exception *e) {
+	} catch (const Exception &e) {
 		String res;
-		e->reason(res);
+		e.reason(res);
 		ht_printf("main() caught exception: %y\n", &res);
 		return 1;
 	}

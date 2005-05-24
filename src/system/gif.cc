@@ -50,7 +50,7 @@ Gif::Gif(Stream &str)
 	pic = NULL;
 	if (!loadFromByteStream(str)) {
 		String res; str.getDesc(res);
-		throw new MsgfException("error loading '%y' (not a gif?)", &res);
+		throw MsgfException("error loading '%y' (not a gif?)", &res);
 	}
 }
 

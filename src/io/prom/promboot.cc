@@ -516,7 +516,7 @@ static void chrpReadWaitForChar(File &f, char *buf, uint buflen, char waitFor)
 {
 	while (buflen) {
 		f.readx(buf, 1);
-		if (!*buf) throw new MsgException("Binary files not allowed here");
+		if (!*buf) throw MsgException("Binary files not allowed here");
 		if (*buf == waitFor) {
 			*buf = 0;
 			return;
@@ -524,7 +524,7 @@ static void chrpReadWaitForChar(File &f, char *buf, uint buflen, char waitFor)
 		buf++;
 		buflen--;
 	}
-	throw new MsgException("wait for char failed");
+	throw MsgException("wait for char failed");
 }
 
 static void chrpReadWaitForString(File &f, char *buf, uint buflen, char *waitFor)
@@ -549,7 +549,7 @@ static void chrpReadWaitForString(File &f, char *buf, uint buflen, char *waitFor
 		buflen--;
 	}
 	free(z);
-	throw new MsgException("wait for string failed");
+	throw MsgException("wait for string failed");
 }
 
 #if 0
@@ -763,9 +763,10 @@ bool mapped_load_chrp(File &f)
 #endif
 		}
 		return false;
-	} catch (Exception *x) {
+	} catch (const Exception &x) {
 		String s;
-		IO_PROM_TRACE("mapped_load_chrp: exception: %y\n", &x->reason(s));
+		x.reason(s);
+		IO_PROM_TRACE("mapped_load_chrp: exception: %y\n", &s);
 		return false;
 	} catch (...) {
 		return false;

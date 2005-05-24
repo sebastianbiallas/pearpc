@@ -431,7 +431,7 @@ void String::realloc(int aNewSize)
 	regex_t rx;
 
 	int r = regcomp(&rx, re, REG_EXTENDED | ((compareChar('A','a')==0) ? REG_ICASE : 0));
-	if (r) throw new MsgException("EINVAL");
+	if (r) throw MsgException("EINVAL");
 
 	regmatch_t pmatch[maxRegExMatches];
 	if (regexec(&rx, (char*)mContent, maxRegExMatches, pmatch, 0) != 0) return false;

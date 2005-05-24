@@ -38,7 +38,7 @@ SInt64 *Function::evalInteger() const
 {
 	EvalType type = getReturnType();
 	switch (type) {
-		case ET_INTEGER: throw new NotImplementedException(HERE);
+		case ET_INTEGER: throw NotImplementedException(HERE);
 		case ET_FLOAT: {
 			Float *f = evalFloat();
 			SInt64 *i = new SInt64((sint64)f->value);
@@ -76,9 +76,9 @@ Float *Function::evalFloat() const
 			delete u;
 			return f;
 		}
-		case ET_FLOAT: throw new NotImplementedException(HERE);
+		case ET_FLOAT: throw NotImplementedException(HERE);
 		case ET_STRING: {
-			throw new NotImplementedException(HERE);
+			throw NotImplementedException(HERE);
 			// but it should be
 			break;
 		}
@@ -107,7 +107,7 @@ String *Function::evalString() const
 			delete f;
 			return s;
 		}
-		case ET_STRING: throw new NotImplementedException(HERE);
+		case ET_STRING: throw NotImplementedException(HERE);
 		case ET_VARARGS: /* may-not-happen */
 			ASSERT(0);
 			break;
@@ -122,12 +122,12 @@ uint Function::getArgCount() const
 
 Function *Function::getArg(uint i) const
 {
-	throw new IllegalArgumentException(HERE);
+	throw IllegalArgumentException(HERE);
 }
 
 void Function::setArg(uint i, Function *f)
 {
-	throw new IllegalArgumentException(HERE);
+	throw IllegalArgumentException(HERE);
 }
 
 /*
@@ -250,7 +250,7 @@ uint PFunction::getArgCount() const
 Function *PFunction::getArg(uint i) const
 {
 	Function *r = (Function*)mArgs[i];
-	if (!r) throw new IllegalArgumentException(HERE);
+	if (!r) throw IllegalArgumentException(HERE);
 	return r;
 }
 
@@ -447,7 +447,7 @@ Function *Debugger::matchFunction(const String &name, const Enumerator &params)
 			if (i+1<params.count()) msg.append(",");
 		}
 		msg.append(")'");
-		throw new MsgException(msg);
+		throw MsgException(msg);
 	}
 	return r;
 }
@@ -562,7 +562,7 @@ bool Debugger::parse(const String &str)
 			str2 = "internal error! please report!";
 			pos = 0;
 		}
-		throw new MsgfException("error: %s at %d", str2, pos);
+		throw MsgfException("error: %s at %d", str2, pos);
 	} else {
 		Function *params[3];
 		for (int i=0; i<s.paramcount; i++) {
@@ -867,11 +867,7 @@ void Debugger::enter()
 		fgets(buf, sizeof buf, stdin);
 		try {
 			quit = parse(buf);
-		} catch (Exception *e) {
-			String s;
-			ht_printf("%y\n", &e->reason(s));
-			continue;
-		} catch (Exception &e) {
+		} catch (const Exception &e) {
 			String s;
 			ht_printf("%y\n", &e.reason(s));
 			continue;

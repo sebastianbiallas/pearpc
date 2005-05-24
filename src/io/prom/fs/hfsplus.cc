@@ -355,7 +355,7 @@ HFSPlusFile(volume *aVol, hfsp_cat_file aFile, FileSystem *fs, bool own_fs)
 	blocksize = vol->vol.blocksize;
 	blocksize_bits = my_ffs(vol->vol.blocksize)-1;
 	if (vol->vol.blocksize != (1 << blocksize_bits))
-		throw new MsgfException("invalid blocksize: %d (not a power of 2)",
+		throw MsgfException("invalid blocksize: %d (not a power of 2)",
 			vol->vol.blocksize);
 }
 
@@ -401,10 +401,10 @@ virtual void seek(FileOfs offset)
 	uint boffset = offset / blocksize;
 	blockiter_init(&it, vol, &mFile.data_fork, HFSP_EXTENT_DATA, mFile.id);
 	if (boffset && (blockiter_skip(&it, boffset) != 0))
-		throw new IOException(EIO);
+		throw IOException(EIO);
 	blockofs = boffset;
 	hfsp_os_seek(&vol->fd, blockiter_curr(&it), blocksize_bits);
-	if (hfsp_os_read(&vol->fd, block, 1, blocksize_bits) != 1) throw new IOException(ENOSYS);
+	if (hfsp_os_read(&vol->fd, block, 1, blocksize_bits) != 1) throw IOException(ENOSYS);
 	blockfill = blocksize;
 	blockpos = offset % blocksize;
 }
@@ -425,7 +425,7 @@ HFSPlusFileSystem::HFSPlusFileSystem(File *device, int partnum)
 	hfsplushandle = malloc(sizeof (volume));
 	volume *vol = (volume*)hfsplushandle;
 	if (volume_open(vol, &dh, partnum-1, HFSP_MODE_RDONLY) != 0)
-		throw new MsgException("can't open HFS+ volume");
+		throw MsgException("can't open HFS+ volume");
 }
 
 HFSPlusFileSystem::~HFSPlusFileSystem()
