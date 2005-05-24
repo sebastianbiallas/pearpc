@@ -176,6 +176,8 @@ static void eventLoop(void *pvoid)
 		rect.right-rect.left, rect.bottom-rect.top,
 		NULL, NULL, gHInst, NULL);
 
+	display->initCursor();
+	
 	display->updateTitle();
 
 	display->createBitmap();

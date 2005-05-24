@@ -64,6 +64,8 @@ Win32Display::Win32Display(const char *name, const DisplayCharacteristics &chr, 
 	mHomeMouseX = mWinChar.width/2;
 	mHomeMouseY = mWinChar.height/2;
 	InitializeCriticalSection(&gDrawCS);
+	
+	mInvisibleCursor = NULL;	
 }
 
 Win32Display::~Win32Display()
@@ -74,6 +76,8 @@ Win32Display::~Win32Display()
 
 	free(gFrameBuffer);
 	free(winframebuffer);
+
+	if (mInvisibleCursor) DestroyCursor(mInvisibleCursor);
 }
 
 void Win32Display::getHostCharacteristics(Container &modes)
@@ -308,7 +312,7 @@ void Win32Display::setMouseGrab(bool enable)
 		mResetMouseX = mCurMouseX;
 		mResetMouseY = mCurMouseY;
 
-		ShowCursor(FALSE);
+		showCursor(false);
 		if (mFullscreenChanged) {
 			SetCursorPos(mHomeMouseX, mHomeMouseY);
 		} else {
@@ -328,7 +332,7 @@ void Win32Display::setMouseGrab(bool enable)
 				wndRect.top + mResetMouseY + GetSystemMetrics(SM_CYFIXEDFRAME)
 				+ GetSystemMetrics(SM_CYCAPTION));
 		}
-		ShowCursor(TRUE);
+		showCursor(true);
 	}
 }
 
@@ -407,6 +411,26 @@ void Win32Display::createBitmap()
 	gBitmapInfo.bmiHeader.biYPelsPerMeter = 4500;
 	gBitmapInfo.bmiHeader.biClrUsed = 0;
 	gBitmapInfo.bmiHeader.biClrImportant = 0;
+}
+
+void Win32Display::initCursor()
+{
+	mVisibleCursor = GetCursor();
+
+	int cx = GetSystemMetrics(SM_CXCURSOR); 
+	int cy = GetSystemMetrics(SM_CYCURSOR); 
+
+	BYTE andplane[cx*cy];
+	BYTE xorplane[cx*cy];
+
+	memset(andplane, 0xff, cx*cy);
+	memset(xorplane, 0, cx*cy);
+	mInvisibleCursor = CreateCursor(NULL, 0, 0, cx, cy, andplane, xorplane);
+}
+
+void Win32Display::showCursor(bool visible)
+{
+	SetClassLong(gHWNDMain, GCL_HCURSOR, visible ? (LONG)mVisibleCursor : (LONG)mInvisibleCursor);
 }
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)

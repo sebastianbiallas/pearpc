@@ -35,7 +35,9 @@ protected:
 	bool			mChangingScreen;
 	SDL_Surface *		mSDLClientScreen;
 	sys_mutex		mRedrawMutex;
-
+	SDL_Cursor *		mVisibleCursor;
+	SDL_Cursor *		mInvisibleCursor;
+	
 	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel);
 	void dumpDisplayChar(const DisplayCharacteristics &chr);
 public:
@@ -57,6 +59,7 @@ public:
 	virtual	bool changeResolutionREAL(const DisplayCharacteristics &aCharacteristics);	
 	virtual	void getHostCharacteristics(Container &modes);
 	virtual void setMouseGrab(bool enable);
+	virtual void initCursor();
 };
 
 

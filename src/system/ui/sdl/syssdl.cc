@@ -365,6 +365,8 @@ static void *SDLeventLoop(void *p)
 	atexit(SDL_Quit); // give SDl a chance to clean up before exit!
 	sd = (SDLSystemDisplay*)gDisplay;
 
+	sd->initCursor();
+
 	sd->updateTitle();
 	sd->mEventThreadID = SDL_ThreadID();
 

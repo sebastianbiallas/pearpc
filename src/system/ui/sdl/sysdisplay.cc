@@ -442,12 +442,23 @@ void SDLSystemDisplay::setMouseGrab(bool enable)
 	if (enable == isMouseGrabbed()) return;
 	SystemDisplay::setMouseGrab(enable);
 	if (enable) {
-		SDL_ShowCursor(SDL_DISABLE);
+//		SDL_ShowCursor(SDL_DISABLE);
+		SDL_SetCursor(mInvisibleCursor);
 		SDL_WM_GrabInput(SDL_GRAB_ON);
 	} else {
+		SDL_SetCursor(mVisibleCursor);
 		SDL_WM_GrabInput(SDL_GRAB_OFF);
-		SDL_ShowCursor(SDL_ENABLE);
+//		SDL_ShowCursor(SDL_ENABLE);
 	}
+}
+
+void SDLSystemDisplay::initCursor()
+{
+	mVisibleCursor = SDL_GetCursor();
+	// FIXME: need a portable way of getting cursor sizes
+	byte mask[64];
+	memset(mask, 0, sizeof mask);
+	mInvisibleCursor = SDL_CreateCursor(mask, mask, 16, 16, 0, 0);
 }
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms)

@@ -34,6 +34,8 @@ class Win32Display: public SystemDisplay
 {
 	char mCurTitle[200];
 	char *mTitle;
+	HCURSOR mInvisibleCursor;
+
 public:
 	DisplayCharacteristics mWinChar;
 
@@ -42,11 +44,13 @@ public:
 	virtual void getHostCharacteristics(Container &modes);
 	virtual void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar);
 	virtual bool changeResolution(const DisplayCharacteristics &aHostChar);
-	virtual	int toString(char *buf, int buflen) const;
+	virtual	int  toString(char *buf, int buflen) const;
 	virtual	void finishMenu();
 	virtual void updateTitle();
 	virtual void setMouseGrab(bool enable);
 	virtual void displayShow();
+	void initCursor();
+	void showCursor(bool visible);
 	void createBitmap();
 };
 
