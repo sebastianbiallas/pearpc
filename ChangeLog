@@ -17,6 +17,8 @@ version 0.4pre (not yet released):
 	- 3c90x emulation fixed
 	- some PROM fixed for yaboot
 	- alteration of x86asm interface to be more programmer friendly
+	- use transparent cursors instead of altering cursor visibility (hack for using PearPC
+	  with remote desktop)
 
 version 0.3.1 (released 5. September 2004):
 	- JITC_X86: increased translation cache size
