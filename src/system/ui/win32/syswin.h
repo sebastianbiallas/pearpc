@@ -35,6 +35,7 @@ class Win32Display: public SystemDisplay
 	char mCurTitle[200];
 	char *mTitle;
 	HCURSOR mInvisibleCursor;
+	HCURSOR mVisibleCursor;
 
 public:
 	DisplayCharacteristics mWinChar;
