@@ -318,27 +318,33 @@ void FASTCALL asmDECReg(NativeReg reg1);
 
 void FASTCALL asmIMULRegRegImm(NativeReg reg1, NativeReg reg2, uint32 imm);
 void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2);
-/* End: X86Asm v1.0 */
-#endif // X86ASM_V2_ONLY
-
-/* Begin: X86Asm v2.0 */
-void FASTCALL asmShift(X86ShiftOpc opc, NativeReg reg1, uint32 imm);
-void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg reg1);
-void FASTCALL asmShift(X86ShiftOpc opc, NativeReg16 reg1, uint32 imm);
-void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg16 reg1);
-void FASTCALL asmShift(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm);
-void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg8 reg1);
-void FASTCALL asmINC(NativeReg reg1);
-void FASTCALL asmDEC(NativeReg reg1);
-
-void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm);
-void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2);
-/* End: X86Asm v2.0 */
 
 void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len);
 void FASTCALL asmBTxRegImm(X86BitTest opc, NativeReg reg1, int value);
 void FASTCALL asmBTxMemImm(X86BitTest opc, byte *modrm, int len, int value);
 void FASTCALL asmBSxRegReg(X86BitSearch opc, NativeReg reg1, NativeReg reg2);
+/* End: X86Asm v1.0 */
+#endif // X86ASM_V2_ONLY
+
+/* Begin: X86Asm v2.0 */
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg reg1, uint32 imm);
+void FASTCALL asmShift_CL(X86ShiftOpc opc, NativeReg reg1);
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg16 reg1, uint32 imm);
+void FASTCALL asmShift_CL(X86ShiftOpc opc, NativeReg16 reg1);
+void FASTCALL asmShift(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm);
+void FASTCALL asmShift_CL(X86ShiftOpc opc, NativeReg8 reg1);
+void FASTCALL asmINC(NativeReg reg1);
+void FASTCALL asmDEC(NativeReg reg1);
+
+void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm);
+void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2);
+
+void FASTCALL asmLEA(NativeReg reg1, modrm_p modrm);
+void FASTCALL asmBTx(X86BitTest opc, NativeReg reg1, int value);
+void FASTCALL asmBTx(X86BitTest opc, modrm_p modrm, int value);
+void FASTCALL asmBSx(X86BitSearch opc, NativeReg reg1, NativeReg reg2);
+/* End: X86Asm v2.0 */
+
 void FASTCALL asmBSWAP(NativeReg reg);
 
 void FASTCALL asmJMP(NativeAddress to);
@@ -452,6 +458,8 @@ enum X86FloatOp {
 // .250 FCMOVcc
 // .277 FISTP [mem32]  0xDB /3
 
+#ifndef X86ASM_V2_ONLY
+/* Begin: X86Asm v1.0 */
 void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti);
 void FASTCALL asmFICompMem(X86FloatICompOp op, byte *modrm, int len);
 void FASTCALL asmFICompPMem(X86FloatICompOp op, byte *modrm, int len);
@@ -477,12 +485,50 @@ void FASTCALL asmFSTDPSTi(NativeFloatReg sti);
 void FASTCALL asmFISTPMem(byte *modrm, int len);
 void FASTCALL asmFISTPMem64(byte *modrm, int len);
 void FASTCALL asmFISTTPMem(byte *modrm, int len);
-
+                                                                                
 void FASTCALL asmFSTSWMem(byte *modrm, int len);
 void FASTCALL asmFSTSW_EAX(void);
-
+                                                                                
 void FASTCALL asmFLDCWMem(byte *modrm, int len);
 void FASTCALL asmFSTCWMem(byte *modrm, int len);
+/* End: X86Asm v1.0 */
+#endif // X86ASM_V2_ONLY
+
+/* Begin: X86Asm v2.0 */
+void FASTCALL asmFComp(X86FloatCompOp op, NativeFloatReg sti);
+void FASTCALL asmFIComp(X86FloatICompOp op, modrm_p modrm);
+void FASTCALL asmFICompP(X86FloatICompOp op, modrm_p modrm);
+void FASTCALL asmFArith(X86FloatArithOp op, modrm_p modrm);
+void FASTCALL asmFArith_ST0(X86FloatArithOp op, NativeFloatReg sti);
+void FASTCALL asmFArith_STi(X86FloatArithOp op, NativeFloatReg sti);
+void FASTCALL asmFArithP_STi(X86FloatArithOp op, NativeFloatReg sti);
+void FASTCALL asmFXCH(NativeFloatReg sti);
+void FASTCALL asmFFREE(NativeFloatReg sti);
+void FASTCALL asmFFREEP(NativeFloatReg sti);
+void FASTCALL asmFSimple(X86FloatOp op);
+void FASTCALL asmFLD_Single(modrm_p modrm);
+void FASTCALL asmFLD_Double(modrm_p modrm);
+void FASTCALL asmFLD(NativeFloatReg sti);
+void FASTCALL asmFILD_W(modrm_p modrm);
+void FASTCALL asmFILD_D(modrm_p modrm);
+void FASTCALL asmFILD_Q(modrm_p modrm);
+void FASTCALL asmFST_Single(modrm_p modrm);
+void FASTCALL asmFSTP_Single(modrm_p modrm);
+void FASTCALL asmFST_Double(modrm_p modrm);
+void FASTCALL asmFSTP_Double(modrm_p modrm);
+void FASTCALL asmFST(NativeFloatReg sti);
+void FASTCALL asmFSTP(NativeFloatReg sti);
+void FASTCALL asmFISTP_W(modrm_p modrm);
+void FASTCALL asmFISTP_D(modrm_p modrm);
+void FASTCALL asmFISTP_Q(modrm_p modrm);
+void FASTCALL asmFISTTP(modrm_p modrm);
+
+void FASTCALL asmFSTSW(modrm_p modrm);
+void FASTCALL asmFSTSW_EAX(void);
+
+void FASTCALL asmFLDCW(modrm_p modrm);
+void FASTCALL asmFSTCW(modrm_p modrm);
+/* End: X86Asm v2.0 */
 
 enum NativeVectorReg {
 	XMM0 = 0,

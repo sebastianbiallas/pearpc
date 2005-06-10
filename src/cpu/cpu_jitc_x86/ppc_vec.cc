@@ -32,7 +32,6 @@
 #define exp2(x)	pow(2, x)
 #endif /* HAS_EXP2 */
 
-#define X86ASM_V2_ONLY
 #define ASSERT_FLUSHED(vrA)
 //#define ASSERT_FLUSHED(vrA)	jitcAssertFlushedVectorRegister(vrA)
 
@@ -823,7 +822,7 @@ JITCFlow ppc_opc_gen_vsrb()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU(X86_AND, CL, 0x7);
-		asmShiftCL(X86_SHR, reg);
+		asmShift_CL(X86_SHR, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -866,7 +865,7 @@ JITCFlow ppc_opc_gen_vsrh()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU(X86_AND, CL, 0x0f);
-		asmShiftCL(X86_SHR, reg);
+		asmShift_CL(X86_SHR, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -909,7 +908,7 @@ JITCFlow ppc_opc_gen_vsrw()
 		vec_getWord(ECX, vrB, i);
 
 		// this instruction auto-masks to 0x1f
-		asmShiftCL(X86_SHR, reg);
+		asmShift_CL(X86_SHR, reg);
 
 		vec_setWord(vrD, i, reg);
 	}
@@ -952,7 +951,7 @@ JITCFlow ppc_opc_gen_vsrab()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU(X86_AND, CL, 0x7);
-		asmShiftCL(X86_SAR, reg);
+		asmShift_CL(X86_SAR, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -995,7 +994,7 @@ JITCFlow ppc_opc_gen_vsrah()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU(X86_AND, CL, 0x0f);
-		asmShiftCL(X86_SAR, reg);
+		asmShift_CL(X86_SAR, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -1037,7 +1036,7 @@ JITCFlow ppc_opc_gen_vsraw()
 		vec_getWord(ECX, vrB, i);
 
 		// this instruction auto-masks to 0x1f
-		asmShiftCL(X86_SAR, reg);
+		asmShift_CL(X86_SAR, reg);
 
 		vec_setWord(vrD, i, reg);
 	}
@@ -1080,7 +1079,7 @@ JITCFlow ppc_opc_gen_vslb()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU(X86_AND, CL, 0x7);
-		asmShiftCL(X86_SHL, reg);
+		asmShift_CL(X86_SHL, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -1123,7 +1122,7 @@ JITCFlow ppc_opc_gen_vslh()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU(X86_AND, CL, 0x0f);
-		asmShiftCL(X86_SHL, reg);
+		asmShift_CL(X86_SHL, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -1166,7 +1165,7 @@ JITCFlow ppc_opc_gen_vslw()
 		vec_getWord(ECX, vrB, i);
 
 		// this instruction auto-masks to 0x1f
-		asmShiftCL(X86_SHL, reg);
+		asmShift_CL(X86_SHL, reg);
 
 		vec_setWord(vrD, i, reg);
 	}
@@ -1478,7 +1477,7 @@ JITCFlow ppc_opc_gen_vrlb()
 		vec_getByte(reg, vrA, REG_NO, i);
 		vec_getByte(CL, vrB, REG_NO, i);
 
-		asmShiftCL(X86_ROL, reg);
+		asmShift_CL(X86_ROL, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -6450,7 +6449,7 @@ static inline void set_roundmode(int mode)
 
 	x86_mem2(modrm, &gCPU.vfcw_save);
 
-	asmFSTCWMem(&modrm[1], modrm[0]); //FIXME X86ASM
+	asmFSTCW(x86_mem2(modrm, &gCPU.vfcw_save));
 
 	asmMOV_NoFlags(reg, mode);	// avoid flag clobber
 	asmALU(X86_OR, reg, modrm);
@@ -6463,15 +6462,14 @@ static inline void set_roundmode(int mode)
 
 	asmALU(X86_MOV, modrm, reg);
 
-	asmFLDCWMem(&modrm[1], modrm[0]); //FIXME X86ASM
+	asmFLDCW(modrm);
 }
 
 static inline void restore_roundmode(void)
 {
 	modrm_o modrm;
 
-	x86_mem2(modrm, &gCPU.vfcw_save);
-	asmFLDCWMem(&modrm[1], modrm[0]); //FIXME X86ASM
+	asmFLDCW(x86_mem2(modrm, &gCPU.vfcw_save));
 }
 
 /*	vrfin		Vector Round to Floating-Point Integer Nearest
@@ -6511,13 +6509,11 @@ JITCFlow ppc_opc_gen_vrfin()
 	set_roundmode(RND_NEAREST);
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
-		asmFSimpleST0(FRNDINT);
+		asmFSimple(FRNDINT);
 
-		x86_mem2(modrm, &(gCPU.vr[vrD].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrD].b[i])));
 	}
 
 	restore_roundmode();
@@ -6557,13 +6553,11 @@ JITCFlow ppc_opc_gen_vrfip()
 	set_roundmode(RND_PINF);
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
-		asmFSimpleST0(FRNDINT);
+		asmFSimple(FRNDINT);
 
-		x86_mem2(modrm, &(gCPU.vr[vrD].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrD].b[i])));
 	}
 
 	restore_roundmode();
@@ -6603,13 +6597,11 @@ JITCFlow ppc_opc_gen_vrfim()
 	set_roundmode(RND_MINF);
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
-		asmFSimpleST0(FRNDINT);
+		asmFSimple(FRNDINT);
 
-		x86_mem2(modrm, &(gCPU.vr[vrD].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrD].b[i])));
 	}
 
 	restore_roundmode();
@@ -6649,13 +6641,11 @@ JITCFlow ppc_opc_gen_vrfiz()
 	set_roundmode(RND_ZERO);
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
-		asmFSimpleST0(FRNDINT);
+		asmFSimple(FRNDINT);
 
-		x86_mem2(modrm, &(gCPU.vr[vrD].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrD].b[i])));
 	}
 
 	restore_roundmode();
@@ -6818,15 +6808,13 @@ JITCFlow ppc_opc_gen_vlogefp()
 	jitcFloatRegisterClobberAll();
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		asmFSimpleST0(FLD1);
+		asmFSimple(FLD1);
 
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
-		asmFSimpleST0(FYL2X);
+		asmFSimple(FYL2X);
 
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 	}
 
 	return flowContinue;
@@ -6869,16 +6857,14 @@ JITCFlow ppc_opc_gen_vexptefp()
 	jitcFloatRegisterClobberAll();
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		asmFSimpleST0(FLD1);
+		asmFSimple(FLD1);
 
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
-		asmFSimpleST0(F2XM1);
-		asmFArithSTiP(X86_FADD, Float_ST1);
+		asmFSimple(F2XM1);
+		asmFArithP_STi(X86_FADD, Float_ST1);
 
-		x86_mem2(modrm, &(gCPU.vr[vrD].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrD].b[i])));
 	}
 
 	return flowContinue;
@@ -6939,27 +6925,25 @@ JITCFlow ppc_opc_gen_vcfsx()
 	jitcFloatRegisterClobberAll();
 
 	if (uimm == 1) {
-		asmFSimpleST0(FLD1);
+		asmFSimple(FLD1);
 	} else if (uimm > 1) {
 		asmALU_D(X86_MOV, x86_mem2(modrm, &gCPU.vtemp), uimm);
-		asmFILD(&modrm[1], modrm[0]); //FIXME X86ASM
+		asmFILD_D(modrm);
 	}
 
-	if (uimm)	asmFSimpleST0(FCHS);
+	if (uimm)	asmFSimple(FCHS);
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFILD(&modrm[1], modrm[0]);
+		asmFILD_D(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
 		if (uimm) {
-			asmFSimpleST0(FSCALE);
+			asmFSimple(FSCALE);
 	 	}
 
-		x86_mem2(modrm, &(gCPU.vr[vrD].b[i]));
-		asmFSTPSingleMem(&modrm[1], modrm[0]);
+		asmFSTP_Single(x86_mem2(modrm, &(gCPU.vr[vrD].b[i])));
 	}
 
-	if (uimm)	asmFSTDPSTi(Float_ST0);
+	if (uimm)	asmFSTP(Float_ST0);
 
 	return flowContinue;
 #endif
@@ -7015,36 +6999,32 @@ JITCFlow ppc_opc_gen_vctsxs()
 	set_roundmode(RND_ZERO);
 
 	if (uimm == 1) {
-		asmFSimpleST0(FLD1);
+		asmFSimple(FLD1);
 	} else if (uimm > 1) {
 		asmALU_D(X86_MOV, x86_mem2(modrm, &gCPU.vtemp), uimm);
-		asmFILD(&modrm[1], modrm[0]);
+		asmFILD_D(modrm);
 	}
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
 		if (uimm) {
-			asmFSimpleST0(FSCALE);
+			asmFSimple(FSCALE);
 		}
 
-		asmFSimpleST0(FRNDINT);
+		asmFSimple(FRNDINT);
 
-		x86_mem2(modrm, &sint32_max);
-		asmFICompMem(X86_FICOM32, &modrm[1], modrm[0]);
+		asmFIComp(X86_FICOM32, x86_mem2(modrm, &sint32_max));
 		asmFSTSW_EAX();
 		asmALU(X86_TEST, EAX, 0x4100);
 		NativeAddress of_high = asmJxxFixup(X86_Z);
 
-		x86_mem2(modrm, &sint32_min);
-		asmFICompMem(X86_FICOM32, &modrm[1], modrm[0]);
+		asmFIComp(X86_FICOM32, x86_mem2(modrm, &sint32_min));
 		asmFSTSW_EAX();
 		asmALU(X86_TEST, EAX, 0x0100);
 		NativeAddress of_low = asmJxxFixup(X86_NZ);
 
-		x86_mem2(dest_modrm, &(gCPU.vr[vrD].b[i]));
-		asmFISTPMem(&dest_modrm[1], dest_modrm[0]);
+		asmFISTP_D(x86_mem2(dest_modrm, &(gCPU.vr[vrD].b[i])));
 		NativeAddress skip_end = asmJMPFixup();
 
 		asmResolveFixup(of_high);
@@ -7060,7 +7040,7 @@ JITCFlow ppc_opc_gen_vctsxs()
 		asmResolveFixup(skip_end);
  	}
 
-	if (uimm)	asmFSTDPSTi(Float_ST0);
+	if (uimm)	asmFSTP(Float_ST0);
 
 	restore_roundmode();
 
@@ -7119,24 +7099,22 @@ JITCFlow ppc_opc_gen_vctuxs()
 	NativeReg reg = jitcAllocRegister();
 
 	if (uimm == 1) {
-		asmFSimpleST0(FLD1);
+		asmFSimple(FLD1);
 	} else if (uimm > 1) {
 		asmALU_D(X86_MOV, x86_mem2(modrm, &gCPU.vtemp), uimm);
-		asmFILD(&modrm[1], modrm[0]);
+		asmFILD_D(modrm);
 	}
 
 	for (int i=0; i<16; i+=4) { //FIXME: This might not comply with Java FP
-		x86_mem2(modrm, &(gCPU.vr[vrB].b[i]));
-		asmFLDSingleMem(&modrm[1], modrm[0]);
+		asmFLD_Single(x86_mem2(modrm, &(gCPU.vr[vrB].b[i])));
 
 		if (uimm) {
-			asmFSimpleST0(FSCALE);
+			asmFSimple(FSCALE);
 		}
 
-		asmFSimpleST0(FRNDINT);
+		asmFSimple(FRNDINT);
 
-		x86_mem2(modrm, &gCPU.vtemp64);
-		asmFISTPMem64(&modrm[1], modrm[0]);
+		asmFISTP_Q(x86_mem2(modrm, &gCPU.vtemp64));
 
 		asmMOV(reg, (byte *)&gCPU.vtemp64+4);
 
@@ -7166,7 +7144,7 @@ JITCFlow ppc_opc_gen_vctuxs()
 		asmResolveFixup(skip_end);
  	}
 
-	if (uimm)	asmFSTDPSTi(Float_ST0);
+	if (uimm)	asmFSTP(Float_ST0);
 
 	restore_roundmode();
 

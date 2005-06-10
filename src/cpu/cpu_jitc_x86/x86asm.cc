@@ -2043,7 +2043,7 @@ void FASTCALL asmShiftRegImm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
 	asmShift(opc, reg1, imm);
 }
 
-void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg reg1)
+void FASTCALL asmShift_CL(X86ShiftOpc opc, NativeReg reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[2] = {0xd3, 0xc0+opc+reg1};
@@ -2051,7 +2051,7 @@ void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg reg1)
 }
 void FASTCALL asmShiftRegCL(X86ShiftOpc opc, NativeReg reg1)
 {
-	asmShiftCL(opc, reg1);
+	asmShift_CL(opc, reg1);
 }
 
 void FASTCALL asmShift(X86ShiftOpc opc, NativeReg16 reg1, uint32 imm)
@@ -2069,7 +2069,7 @@ void FASTCALL asmShiftReg16Imm(X86ShiftOpc opc, NativeReg reg1, uint32 imm)
 	asmShift(opc, (NativeReg16)reg1, imm);
 }
 
-void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg16 reg1)
+void FASTCALL asmShift_CL(X86ShiftOpc opc, NativeReg16 reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[3] = {0x66, 0xd3, 0xc0+opc+reg1};
@@ -2077,7 +2077,7 @@ void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg16 reg1)
 }
 void FASTCALL asmShiftReg16CL(X86ShiftOpc opc, NativeReg reg1)
 {
-	asmShiftCL(opc, (NativeReg16)reg1);
+	asmShift_CL(opc, (NativeReg16)reg1);
 }
 
 void FASTCALL asmShift(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
@@ -2095,7 +2095,7 @@ void FASTCALL asmShiftReg8Imm(X86ShiftOpc opc, NativeReg8 reg1, uint32 imm)
 	asmShift(opc, reg1, imm);
 }
 
-void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg8 reg1)
+void FASTCALL asmShift_CL(X86ShiftOpc opc, NativeReg8 reg1)
 {
 	// 0xd3 [ModR/M]
 	byte instr[2] = {0xd2, 0xc0+opc+reg1};
@@ -2103,7 +2103,7 @@ void FASTCALL asmShiftCL(X86ShiftOpc opc, NativeReg8 reg1)
 }
 void FASTCALL asmShiftReg8CL(X86ShiftOpc opc, NativeReg8 reg1)
 {
-	asmShiftCL(opc, reg1);
+	asmShift_CL(opc, reg1);
 }
 
 void FASTCALL asmIMUL(NativeReg reg1, NativeReg reg2, uint32 imm)
@@ -2134,14 +2134,22 @@ void FASTCALL asmIMULRegReg(NativeReg reg1, NativeReg reg2)
 	asmIMUL(reg1, reg2);
 }
 
-void FASTCALL asmINCReg(NativeReg reg1)
+void FASTCALL asmINC(NativeReg reg1)
 {
 	jitcEmit1(0x40+reg1);
+}
+void FASTCALL asmINCReg(NativeReg reg1)
+{
+	asmINC(reg1);
 }
 
 void FASTCALL asmDECReg(NativeReg reg1)
 {
 	jitcEmit1(0x48+reg1);
+}
+void FASTCALL asmDEC(NativeReg reg1)
+{
+	asmDEC(reg1);
 }
 
 void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len)
@@ -2152,11 +2160,21 @@ void FASTCALL asmLEA(NativeReg reg1, byte *modrm, int len)
 	instr[1] |= reg1<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmLEA(NativeReg reg1, modrm_p modrm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmBTxRegImm(X86BitTest opc, NativeReg reg1, int value)
+	asmLEA(reg1, modrm, len);
+}
+
+void FASTCALL asmBTx(X86BitTest opc, NativeReg reg1, int value)
 {
 	byte instr[4] = {0x0f, 0xba, 0xc0+(opc<<3)+reg1, value};
 	jitcEmit(instr, sizeof instr);
+}
+void FASTCALL asmBTxRegImm(X86BitTest opc, NativeReg reg1, int value)
+{
+	asmBTx(opc, reg1, value);
 }
 
 void FASTCALL asmBTxMemImm(X86BitTest opc, byte *modrm, int len, int value)
@@ -2169,11 +2187,21 @@ void FASTCALL asmBTxMemImm(X86BitTest opc, byte *modrm, int len, int value)
 	instr[len+2] = value;
 	jitcEmit(instr, len+3);
 }
+void FASTCALL asmBTx(X86BitTest opc, modrm_p modrm, int value)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmBSxRegReg(X86BitSearch opc, NativeReg reg1, NativeReg reg2)
+	asmBTxMemImm(opc, modrm, len, value);
+}
+
+void FASTCALL asmBSx(X86BitSearch opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[3] = {0x0f, opc, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
+}
+void FASTCALL asmBSxRegReg(X86BitSearch opc, NativeReg reg1, NativeReg reg2)
+{
+	asmBSx(opc, reg1, reg2);
 }
 
 void FASTCALL asmBSWAP(NativeReg reg)
@@ -2249,7 +2277,7 @@ void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to)
 {
 	/*
 	 *	yes, I also didn't believe this could be real code until
-	 *	I had written it.
+	 *	I had written it.	-Sebastian
 	 */
 	if (to == 0) {
 		to = gJITC.currentPage->tcp;
@@ -2275,7 +2303,7 @@ void FASTCALL asmSimple(X86SimpleOpc simple)
 	}
 }
 
-void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti)
+void FASTCALL asmFComp(X86FloatCompOp op, NativeFloatReg sti)
 {
 	byte instr[2];
 
@@ -2283,6 +2311,10 @@ void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti)
 	instr[1] += sti;
 
 	jitcEmit(instr, 2);
+}
+void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti)
+{
+	asmFComp(op, sti);
 }
 
 void FASTCALL asmFICompMem(X86FloatICompOp op, byte *modrm, int len)
@@ -2294,6 +2326,12 @@ void FASTCALL asmFICompMem(X86FloatICompOp op, byte *modrm, int len)
 	instr[1] |= 2<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFIComp(X86FloatICompOp op, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFICompMem(op, modrm, len);
+}
 
 void FASTCALL asmFICompPMem(X86FloatICompOp op, byte *modrm, int len)
 {
@@ -2303,6 +2341,12 @@ void FASTCALL asmFICompPMem(X86FloatICompOp op, byte *modrm, int len)
 	memcpy(&instr[1], modrm, len);
 	instr[1] |= 3<<3;
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmFICompP(X86FloatICompOp op, modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFICompPMem(op, modrm, len);
 }
 
 void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm, int len)
@@ -2334,38 +2378,64 @@ void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm, int len)
 	instr[1] |= mod<<3;
 	jitcEmit(instr, len+1);	
 }
+void FASTCALL asmFArith(X86FloatArithOp op, modrm_p modrm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmFArithST0(X86FloatArithOp op, NativeFloatReg sti)
+	asmFArithMem(op, modrm, len);
+}
+
+void FASTCALL asmFArith_ST0(X86FloatArithOp op, NativeFloatReg sti)
 {
 	byte instr[2] = {0xd8, op+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFArithST0(X86FloatArithOp op, NativeFloatReg sti)
+{
+	asmFArith_ST0(op, sti);
+}
 
-void FASTCALL asmFArithSTi(X86FloatArithOp op, NativeFloatReg sti)
+void FASTCALL asmFArith_STi(X86FloatArithOp op, NativeFloatReg sti)
 {
 	byte instr[2] = {0xdc, op+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFArithSTi(X86FloatArithOp op, NativeFloatReg sti)
+{
+	asmFArith_STi(op, sti);
+}
 
-void FASTCALL asmFArithSTiP(X86FloatArithOp op, NativeFloatReg sti)
+void FASTCALL asmFArithP_STi(X86FloatArithOp op, NativeFloatReg sti)
 {
 	byte instr[2] = {0xde, op+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFArithSTiP(X86FloatArithOp op, NativeFloatReg sti)
+{
+	asmFArithP_STi(op, sti);
+}
 
-void FASTCALL asmFXCHSTi(NativeFloatReg sti)
+void FASTCALL asmFXCH(NativeFloatReg sti)
 {
 	byte instr[2] = {0xd9, 0xc8+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFXCHSTi(NativeFloatReg sti)
+{
+	asmFXCH(sti);
+}
 
-void FASTCALL asmFFREESTi(NativeFloatReg sti)
+void FASTCALL asmFFREE(NativeFloatReg sti)
 {
 	byte instr[2] = {0xdd, 0xc0+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFFREESTi(NativeFloatReg sti)
+{
+	asmFFREE(sti);
+}
 
-void FASTCALL asmFFREEPSTi(NativeFloatReg sti)
+void FASTCALL asmFFREEP(NativeFloatReg sti)
 {
 	/* 
 	 * AMD says:
@@ -2375,10 +2445,18 @@ void FASTCALL asmFFREEPSTi(NativeFloatReg sti)
 	byte instr[2] = {0xdf, 0xc0+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFFREEPSTi(NativeFloatReg sti)
+{
+	asmFFREEP(sti);
+}
 
-void FASTCALL asmFSimpleST0(X86FloatOp op)
+void FASTCALL asmFSimple(X86FloatOp op)
 {
 	jitcEmit((byte*)&op, 2);
+}
+void FASTCALL asmFSimpleST0(X86FloatOp op)
+{
+	asmFSimple(op);
 }
 
 void FASTCALL asmFLDSingleMem(byte *modrm, int len)
@@ -2388,6 +2466,12 @@ void FASTCALL asmFLDSingleMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFLD_Single(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFLDSingleMem(modrm, len);
+}
 
 void FASTCALL asmFLDDoubleMem(byte *modrm, int len)
 {
@@ -2396,11 +2480,21 @@ void FASTCALL asmFLDDoubleMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFLD_Double(modrm_p modrm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmFLDSTi(NativeFloatReg sti)
+	asmFLDDoubleMem(modrm, len);
+}
+
+void FASTCALL asmFLD(NativeFloatReg sti)
 {
 	byte instr[2] = {0xd9, 0xc0+sti};
 	jitcEmit(instr, sizeof instr);
+}
+void FASTCALL asmFLDSTi(NativeFloatReg sti)
+{
+	asmFLD(sti);
 }
 
 void FASTCALL asmFILD16(byte *modrm, int len)
@@ -2410,6 +2504,12 @@ void FASTCALL asmFILD16(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFILD_W(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFILD16(modrm, len);
+}
 
 void FASTCALL asmFILD(byte *modrm, int len)
 {
@@ -2417,6 +2517,21 @@ void FASTCALL asmFILD(byte *modrm, int len)
 	instr[0] = 0xdb;
 	memcpy(instr+1, modrm, len);
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmFILD_D(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFILD(modrm, len);
+}
+
+void FASTCALL asmFILD_Q(modrm_p modrm)
+{
+	byte instr[15];
+	instr[0] = 0xdf;
+	memcpy(instr+1, modrm+1, modrm[0]);
+	instr[1] |= 5<<3;
+	jitcEmit(instr, modrm[0]+1);
 }
 
 void FASTCALL asmFSTSingleMem(byte *modrm, int len)
@@ -2427,6 +2542,12 @@ void FASTCALL asmFSTSingleMem(byte *modrm, int len)
 	instr[1] |= 2<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFST_Single(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFSTSingleMem(modrm, len);
+}
 
 void FASTCALL asmFSTPSingleMem(byte *modrm, int len)
 {
@@ -2435,6 +2556,12 @@ void FASTCALL asmFSTPSingleMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= 3<<3;
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmFSTP_Single(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFSTPSingleMem(modrm, len);
 }
 
 void FASTCALL asmFSTDoubleMem(byte *modrm, int len)
@@ -2445,6 +2572,12 @@ void FASTCALL asmFSTDoubleMem(byte *modrm, int len)
 	instr[1] |= 2<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFST_Double(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFSTDoubleMem(modrm, len);
+}
 
 void FASTCALL asmFSTPDoubleMem(byte *modrm, int len)
 {
@@ -2454,17 +2587,40 @@ void FASTCALL asmFSTPDoubleMem(byte *modrm, int len)
 	instr[1] |= 3<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFSTP_Double(modrm_p modrm)
+{
+	int len = modrm++[0];
 
-void FASTCALL asmFSTDSTi(NativeFloatReg sti)
+	asmFSTPDoubleMem(modrm, len);
+}
+
+void FASTCALL asmFST(NativeFloatReg sti)
 {
 	byte instr[2] = {0xdd, 0xd0+sti};
 	jitcEmit(instr, sizeof instr);
 }
+void FASTCALL asmFSTDSTi(NativeFloatReg sti)
+{
+	asmFST(sti);
+}
 
-void FASTCALL asmFSTDPSTi(NativeFloatReg sti)
+void FASTCALL asmFSTP(NativeFloatReg sti)
 {
 	byte instr[2] = {0xdd, 0xd8+sti};
 	jitcEmit(instr, sizeof instr);
+}
+void FASTCALL asmFSTDPSTi(NativeFloatReg sti)
+{
+	asmFSTP(sti);
+}
+
+void FASTCALL asmFISTP_W(modrm_p modrm)
+{
+	byte instr[15];
+	instr[0] = 0xdf;
+	memcpy(instr+1, modrm+1, modrm[0]);
+	instr[1] |= 3<<3;
+	jitcEmit(instr, modrm[0]+1);
 }
 
 void FASTCALL asmFISTPMem(byte *modrm, int len)
@@ -2475,6 +2631,12 @@ void FASTCALL asmFISTPMem(byte *modrm, int len)
 	instr[1] |= 3<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFISTP_D(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFISTPMem(modrm, len);
+}
 
 void FASTCALL asmFISTPMem64(byte *modrm, int len)
 {
@@ -2483,6 +2645,12 @@ void FASTCALL asmFISTPMem64(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= 7<<3;
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmFISTP_Q(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFISTPMem64(modrm, len);
 }
 
 void FASTCALL asmFISTTPMem(byte *modrm, int len)
@@ -2493,6 +2661,12 @@ void FASTCALL asmFISTTPMem(byte *modrm, int len)
 	instr[1] |= 1<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFISTTP(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFISTTPMem(modrm, len);
+}
 
 void FASTCALL asmFLDCWMem(byte *modrm, int len)
 {
@@ -2501,6 +2675,12 @@ void FASTCALL asmFLDCWMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= 5<<3;
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmFLDCW(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFLDCWMem(modrm, len);
 }
 
 void FASTCALL asmFSTCWMem(byte *modrm, int len)
@@ -2511,6 +2691,12 @@ void FASTCALL asmFSTCWMem(byte *modrm, int len)
 	instr[1] |= 7<<3;
 	jitcEmit(instr, len+1);
 }
+void FASTCALL asmFSTCW(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFSTCWMem(modrm, len);
+}
 
 void FASTCALL asmFSTSWMem(byte *modrm, int len)
 {
@@ -2519,6 +2705,12 @@ void FASTCALL asmFSTSWMem(byte *modrm, int len)
 	memcpy(instr+1, modrm, len);
 	instr[1] |= 7<<3;
 	jitcEmit(instr, len+1);
+}
+void FASTCALL asmFSTSW(modrm_p modrm)
+{
+	int len = modrm++[0];
+
+	asmFSTSWMem(modrm, len);
 }
 
 void FASTCALL asmFSTSW_EAX(void)

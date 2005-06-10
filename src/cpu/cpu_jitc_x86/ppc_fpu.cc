@@ -18,7 +18,7 @@
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
- 
+
 #include "debug/tracers.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
@@ -798,10 +798,10 @@ static void ppc_opc_gen_binary_floatop(X86FloatArithOp op, X86FloatArithOp rop, 
 //			ht_printf("case a\n");
 			b = jitcGetClientFloatRegister(frB, a);
 			if (jitcFloatRegisterIsTOP(b)) {
-				asmFArithST0(op, jitcFloatRegisterToNative(a));
+				asmFArith_ST0(op, jitcFloatRegisterToNative(a));
 			} else {
 				jitcFloatRegisterXCHGToFront(a);
-				asmFArithSTi(rop, jitcFloatRegisterToNative(b));
+				asmFArith_STi(rop, jitcFloatRegisterToNative(b));
 			}
 			jitcFloatRegisterDirty(b);
 		} else if (frA == frD) {
@@ -809,10 +809,10 @@ static void ppc_opc_gen_binary_floatop(X86FloatArithOp op, X86FloatArithOp rop, 
 //			ht_printf("case b\n");
 			b = jitcGetClientFloatRegister(frB, a);
 			if (jitcFloatRegisterIsTOP(b)) {
-				asmFArithSTi(op, jitcFloatRegisterToNative(a));
+				asmFArith_STi(op, jitcFloatRegisterToNative(a));
 			} else {
 				jitcFloatRegisterXCHGToFront(a);
-				asmFArithST0(rop, jitcFloatRegisterToNative(b));
+				asmFArith_ST0(rop, jitcFloatRegisterToNative(b));
 			}
 			jitcFloatRegisterDirty(a);
 		} else {
@@ -822,10 +822,10 @@ static void ppc_opc_gen_binary_floatop(X86FloatArithOp op, X86FloatArithOp rop, 
 //			ht_printf("%d\n", b);
 			// now a is TOP
 			if (b != JITC_FLOAT_REG_NONE) {
-				asmFArithST0(rop, jitcFloatRegisterToNative(b));
+				asmFArith_ST0(rop, jitcFloatRegisterToNative(b));
 			} else {
-				byte modrm[6];
-				asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
+				modrm_o modrm;
+				asmFArith(op, x86_mem2(modrm, &gCPU.fpr[frB]));
 			}
 			JitcFloatReg d = jitcGetClientFloatRegisterMapping(frD);
 			if (d == JITC_FLOAT_REG_NONE) {
@@ -842,21 +842,21 @@ static void ppc_opc_gen_binary_floatop(X86FloatArithOp op, X86FloatArithOp rop, 
 			// frB = frA (op) frB, none of them is mapped
 			b = jitcGetClientFloatRegister(frB);
 			jitcFloatRegisterDirty(b);
-			byte modrm[6];
-			asmFArithMem(rop, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frA]));
+			modrm_o modrm;
+			asmFArith(rop, x86_mem2(modrm, &gCPU.fpr[frA]));
 			return;
 		}
 		if (frA == frD) {
 			// frA = frA (op) frB, none of them is mapped
 			a = jitcGetClientFloatRegister(frA);
 			jitcFloatRegisterDirty(a);
-			byte modrm[6];
-			asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
+			modrm_o modrm;
+			asmFArith(op, x86_mem2(modrm, &gCPU.fpr[frB]));
 		} else {
 			// frA != frD != frB (and frA, frB aren't mapped)
 			a = jitcGetClientFloatRegisterUnmapped(frA);
-			byte modrm[6];
-			asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
+			modrm_o modrm;
+			asmFArith(op, x86_mem2(modrm, &gCPU.fpr[frB]));
 			JitcFloatReg d = jitcGetClientFloatRegisterMapping(frD);
 			if (d == JITC_FLOAT_REG_NONE) {
 				jitcMapClientFloatRegisterDirty(frD, a);
@@ -887,13 +887,13 @@ static inline void ppc_opc_gen_unary_floatop(X86FloatOp op, int frD, int frA)
 		if (d == JITC_FLOAT_REG_NONE) {
 			jitcMapClientFloatRegisterDirty(frD, a);
 		} else {
-			asmFSimpleST0(op);
+			asmFSimple(op);
 			jitcFloatRegisterStoreAndPopTOP(d);
 			jitcFloatRegisterDirty(d);
 			return;
 		}
 	}
-	asmFSimpleST0(op);
+	asmFSimple(op);
 }
 
 
@@ -923,20 +923,20 @@ static void ppc_opc_gen_ternary_floatop(X86FloatArithOp op, X86FloatArithOp rop,
 	// a is TOP now
 	JitcFloatReg c = jitcGetClientFloatRegisterMapping(frC);
 	if (c != JITC_FLOAT_REG_NONE) {
-		asmFArithST0(X86_FMUL, jitcFloatRegisterToNative(c));
+		asmFArith_ST0(X86_FMUL, jitcFloatRegisterToNative(c));
 	} else {
-		byte modrm[6];
-		asmFArithMem(X86_FMUL, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frC]));
+		modrm_o modrm;
+		asmFArith(X86_FMUL, x86_mem2(modrm, &gCPU.fpr[frC]));
 	}
 	JitcFloatReg b = jitcGetClientFloatRegisterMapping(frB);
 	if (b != JITC_FLOAT_REG_NONE) {
-		asmFArithST0(rop, jitcFloatRegisterToNative(b));
+		asmFArith_ST0(rop, jitcFloatRegisterToNative(b));
 	} else {
-		byte modrm[6];
-		asmFArithMem(op, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frB]));
+		modrm_o modrm;
+		asmFArith(op, x86_mem2(modrm, &gCPU.fpr[frB]));
 	}
 	if (chs) {
-		asmFSimpleST0(FCHS);
+		asmFSimple(FCHS);
 	}
 	JitcFloatReg d = jitcGetClientFloatRegisterMapping(frD);
 	if (d == JITC_FLOAT_REG_NONE) {
@@ -956,7 +956,7 @@ static void FASTCALL ppc_opc_gen_update_cr1_output_err(const char *err)
 
 static void ppc_opc_gen_update_cr1(const char *err)
 {
-	asmALURegImm(X86_MOV, EAX, (uint32)err);
+	asmALU(X86_MOV, EAX, (uint32)err);
 	asmCALL((NativeAddress)ppc_opc_gen_update_cr1_output_err);
 }
 
@@ -988,12 +988,12 @@ JITCFlow ppc_opc_gen_fabsx()
 			NativeReg bl = jitcGetClientRegister(PPC_FPR_L(frB));
 			NativeReg dh = jitcMapClientRegisterDirty(PPC_FPR_U(frD));
 			NativeReg dl = jitcMapClientRegisterDirty(PPC_FPR_L(frD));
-			asmALURegReg(X86_MOV, dh, bh);
-			asmALURegReg(X86_MOV, dl, bl);
-			asmALURegImm(X86_AND, dh, 0x7fffffff);
+			asmALU(X86_MOV, dh, bh);
+			asmALU(X86_MOV, dl, bl);
+			asmALU(X86_AND, dh, 0x7fffffff);
 		} else {
 			NativeReg b = jitcGetClientRegisterDirty(PPC_FPR_U(frB));
-			asmALURegImm(X86_AND, b, 0x7fffffff);
+			asmALU(X86_AND, b, 0x7fffffff);
 		}
 	} else {
 		ppc_opc_gen_unary_floatop(FABS, frD, frB);
@@ -1169,15 +1169,15 @@ JITCFlow ppc_opc_gen_fctiwx()
 	JitcFloatReg d = jitcGetClientFloatRegisterMapping(frD);
 	if (frB != frD && d != JITC_FLOAT_REG_NONE) {
 		jitcFloatRegisterXCHGToFront(d);
-		asmFFREEPSTi(Float_ST0);
+		asmFFREEP(Float_ST0);
 		gJITC.nativeFloatRegState[d] = rsUnused;
 		gJITC.clientFloatReg[frD] = JITC_FLOAT_REG_NONE;
 		gJITC.nativeFloatTOP--;	
 	}
 
-	byte modrm[6];
+	modrm_o modrm;
 	JitcFloatReg b = jitcGetClientFloatRegisterUnmapped(frB);
-	asmFISTPMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frD]));
+	asmFISTP_D(x86_mem2(modrm, &gCPU.fpr[frD]));
 	gJITC.nativeFloatRegState[b] = rsUnused;
 	gJITC.clientFloatReg[frB] = JITC_FLOAT_REG_NONE;
 	gJITC.nativeFloatTOP--;
@@ -1217,9 +1217,9 @@ JITCFlow ppc_opc_gen_fctiwzx()
 	
 	static uint16 cw = 0xfff;
 	
-	byte modrm[6];
+	modrm_o modrm;
 	if (!gJITC.hostCPUCaps.sse3) {
-		asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&cw));
+		asmFLDCW(x86_mem2(modrm, &cw));
 	}
 	
 	jitcClobberClientRegisterForFloat(frB);
@@ -1228,7 +1228,7 @@ JITCFlow ppc_opc_gen_fctiwzx()
 	JitcFloatReg d = jitcGetClientFloatRegisterMapping(frD);
 	if (frB != frD && d != JITC_FLOAT_REG_NONE) {
 		jitcFloatRegisterXCHGToFront(d);
-		asmFFREEPSTi(Float_ST0);
+		asmFFREEP(Float_ST0);
 		gJITC.nativeFloatRegState[d] = rsUnused;
 		gJITC.clientFloatReg[frD] = JITC_FLOAT_REG_NONE;
 		gJITC.nativeFloatTOP--;	
@@ -1236,16 +1236,16 @@ JITCFlow ppc_opc_gen_fctiwzx()
 
 	JitcFloatReg b = jitcGetClientFloatRegisterUnmapped(frB);
 	if (gJITC.hostCPUCaps.sse3) {
-		asmFISTTPMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frD]));
+		asmFISTTP(x86_mem2(modrm, &gCPU.fpr[frD]));
 	} else {
-		asmFISTPMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[frD]));
+		asmFISTP_D(x86_mem2(modrm, &gCPU.fpr[frD]));
 	}
 	gJITC.nativeFloatRegState[b] = rsUnused;
 	gJITC.clientFloatReg[frB] = JITC_FLOAT_REG_NONE;
 	gJITC.nativeFloatTOP--;
 	
 	if (!gJITC.hostCPUCaps.sse3) {
-		asmFLDCWMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.x87cw));
+		asmFLDCW(x86_mem2(modrm, &gCPU.x87cw));
 	}
 	
 	if (gJITC.current_opc & PPC_OPC_Rc) {
@@ -1416,8 +1416,8 @@ JITCFlow ppc_opc_gen_fmrx()
 			NativeReg bl = jitcGetClientRegister(PPC_FPR_L(frB));
 			NativeReg du = jitcMapClientRegisterDirty(PPC_FPR_U(frD));
 			NativeReg dl = jitcMapClientRegisterDirty(PPC_FPR_L(frD));
-			asmALURegReg(X86_MOV, du, bu);
-        		asmALURegReg(X86_MOV, dl, bl);
+			asmALU(X86_MOV, du, bu);
+        		asmALU(X86_MOV, dl, bl);
 		} else {
 			jitcInvalidateClientRegisterForFloat(frD);
 			JitcFloatReg d = jitcGetClientFloatRegisterMapping(frD);
@@ -1426,7 +1426,7 @@ JITCFlow ppc_opc_gen_fmrx()
 				jitcMapClientFloatRegisterDirty(frD, d);
 			} else {
 				jitcFloatRegisterXCHGToFront(a);
-				asmFSTDSTi(jitcFloatRegisterToNative(d));
+				asmFST(jitcFloatRegisterToNative(d));
 				jitcFloatRegisterDirty(d);
 			}
 		}
@@ -1589,16 +1589,16 @@ JITCFlow ppc_opc_gen_fnabsx()
 			NativeReg bl = jitcGetClientRegister(PPC_FPR_L(frB));
 			NativeReg dh = jitcMapClientRegisterDirty(PPC_FPR_U(frD));
 			NativeReg dl = jitcMapClientRegisterDirty(PPC_FPR_L(frD));
-			asmALURegReg(X86_MOV, dh, bh);
-			asmALURegReg(X86_MOV, dl, bl);
-			asmALURegImm(X86_OR, dh, 0x80000000);
+			asmALU(X86_MOV, dh, bh);
+			asmALU(X86_MOV, dl, bl);
+			asmALU(X86_OR, dh, 0x80000000);
 		} else {
 			NativeReg b = jitcGetClientRegisterDirty(PPC_FPR_U(frB));
-			asmALURegImm(X86_OR, b, 0x80000000);
+			asmALU(X86_OR, b, 0x80000000);
 		}
 	} else {
 		ppc_opc_gen_unary_floatop(FABS, frD, frB);
-		asmFSimpleST0(FCHS);
+		asmFSimple(FCHS);
 	}
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
@@ -1634,12 +1634,12 @@ JITCFlow ppc_opc_gen_fnegx()
 			NativeReg bl = jitcGetClientRegister(PPC_FPR_L(frB));
 			NativeReg dh = jitcMapClientRegisterDirty(PPC_FPR_U(frD));
 			NativeReg dl = jitcMapClientRegisterDirty(PPC_FPR_L(frD));
-			asmALURegReg(X86_MOV, dh, bh);
-			asmALURegReg(X86_MOV, dl, bl);
-			asmALURegImm(X86_XOR, dh, 0x80000000);
+			asmALU(X86_MOV, dh, bh);
+			asmALU(X86_MOV, dl, bl);
+			asmALU(X86_XOR, dh, 0x80000000);
 		} else {
 			NativeReg b = jitcGetClientRegisterDirty(PPC_FPR_U(frB));
-			asmALURegImm(X86_XOR, b, 0x80000000);
+			asmALU(X86_XOR, b, 0x80000000);
 		}
 	} else {
 		ppc_opc_gen_unary_floatop(FCHS, frD, frB);
@@ -1839,8 +1839,8 @@ JITCFlow ppc_opc_gen_frsqrtex()
 		jitcPopFloatStack(jitcGetClientFloatRegisterMapping(frD), JITC_FLOAT_REG_NONE);
 	}
 	gJITC.nativeFloatTOP++;
-	asmFSimpleST0(FLD1);
-	asmFArithSTiP(X86_FDIVR, jitcFloatRegisterToNative(jitcGetClientFloatRegisterMapping(frD)));
+	asmFSimple(FLD1);
+	asmFArithP_STi(X86_FDIVR, jitcFloatRegisterToNative(jitcGetClientFloatRegisterMapping(frD)));
 	gJITC.nativeFloatTOP--;
 	if (gJITC.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
