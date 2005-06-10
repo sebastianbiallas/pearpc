@@ -1110,11 +1110,14 @@ ppc_read_effective_byte_asm:
 
 	push	4			; roll back 4 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+
 	cmp	eax, [gMemorySize]
 	jae	.mmio
+
 	add	eax, [gMemory]
 	movzx	edx, byte [eax]
 	ret
+
 .mmio:
 	mov	edx, 1
 	call	io_mem_read_glue
@@ -1134,62 +1137,82 @@ align 16
 ;;
 ppc_read_effective_half_z_asm:
 	mov	[gCPU+pc_ofs], esi
-	mov	ebx, eax
-	and	ebx, 0xfff
-	cmp	ebx, 4095
-	jae	.overlap
+	test	al, 0x01		; if the address is aligned, then it
+	jnz	.non_aligned		; can't overlap (not taken, forward)
 
-	push	4			; roll back 4 bytes in case of exception
+.no_overlap:
+	push	4		; rollback 4 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	cmp	eax, [gMemorySize]
-	jae	.mmio
-	add	eax, [gMemory]	
+	jae	.mmio			; branch predict: not taken, forward
+
+	add	eax, [gMemory]
 	movzx	edx, word [eax]
-	xchg	dl, dh
+	ror	dx, 8
 	ret
+
+	align 16
 .mmio:
 	mov	edx, 2
 	call	io_mem_read_glue
-	xchg	al, ah
+	ror	ax, 8
 	movzx	edx, ax
 	ret
-.overlap:
+
+	align 16
+.non_aligned
+	mov	ecx, eax
+	and	ecx, 0xfff
+	cmp	ecx, 4095
+	jb	.no_overlap		; branch predict: taken, backwards
+
 	push	eax
-	push	8			; roll back 8 bytes in case of exception
+
+	push	8		; roll back 12 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	xor	edx, edx
+
 	cmp	eax, [gMemorySize]
-	jae	.mmio1
+	jae	.mmio_1
+
 	add	eax, [gMemory]
-	mov	dh, [eax]
-.loop1:
+	movzx	edx, byte [eax]
+	jmp	.end_mmio_1
+
+	align 16
+.mmio_1:
+	mov	edx, 1
+	call	io_mem_read_glue
+	movzx	edx, al
+
+.end_mmio_1:
 	pop	eax
 	push	edx
-	inc	eax
-	push	8			; roll back 8 bytes in case of exception
+
+	add	eax, 1
+	push	8		; roll back 12 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	pop	edx
+
 	cmp	eax, [gMemorySize]
-	jae	.mmio2
+	jae	.mmio_2
+
 	add	eax, [gMemory]
-	mov	dl, [eax]
+	movzx	eax, byte [eax]
+	jmp	.end_mmio_2
+
+	align 16
+.mmio_2:
+	mov	edx, 1
+	call	io_mem_read_glue
+	movzx	eax, al
+
+.end_mmio_2:
+	pop	edx
+
+	shl	edx, 8
+	or	edx, eax
+	bswap	edx
 	ret
 
-.mmio1:
-	pusha
-	mov	edx, 1
-	call	io_mem_read_glue
-	mov	[gCPU+temp2], al
-	popa
-	mov	dh, [gCPU+temp2]
-	jmp	.loop1
-.mmio2:
-	push	edx
-	mov	edx, 1
-	call	io_mem_read_glue
-	pop	edx
-	mov	dl, al
-	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_half()
@@ -1203,63 +1226,81 @@ align 16
 ;;
 ppc_read_effective_half_s_asm:
 	mov	[gCPU+pc_ofs], esi
-	mov	ebx, eax
-	and	ebx, 0xfff
-	cmp	ebx, 4095
-	jae	.overlap
+	test	al, 0x01		; if the address is aligned, then it
+	jnz	.non_aligned		; can't overlap (not taken, forward)
 
-	push	4			; roll back 4 bytes in case of exception
+.no_overlap:
+	push	4		; rollback 4 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	cmp	eax, [gMemorySize]
-	jae	.mmio
+	jae	.mmio			; branch predict: not taken, forward
+
 	add	eax, [gMemory]
-	mov	cx, word [eax]
-	xchg	ch, cl
-	movsx	edx, cx
+	mov	dx, [eax]
+	ror	dx, 8
+	movsx	edx, dx
 	ret
+
+	align 16
 .mmio:
 	mov	edx, 2
 	call	io_mem_read_glue
-	xchg	ah, al
+	ror	ax, 8
 	movsx	edx, ax
 	ret
-.overlap:
-	push	eax
-	push	8			; roll back 8 bytes in case of exception
-	call	ppc_effective_to_physical_data_read
-	cmp	eax, [gMemorySize]
-	jae	.mmio1
-	add	eax, [gMemory]
-	mov	ch, [eax]
-.loop1:
-	pop	eax
-	push	ecx
-	inc	eax
-	push	8			; roll back 8 bytes in case of exception
-	call	ppc_effective_to_physical_data_read
-	pop	ecx
-	cmp	eax, [gMemorySize]
-	jae	.mmio2
-	add	eax, [gMemory]
-	mov	cl, [eax]
-	movsx	edx, cx
-	ret
 
-.mmio1:
-	pusha
+	align 16
+.non_aligned
+	mov	ecx, eax
+	and	ecx, 0xfff
+	cmp	ecx, 4095
+	jb	.no_overlap		; branch predict: taken, backwards
+
+	push	eax
+
+	push	8		; roll back 12 bytes in case of exception
+	call	ppc_effective_to_physical_data_read
+
+	cmp	eax, [gMemorySize]
+	jae	.mmio_1
+
+	add	eax, [gMemory]
+	movsx	edx, byte [eax]
+	jmp	.end_mmio_1
+
+	align 16
+.mmio_1:
 	mov	edx, 1
 	call	io_mem_read_glue
-	mov	[gCPU+temp2], al
-	popa
-	mov	ch, [gCPU+temp2]
-	jmp	.loop1
-.mmio2:
-	push	ecx
+	movsx	edx, al
+
+.end_mmio_1:
+	pop	eax
+	push	edx
+
+	add	eax, 1
+	push	8		; roll back 12 bytes in case of exception
+	call	ppc_effective_to_physical_data_read
+
+	cmp	eax, [gMemorySize]
+	jae	.mmio_2
+
+	add	eax, [gMemory]
+	movzx	eax, byte [eax]
+	jmp	.end_mmio_2
+
+	align 16
+.mmio_2:
 	mov	edx, 1
 	call	io_mem_read_glue
-	pop	ecx
-	mov	cl, al
-	movsx	edx, cx
+	movzx	eax, al
+
+.end_mmio_2:
+	pop	edx
+
+	shl	edx, 8
+	or	edx, eax
+	bswap	edx
 	ret
 	
 align 16
@@ -1275,90 +1316,86 @@ align 16
 ;;
 ppc_read_effective_word_asm:
 	mov	[gCPU+pc_ofs], esi
-	mov	ebx, eax
-	and	ebx, 0xfff
-	cmp	ebx, 4093
-	jae	.overlap
+	test	al, 0x03		; if the address is aligned, then it
+	jnz	.non_aligned		; can't overlap (not taken, forward)
 
-	push	4			; roll back 4 bytes in case of exception
+.no_overlap:
+	push	4		; rollback 4 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	cmp	eax, [gMemorySize]
-	jae	.mmio
+	jae	.mmio			; branch predict: not taken, forward
+
 	add	eax, [gMemory]
 	mov	edx, [eax]
 	bswap	edx
 	ret
+
+	align 16
 .mmio:
 	mov	edx, 4
 	call	io_mem_read_glue
 	mov	edx, eax
 	bswap	edx
 	ret
-.overlap:
+
+	align 16
+.non_aligned
+	mov	ecx, eax
+	and	ecx, 0xfff
+	cmp	ecx, 4093
+	jb	.no_overlap		; branch predict: taken, backwards
+
+	and	cl, 0x3
+	shl	cl, 3			; cl is bit-wise off-alignment
+	and	eax, 0xfffffffc		; eax is the base aligned address
+
+	push	ecx
 	push	eax
-	push	ebx
-	push	12			; roll back 12 bytes in case of exception
+
+	push	12		; roll back 12 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	pop	ebx
-	mov	ecx, 4096
-	sub	ecx, ebx
+
 	cmp	eax, [gMemorySize]
-	jae	.overlapped_mmio_1
+	jae	.mmio_1
+
 	add	eax, [gMemory]
-	.loop1:
-		shl	edx, 8
-		mov	dl, [eax]
-		inc	eax
-		dec	ecx
-	jnz	.loop1
-	.overlapped_mmio_1_back:
+	mov	edx, [eax]
+	jmp	.end_mmio_1
+
+	align 16
+.mmio_1:
+	mov	edx, 4
+	call	io_mem_read_glue
+	mov	edx, eax
+
+.end_mmio_1:
 	pop	eax
 	push	edx
+
 	add	eax, 4
-	push	ebx
-	and	eax, 0xfffff000
-	push	12			; roll back 12 bytes in case of exception
+	push	12		; roll back 12 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	pop	ebx
-	pop	edx
-	sub	ebx, 4092
+
 	cmp	eax, [gMemorySize]
-	jae	.overlapped_mmio_2
+	jae	.mmio_2
+
 	add	eax, [gMemory]
-	.loop2:
-		shl	edx, 8
-		mov	dl, [eax]
-		inc	eax
-		dec	ebx
-	jnz	.loop2
+	mov	eax, [eax]
+	jmp	.end_mmio_2
+
+	align 16
+.mmio_2:
+	mov	edx, 4
+	call	io_mem_read_glue
+
+.end_mmio_2:
+	pop	edx
+	pop	ecx
+
+	shrd	edx, eax, cl
+	bswap	edx
 	ret
 
-.overlapped_mmio_1:
-	.overlapped_mmio_1_loop:
-		shl	edx, 8
-		pusha
-		mov	edx, 1
-		call	io_mem_read_glue
-		mov	[gCPU+temp2], al
-		popa
-		mov	dl, [gCPU+temp2]
-		inc	eax
-		dec	ecx
-	jnz	.overlapped_mmio_1_loop
-	jmp	.overlapped_mmio_1_back
-.overlapped_mmio_2:
-	.overlapped_mmio_2_loop:
-		shl	edx, 8
-		pusha
-		mov	edx, 1
-		call	io_mem_read_glue
-		mov	[gCPU+temp2], al
-		popa
-		mov	dl, [gCPU+temp2]
-		inc	eax
-		dec	ebx
-	jnz	.overlapped_mmio_2_loop
-	ret
 align 16
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	uint32 FASTCALL ppc_read_effective_dword()
