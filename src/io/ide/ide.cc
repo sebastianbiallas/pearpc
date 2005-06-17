@@ -179,6 +179,7 @@ enum {
 #define IDE_ATAPI_SENSE_UNIT_ATTENTION	6
 
 #define IDE_ATAPI_ASC_INV_FIELD_IN_CMD_PACKET		0x24
+#define IDE_ATAPI_ASC_CANNOT_READ_MEDIUM		0x30
 #define IDE_ATAPI_ASC_MEDIUM_NOT_PRESENT		0x3a
 #define IDE_ATAPI_ASC_SAVING_PARAMETERS_NOT_SUPPORTED	0x39
 #define IDE_ATAPI_ASC_LOGICAL_BLOCK_OOR			0x21
@@ -706,7 +707,7 @@ void receive_atapi_packet()
 		sector[7] = 0x00;
 
 		memcpy(sector+8, "SPIRO   ", 8);
-		memcpy(sector+16, "MULTIMAX 3000   ", 16);
+		memcpy(sector+16, "MULTIMAX 4000   ", 16);
 		memcpy(sector+32, "0.1 ", 4);
 		
 		sector[58] = 0x03;
@@ -879,7 +880,7 @@ void receive_atapi_packet()
 				atapi_start_mode_sense(sector+8, 36);
 				sector[8] = 0x2a;
 				sector[9] = 28;
-				sector[10] = 0x3; // CD-RW + CD-R read
+				sector[10] = 0x3b; // DVD-RAM + DVD-R + DVD-ROM + CD-RW + CD-R read
 				sector[11] = 0;
 				sector[12] = 0;
 				sector[13] = 3<<5;
@@ -1059,8 +1060,15 @@ void receive_atapi_packet()
 		uint8 AGID = sector[10] >> 6;
 		uint8 control = sector[11];
 		len = MIN(len, IDE_MAX_BLOCK_SIZE);
-		int size = dev->readDVDStructure(sector, len, subcommand, address, layer, format, AGID, control);
-		atapi_start_send_command(command, size, len);
+
+		int size = 0;
+
+		if (dev->isDVD()) {
+			size = dev->readDVDStructure(sector, len, subcommand, address, layer, format, AGID, control);
+			atapi_start_send_command(command, size, len);
+		} else {
+			atapi_command_error(IDE_ATAPI_SENSE_NOT_READY, IDE_ATAPI_ASC_CANNOT_READ_MEDIUM);
+		}
 		raiseInterrupt(0);
 		break;
 	}
@@ -1996,6 +2004,8 @@ void ide_init()
 					ext = "img";
 				} else if (type == (String)"cdrom") {
 					ext = "iso";
+				} else if (type == (String)"dvdrom") {
+					ext = "dvd";
 				} else if (type == (String)"nativecdrom") {
 					ext = "nativecdrom";
 				} else {
@@ -2022,12 +2032,24 @@ void ide_init()
 			} else if (ext == (String)"iso") {
 				gIDEState.config[DISK].protocol = IDE_ATAPI;
 				gIDEState.config[DISK].device = new CDROMDeviceFile(name);
+				((CDROMDeviceFile *)gIDEState.config[DISK].device)->activateDVD(false);
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->changeDataSource(img);
 				const char *error;
 				if ((error = gIDEState.config[DISK].device->getError())) IO_IDE_ERR("%s\n", error);
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->setReady(true);
 				gIDEState.config[DISK].bps = 2048;
 				gIDEState.config[DISK].lba = false;
+			} else if (ext == (String)"dvd") {
+				gIDEState.config[DISK].protocol = IDE_ATAPI;
+				gIDEState.config[DISK].device = new CDROMDeviceFile(name);
+				((CDROMDeviceFile *)gIDEState.config[DISK].device)->activateDVD(true);
+
+				((CDROMDeviceFile *)gIDEState.config[DISK].device)->changeDataSource(img);
+				const char *error;
+				if ((error = gIDEState.config[DISK].device->getError())) IO_IDE_ERR("%s\n", error);
+				((CDROMDeviceFile *)gIDEState.config[DISK].device)->setReady(true);
+				gIDEState.config[DISK].bps = 2048;
+				gIDEState.config[DISK].lba = true;
 			} else if (ext == (String)"nativecdrom") {
 				gIDEState.config[DISK].protocol = IDE_ATAPI;
 				CDROMDevice* cdrom = createNativeCDROMDevice(name, img);

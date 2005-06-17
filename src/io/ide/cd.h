@@ -59,6 +59,7 @@ protected:
 	bool		mReady;
 	Container	*mFeatures, *mProfiles;
 	int		curProfile;
+	bool		is_dvd;
 public:
 			CDROMDevice(const char *name);
 	virtual		~CDROMDevice ();
@@ -80,7 +81,10 @@ public:
 			     int format) = 0;
 	virtual void	eject() = 0;
 	virtual	int	writeBlock(byte *buf);
+
 	virtual	int	readDVDStructure(byte *buf, int len, uint8 subcommand, uint32 address, uint8 layer, uint8 format, uint8 AGID, uint8 control);
+	virtual void	activateDVD(bool onoff);
+	virtual bool	isDVD(void);
 
 protected:
 		void	addFeature(int feature);
@@ -101,7 +105,7 @@ public:
 
 	virtual	uint32	getCapacity();
 		bool	changeDataSource(const char *file);
-	virtual	bool	seek(uint32 blockno);
+	virtual	bool	seek(uint64 blockno);
 	virtual	void	flush();
 	virtual	int	readBlock(byte *buf);
 	virtual	int	readTOC(byte *buf, bool msf, uint8 starttrack, int len,
@@ -175,7 +179,7 @@ public:
 	virtual	uint32	getCapacity();
 
 	/// Sets the current seek position to the specified block
-	virtual	bool	seek(uint32 blockno);
+	virtual	bool	seek(uint64 blockno);
 
 	/// Flushes the write buffer (empty function here)
 	virtual	void	flush();

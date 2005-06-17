@@ -28,6 +28,7 @@
 #include "scsicmds.h"
 
 #define MM_DEVICE_PROFILE_CDROM 0x0008 // .242
+#define MM_DEVICE_PROFILE_DVDROM 0x0010 // d.375
 
 #define MM_DEVICE_FEATURE_PROFILE 0x0000
 #define MM_DEVICE_FEATURE_CORE 0x0001
@@ -35,6 +36,7 @@
 #define MM_DEVICE_FEATURE_REMOVABLE 0x0003
 #define MM_DEVICE_FEATURE_RANDOM_READ 0x0010
 #define MM_DEVICE_FEATURE_CD_READ 0x001e
+#define MM_DEVICE_FEATURE_DVD_READ 0x001f
 #define MM_DEVICE_FEATURE_INC_WRITE 0x0021 // .192
 #define MM_DEVICE_FEATURE_xx 0x002d
 #define MM_DEVICE_FEATURE_xx2 0x002e
@@ -42,6 +44,7 @@
 #define MM_DEVICE_FEATURE_CD_AUDIO 0x0103 // .224
 #define MM_DEVICE_FEATURE_TIMEOUT 0x0105
 #define MM_DEVICE_FEATURE_DVD_CSS 0x0106 // .228
+#define MM_DEVICE_FEATURE_RT_STREAM 0x0107
 		
 
 CDROMDevice::CDROMDevice(const char *name)
@@ -49,20 +52,23 @@ CDROMDevice::CDROMDevice(const char *name)
 {
 	mFeatures = new AVLTree(true);
 	mProfiles = new AVLTree(true);
-	addProfile(MM_DEVICE_PROFILE_CDROM);
-	curProfile = MM_DEVICE_PROFILE_CDROM;
-	// Profile CDROM implies these features:
+	addProfile(MM_DEVICE_PROFILE_DVDROM);
+	curProfile = MM_DEVICE_PROFILE_DVDROM;
+	// Profile DVDROM implies these features:
 	addFeature(MM_DEVICE_FEATURE_PROFILE);
 	addFeature(MM_DEVICE_FEATURE_CORE);
 	addFeature(MM_DEVICE_FEATURE_MORPHING);
 	addFeature(MM_DEVICE_FEATURE_REMOVABLE);
 	addFeature(MM_DEVICE_FEATURE_RANDOM_READ);
 	addFeature(MM_DEVICE_FEATURE_CD_READ);
+	addFeature(MM_DEVICE_FEATURE_DVD_READ);
 	addFeature(MM_DEVICE_FEATURE_POWER);
 	addFeature(MM_DEVICE_FEATURE_TIMEOUT);
+	addFeature(MM_DEVICE_FEATURE_RT_STREAM);
 
 	mReady = false;
 	mLocked = false;
+	is_dvd = false;
 }
 
 CDROMDevice::~CDROMDevice()
@@ -201,7 +207,7 @@ int CDROMDevice::getFeature(byte *buf, int aLen, int feature)
 		return createFeature(buf, aLen, MM_DEVICE_FEATURE_PROFILE, 0, true, true, list, count*4);
 	}
 	case MM_DEVICE_FEATURE_CORE: {
-		byte core[] = {0x00, 0x00, 0x00, 0x02}; // 02=ATAPI
+		byte core[] = {0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00}; // 02=ATAPI, DBEvent=0
 		return createFeature(buf, aLen, MM_DEVICE_FEATURE_CORE, 0, true, true, core, sizeof core);
 	}
 	case MM_DEVICE_FEATURE_MORPHING: {
@@ -227,12 +233,23 @@ int CDROMDevice::getFeature(byte *buf, int aLen, int feature)
 		// FIXME: persistent, current?
 		return createFeature(buf, aLen, MM_DEVICE_FEATURE_CD_READ, 2, true, true, cdread, sizeof cdread);
 	}
+	case MM_DEVICE_FEATURE_DVD_READ: {
+		byte dvdread[] = {0x00, 0x00, 0x00, 0x00}; //MULTI110=0, Dual-R=0
+
+		// FIXME: persistent, current?
+		return createFeature(buf, aLen, MM_DEVICE_FEATURE_DVD_READ, 2, true, true, dvdread, sizeof dvdread);
+	}
 	case MM_DEVICE_FEATURE_POWER: 
 		// FIXME: persistent, current?
 		return createFeature(buf, aLen, MM_DEVICE_FEATURE_POWER, 0, true, true, NULL, 0);
 	case MM_DEVICE_FEATURE_TIMEOUT: {
 		byte timeout[] = {0x00, 0x00, 0x00, 0x00}; // Group 3=0
 		return createFeature(buf, aLen, MM_DEVICE_FEATURE_TIMEOUT, 0, true, true, timeout, sizeof timeout);
+	}
+	case MM_DEVICE_FEATURE_RT_STREAM: {
+		byte rt_stream[] = { 0x00, 0x00, 0x00, 0x00 }; // RBCD=0 SCS=0 MP2A=0 WSPD=0 SW=0
+
+		return createFeature(buf, aLen, MM_DEVICE_FEATURE_RT_STREAM, 0, true, true, rt_stream, sizeof rt_stream);
 	}
 	default:
 		// return size==0 for unimplemented / unsupported features
@@ -277,7 +294,79 @@ int CDROMDevice::writeBlock(byte *buf)
 
 int CDROMDevice::readDVDStructure(byte *buf, int len, uint8 subcommand, uint32 address, uint8 layer, uint8 format, uint8 AGID, uint8 control)
 {
-	IO_IDE_ERR("readDVDStructure unimplemented.\n");
+	uint32 capacity = getCapacity();
+
+	if (!is_dvd) {
+		return 0;
+	}
+
+	if (subcommand == 0x0000) {
+		switch (format) {
+		case 0x00:	//Physical format information
+			buf[0] = 0;
+			buf[1] = 21;
+
+			buf[2] = 0x00; // reserved
+			buf[3] = 0x00; // reserved
+
+			buf[4] = 0x01; //DVD-ROM + Version 1.0x
+			buf[5] = 0x0f; //120mm + No max rate specified
+			buf[6] = 0x00; //1 layer + PTP + embossed data
+			buf[7] = 0x00; //0.267um/bit + 0.74um/track
+
+			buf[8] = 0x00; //pad
+			buf[9] = 0x03; //start of physical data
+			buf[10] = 0x00; //start of physical data
+			buf[11] = 0x00; //start of physical data
+
+			buf[12] = 0x00; //pad
+			buf[13] = capacity >> 16; //end of physical data
+			buf[14] = capacity >> 8;  //end of physical data
+			buf[15] = capacity;       //end of physical data
+
+			buf[16] = 0x00; //pad
+			buf[17] = 0x00; //end sector number in layer 0
+			buf[18] = 0x00; //end sector number in layer 0
+			buf[19] = 0x00; //end sector number in layer 0
+
+			buf[20] = 0x00; //BCA + reserved
+
+			// 21-n : defined as reserved for DVD-ROMs
+
+			return 21;
+
+		case 0x01:	// Copyright Information
+			buf[0] = 0;
+			buf[1] = 8;
+
+			buf[2] = 0;
+			buf[3] = 0;
+
+			buf[4] = 0x00; // no copyright information
+			buf[5] = 0x00; // all regions allowed
+			buf[6] = 0x00; // reserved
+			buf[7] = 0x00; // reserved
+
+			return 8;
+
+		default:
+			ht_printf("readDVDStructure with Unsupported Format (%i)\n", format);
+			return 0;
+		}
+	} else {
+		ht_printf("readDVDStructure on Unsupported Media (%i)\n", subcommand);
+		return 0;
+	}
+}
+
+void CDROMDevice::activateDVD(bool onoff)
+{
+	is_dvd = onoff;
+}
+
+bool CDROMDevice::isDVD(void)
+{
+	return is_dvd;
 }
 
 // ----------------------------- File based CDROM device ------------------------------------
@@ -301,7 +390,7 @@ uint32 CDROMDeviceFile::getCapacity()
 	return mCapacity;
 }
 
-bool CDROMDeviceFile::seek(uint32 blockno)
+bool CDROMDeviceFile::seek(uint64 blockno)
 {
 	curLBA = blockno;
 	sys_fseek(mFile, (uint64)blockno * 2048);
@@ -366,6 +455,12 @@ bool CDROMDeviceFile::changeDataSource(const char *file)
 	sys_fseek(mFile, 0, SYS_SEEK_END);
 	FileOfs fsize = sys_ftell(mFile);
 	mCapacity = fsize / 2048 + !!(fsize % 2048);
+
+	if (!is_dvd && (mCapacity > 1151850)) {
+		/* In case the image just can't be a CD-ROM */
+		this->activateDVD(true);
+	}
+
 	return true;
 }
 
@@ -592,7 +687,7 @@ uint32 CDROMDeviceSCSI::getCapacity()
 /// @date 07/17/2004
 /// @param blockno The sector to seek to
 /// @return true on successful execution, else false
-bool CDROMDeviceSCSI::seek(uint32 blockno)
+bool CDROMDeviceSCSI::seek(uint64 blockno)
 {
 	curLBA = blockno;
 	return true;
@@ -770,7 +865,6 @@ void CDROMDeviceSCSI::eject()
 	}
 }
 
-/// @author Alexander Stockinger
 /// @date 07/17/2004
 /// @param pos The new seek position (byte address)
 /// @return true on successful execution, else false

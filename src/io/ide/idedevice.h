@@ -50,7 +50,7 @@ public:
 	virtual char *	getError();
 	virtual uint	getBlockSize() = 0;
 	virtual uint	getBlockCount() = 0;
-	virtual bool	seek(uint32 blockno) = 0;
+	virtual bool	seek(uint64 blockno) = 0;
 	virtual void	flush() = 0;
 		void	setMode(int aMode, int aSectorSize);
 	/* these are deblocking read/writes */
