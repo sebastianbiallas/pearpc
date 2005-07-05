@@ -20,6 +20,7 @@ version 0.4pre (not yet released):
 	- use transparent cursors instead of altering cursor visibility (hack for using PearPC
 	  with remote desktop)
 	- DVD emulation implemented.  Fixes problems with Tiger installation
+	- Updated the read_effective_* commands to be faster !!! REGRESSED !!!
 
 version 0.3.1 (released 5. September 2004):
 	- JITC_X86: increased translation cache size
