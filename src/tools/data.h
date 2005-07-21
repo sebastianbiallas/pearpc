@@ -140,6 +140,7 @@ class Enumerator: public Object {
 public:
 				Enumerator();
 /* extends Object */
+	virtual	Enumerator *	clone() const = 0;
 	virtual	int		toString(char *buf, int buflen) const;
 /* new */
 
@@ -329,6 +330,8 @@ protected:
 	virtual	void		notifyInsertOrSet(const Object *o);
 public:
 				Container();
+				
+	virtual Container *	clone() const = 0;
 /* new */
 
 /**
@@ -415,6 +418,7 @@ public:
 class List: public Container {
 public:
 				List();
+	virtual List *		clone() const = 0;
 /* new */
 
 /**
@@ -506,7 +510,7 @@ public:
 				Array(bool own_objects, int prealloc = ARRAY_CONSTR_ALLOC_DEFAULT);
 	virtual			~Array();
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	Array *		clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
 	virtual	ObjectID	getObjectID() const;
@@ -581,7 +585,7 @@ public:
 				LinkedList(bool own_objects);
 	virtual			~LinkedList();
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	LinkedList *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
 	virtual	ObjectID	getObjectID() const;
@@ -691,7 +695,7 @@ public:
 				BinaryTree(bool own_objects, Comparator comparator = autoCompare);
 	virtual			~BinaryTree();
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	BinaryTree *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
 	virtual	ObjectID	getObjectID() const;
@@ -737,7 +741,7 @@ public:
 		void		debugOut();
 		bool		expensiveCheck();
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	AVLTree *	clone() const;
 #ifdef HAVE_HT_OBJECTS
 	virtual	bool		instanceOf(ObjectID id) const;
 	virtual	ObjectID	getObjectID() const;
@@ -780,7 +784,7 @@ public:
 				KeyValue(Object *aKey, Object *aValue);
 	virtual			~KeyValue();
 
-	virtual	Object *	clone() const;
+	virtual	KeyValue *	clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
@@ -798,7 +802,7 @@ public:
 
 				SInt(signed int i);
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	SInt *		clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
@@ -818,7 +822,7 @@ public:
 
 				SInt64(sint64 i);
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	SInt64 *	clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
@@ -836,7 +840,7 @@ public:
 
 				UInt(unsigned int i);
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	UInt *		clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
@@ -854,7 +858,7 @@ public:
 
 				UInt64(uint64 i);
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	UInt64 *	clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
@@ -872,7 +876,7 @@ public:
 
 				Float(double d);
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	Float *		clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS
@@ -904,7 +908,7 @@ public:
 				MemArea(const void *p, uint size, bool duplicate = false);
 				~MemArea();
 /* extends Object */
-	virtual	Object *	clone() const;
+	virtual	MemArea *	clone() const;
 	virtual	int		compareTo(const Object *obj) const;
 	virtual	int		toString(char *buf, int buflen) const;
 #ifdef HAVE_HT_OBJECTS

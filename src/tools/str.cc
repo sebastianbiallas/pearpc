@@ -194,7 +194,7 @@ void String::clear()
 	realloc(0);
 }
 
-Object *String::clone() const
+String *String::clone() const
 {
 	return new String(mContent, mLength);
 }
@@ -674,7 +674,7 @@ IString::IString()
 {
 }
 
-Object *IString::clone() const
+IString *IString::clone() const
 {
 	IString *r = new IString();
 	*r = *this;

@@ -318,7 +318,7 @@ void Array::delAll()
 	elems = NULL;
 }
 
-Object *Array::clone() const
+Array *Array::clone() const
 {
 	Array *a = new Array(own_objects, ecount);
 	for (uint i = 0; i<ecount; i++) {
@@ -636,7 +636,7 @@ void LinkedList::freeObj(Object *obj) const
 	}
 }
 
-Object *LinkedList::clone() const
+LinkedList *LinkedList::clone() const
 {
 	LinkedList *l = new LinkedList(own_objects);
 	LinkedListNode *n = first, *m;
@@ -1037,7 +1037,7 @@ void BinaryTree::cloneR(BinTreeNode *node)
 	cloneR(node->right);
 }
 
-Object *BinaryTree::clone() const
+BinaryTree *BinaryTree::clone() const
 {
 	BinaryTree *c = new BinaryTree(own_objects, compare);
 	c->cloneR(root);
@@ -1308,7 +1308,7 @@ void AVLTree::cloneR(AVLTreeNode *node)
 	cloneR((AVLTreeNode *)node->right);
 }
 
-Object *AVLTree::clone() const
+AVLTree *AVLTree::clone() const
 {
 	AVLTree *c = new AVLTree(own_objects, compare);
 	c->cloneR((AVLTreeNode *)root);
@@ -1750,7 +1750,7 @@ KeyValue::~KeyValue()
 	delete mValue;
 }
 
-Object *KeyValue::clone() const
+KeyValue *KeyValue::clone() const
 {
 	return new KeyValue(mKey->clone(), mValue ? mValue->clone() : NULL);
 }
@@ -1787,7 +1787,7 @@ SInt::SInt(signed int i)
 	value = i;
 }
 
-Object *SInt::clone() const
+SInt *SInt::clone() const
 {
 	return new SInt(value);
 }
@@ -1826,7 +1826,7 @@ SInt64::SInt64(sint64 i)
 	value = i;
 }
 
-Object *SInt64::clone() const
+SInt64 *SInt64::clone() const
 {
 	return new SInt64(value);
 }
@@ -1871,7 +1871,7 @@ UInt::UInt(unsigned int i)
 	value = i;
 }
 
-Object *UInt::clone() const
+UInt *UInt::clone() const
 {
 	return new UInt(value);
 }
@@ -1916,7 +1916,7 @@ UInt64::UInt64(uint64 i)
 	value = i;
 }
 
-Object *UInt64::clone() const
+UInt64 *UInt64::clone() const
 {
 	return new UInt64(value);
 }
@@ -1961,7 +1961,7 @@ Float::Float(double d)
 	value = d;
 }
 
-Object *Float::clone() const
+Float *Float::clone() const
 {
 	return new Float(value);
 }
@@ -2030,7 +2030,7 @@ MemArea::~MemArea()
 	if (duplicate) free(ptr);
 }
 
-Object *MemArea::clone() const
+MemArea *MemArea::clone() const
 {
 	return new MemArea(ptr, size, true);
 }
