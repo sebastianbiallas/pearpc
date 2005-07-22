@@ -38,13 +38,13 @@
 
 #define bswabU16(val) bswap_16(val)
 
-#define bswabU16_inc(ptr) bswap_16(*((UInt16*) (ptr))++)
-#define bswabU32_inc(ptr) bswap_32(*((UInt32*) (ptr))++)
-#define bswabU64_inc(ptr) bswap_64(*((APPLEUInt64*) (ptr))++)
+#define bswabU16_inc(ptr) bswap_16(*(*((UInt16**) (void *)(ptr)))++)
+#define bswabU32_inc(ptr) bswap_32(*(*((UInt32**) (void *)(ptr)))++)
+#define bswabU64_inc(ptr) bswap_64(*(*((APPLEUInt64**) (void *)(ptr)))++)
 
-#define bstoreU16_inc(ptr, val) (*((UInt16*) (ptr))++) = bswap_16(val)
-#define bstoreU32_inc(ptr, val) (*((UInt32*) (ptr))++) = bswap_32(val)
-#define bstoreU64_inc(ptr, val) (*((APPLEUInt64*) (ptr))++) = bswap_64(val)
+#define bstoreU16_inc(ptr, val) (*(*((UInt16**) (void *)(ptr)))++) = bswap_16(val)
+#define bstoreU32_inc(ptr, val) (*(*((UInt32**) (void *)(ptr)))++) = bswap_32(val)
+#define bstoreU64_inc(ptr, val) (*(*((APPLEUInt64**) (void *)(ptr)))++) = bswap_64(val)
 
 /*#else // BYTE_ORDER == BIG_ENDIAN
 
@@ -61,5 +61,5 @@
 #endif*/
 
 /* for the sake of completeness and readability */
-#define bswabU8_inc(ptr)	(*((UInt8*) (ptr))++)
-#define bstoreU8_inc(ptr,val)	(*((UInt8*) (ptr))++) = val
+#define bswabU8_inc(ptr)       (*(*((UInt8**) (void *)(ptr)))++)
+#define bstoreU8_inc(ptr,val)  (*(*((UInt8**) (void *)(ptr)))++) = val

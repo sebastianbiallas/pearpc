@@ -344,7 +344,7 @@ void* volume_writefork(void *p, hfsp_fork_raw* f)
 
 /* Read the volume from the given buffer and swap the bytes.
  */
-static int volume_readbuf(hfsp_vh* vh, void* p)
+static int volume_readbuf(hfsp_vh* vh, char* p)
 {
     if ( (vh->signature	= bswabU16_inc(p)) != HFSP_VOLHEAD_SIG) 
 	HFSP_ERROR(-1, "This is not a HFS+ volume");
@@ -368,7 +368,7 @@ static int volume_readbuf(hfsp_vh* vh, void* p)
     vh->write_count	= bswabU32_inc(p);
     vh->encodings_bmp	= bswabU64_inc(p);
     memcpy(vh->finder_info, p, 32); 
-    ((char*) p) += 32; // finderinfo is not used by now
+    p += 32; // finderinfo is not used by now
     p = volume_readfork(p, &vh->alloc_file );
     p = volume_readfork(p, &vh->ext_file   );
     p = volume_readfork(p, &vh->cat_file   );
@@ -381,7 +381,7 @@ static int volume_readbuf(hfsp_vh* vh, void* p)
 	
 /* Write the volume to the given buffer and swap the bytes.
  */
-static int volume_writebuf(hfsp_vh* vh, void* p)
+static int volume_writebuf(hfsp_vh* vh, char* p)
 {
     bstoreU16_inc(p, vh->signature	);
     bstoreU16_inc(p, vh->version	);
@@ -404,7 +404,7 @@ static int volume_writebuf(hfsp_vh* vh, void* p)
     bstoreU32_inc(p, vh->write_count	);
     bstoreU64_inc(p, vh->encodings_bmp	);
     memcpy(p, vh->finder_info, 32); 
-    ((char*) p) += 32; // finderinfo is not used by now
+    p += 32; // finderinfo is not used by now
     p = volume_writefork(p, &vh->alloc_file );
     p = volume_writefork(p, &vh->ext_file   );
     p = volume_writefork(p, &vh->cat_file   );
@@ -427,7 +427,7 @@ static int volume_read_wrapper(volume * vol, hfsp_vh* vh)
 {
     UInt16  signature;
     char    buf[vol->blksize];
-    void    *p = buf;
+    char    *p = buf;
     if( volume_readinbuf(vol, buf, 2) ) // Wrapper or volume header starts here
         return -1;
 
@@ -440,12 +440,12 @@ static int volume_read_wrapper(volume * vol, hfsp_vh* vh)
   
 	UInt16	embeds, embedl;		/* Start/lenght of embedded area in blocks */
 	
-	((char*) p) += 0x12;		/* skip unneeded HFS vol fields */
+	p += 0x12;			/* skip unneeded HFS vol fields */
 	drAlBlkSiz = bswabU32_inc(p);	/* offset 0x14 */
-	((char*) p) += 0x4;		/* skip unneeded HFS vol fields */
+	p += 0x4;			/* skip unneeded HFS vol fields */
 	drAlBlSt    = bswabU16_inc(p);	/* offset 0x1C */
 	
-	((char*) p) += 0x5E;		/* skip unneeded HFS vol fields */
+	p += 0x5E;			/* skip unneeded HFS vol fields */
 	signature = bswabU16_inc(p);	/* offset 0x7C, drEmbedSigWord */
 	if (signature != HFSP_VOLHEAD_SIG)
 	    HFSP_ERROR(-1, "This looks like a normal HFS volume");

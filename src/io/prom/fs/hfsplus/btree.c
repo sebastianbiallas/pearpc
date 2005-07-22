@@ -364,7 +364,7 @@ node_buf* btree_node_by_index(btree* bt, UInt16 index, int flags)
 /** intialize the btree with the first entry in the fork */
 static int btree_init(btree* bt, volume* vol, hfsp_fork_raw* fork)
 { 
-    void		*p;
+    char		*p;
     char		buf[vol->blksize]; 
     UInt16		node_size;
     btree_node_desc*	node = &bt->head_node;
@@ -396,7 +396,7 @@ static int btree_init(btree* bt, volume* vol, hfsp_fork_raw* fork)
 	{
 	    p = volume_readfromfork(vol, nodebuf, fork, 0, bt->blkpernode,
 		 HFSP_EXTENT_DATA, bt->cnid);
-	    ((char*) p) += HEADER_RESERVEDOFFSET; // skip header
+	    p += HEADER_RESERVEDOFFSET; // skip header
 	}
 	
 	bt->alloc_bits = malloc(alloc_size);
