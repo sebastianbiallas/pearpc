@@ -230,7 +230,7 @@ EvalType StringFunction::getReturnType() const
 
 String *StringFunction::evalString() const
 {
-	return (String*)value.clone();
+	return value.clone();
 }
 
 /**
@@ -337,7 +337,7 @@ static Function *matchFunctionByDesc(const String &name, const Enumerator &param
 
 Watch::Watch(String *aName, Function *aFunc)
 {
-	mName = (String*)aName->clone();
+	mName = aName->clone();
 	f = aFunc;
 }
 
