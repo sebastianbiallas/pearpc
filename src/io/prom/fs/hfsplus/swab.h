@@ -38,13 +38,56 @@
 
 #define bswabU16(val) bswap_16(val)
 
-#define bswabU16_inc(ptr) bswap_16(*(*((UInt16**) (void *)(ptr)))++)
-#define bswabU32_inc(ptr) bswap_32(*(*((UInt32**) (void *)(ptr)))++)
-#define bswabU64_inc(ptr) bswap_64(*(*((APPLEUInt64**) (void *)(ptr)))++)
+#define abswabU16_inc(ptr) bswap_16(*(*((UInt16**) (void *)(ptr)))++)
+#define abswabU32_inc(ptr) bswap_32(*(*((UInt32**) (void *)(ptr)))++)
+#define abswabU64_inc(ptr) bswap_64(*(*((APPLEUInt64**) (void *)(ptr)))++)
 
-#define bstoreU16_inc(ptr, val) (*(*((UInt16**) (void *)(ptr)))++) = bswap_16(val)
-#define bstoreU32_inc(ptr, val) (*(*((UInt32**) (void *)(ptr)))++) = bswap_32(val)
-#define bstoreU64_inc(ptr, val) (*(*((APPLEUInt64**) (void *)(ptr)))++) = bswap_64(val)
+#define abstoreU16_inc(ptr, val) (*(*((UInt16**) (void *)(ptr)))++) = bswap_16(val)
+#define abstoreU32_inc(ptr, val) (*(*((UInt32**) (void *)(ptr)))++) = bswap_32(val)
+#define abstoreU64_inc(ptr, val) (*(*((APPLEUInt64**) (void *)(ptr)))++) = bswap_64(val)
+
+#include "apple.h"
+static inline UInt16 bswabU16_inc(char **ptr)
+{
+	UInt16 **p = (UInt16 **)ptr;
+	(*ptr)++;
+	return bswap_16(**p);
+}
+
+static inline UInt32 bswabU32_inc(char **ptr)
+{
+	UInt32 **p = (UInt32 **)ptr;
+	(*ptr)++;
+	return bswap_32(**p);
+}
+
+static inline APPLEUInt64 bswabU64_inc(char **ptr)
+{
+	APPLEUInt64 **p = (APPLEUInt64 **)ptr;
+	(*ptr)++;
+	return bswap_64(**p);
+}
+
+static inline void bstoreU16_inc(char **ptr, UInt16 val)
+{
+	UInt16 **p = (UInt16 **)ptr;
+	**p = bswap_16(val);
+	(*ptr)++;
+}
+
+static inline void bstoreU32_inc(char **ptr, UInt32 val)
+{
+	UInt32 **p = (UInt32 **)ptr;
+	**p = bswap_32(val);
+	(*ptr)++;
+}
+
+static inline void bstoreU64_inc(char **ptr, APPLEUInt64 val)
+{
+	APPLEUInt64 **p = (APPLEUInt64 **)ptr;
+	**p = bswap_32(val);
+	(*ptr)++;
+}
 
 /*#else // BYTE_ORDER == BIG_ENDIAN
 

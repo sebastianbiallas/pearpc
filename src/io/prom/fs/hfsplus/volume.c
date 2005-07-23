@@ -346,27 +346,27 @@ void* volume_writefork(void *p, hfsp_fork_raw* f)
  */
 static int volume_readbuf(hfsp_vh* vh, char* p)
 {
-    if ( (vh->signature	= bswabU16_inc(p)) != HFSP_VOLHEAD_SIG) 
+    if ( (vh->signature	= bswabU16_inc(&p)) != HFSP_VOLHEAD_SIG) 
 	HFSP_ERROR(-1, "This is not a HFS+ volume");
-    vh->version	    	= bswabU16_inc(p);
-    vh->attributes   	= bswabU32_inc(p); 
-    vh->last_mount_vers	= bswabU32_inc(p); 
-    vh->reserved	= bswabU32_inc(p);
-    vh->create_date	= bswabU32_inc(p);
-    vh->modify_date	= bswabU32_inc(p);
-    vh->backup_date	= bswabU32_inc(p);
-    vh->checked_date	= bswabU32_inc(p);
-    vh->file_count	= bswabU32_inc(p);
-    vh->folder_count	= bswabU32_inc(p);
-    vh->blocksize	= bswabU32_inc(p);
-    vh->total_blocks	= bswabU32_inc(p);
-    vh->free_blocks	= bswabU32_inc(p);
-    vh->next_alloc	= bswabU32_inc(p);
-    vh->rsrc_clump_sz	= bswabU32_inc(p);
-    vh->data_clump_sz	= bswabU32_inc(p);
-    vh->next_cnid	= bswabU32_inc(p);
-    vh->write_count	= bswabU32_inc(p);
-    vh->encodings_bmp	= bswabU64_inc(p);
+    vh->version	    	= bswabU16_inc(&p);
+    vh->attributes   	= bswabU32_inc(&p); 
+    vh->last_mount_vers	= bswabU32_inc(&p); 
+    vh->reserved	= bswabU32_inc(&p);
+    vh->create_date	= bswabU32_inc(&p);
+    vh->modify_date	= bswabU32_inc(&p);
+    vh->backup_date	= bswabU32_inc(&p);
+    vh->checked_date	= bswabU32_inc(&p);
+    vh->file_count	= bswabU32_inc(&p);
+    vh->folder_count	= bswabU32_inc(&p);
+    vh->blocksize	= bswabU32_inc(&p);
+    vh->total_blocks	= bswabU32_inc(&p);
+    vh->free_blocks	= bswabU32_inc(&p);
+    vh->next_alloc	= bswabU32_inc(&p);
+    vh->rsrc_clump_sz	= bswabU32_inc(&p);
+    vh->data_clump_sz	= bswabU32_inc(&p);
+    vh->next_cnid	= bswabU32_inc(&p);
+    vh->write_count	= bswabU32_inc(&p);
+    vh->encodings_bmp	= bswabU64_inc(&p);
     memcpy(vh->finder_info, p, 32); 
     p += 32; // finderinfo is not used by now
     p = volume_readfork(p, &vh->alloc_file );
@@ -383,26 +383,26 @@ static int volume_readbuf(hfsp_vh* vh, char* p)
  */
 static int volume_writebuf(hfsp_vh* vh, char* p)
 {
-    bstoreU16_inc(p, vh->signature	);
-    bstoreU16_inc(p, vh->version	);
-    bstoreU32_inc(p, vh->attributes   	); 
-    bstoreU32_inc(p, vh->last_mount_vers); 
-    bstoreU32_inc(p, vh->reserved	);
-    bstoreU32_inc(p, vh->create_date	);
-    bstoreU32_inc(p, vh->modify_date	);
-    bstoreU32_inc(p, vh->backup_date	);
-    bstoreU32_inc(p, vh->checked_date	);
-    bstoreU32_inc(p, vh->file_count	);
-    bstoreU32_inc(p, vh->folder_count	);
-    bstoreU32_inc(p, vh->blocksize	);
-    bstoreU32_inc(p, vh->total_blocks	);
-    bstoreU32_inc(p, vh->free_blocks	);
-    bstoreU32_inc(p, vh->next_alloc	);
-    bstoreU32_inc(p, vh->rsrc_clump_sz	);
-    bstoreU32_inc(p, vh->data_clump_sz	);
-    bstoreU32_inc(p, vh->next_cnid	);
-    bstoreU32_inc(p, vh->write_count	);
-    bstoreU64_inc(p, vh->encodings_bmp	);
+    bstoreU16_inc(&p, vh->signature	);
+    bstoreU16_inc(&p, vh->version	);
+    bstoreU32_inc(&p, vh->attributes   	); 
+    bstoreU32_inc(&p, vh->last_mount_vers); 
+    bstoreU32_inc(&p, vh->reserved	);
+    bstoreU32_inc(&p, vh->create_date	);
+    bstoreU32_inc(&p, vh->modify_date	);
+    bstoreU32_inc(&p, vh->backup_date	);
+    bstoreU32_inc(&p, vh->checked_date	);
+    bstoreU32_inc(&p, vh->file_count	);
+    bstoreU32_inc(&p, vh->folder_count	);
+    bstoreU32_inc(&p, vh->blocksize	);
+    bstoreU32_inc(&p, vh->total_blocks	);
+    bstoreU32_inc(&p, vh->free_blocks	);
+    bstoreU32_inc(&p, vh->next_alloc	);
+    bstoreU32_inc(&p, vh->rsrc_clump_sz	);
+    bstoreU32_inc(&p, vh->data_clump_sz	);
+    bstoreU32_inc(&p, vh->next_cnid	);
+    bstoreU32_inc(&p, vh->write_count	);
+    bstoreU64_inc(&p, vh->encodings_bmp	);
     memcpy(p, vh->finder_info, 32); 
     p += 32; // finderinfo is not used by now
     p = volume_writefork(p, &vh->alloc_file );
@@ -431,7 +431,7 @@ static int volume_read_wrapper(volume * vol, hfsp_vh* vh)
     if( volume_readinbuf(vol, buf, 2) ) // Wrapper or volume header starts here
         return -1;
 
-    signature	= bswabU16_inc(p);
+    signature	= bswabU16_inc(&p);
     if (signature == HFS_VOLHEAD_SIG)	/* Wrapper */
     {
 	UInt32  drAlBlkSiz;		/* size (in bytes) of allocation blocks */
@@ -441,16 +441,16 @@ static int volume_read_wrapper(volume * vol, hfsp_vh* vh)
 	UInt16	embeds, embedl;		/* Start/lenght of embedded area in blocks */
 	
 	p += 0x12;			/* skip unneeded HFS vol fields */
-	drAlBlkSiz = bswabU32_inc(p);	/* offset 0x14 */
+	drAlBlkSiz = bswabU32_inc(&p);	/* offset 0x14 */
 	p += 0x4;			/* skip unneeded HFS vol fields */
-	drAlBlSt    = bswabU16_inc(p);	/* offset 0x1C */
+	drAlBlSt    = bswabU16_inc(&p);	/* offset 0x1C */
 	
 	p += 0x5E;			/* skip unneeded HFS vol fields */
-	signature = bswabU16_inc(p);	/* offset 0x7C, drEmbedSigWord */
+	signature = bswabU16_inc(&p);	/* offset 0x7C, drEmbedSigWord */
 	if (signature != HFSP_VOLHEAD_SIG)
 	    HFSP_ERROR(-1, "This looks like a normal HFS volume");
-	embeds = bswabU16_inc(p);
-	embedl = bswabU16_inc(p);
+	embeds = bswabU16_inc(&p);
+	embedl = bswabU16_inc(&p);
 	sect_per_block =  (drAlBlkSiz / HFSP_BLOCKSZ);  
 	// end is absolute (not relative to HFS+ start)
 	vol->maxblocks	= embedl * sect_per_block;

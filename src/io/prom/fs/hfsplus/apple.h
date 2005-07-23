@@ -25,6 +25,7 @@
  *
  */
 
+#ifndef APPLE_H
 #define APPLE_H
 
 #include "system/types.h"
@@ -136,3 +137,4 @@ typedef struct {
 # define HFS_FNDR_ISINVISIBLE           (1 << 14)
 # define HFS_FNDR_ISALIAS               (1 << 15)
 
+#endif

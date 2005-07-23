@@ -55,23 +55,23 @@ static int splitCharArray( char **source, char *dest, int length) {
 }
 
 int partition_fillstruct( ApplePartition *p, char *buf) {
-  p->pmSig	    = bswabU16_inc( buf);
-  p->pmSigPad	    = bswabU16_inc( buf);
-  p->pmMapBlkCnt    = bswabU32_inc( buf);
-  p->pmPyPartStart  = bswabU32_inc( buf);
-  p->pmPartBlkCnt   = bswabU32_inc( buf);
+  p->pmSig	    = bswabU16_inc(&buf);
+  p->pmSigPad	    = bswabU16_inc(&buf);
+  p->pmMapBlkCnt    = bswabU32_inc(&buf);
+  p->pmPyPartStart  = bswabU32_inc(&buf);
+  p->pmPartBlkCnt   = bswabU32_inc(&buf);
   splitCharArray( &buf, p->pmPartName, 32);
   splitCharArray( &buf, p->pmPartType, 32);
-  p->pmLgDataStart  = bswabU32_inc( buf);
-  p->pmDataCnt	    = bswabU32_inc( buf);
-  p->pmPartStatus   = bswabU32_inc( buf);
-  p->pmLgBootStart  = bswabU32_inc( buf);
-  p->pmBootSize	    = bswabU32_inc( buf);
-  p->pmBootAddr	    = bswabU32_inc( buf);
-  p->pmBootAddr2    = bswabU32_inc( buf);
-  p->pmBootEntry    = bswabU32_inc( buf);
-  p->pmBootEntry2   = bswabU32_inc( buf);
-  p->pmBootCksum    = bswabU32_inc( buf);
+  p->pmLgDataStart  = bswabU32_inc(&buf);
+  p->pmDataCnt	    = bswabU32_inc(&buf);
+  p->pmPartStatus   = bswabU32_inc(&buf);
+  p->pmLgBootStart  = bswabU32_inc(&buf);
+  p->pmBootSize	    = bswabU32_inc(&buf);
+  p->pmBootAddr	    = bswabU32_inc(&buf);
+  p->pmBootAddr2    = bswabU32_inc(&buf);
+  p->pmBootEntry    = bswabU32_inc(&buf);
+  p->pmBootEntry2   = bswabU32_inc(&buf);
+  p->pmBootCksum    = bswabU32_inc(&buf);
 
   return 0;
 }
