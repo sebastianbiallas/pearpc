@@ -288,15 +288,15 @@ void volume_initfork(volume* vol, hfsp_fork_raw* f, UInt16 fork_type)
  * 
  * return pointer right after the structure.
  */
-void* volume_readextent(void *p, hfsp_extent_rec er)
+void* volume_readextent(char *p, hfsp_extent_rec er)
 {
     int		    i;
     hfsp_extent*    e;
     for (i=0; i < 8; i++)
     {
 	e = &er[i];
-	e->start_block = bswabU32_inc(p);
-	e->block_count = bswabU32_inc(p);
+	e->start_block = bswabU32_inc(&p);
+	e->block_count = bswabU32_inc(&p);
     }
     return p;
 }
@@ -305,15 +305,15 @@ void* volume_readextent(void *p, hfsp_extent_rec er)
  * 
  * return pointer right after the structure.
  */
-void* volume_writeextent(void *p, hfsp_extent_rec er)
+void* volume_writeextent(char *p, hfsp_extent_rec er)
 {
     int		    i;
     hfsp_extent*    e;
     for (i=0; i < 8; i++)
     {
 	e = &er[i];
-	bstoreU32_inc(p, e->start_block );
-	bstoreU32_inc(p, e->block_count );
+	bstoreU32_inc(&p, e->start_block );
+	bstoreU32_inc(&p, e->block_count );
     }
     return p;
 }
@@ -322,11 +322,11 @@ void* volume_writeextent(void *p, hfsp_extent_rec er)
  * 
  * return pointer right after the structure.
  */
-void* volume_readfork(void *p, hfsp_fork_raw* f)
+void* volume_readfork(char *p, hfsp_fork_raw* f)
 {
-    f->total_size   = bswabU64_inc(p);
-    f->clump_size   = bswabU32_inc(p);
-    f->total_blocks = bswabU32_inc(p);
+    f->total_size   = bswabU64_inc(&p);
+    f->clump_size   = bswabU32_inc(&p);
+    f->total_blocks = bswabU32_inc(&p);
     return volume_readextent(p, f->extents);
 }
 
@@ -334,11 +334,11 @@ void* volume_readfork(void *p, hfsp_fork_raw* f)
  * 
  * return pointer right after the structure.
  */
-void* volume_writefork(void *p, hfsp_fork_raw* f)
+void* volume_writefork(char *p, hfsp_fork_raw* f)
 {
-    bstoreU64_inc(p, f->total_size  );
-    bstoreU32_inc(p, f->clump_size  );
-    bstoreU32_inc(p, f->total_blocks);
+    bstoreU64_inc(&p, f->total_size  );
+    bstoreU32_inc(&p, f->clump_size  );
+    bstoreU32_inc(&p, f->total_blocks);
     return volume_writeextent(p, f->extents);
 }
 

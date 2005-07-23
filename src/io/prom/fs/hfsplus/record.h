@@ -31,17 +31,17 @@ extern int record_key_compare(void* k1, void* k2);
 extern int record_extent_key_compare(void* k1, void* k2);
 
 /* read a catalog key into a given buffer */
-extern void* record_readkey(void* p, void* buf);
+extern void* record_readkey(char* p, void* buf);
 
 /* read an extent key into a given buffer */
-extern void* record_extent_readkey(void* p, void* buf);
+extern void* record_extent_readkey(char* p, void* buf);
 
 /* read a hfsp_cat_entry (catalog record) from memory */
-extern void* record_readentry(void *p, void* entry);
+extern void* record_readentry(char *p, void* entry);
 
 /* read an extent record from memory */
 // For dependency reasons this actually is found in volume.c
-extern void* record_extent_readrecord(void *p, void* entry);
+extern void* record_extent_readrecord(char *p, void* entry);
 
 /* intialize the record to the first record of the tree
  * which is (per design) the root node.

@@ -28,13 +28,13 @@
  *
  * return pointer after reading the structure
  */
-void* btree_readnode(btree_node_desc* node, void *p);
+void* btree_readnode(btree_node_desc* node, char *p);
 
 /* read a btree header from the given buffer and swap the bytes.
  *
  * return pointer after reading the structure
  */
-void* btree_readhead(btree_head* head, void *p);
+void* btree_readhead(btree_head* head, char *p);
 
 /** Intialize catalog btree, so that btree_close can safely be called. */
 extern void btree_reset(btree* bt);

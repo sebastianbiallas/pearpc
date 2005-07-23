@@ -49,20 +49,20 @@
  * 
  * @return pointer to next byte after structure, NULL on failure
  */
-void* record_readkey(void* p, void* buf)
+void* record_readkey(char* p, void* buf)
 {
     hfsp_cat_key*   key = (hfsp_cat_key*) buf;
     const void*	    check;
     UInt16	    key_length, len,i;
     UInt16*	    cp;
 
-    key->key_length = key_length    = bswabU16_inc(p);
+    key->key_length = key_length    = bswabU16_inc(&p);
     check = p;
-    key->parent_cnid		    = bswabU32_inc(p);
-    key->name.strlen = len	    = bswabU16_inc(p);
+    key->parent_cnid		    = bswabU32_inc(&p);
+    key->name.strlen = len	    = bswabU16_inc(&p);
     cp = key->name.name;
     for (i=0; i < len; i++, cp++)
-	*cp			    = bswabU16_inc(p);
+	*cp			    = bswabU16_inc(&p);
 	/* check if keylenght was correct */
     if (key_length != ((char*) p) - ((char*) check))
 	 HFSP_ERROR(EINVAL, "Invalid key length in record_readkey");
@@ -102,18 +102,18 @@ void* record_writekey(void* p, void* buf)
 }
 
 /* read a hfsp_extent_key from memory */
-void* record_extent_readkey(void* p, void* buf)
+void* record_extent_readkey(char* p, void* buf)
 {
     hfsp_extent_key* key = (hfsp_extent_key*) buf;
     UInt16  key_length;
 
-    key->key_length = key_length    = bswabU16_inc(p);
-    key->fork_type		    = bswabU8_inc(p);
-    key->filler			    = bswabU8_inc(p);
+    key->key_length = key_length    = bswabU16_inc(&p);
+    key->fork_type		    = bswabU8_inc(&p);
+    key->filler			    = bswabU8_inc(&p);
     if (key_length != 10)
 	HFSP_ERROR(-1, "Invalid key length in record_extent_readkey");
-    key->file_id		    = bswabU32_inc(p);
-    key->start_block		    = bswabU32_inc(p);
+    key->file_id		    = bswabU32_inc(&p);
+    key->start_block		    = bswabU32_inc(&p);
     return p;	
   fail:
     return NULL;
@@ -171,30 +171,30 @@ static inline void record_initperm(hfsp_perm* perm)
 
 
 /* read directory info */
-static inline void* record_readDInfo(void *p, DInfo* info)
+static inline void* record_readDInfo(char *p, DInfo* info)
 {
-    info->frRect.top	= bswabU16_inc(p);
-    info->frRect.left	= bswabU16_inc(p);
-    info->frRect.bottom	= bswabU16_inc(p);
-    info->frRect.right	= bswabU16_inc(p);
-    info->frFlags	= bswabU16_inc(p);
-    info->frLocation.v	= bswabU16_inc(p);
-    info->frLocation.h	= bswabU16_inc(p);
-    info->frView	= bswabU16_inc(p);
+    info->frRect.top	= bswabU16_inc(&p);
+    info->frRect.left	= bswabU16_inc(&p);
+    info->frRect.bottom	= bswabU16_inc(&p);
+    info->frRect.right	= bswabU16_inc(&p);
+    info->frFlags	= bswabU16_inc(&p);
+    info->frLocation.v	= bswabU16_inc(&p);
+    info->frLocation.h	= bswabU16_inc(&p);
+    info->frView	= bswabU16_inc(&p);
     return p;
 }
 
 /* write directory info */
-static inline void* record_writeDInfo(void *p, DInfo* info)
+static inline void* record_writeDInfo(char *p, DInfo* info)
 {
-    bstoreU16_inc (p, info->frRect.top	);
-    bstoreU16_inc (p, info->frRect.left	);
-    bstoreU16_inc (p, info->frRect.bottom);
-    bstoreU16_inc (p, info->frRect.right);
-    bstoreU16_inc (p, info->frFlags	);
-    bstoreU16_inc (p, info->frLocation.v);
-    bstoreU16_inc (p, info->frLocation.h);
-    bstoreU16_inc (p, info->frView	);
+    bstoreU16_inc (&p, info->frRect.top	);
+    bstoreU16_inc (&p, info->frRect.left	);
+    bstoreU16_inc (&p, info->frRect.bottom);
+    bstoreU16_inc (&p, info->frRect.right);
+    bstoreU16_inc (&p, info->frFlags	);
+    bstoreU16_inc (&p, info->frLocation.v);
+    bstoreU16_inc (&p, info->frLocation.h);
+    bstoreU16_inc (&p, info->frView	);
     return p;
 }
 
@@ -216,26 +216,26 @@ static inline void record_initDInfo(DInfo* info)
 }
 
 /* read extra Directory info */
-static inline void* record_readDXInfo(void *p, DXInfo* xinfo)
+static inline void* record_readDXInfo(char *p, DXInfo* xinfo)
 {
-    xinfo->frScroll.v  = bswabU16_inc(p);
-    xinfo->frScroll.h  = bswabU16_inc(p);
-    xinfo->frOpenChain = bswabU32_inc(p);
-    xinfo->frUnused    = bswabU16_inc(p);
-    xinfo->frComment   = bswabU16_inc(p);
-    xinfo->frPutAway   = bswabU32_inc(p);
+    xinfo->frScroll.v  = bswabU16_inc(&p);
+    xinfo->frScroll.h  = bswabU16_inc(&p);
+    xinfo->frOpenChain = bswabU32_inc(&p);
+    xinfo->frUnused    = bswabU16_inc(&p);
+    xinfo->frComment   = bswabU16_inc(&p);
+    xinfo->frPutAway   = bswabU32_inc(&p);
     return p;
 }
 
 /* write extra Directory info */
-static inline void* record_writeDXInfo(void *p, DXInfo* xinfo)
+static inline void* record_writeDXInfo(char *p, DXInfo* xinfo)
 {
-    bstoreU16_inc (p, xinfo->frScroll.v );
-    bstoreU16_inc (p, xinfo->frScroll.h );
-    bstoreU32_inc (p, xinfo->frOpenChain);
-    bstoreU16_inc (p, xinfo->frUnused   );
-    bstoreU16_inc (p, xinfo->frComment  );
-    bstoreU32_inc (p, xinfo->frPutAway  );
+    bstoreU16_inc (&p, xinfo->frScroll.v );
+    bstoreU16_inc (&p, xinfo->frScroll.h );
+    bstoreU32_inc (&p, xinfo->frOpenChain);
+    bstoreU16_inc (&p, xinfo->frUnused   );
+    bstoreU16_inc (&p, xinfo->frComment  );
+    bstoreU32_inc (&p, xinfo->frPutAway  );
     return p;
 }
 
@@ -256,40 +256,40 @@ static inline void record_initDXInfo(DXInfo* xinfo)
 
 
 /* read a hfsp_cat_folder from memory */
-static void* record_readfolder(void *p, hfsp_cat_folder* folder)
+static void* record_readfolder(char *p, hfsp_cat_folder* folder)
 {
-    folder->flags		= bswabU16_inc(p);
-    folder->valence		= bswabU32_inc(p);
-    folder->id			= bswabU32_inc(p);
-    folder->create_date		= bswabU32_inc(p);
-    folder->content_mod_date    = bswabU32_inc(p);
-    folder->attribute_mod_date	= bswabU32_inc(p);
-    folder->access_date		= bswabU32_inc(p);
-    folder->backup_date		= bswabU32_inc(p);
+    folder->flags		= bswabU16_inc(&p);
+    folder->valence		= bswabU32_inc(&p);
+    folder->id			= bswabU32_inc(&p);
+    folder->create_date		= bswabU32_inc(&p);
+    folder->content_mod_date    = bswabU32_inc(&p);
+    folder->attribute_mod_date	= bswabU32_inc(&p);
+    folder->access_date		= bswabU32_inc(&p);
+    folder->backup_date		= bswabU32_inc(&p);
     p = record_readperm	    (p, &folder->permissions);
     p = record_readDInfo    (p, &folder->user_info);
     p = record_readDXInfo   (p, &folder->finder_info);
-    folder->text_encoding	= bswabU32_inc(p);
-    folder->reserved		= bswabU32_inc(p);
+    folder->text_encoding	= bswabU32_inc(&p);
+    folder->reserved		= bswabU32_inc(&p);
     return p;
 }
 
 /* write a hfsp_cat_folder to memory */
-static void* record_writefolder(void *p, hfsp_cat_folder* folder)
+static void* record_writefolder(char *p, hfsp_cat_folder* folder)
 {
-    bstoreU16_inc (p, folder->flags		);
-    bstoreU32_inc (p, folder->valence		);
-    bstoreU32_inc (p, folder->id		);
-    bstoreU32_inc (p, folder->create_date	);
-    bstoreU32_inc (p, folder->content_mod_date  );
-    bstoreU32_inc (p, folder->attribute_mod_date);
-    bstoreU32_inc (p, folder->access_date	);
-    bstoreU32_inc (p, folder->backup_date	);
+    bstoreU16_inc (&p, folder->flags		);
+    bstoreU32_inc (&p, folder->valence		);
+    bstoreU32_inc (&p, folder->id		);
+    bstoreU32_inc (&p, folder->create_date	);
+    bstoreU32_inc (&p, folder->content_mod_date  );
+    bstoreU32_inc (&p, folder->attribute_mod_date);
+    bstoreU32_inc (&p, folder->access_date	);
+    bstoreU32_inc (&p, folder->backup_date	);
     p = record_writeperm     (p, &folder->permissions);
     p = record_writeDInfo    (p, &folder->user_info);
     p = record_writeDXInfo   (p, &folder->finder_info);
-    bstoreU32_inc (p, folder->text_encoding	);
-    bstoreU32_inc (p, folder->reserved		);
+    bstoreU32_inc (&p, folder->text_encoding	);
+    bstoreU32_inc (&p, folder->reserved		);
     return p;
 }
 
@@ -320,26 +320,26 @@ static int record_initfolder(volume* vol, hfsp_cat_folder* folder)
 }
 
 /* read file info */
-static inline void* record_readFInfo(void *p, FInfo* info)
+static inline void* record_readFInfo(char *p, FInfo* info)
 {
-    info->fdType	= bswabU32_inc(p);
-    info->fdCreator	= bswabU32_inc(p);
-    info->fdFlags	= bswabU16_inc(p);
-    info->fdLocation.v	= bswabU16_inc(p);
-    info->fdLocation.h	= bswabU16_inc(p);
-    info->fdFldr	= bswabU16_inc(p);
+    info->fdType	= bswabU32_inc(&p);
+    info->fdCreator	= bswabU32_inc(&p);
+    info->fdFlags	= bswabU16_inc(&p);
+    info->fdLocation.v	= bswabU16_inc(&p);
+    info->fdLocation.h	= bswabU16_inc(&p);
+    info->fdFldr	= bswabU16_inc(&p);
     return p;
 }
 
 /* write file info */
-static inline void* record_writeFInfo(void *p, FInfo* info)
+static inline void* record_writeFInfo(char *p, FInfo* info)
 {
-    bstoreU32_inc (p, info->fdType	);
-    bstoreU32_inc (p, info->fdCreator	);
-    bstoreU16_inc (p, info->fdFlags	);
-    bstoreU16_inc (p, info->fdLocation.v);
-    bstoreU16_inc (p, info->fdLocation.h);
-    bstoreU16_inc (p, info->fdFldr	);
+    bstoreU32_inc (&p, info->fdType	);
+    bstoreU32_inc (&p, info->fdCreator	);
+    bstoreU16_inc (&p, info->fdFlags	);
+    bstoreU16_inc (&p, info->fdLocation.v);
+    bstoreU16_inc (&p, info->fdLocation.h);
+    bstoreU16_inc (&p, info->fdFldr	);
     return p;
 }
 
@@ -356,28 +356,28 @@ static inline void record_initFInfo(FInfo* info)
 }
 
 /* read extra File info */
-static inline void* record_readFXInfo(void *p, FXInfo* xinfo)
+static inline void* record_readFXInfo(char *p, FXInfo* xinfo)
 {
-    xinfo->fdIconID	= bswabU16_inc(p);
-    xinfo->fdUnused[0]	= bswabU16_inc(p);
-    xinfo->fdUnused[1]	= bswabU16_inc(p);
-    xinfo->fdUnused[2]	= bswabU16_inc(p);
-    xinfo->fdUnused[3]	= bswabU16_inc(p);
-    xinfo->fdComment	= bswabU16_inc(p);
-    xinfo->fdPutAway	= bswabU32_inc(p);
+    xinfo->fdIconID	= bswabU16_inc(&p);
+    xinfo->fdUnused[0]	= bswabU16_inc(&p);
+    xinfo->fdUnused[1]	= bswabU16_inc(&p);
+    xinfo->fdUnused[2]	= bswabU16_inc(&p);
+    xinfo->fdUnused[3]	= bswabU16_inc(&p);
+    xinfo->fdComment	= bswabU16_inc(&p);
+    xinfo->fdPutAway	= bswabU32_inc(&p);
     return p;
 }
 
 /* write extra File info */
-static inline void* record_writeFXInfo(void *p, FXInfo* xinfo)
+static inline void* record_writeFXInfo(char *p, FXInfo* xinfo)
 {
-    bstoreU16_inc (p, xinfo->fdIconID);
-    bstoreU16_inc (p, xinfo->fdUnused[0]);
-    bstoreU16_inc (p, xinfo->fdUnused[1]);
-    bstoreU16_inc (p, xinfo->fdUnused[2]);
-    bstoreU16_inc (p, xinfo->fdUnused[3]);
-    bstoreU16_inc (p, xinfo->fdComment);
-    bstoreU16_inc (p, xinfo->fdPutAway);
+    bstoreU16_inc (&p, xinfo->fdIconID);
+    bstoreU16_inc (&p, xinfo->fdUnused[0]);
+    bstoreU16_inc (&p, xinfo->fdUnused[1]);
+    bstoreU16_inc (&p, xinfo->fdUnused[2]);
+    bstoreU16_inc (&p, xinfo->fdUnused[3]);
+    bstoreU16_inc (&p, xinfo->fdComment);
+    bstoreU16_inc (&p, xinfo->fdPutAway);
     return p;
 }
 
@@ -398,41 +398,41 @@ static inline void record_initFXInfo(FXInfo* xinfo)
 }
 
 /* read a hfsp_cat_file from memory */
-static void* record_readfile(void *p, hfsp_cat_file* file)
+static void* record_readfile(char *p, hfsp_cat_file* file)
 {
-    file->flags			= bswabU16_inc(p);
-    file->reserved1		= bswabU32_inc(p);
-    file->id			= bswabU32_inc(p);
-    file->create_date		= bswabU32_inc(p);
-    file->content_mod_date	= bswabU32_inc(p);
-    file->attribute_mod_date	= bswabU32_inc(p);
-    file->access_date		= bswabU32_inc(p);
-    file->backup_date		= bswabU32_inc(p);
+    file->flags			= bswabU16_inc(&p);
+    file->reserved1		= bswabU32_inc(&p);
+    file->id			= bswabU32_inc(&p);
+    file->create_date		= bswabU32_inc(&p);
+    file->content_mod_date	= bswabU32_inc(&p);
+    file->attribute_mod_date	= bswabU32_inc(&p);
+    file->access_date		= bswabU32_inc(&p);
+    file->backup_date		= bswabU32_inc(&p);
     p = record_readperm	    (p, &file->permissions);
     p = record_readFInfo    (p, &file->user_info);
     p = record_readFXInfo   (p, &file->finder_info);
-    file->text_encoding		= bswabU32_inc(p);
-    file->reserved2		= bswabU32_inc(p);
+    file->text_encoding		= bswabU32_inc(&p);
+    file->reserved2		= bswabU32_inc(&p);
     p =	    volume_readfork (p, &file->data_fork);
     return  volume_readfork (p, &file->res_fork);
 }
 
 /* write a hfsp_cat_file to memory */
-static void* record_writefile(void *p, hfsp_cat_file* file)
+static void* record_writefile(char *p, hfsp_cat_file* file)
 {
-    bstoreU16_inc(p, file->flags);
-    bstoreU16_inc(p, file->reserved1);
-    bstoreU16_inc(p, file->id);
-    bstoreU16_inc(p, file->create_date);
-    bstoreU16_inc(p, file->content_mod_date);
-    bstoreU16_inc(p, file->attribute_mod_date);
-    bstoreU16_inc(p, file->access_date);
-    bstoreU16_inc(p, file->backup_date);
+    bstoreU16_inc(&p, file->flags);
+    bstoreU16_inc(&p, file->reserved1);
+    bstoreU16_inc(&p, file->id);
+    bstoreU16_inc(&p, file->create_date);
+    bstoreU16_inc(&p, file->content_mod_date);
+    bstoreU16_inc(&p, file->attribute_mod_date);
+    bstoreU16_inc(&p, file->access_date);
+    bstoreU16_inc(&p, file->backup_date);
     p = record_writeperm    (p, &file->permissions);
     p = record_writeFInfo   (p, &file->user_info);
     p = record_writeFXInfo  (p, &file->finder_info);
-    bstoreU16_inc(p, file->text_encoding);
-    bstoreU16_inc(p, file->reserved2	);
+    bstoreU16_inc(&p, file->text_encoding);
+    bstoreU16_inc(&p, file->reserved2	);
     p =	    volume_writefork (p, &file->data_fork);
     return  volume_writefork (p, &file->res_fork);
 }
@@ -466,43 +466,43 @@ static int record_initfile(volume* vol, hfsp_cat_file* file)
 
 
 /* read a hfsp_cat_thread from memory */
-static void* record_readthread(void *p, hfsp_cat_thread* entry)
+static void* record_readthread(char *p, hfsp_cat_thread* entry)
 {
     int	    i;
     UInt16  len;
     UInt16* cp;
 
-    entry->         reserved	= bswabU16_inc(p);
-    entry->	    parentID	= bswabU32_inc(p);
-    entry->nodeName.strlen = len= bswabU16_inc(p);
+    entry->         reserved	= bswabU16_inc(&p);
+    entry->	    parentID	= bswabU32_inc(&p);
+    entry->nodeName.strlen = len= bswabU16_inc(&p);
     cp = entry->nodeName.name;
     if (len > 255)
 	HFSP_ERROR(-1, "Invalid key length in record_thread");
     for (i=0; i < len; i++, cp++)
-	*cp			 = bswabU16_inc(p);
+	*cp			 = bswabU16_inc(&p);
     return p;
   fail:
     return NULL;
 }
 
 /* write a hfsp_cat_thread to memory */
-static void* record_writethread(void *p, hfsp_cat_thread* entry)
+static void* record_writethread(char *p, hfsp_cat_thread* entry)
 {
     int	    i;
     UInt16  len;
     UInt16* cp;
 
-    bstoreU16_inc(p,	    entry->reserved);
-    bstoreU32_inc(p,	    entry->parentID);
+    bstoreU16_inc(&p,	    entry->reserved);
+    bstoreU32_inc(&p,	    entry->parentID);
     /* this is bad style, friends... (SW) */
-/*    bstoreU16_inc(p, len =  entry->nodeName.strlen);*/
+/*    bstoreU16_inc(&p, len =  entry->nodeName.strlen);*/
     len =  entry->nodeName.strlen;
-    bstoreU16_inc(p, len);
+    bstoreU16_inc(&p, len);
     cp = entry->nodeName.name;
     if (len > 255)
 	HFSP_ERROR(-1, "Invalid key length in record_thread");
     for (i=0; i < len; i++, cp++)
-	bstoreU16_inc(p, *cp);
+	bstoreU16_inc(&p, *cp);
     return p;
   fail:
     return NULL;
@@ -510,9 +510,9 @@ static void* record_writethread(void *p, hfsp_cat_thread* entry)
 
 
 /* read a hfsp_cat_entry from memory */
-void* record_readentry(void *p, void* entry)
+void* record_readentry(char *p, void* entry)
 {
-    UInt16	    type = bswabU16_inc(p);
+    UInt16	    type = bswabU16_inc(&p);
     hfsp_cat_entry* e	 = (hfsp_cat_entry*) entry;
     e->type = type;
     switch (type)
@@ -532,10 +532,10 @@ void* record_readentry(void *p, void* entry)
 }
 
 /* write a hfsp_cat_entry to memory */
-void* record_writeentry(void *p, hfsp_cat_entry* entry)
+void* record_writeentry(char *p, hfsp_cat_entry* entry)
 {
     UInt16 type = entry->type;
-    bstoreU16_inc(p, type);
+    bstoreU16_inc(&p, type);
     switch (type)
     {
 	case HFSP_FOLDER:
@@ -554,7 +554,7 @@ void* record_writeentry(void *p, hfsp_cat_entry* entry)
 
 /* read an extent record from memory */
 // For dependency reasons this actually is found in volume.h
-void* record_extent_readrecord(void *p, void* entry)
+void* record_extent_readrecord(char *p, void* entry)
 {
     return volume_readextent(p, (hfsp_extent*) entry);
 }

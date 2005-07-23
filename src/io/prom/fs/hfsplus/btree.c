@@ -50,14 +50,14 @@
  *
  * return pointer after reading the structure
  */
-void* btree_readnode(btree_node_desc* node, void *p)
+void* btree_readnode(btree_node_desc* node, char *p)
 {
-    node->next	    = bswabU32_inc(p);
-    node->prev	    = bswabU32_inc(p);
-    node->kind	    = bswabU8_inc(p);
-    node->height    = bswabU8_inc(p);
-    node->num_rec   = bswabU16_inc(p);
-    node->reserved  = bswabU16_inc(p);
+    node->next	    = bswabU32_inc(&p);
+    node->prev	    = bswabU32_inc(&p);
+    node->kind	    = bswabU8_inc(&p);
+    node->height    = bswabU8_inc(&p);
+    node->num_rec   = bswabU16_inc(&p);
+    node->reserved  = bswabU16_inc(&p);
     return p;
 } 
 
@@ -65,14 +65,14 @@ void* btree_readnode(btree_node_desc* node, void *p)
  *
  * return pointer after writing the structure
  */
-void* btree_writenode(btree_node_desc* node, void *p)
+void* btree_writenode(btree_node_desc* node, char *p)
 {
-    bstoreU32_inc(p, node->next);
-    bstoreU32_inc(p, node->prev);
-    bstoreU8_inc (p, node->kind);
-    bstoreU8_inc (p, node->height);
-    bstoreU16_inc(p, node->num_rec);
-    bstoreU16_inc(p, node->reserved);
+    bstoreU32_inc(&p, node->next);
+    bstoreU32_inc(&p, node->prev);
+    bstoreU8_inc (&p, node->kind);
+    bstoreU8_inc (&p, node->height);
+    bstoreU16_inc(&p, node->num_rec);
+    bstoreU16_inc(&p, node->reserved);
     return p;
 } 
 
@@ -81,25 +81,25 @@ void* btree_writenode(btree_node_desc* node, void *p)
  *
  * return pointer after reading the structure
  */
-void* btree_readhead(btree_head* head, void *p)
+void* btree_readhead(btree_head* head, char *p)
 {
     int i;
-    head->depth		= bswabU16_inc(p);
-    head->root		= bswabU32_inc(p);
-    head->leaf_count    = bswabU32_inc(p);
-    head->leaf_head	= bswabU32_inc(p);
-    head->leaf_tail	= bswabU32_inc(p);
-    head->node_size	= bswabU16_inc(p);
-    head->max_key_len   = bswabU16_inc(p);
-    head->node_count    = bswabU32_inc(p);
-    head->free_nodes    = bswabU32_inc(p);
-    head->reserved1	= bswabU16_inc(p);
-    head->clump_size    = bswabU32_inc(p);
-    head->btree_type    = bswabU8_inc(p);
-    head->reserved2	= bswabU8_inc(p);
-    head->attributes    = bswabU32_inc(p);
+    head->depth		= bswabU16_inc(&p);
+    head->root		= bswabU32_inc(&p);
+    head->leaf_count    = bswabU32_inc(&p);
+    head->leaf_head	= bswabU32_inc(&p);
+    head->leaf_tail	= bswabU32_inc(&p);
+    head->node_size	= bswabU16_inc(&p);
+    head->max_key_len   = bswabU16_inc(&p);
+    head->node_count    = bswabU32_inc(&p);
+    head->free_nodes    = bswabU32_inc(&p);
+    head->reserved1	= bswabU16_inc(&p);
+    head->clump_size    = bswabU32_inc(&p);
+    head->btree_type    = bswabU8_inc(&p);
+    head->reserved2	= bswabU8_inc(&p);
+    head->attributes    = bswabU32_inc(&p);
     for (i=0; i < 16; i++)
-	head->reserved3[i] = bswabU32_inc(p);
+	head->reserved3[i] = bswabU32_inc(&p);
     return p;
 }
 
@@ -107,25 +107,25 @@ void* btree_readhead(btree_head* head, void *p)
  *
  * return pointer after reading the structure
  */
-void* btree_writehead(btree_head* head, void *p)
+void* btree_writehead(btree_head* head, char *p)
 {
     int i;
-    bstoreU16_inc(p, head->depth);
-    bstoreU32_inc(p, head->root);
-    bstoreU32_inc(p, head->leaf_count);
-    bstoreU32_inc(p, head->leaf_head);
-    bstoreU32_inc(p, head->leaf_tail);
-    bstoreU16_inc(p, head->node_size);
-    bstoreU16_inc(p, head->max_key_len);
-    bstoreU32_inc(p, head->node_count);
-    bstoreU32_inc(p, head->free_nodes);
-    bstoreU16_inc(p, head->reserved1);
-    bstoreU32_inc(p, head->clump_size);
-    bstoreU8_inc (p, head->btree_type);
-    bstoreU8_inc (p, head->reserved2);
-    bstoreU32_inc(p, head->attributes);
+    bstoreU16_inc(&p, head->depth);
+    bstoreU32_inc(&p, head->root);
+    bstoreU32_inc(&p, head->leaf_count);
+    bstoreU32_inc(&p, head->leaf_head);
+    bstoreU32_inc(&p, head->leaf_tail);
+    bstoreU16_inc(&p, head->node_size);
+    bstoreU16_inc(&p, head->max_key_len);
+    bstoreU32_inc(&p, head->node_count);
+    bstoreU32_inc(&p, head->free_nodes);
+    bstoreU16_inc(&p, head->reserved1);
+    bstoreU32_inc(&p, head->clump_size);
+    bstoreU8_inc (&p, head->btree_type);
+    bstoreU8_inc (&p, head->reserved2);
+    bstoreU32_inc(&p, head->attributes);
     for (i=0; i < 16; i++)
-	bstoreU32_inc(p, head->reserved3[i]);
+	bstoreU32_inc(&p, head->reserved3[i]);
     return p;
 }
 
