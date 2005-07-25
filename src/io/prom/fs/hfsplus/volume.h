@@ -58,13 +58,13 @@ int volume_readinbuf(volume * vol,void* buf, long block);
 extern int volume_allocated(volume* v, UInt32 block);
 
 /* Read a raw hfsp_extent_rec from memory. */
-extern void* volume_readextent(char *p, hfsp_extent_rec er);
+extern char* volume_readextent(char *p, hfsp_extent_rec er);
 
 /* Read fork information from raw memory */ 
-extern void* volume_readfork(char *p, hfsp_fork_raw* f);
+extern char* volume_readfork(char *p, hfsp_fork_raw* f);
 
 /* Write fork information to raw memory */ 
-extern void* volume_writefork(char *p, hfsp_fork_raw* f);
+extern char* volume_writefork(char *p, hfsp_fork_raw* f);
 
 /* Initialize for to all zero, you may allocate later */ 
 void volume_initfork(volume* vol, hfsp_fork_raw* f, UInt16 fork_type);

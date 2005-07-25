@@ -109,10 +109,10 @@ typedef int (*hfsp_key_compare) (void* key1, void* key2);
 /* The read functions alaways retur the positiion right after
  * reading (and swapping) the variable amount of bytes needed 
  * prototype for key reading (necessary for byte swapping) */
-typedef void* (*hfsp_key_read) (char* p, void* key);
+typedef char* (*hfsp_key_read) (char* p, void* key);
 
 /* prototype for record reading (including byte swapping) */
-typedef void* (*hfsp_rec_read) (char* p, void* key);
+typedef char* (*hfsp_rec_read) (char* p, void* key);
 
 struct volume; /* foreward declaration for btree needed */
 

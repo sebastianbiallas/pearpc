@@ -288,7 +288,7 @@ void volume_initfork(volume* vol, hfsp_fork_raw* f, UInt16 fork_type)
  * 
  * return pointer right after the structure.
  */
-void* volume_readextent(char *p, hfsp_extent_rec er)
+char* volume_readextent(char *p, hfsp_extent_rec er)
 {
     int		    i;
     hfsp_extent*    e;
@@ -305,7 +305,7 @@ void* volume_readextent(char *p, hfsp_extent_rec er)
  * 
  * return pointer right after the structure.
  */
-void* volume_writeextent(char *p, hfsp_extent_rec er)
+char* volume_writeextent(char *p, hfsp_extent_rec er)
 {
     int		    i;
     hfsp_extent*    e;
@@ -322,7 +322,7 @@ void* volume_writeextent(char *p, hfsp_extent_rec er)
  * 
  * return pointer right after the structure.
  */
-void* volume_readfork(char *p, hfsp_fork_raw* f)
+char* volume_readfork(char *p, hfsp_fork_raw* f)
 {
     f->total_size   = bswabU64_inc(&p);
     f->clump_size   = bswabU32_inc(&p);
@@ -334,7 +334,7 @@ void* volume_readfork(char *p, hfsp_fork_raw* f)
  * 
  * return pointer right after the structure.
  */
-void* volume_writefork(char *p, hfsp_fork_raw* f)
+char* volume_writefork(char *p, hfsp_fork_raw* f)
 {
     bstoreU64_inc(&p, f->total_size  );
     bstoreU32_inc(&p, f->clump_size  );

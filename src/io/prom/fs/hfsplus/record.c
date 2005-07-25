@@ -49,10 +49,10 @@
  * 
  * @return pointer to next byte after structure, NULL on failure
  */
-void* record_readkey(char* p, void* buf)
+char* record_readkey(char* p, void* buf)
 {
     hfsp_cat_key*   key = (hfsp_cat_key*) buf;
-    const void*	    check;
+    const char*	    check;
     UInt16	    key_length, len,i;
     UInt16*	    cp;
 
@@ -64,7 +64,7 @@ void* record_readkey(char* p, void* buf)
     for (i=0; i < len; i++, cp++)
 	*cp			    = bswabU16_inc(&p);
 	/* check if keylenght was correct */
-    if (key_length != ((char*) p) - ((char*) check))
+    if (key_length != p - check)
 	 HFSP_ERROR(EINVAL, "Invalid key length in record_readkey");
     return p;	
   fail:
@@ -79,7 +79,7 @@ void* record_readkey(char* p, void* buf)
  * @return pointer to byte after the structure or NULL on failure. 
  *
  */
-void* record_writekey(void* p, void* buf)
+char* record_writekey(char* p, void* buf)
 {
     hfsp_cat_key*   key = (hfsp_cat_key*) buf;
     UInt16	    key_length, len,i;
@@ -91,18 +91,18 @@ void* record_writekey(void* p, void* buf)
     if (key_length != (6 + len * 2))
 	 HFSP_ERROR(EINVAL, "Invalid key length in record_writekey");
 
-    bstoreU16_inc(p, key_length);
-    bstoreU32_inc(p, key->parent_cnid);
-    bstoreU16_inc(p, len);
+    bstoreU16_inc(&p, key_length);
+    bstoreU32_inc(&p, key->parent_cnid);
+    bstoreU16_inc(&p, len);
     for (i=0; i < len; i++, cp++)
-	bstoreU16_inc(p, *cp);
+	bstoreU16_inc(&p, *cp);
     return p;	
   fail:
     return NULL;
 }
 
 /* read a hfsp_extent_key from memory */
-void* record_extent_readkey(char* p, void* buf)
+char* record_extent_readkey(char* p, void* buf)
 {
     hfsp_extent_key* key = (hfsp_extent_key*) buf;
     UInt16  key_length;
@@ -120,40 +120,40 @@ void* record_extent_readkey(char* p, void* buf)
 }
 
 /* write a hfsp_extent_key to memory */
-void* record_extent_writekey(void* p, void* buf)
+char* record_extent_writekey(char* p, void* buf)
 {
     hfsp_extent_key* key = (hfsp_extent_key*) buf;
     UInt16  key_length = key->key_length;
     if (key_length != 10)
 	HFSP_ERROR(-1, "Invalid key length in record_extent_writekey");
 
-    bstoreU16_inc (p, key_length);
-    bstoreU8_inc  (p, key->fork_type);
-    bstoreU8_inc  (p, key->filler);
-    bstoreU32_inc (p, key->file_id);
-    bstoreU32_inc (p, key->start_block);
-    return p;	
+    bstoreU16_inc (&p, key_length);
+    bstoreU8_inc  (&p, key->fork_type);
+    bstoreU8_inc  (&p, key->filler);
+    bstoreU32_inc (&p, key->file_id);
+    bstoreU32_inc (&p, key->start_block);
+    return p;
   fail:
     return NULL;
 }
 
 /* read posix permission from memory */
-static inline void* record_readperm(void *p, hfsp_perm* perm)
+static inline char* record_readperm(char *p, hfsp_perm* perm)
 {
-    perm->owner= bswabU32_inc(p);
-    perm->group= bswabU32_inc(p);
-    perm->mode = bswabU32_inc(p);
-    perm->dev  = bswabU32_inc(p);
+    perm->owner= bswabU32_inc(&p);
+    perm->group= bswabU32_inc(&p);
+    perm->mode = bswabU32_inc(&p);
+    perm->dev  = bswabU32_inc(&p);
     return p;
 }
 
 /* write posix permission to memory */
-static inline void* record_writeperm(void *p, hfsp_perm* perm)
+static inline char* record_writeperm(char *p, hfsp_perm* perm)
 {
-    bstoreU32_inc (p, perm->owner);
-    bstoreU32_inc (p, perm->group);
-    bstoreU32_inc (p, perm->mode );
-    bstoreU32_inc (p, perm->dev  );
+    bstoreU32_inc (&p, perm->owner);
+    bstoreU32_inc (&p, perm->group);
+    bstoreU32_inc (&p, perm->mode );
+    bstoreU32_inc (&p, perm->dev  );
     return p;
 }
 
@@ -171,7 +171,7 @@ static inline void record_initperm(hfsp_perm* perm)
 
 
 /* read directory info */
-static inline void* record_readDInfo(char *p, DInfo* info)
+static inline char* record_readDInfo(char *p, DInfo* info)
 {
     info->frRect.top	= bswabU16_inc(&p);
     info->frRect.left	= bswabU16_inc(&p);
@@ -185,7 +185,7 @@ static inline void* record_readDInfo(char *p, DInfo* info)
 }
 
 /* write directory info */
-static inline void* record_writeDInfo(char *p, DInfo* info)
+static inline char* record_writeDInfo(char *p, DInfo* info)
 {
     bstoreU16_inc (&p, info->frRect.top	);
     bstoreU16_inc (&p, info->frRect.left	);
@@ -216,7 +216,7 @@ static inline void record_initDInfo(DInfo* info)
 }
 
 /* read extra Directory info */
-static inline void* record_readDXInfo(char *p, DXInfo* xinfo)
+static inline char* record_readDXInfo(char *p, DXInfo* xinfo)
 {
     xinfo->frScroll.v  = bswabU16_inc(&p);
     xinfo->frScroll.h  = bswabU16_inc(&p);
@@ -228,7 +228,7 @@ static inline void* record_readDXInfo(char *p, DXInfo* xinfo)
 }
 
 /* write extra Directory info */
-static inline void* record_writeDXInfo(char *p, DXInfo* xinfo)
+static inline char* record_writeDXInfo(char *p, DXInfo* xinfo)
 {
     bstoreU16_inc (&p, xinfo->frScroll.v );
     bstoreU16_inc (&p, xinfo->frScroll.h );
@@ -256,7 +256,7 @@ static inline void record_initDXInfo(DXInfo* xinfo)
 
 
 /* read a hfsp_cat_folder from memory */
-static void* record_readfolder(char *p, hfsp_cat_folder* folder)
+static char* record_readfolder(char *p, hfsp_cat_folder* folder)
 {
     folder->flags		= bswabU16_inc(&p);
     folder->valence		= bswabU32_inc(&p);
@@ -275,7 +275,7 @@ static void* record_readfolder(char *p, hfsp_cat_folder* folder)
 }
 
 /* write a hfsp_cat_folder to memory */
-static void* record_writefolder(char *p, hfsp_cat_folder* folder)
+static char* record_writefolder(char *p, hfsp_cat_folder* folder)
 {
     bstoreU16_inc (&p, folder->flags		);
     bstoreU32_inc (&p, folder->valence		);
@@ -320,7 +320,7 @@ static int record_initfolder(volume* vol, hfsp_cat_folder* folder)
 }
 
 /* read file info */
-static inline void* record_readFInfo(char *p, FInfo* info)
+static inline char* record_readFInfo(char *p, FInfo* info)
 {
     info->fdType	= bswabU32_inc(&p);
     info->fdCreator	= bswabU32_inc(&p);
@@ -332,7 +332,7 @@ static inline void* record_readFInfo(char *p, FInfo* info)
 }
 
 /* write file info */
-static inline void* record_writeFInfo(char *p, FInfo* info)
+static inline char* record_writeFInfo(char *p, FInfo* info)
 {
     bstoreU32_inc (&p, info->fdType	);
     bstoreU32_inc (&p, info->fdCreator	);
@@ -356,7 +356,7 @@ static inline void record_initFInfo(FInfo* info)
 }
 
 /* read extra File info */
-static inline void* record_readFXInfo(char *p, FXInfo* xinfo)
+static inline char* record_readFXInfo(char *p, FXInfo* xinfo)
 {
     xinfo->fdIconID	= bswabU16_inc(&p);
     xinfo->fdUnused[0]	= bswabU16_inc(&p);
@@ -369,7 +369,7 @@ static inline void* record_readFXInfo(char *p, FXInfo* xinfo)
 }
 
 /* write extra File info */
-static inline void* record_writeFXInfo(char *p, FXInfo* xinfo)
+static inline char* record_writeFXInfo(char *p, FXInfo* xinfo)
 {
     bstoreU16_inc (&p, xinfo->fdIconID);
     bstoreU16_inc (&p, xinfo->fdUnused[0]);
@@ -398,7 +398,7 @@ static inline void record_initFXInfo(FXInfo* xinfo)
 }
 
 /* read a hfsp_cat_file from memory */
-static void* record_readfile(char *p, hfsp_cat_file* file)
+static char* record_readfile(char *p, hfsp_cat_file* file)
 {
     file->flags			= bswabU16_inc(&p);
     file->reserved1		= bswabU32_inc(&p);
@@ -418,7 +418,7 @@ static void* record_readfile(char *p, hfsp_cat_file* file)
 }
 
 /* write a hfsp_cat_file to memory */
-static void* record_writefile(char *p, hfsp_cat_file* file)
+static char* record_writefile(char *p, hfsp_cat_file* file)
 {
     bstoreU16_inc(&p, file->flags);
     bstoreU16_inc(&p, file->reserved1);
@@ -466,7 +466,7 @@ static int record_initfile(volume* vol, hfsp_cat_file* file)
 
 
 /* read a hfsp_cat_thread from memory */
-static void* record_readthread(char *p, hfsp_cat_thread* entry)
+static char* record_readthread(char *p, hfsp_cat_thread* entry)
 {
     int	    i;
     UInt16  len;
@@ -486,7 +486,7 @@ static void* record_readthread(char *p, hfsp_cat_thread* entry)
 }
 
 /* write a hfsp_cat_thread to memory */
-static void* record_writethread(char *p, hfsp_cat_thread* entry)
+static char* record_writethread(char *p, hfsp_cat_thread* entry)
 {
     int	    i;
     UInt16  len;
@@ -510,7 +510,7 @@ static void* record_writethread(char *p, hfsp_cat_thread* entry)
 
 
 /* read a hfsp_cat_entry from memory */
-void* record_readentry(char *p, void* entry)
+char* record_readentry(char *p, void* entry)
 {
     UInt16	    type = bswabU16_inc(&p);
     hfsp_cat_entry* e	 = (hfsp_cat_entry*) entry;
@@ -532,7 +532,7 @@ void* record_readentry(char *p, void* entry)
 }
 
 /* write a hfsp_cat_entry to memory */
-void* record_writeentry(char *p, hfsp_cat_entry* entry)
+char* record_writeentry(char *p, hfsp_cat_entry* entry)
 {
     UInt16 type = entry->type;
     bstoreU16_inc(&p, type);
@@ -554,7 +554,7 @@ void* record_writeentry(char *p, hfsp_cat_entry* entry)
 
 /* read an extent record from memory */
 // For dependency reasons this actually is found in volume.h
-void* record_extent_readrecord(char *p, void* entry)
+char* record_extent_readrecord(char *p, void* entry)
 {
     return volume_readextent(p, (hfsp_extent*) entry);
 }
@@ -617,7 +617,7 @@ int record_update(record* r)
 /* intialize the record with the given index entry in the btree. */
 static int record_init_extent(extent_record* r, btree* bt, node_buf* buf, UInt16 index)
 {
-    void *p;
+    char *p;
     r-> tree   = bt;
     p = btree_key_by_index(bt, buf,index);
     if (!p)
@@ -764,7 +764,7 @@ int record_extent_key_compare(void* k1, void* k2)
 static node_buf* record_find_node(btree* tree, void *key)
 {
     int			start, end, mid, comp;  // components of a binary search
-    void		*p = NULL;
+    char		*p = NULL;
     char		curr_key[tree->head.max_key_len];
 		    // The current key under examination
     hfsp_key_read	readkey	    = tree->kread;
@@ -811,7 +811,7 @@ static node_buf* record_find_node(btree* tree, void *key)
 		HFSP_ERROR(-1, "record_find_node: unexpected error");
 	}
 	    
-	index = bswabU32_inc(p);
+	index = bswabU32_inc(&p);
 	node = btree_node_by_index(tree, index, NODE_CLEAN);
     }
     HFSP_SYNC_END(HFSP_READLOCK, node);
@@ -830,7 +830,7 @@ static node_buf* record_find_node(btree* tree, void *key)
  * *node_index	is the index of the node where key was found/might
  *		be inserted before
  */
-void* record_find_key(btree* tree, void* key, int* keyind, UInt16* node_index)
+char* record_find_key(btree* tree, void* key, int* keyind, UInt16* node_index)
 {
     node_buf* buf = record_find_node(tree, key);
     if (buf)
@@ -839,7 +839,7 @@ void* record_find_key(btree* tree, void* key, int* keyind, UInt16* node_index)
 	int		    start = 0; // components of a binary search
 	int		    end   = buf->desc.num_rec;
 	int		    mid   = -1;
-	void		    *p    = NULL;
+	char		    *p    = NULL;
 	char		    curr_key[tree->head.max_key_len];
 	hfsp_key_read	    readkey	= tree->kread;
 	hfsp_key_compare    key_compare = tree->kcomp;
@@ -886,7 +886,7 @@ int record_init_key(record* r, btree* tree, hfsp_cat_key* key)
 {
     int	    keyind;
     UInt16  node_index;
-    void    *p = record_find_key(tree, key, &keyind, &node_index);
+    char    *p = record_find_key(tree, key, &keyind, &node_index);
     
     if (p)
     {
@@ -914,7 +914,7 @@ int record_init_file(extent_record* r, btree* tree,
     int		    keyind;
     UInt16	    node_index;
     hfsp_extent_key key = { 10, forktype, 0, fileId, blockindex };
-    void	    *p = record_find_key(tree, &key, &keyind, &node_index);
+    char	    *p = record_find_key(tree, &key, &keyind, &node_index);
     
     if (p)
     {
