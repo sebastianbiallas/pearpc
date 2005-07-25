@@ -49,23 +49,23 @@
 #include "apple.h"
 static inline UInt16 bswabU16_inc(char **ptr)
 {
-	UInt16 **p = (UInt16 **)ptr;
+	UInt16 v = *(UInt16 *)*ptr;
 	*ptr += 2;
-	return bswap_16(**p);
+	return bswap_16(v);
 }
 
 static inline UInt32 bswabU32_inc(char **ptr)
 {
-	UInt32 **p = (UInt32 **)ptr;
+	UInt32 v = *(UInt32 *)*ptr;
 	*ptr += 4;
-	return bswap_32(**p);
+	return bswap_32(v);
 }
 
 static inline APPLEUInt64 bswabU64_inc(char **ptr)
 {
-	APPLEUInt64 **p = (APPLEUInt64 **)ptr;
+	APPLEUInt64 v = *(APPLEUInt64 *)ptr;
 	*ptr += 8;
-	return bswap_64(**p);
+	return bswap_64(v);
 }
 
 static inline void bstoreU16_inc(char **ptr, UInt16 val)
