@@ -60,7 +60,7 @@ static inline UInt32 bswabU32_inc(char **ptr)
 
 static inline APPLEUInt64 bswabU64_inc(char **ptr)
 {
-	APPLEUInt64 v = *(APPLEUInt64 *)ptr;
+	APPLEUInt64 v = *(APPLEUInt64 *)*ptr;
 	*ptr += 8;
 	return bswap_64(v);
 }
