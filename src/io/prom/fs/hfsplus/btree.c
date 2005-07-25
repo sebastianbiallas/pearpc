@@ -50,7 +50,7 @@
  *
  * return pointer after reading the structure
  */
-void* btree_readnode(btree_node_desc* node, char *p)
+char* btree_readnode(btree_node_desc* node, char *p)
 {
     node->next	    = bswabU32_inc(&p);
     node->prev	    = bswabU32_inc(&p);
@@ -65,7 +65,7 @@ void* btree_readnode(btree_node_desc* node, char *p)
  *
  * return pointer after writing the structure
  */
-void* btree_writenode(btree_node_desc* node, char *p)
+char* btree_writenode(btree_node_desc* node, char *p)
 {
     bstoreU32_inc(&p, node->next);
     bstoreU32_inc(&p, node->prev);
@@ -81,7 +81,7 @@ void* btree_writenode(btree_node_desc* node, char *p)
  *
  * return pointer after reading the structure
  */
-void* btree_readhead(btree_head* head, char *p)
+char* btree_readhead(btree_head* head, char *p)
 {
     int i;
     head->depth		= bswabU16_inc(&p);
@@ -107,7 +107,7 @@ void* btree_readhead(btree_head* head, char *p)
  *
  * return pointer after reading the structure
  */
-void* btree_writehead(btree_head* head, char *p)
+char* btree_writehead(btree_head* head, char *p)
 {
     int i;
     bstoreU16_inc(&p, head->depth);

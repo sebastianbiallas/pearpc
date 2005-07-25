@@ -24,29 +24,26 @@
  */
 
 #include "tools/endianess.h"
+#include "apple.h"
 
  /* basic fuction:
     value = swab_inc(ptr);
 	ptr is afterwards incremented by sizeof(value)
  */
 
-/*#if BYTE_ORDER == LITTLE_ENDIAN*/
-
-#define bswap_16(i) createHostInt(&i, 2, big_endian)
-#define bswap_32(i) createHostInt(&i, 4, big_endian)
-#define bswap_64(i) createHostInt64(&i, 8, big_endian)
+#define bswap_16(i) createHostInt(&(i), 2, big_endian)
+#define bswap_32(i) createHostInt(&(i), 4, big_endian)
+#define bswap_64(i) createHostInt64(&(i), 8, big_endian)
 
 #define bswabU16(val) bswap_16(val)
 
-#define abswabU16_inc(ptr) bswap_16(*(*((UInt16**) (void *)(ptr)))++)
-#define abswabU32_inc(ptr) bswap_32(*(*((UInt32**) (void *)(ptr)))++)
-#define abswabU64_inc(ptr) bswap_64(*(*((APPLEUInt64**) (void *)(ptr)))++)
+static inline UInt8 bswabU8_inc(char **ptr)
+{
+	UInt8 v = *(UInt8 *)*ptr;
+	*ptr += 1;
+	return v;
+}
 
-#define abstoreU16_inc(ptr, val) (*(*((UInt16**) (void *)(ptr)))++) = bswap_16(val)
-#define abstoreU32_inc(ptr, val) (*(*((UInt32**) (void *)(ptr)))++) = bswap_32(val)
-#define abstoreU64_inc(ptr, val) (*(*((APPLEUInt64**) (void *)(ptr)))++) = bswap_64(val)
-
-#include "apple.h"
 static inline UInt16 bswabU16_inc(char **ptr)
 {
 	UInt16 v = *(UInt16 *)*ptr;
@@ -68,6 +65,13 @@ static inline APPLEUInt64 bswabU64_inc(char **ptr)
 	return bswap_64(v);
 }
 
+static inline void bstoreU8_inc(char **ptr, UInt8 val)
+{
+	UInt8 **p = (UInt8 **)ptr;
+	**p = val;
+	*ptr += 1;
+}
+
 static inline void bstoreU16_inc(char **ptr, UInt16 val)
 {
 	UInt16 **p = (UInt16 **)ptr;
@@ -85,24 +89,7 @@ static inline void bstoreU32_inc(char **ptr, UInt32 val)
 static inline void bstoreU64_inc(char **ptr, APPLEUInt64 val)
 {
 	APPLEUInt64 **p = (APPLEUInt64 **)ptr;
-	**p = bswap_32(val);
+	**p = bswap_64(val);
 	*ptr += 8;
 }
 
-/*#else // BYTE_ORDER == BIG_ENDIAN
-
-#define bswabU16(val) val
-
-#define bswabU16_inc(ptr) (*((UInt16*) (ptr))++)
-#define bswabU32_inc(ptr) (*((UInt32*) (ptr))++)
-#define bswabU64_inc(ptr) (*((APPLEUInt64*) (ptr))++)
-
-#define bstoreU16_inc(ptr, val) (*((UInt16*) (ptr))++) = val
-#define bstoreU32_inc(ptr, val) (*((UInt32*) (ptr))++) = val
-#define bstoreU64_inc(ptr, val) (*((APPLEUInt64*) (ptr))++) = val
-
-#endif*/
-
-/* for the sake of completeness and readability */
-#define bswabU8_inc(ptr)       (*(*((UInt8**) (void *)(ptr)))++)
-#define bstoreU8_inc(ptr,val)  (*(*((UInt8**) (void *)(ptr)))++) = val
