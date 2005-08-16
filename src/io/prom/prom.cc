@@ -59,20 +59,20 @@ void prom_init()
 	if (gConfig->haveKey(PROM_KEY_ENV_BOOTPATH)) {
 		String bootpath;
 		gConfig->getConfigString(PROM_KEY_ENV_BOOTPATH, bootpath);
-		chosen->addProp(new PromPropString("bootpath", bootpath));
+		chosen->addProp(new PromPropString("bootpath", bootpath.contentChar()));
 		gPromBootPath.assign(bootpath);
 	}
 	String bootargs;
 	gConfig->getConfigString(PROM_KEY_ENV_BOOTARGS, bootargs);
-	chosen->addProp(new PromPropString("bootargs", bootargs));
+	chosen->addProp(new PromPropString("bootargs", bootargs.contentChar()));
 	String machargs;
 	gConfig->getConfigString(PROM_KEY_ENV_MACHARGS, machargs);
-	chosen->addProp(new PromPropString("machargs", machargs));
+	chosen->addProp(new PromPropString("machargs", machargs.contentChar()));
 
 	if (gConfig->haveKey(PROM_KEY_DRIVER_GRAPHIC)) {
 		String filename;
 		gConfig->getConfigString(PROM_KEY_DRIVER_GRAPHIC, filename);
-		FILE *dfile = fopen(filename, "rb");
+		FILE *dfile = fopen(filename.contentChar(), "rb");
 		if (!dfile) IO_PROM_ERR("%s: can't open %y\n", PROM_KEY_DRIVER_GRAPHIC, &filename);
 		fseek(dfile, 0, SEEK_END);
 		int dsize = ftell(dfile);

@@ -157,7 +157,7 @@ PromNode::PromNode(const char *aName)
 
 	String nodeaddr(aName), nodename, unitaddr;
 	nodeaddr.leftSplit('@', nodename, unitaddr);
-	PromPropString *pn = new PromPropString("name", nodename);
+	PromPropString *pn = new PromPropString("name", nodename.contentChar());
 	addProp(pn);
 	mPromNodeHandle = promNodeHandles++;
 	mPromNodeInstancesHandles = 0;
@@ -1048,7 +1048,7 @@ PromNode *findDevice(const char *aPathName, int type, PromInstanceHandle *ret)
 			pathname.leftSplit('/', component, tmp);
 			component.leftSplit(':', nodeaddr, arguments);
 			nodeaddr.leftSplit('@', nodename, unitaddr);
-			PromPropString *a = (PromPropString *)aliases->findProp(nodename);
+			PromPropString *a = (PromPropString *)aliases->findProp(nodename.contentChar());
 			if (a) {
 				pathname.assign(a->value);
 				pathname += ((unitaddr!=(String)"")?("@"+unitaddr):(String)"")+":"+arguments;
@@ -1644,19 +1644,19 @@ void prom_init_device_tree()
 			if (ic[i]->protocol == IDE_ATA) {
 				alias.assignFormat("disk%d", hdcount);
 				location.assignFormat("/pci/pci-bridge/pci-ata/ata-4/disk%d@%d", i, i);
-				aliases->addProp(new PromPropString(alias, location));
+				aliases->addProp(new PromPropString(alias.contentChar(), location.contentChar()));
 				if (!hdcount) {
-					aliases->addProp(new PromPropString("disk", location));
-					aliases->addProp(new PromPropString("hd", location));
+					aliases->addProp(new PromPropString("disk", location.contentChar()));
+					aliases->addProp(new PromPropString("hd", location.contentChar()));
 				}
 				hdcount++;
 			} else {
 				alias.assignFormat("cdrom%d", cdromcount);
 				location.assignFormat("/pci/pci-bridge/pci-ata/ata-4/disk%d@%d", i, i);
-				aliases->addProp(new PromPropString(alias, location));
+				aliases->addProp(new PromPropString(alias.contentChar(), location.contentChar()));
 				if (!cdromcount) {
-					aliases->addProp(new PromPropString("cdrom", location));
-					aliases->addProp(new PromPropString("cd", location));
+					aliases->addProp(new PromPropString("cdrom", location.contentChar()));
+					aliases->addProp(new PromPropString("cd", location.contentChar()));
 				}
 				cdromcount++;
 			}

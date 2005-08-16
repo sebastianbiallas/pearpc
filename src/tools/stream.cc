@@ -873,7 +873,7 @@ FileOfs LocalFile::getSize() const
 
 void LocalFile::pstat(pstat_t &s) const
 {
-	sys_pstat(s, mFilename);
+	sys_pstat(s, mFilename.contentChar());
 }
 
 uint LocalFile::read(void *buf, uint size)

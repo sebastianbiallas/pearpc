@@ -2019,9 +2019,9 @@ void ide_init()
 			}
 			String name;
 			name.assignFormat("ide%d", DISK);
-			if (ext == (String)"img") {
+			if (ext == "img") {
 				gIDEState.config[DISK].protocol = IDE_ATA;
-				gIDEState.config[DISK].device = new ATADeviceFile(name, img);
+				gIDEState.config[DISK].device = new ATADeviceFile(name.contentChar(), img.contentChar());
 				const char *error;
 				if ((error = gIDEState.config[DISK].device->getError())) IO_IDE_ERR("%s\n", error);
 				gIDEState.config[DISK].hd.cyl = ((ATADevice*)gIDEState.config[DISK].device)->mCyl;
@@ -2029,30 +2029,30 @@ void ide_init()
 				gIDEState.config[DISK].hd.spt = ((ATADevice*)gIDEState.config[DISK].device)->mSpt;
 				gIDEState.config[DISK].bps = 512;
 				gIDEState.config[DISK].lba = true;
-			} else if (ext == (String)"iso") {
+			} else if (ext == "iso") {
 				gIDEState.config[DISK].protocol = IDE_ATAPI;
-				gIDEState.config[DISK].device = new CDROMDeviceFile(name);
+				gIDEState.config[DISK].device = new CDROMDeviceFile(name.contentChar());
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->activateDVD(false);
-				((CDROMDeviceFile *)gIDEState.config[DISK].device)->changeDataSource(img);
+				((CDROMDeviceFile *)gIDEState.config[DISK].device)->changeDataSource(img.contentChar());
 				const char *error;
 				if ((error = gIDEState.config[DISK].device->getError())) IO_IDE_ERR("%s\n", error);
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->setReady(true);
 				gIDEState.config[DISK].bps = 2048;
 				gIDEState.config[DISK].lba = false;
-			} else if (ext == (String)"dvd") {
+			} else if (ext == "dvd") {
 				gIDEState.config[DISK].protocol = IDE_ATAPI;
-				gIDEState.config[DISK].device = new CDROMDeviceFile(name);
+				gIDEState.config[DISK].device = new CDROMDeviceFile(name.contentChar());
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->activateDVD(true);
 
-				((CDROMDeviceFile *)gIDEState.config[DISK].device)->changeDataSource(img);
+				((CDROMDeviceFile *)gIDEState.config[DISK].device)->changeDataSource(img.contentChar());
 				const char *error;
 				if ((error = gIDEState.config[DISK].device->getError())) IO_IDE_ERR("%s\n", error);
 				((CDROMDeviceFile *)gIDEState.config[DISK].device)->setReady(true);
 				gIDEState.config[DISK].bps = 2048;
 				gIDEState.config[DISK].lba = true;
-			} else if (ext == (String)"nativecdrom") {
+			} else if (ext == "nativecdrom") {
 				gIDEState.config[DISK].protocol = IDE_ATAPI;
-				CDROMDevice* cdrom = createNativeCDROMDevice(name, img);
+				CDROMDevice* cdrom = createNativeCDROMDevice(name.contentChar(), img.contentChar());
 				if (!cdrom)
 				    IO_IDE_ERR("Error creating native CDROM device\n");
 				gIDEState.config[DISK].device = cdrom;

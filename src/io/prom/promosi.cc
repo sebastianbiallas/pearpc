@@ -125,7 +125,7 @@ void prom_service_finddevice(prom_args *pa)
 	String device;
 	prom_get_string(device, pa->args[0]);
 	IO_PROM_TRACE("finddevice('%y')\n", &device);
-	PromNode *node = findDevice(device, FIND_DEVICE_FIND, NULL);
+	PromNode *node = findDevice(device.contentChar(), FIND_DEVICE_FIND, NULL);
 	if (node) {
 		pa->args[1] = node->getPHandle();
 	} else {
@@ -141,7 +141,7 @@ void prom_service_getproplen(prom_args *pa)
 	String name;
 	prom_get_string(name, pa->args[1]);
 	IO_PROM_TRACE("getproplen(%08x, '%y')\n", phandle, &name);
-	PromProp *prop = p ? p->findProp(name) : 0;
+	PromProp *prop = p ? p->findProp(name.contentChar()) : 0;
 	if (!prop) {
 		pa->args[2] = 0xffffffff;
 	} else {
@@ -159,7 +159,7 @@ void prom_service_getprop(prom_args *pa)
 	uint32 buflen = pa->args[3];
 	IO_PROM_TRACE("getprop(%08x, '%y', %08x, %08x)\n", phandle, &name, buf, buflen);
 	PromNode *p = handleToPackage(phandle);	
-	PromProp *prop = p ? p->findProp(name) : 0;
+	PromProp *prop = p ? p->findProp(name.contentChar()) : 0;
 	if (!prop) {
 		pa->args[4] = 0xffffffff;
 	} else {
@@ -178,7 +178,7 @@ void prom_service_nextprop(prom_args *pa)
 	IO_PROM_TRACE("nextprop(%08x, %08x:'%y', %08x)\n", phandle, pa->args[1], &previous, buf);
 	PromNode *pn = handleToPackage(phandle);
 	PromProp *prop = NULL;
-	if (!previous || !*previous || !pn) {
+	if (previous.isEmpty() || !pn) {
 		prop = pn ? pn->firstProp() : 0;
 		if (!prop) {
 			*flag = 0;
@@ -186,7 +186,7 @@ void prom_service_nextprop(prom_args *pa)
 			*flag = 1;
 		}
 	} else {
-		prop = pn->findProp(previous);
+		prop = pn->findProp(previous.contentChar());
 		if (prop) {
 			prop = pn->nextProp(prop);
 			if (prop) {
@@ -238,12 +238,12 @@ void prom_service_setprop(prom_args *pa)
 		return;
 	}*/
 	if (p) {
-		PromProp *prop = p->findProp(name);
+		PromProp *prop = p->findProp(name.contentChar());
 		if (!prop) {
 			if (buf) {		
-				p->addProp(new PromPropMemory(name, value.content(), len));
+				p->addProp(new PromPropMemory(name.contentChar(), value.content(), len));
 			} else {
-				p->addProp(new PromPropString(name, ""));
+				p->addProp(new PromPropString(name.contentChar(), ""));
 			}
 			pa->args[4] = len;
 		} else {
@@ -251,7 +251,7 @@ void prom_service_setprop(prom_args *pa)
 			if (buf && len)
 				pa->args[4] = prop->setValue(buf, len);
 			else
-				pa->args[4] = prop->setValue(NULL, 0);
+				pa->args[4] = prop->setValue(0, 0);
 		}
 	} else {
 		pa->args[4] = 0;
@@ -327,20 +327,20 @@ void prom_service_call_method(prom_args *pa)
 	PromInstance *pi = handleToInstance(ihandle);
 	IO_PROM_TRACE("call-method('%y', %08x, ...)\n", &method, ihandle);
 	if (ihandle == 0xdeadbee2) {
-		if (strcmp(method, "slw_emit") == 0) {
+		if (method == "slw_emit") {
 //			gDisplay->printf("%c", pa->args[2]);
-		} else if (strcmp(method, "slw_cr") == 0) {
+		} else if (method == "slw_cr") {
 //			gDisplay->print("\n");
-		} else if (strcmp(method, "slw_init_keymap") == 0) {
+		} else if (method == "slw_init_keymap") {
 			uint32 a = prom_mem_malloc(20);
 			prom_mem_set(a, 0x00, 20);
 			pa->args[4] = prom_mem_phys_to_virt(a);
 			pa->args[3] = 0;
-		} else if (strcmp(method, "slw_update_keymap") == 0) {
-		} else if (strcmp(method, "slw_set_output_level") == 0) {
-		} else if (strcmp(method, "slw_spin_init") == 0) {
-		} else if (strcmp(method, "slw_spin") == 0) {
-		} else if (strcmp(method, "slw_pwd") == 0) {
+		} else if (method == "slw_update_keymap") {
+		} else if (method == "slw_set_output_level") {
+		} else if (method == "slw_spin_init") {
+		} else if (method == "slw_spin") {
+		} else if (method == "slw_pwd") {
 			uint32 phandle = pa->args[4];
 			uint32 buf = pa->args[3];
 			uint32 buflen = pa->args[2];			
@@ -359,7 +359,7 @@ void prom_service_call_method(prom_args *pa)
 			IO_PROM_ERR("slw: %y not impl\n", &method);
 		}
 	} else {
-		if (pi) pi->callMethod(method, pa);
+		if (pi) pi->callMethod(method.contentChar(), pa);
 	}
 }
 void prom_service_open(prom_args *pa)
@@ -369,7 +369,7 @@ void prom_service_open(prom_args *pa)
 	prom_get_string(device, pa->args[0]);
 	IO_PROM_TRACE("open('%y')\n", &device);
 	PromInstanceHandle ih;
-	PromNode *node = findDevice(device, FIND_DEVICE_OPEN, &ih);
+	PromNode *node = findDevice(device.contentChar(), FIND_DEVICE_OPEN, &ih);
 	if (node) {
 		pa->args[1] = ih;
 	} else {
@@ -471,8 +471,8 @@ void prom_service_interpret(prom_args *pa)
 	//; of_(const char *arg, ...);
 	String arg;
 	prom_get_string(arg, pa->args[0]);
-	IO_PROM_TRACE("interpret(%d, %08x, %08x, %08x, %08x, '%y' ...)\n", strlen(arg), pa->args[1], pa->args[2], pa->args[3], pa->args[4], &arg);
-	switch (strlen(arg)) {
+	IO_PROM_TRACE("interpret(%d, %08x, %08x, %08x, %08x, '%y' ...)\n", arg.length(), pa->args[1], pa->args[2], pa->args[3], pa->args[4], &arg);
+	switch (arg.length()) {
 	case 6: {
 		// " 10 ms"
 		void prom_service_milliseconds(prom_args *pa);
@@ -489,7 +489,7 @@ void prom_service_interpret(prom_args *pa)
 		prom_get_string(n, propname);
 		PromNode *pn = handleToPackage(phandle);
 		IO_PROM_TRACE("GetPackageProperty('%y', %08x:%s)\n", &n, phandle, pn->name);
-		PromProp *prop = pn->findProp(n);
+		PromProp *prop = pn->findProp(n.contentChar());
 		if (!prop) {
 			pa->args[4] = 0;
 			pa->args[5] = 0;
@@ -548,7 +548,7 @@ void prom_service_interpret(prom_args *pa)
 		pa->args[2] = 0;
 		break;
 	default: 		
-		IO_PROM_ERR("unknown interpret size %d\ninterpret: %y\n", strlen(arg), &arg);
+		IO_PROM_ERR("unknown interpret size %d\ninterpret: %y\n", arg.length(), &arg);
 		break;
 	}
 }
@@ -649,7 +649,7 @@ void call_prom_osi()
 	prom_get_string(service, pa.service);
 	int i=0;
 	while (prom_service_table[i].name) {
-		if (strcmp(prom_service_table[i].name, service)==0) {
+		if (strcmp(prom_service_table[i].name, service.contentChar())==0) {
 			prom_service_table[i].f(&pa);
 			goto ok;
 		}

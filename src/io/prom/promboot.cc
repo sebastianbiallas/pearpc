@@ -1154,7 +1154,7 @@ bool prom_load_boot_file()
 		if (gConfig->haveKey("prom_loadfile")) {
 			String loadfile;
 			gConfig->getConfigString("prom_loadfile", loadfile);
-			PromNode *pn = findDevice(gPromBootPath, FIND_DEVICE_FIND, NULL);
+			PromNode *pn = findDevice(gPromBootPath.contentChar(), FIND_DEVICE_FIND, NULL);
 			if (pn) {
 				gBootNodeID = pn->getPHandle();
 				String dev, rest;
@@ -1191,7 +1191,7 @@ bool prom_load_boot_file()
 			f->seek(0);
 			f->copyAllTo(&lf);
 		} catch (...) {
-			printf("error dumping bootfile");
+			IO_PROM_WARN("error dumping bootfile\n");
 		}
 		if (direct) {
 			if (!mapped_load_direct(*f, loadAddr, entryAddr)) {

@@ -74,7 +74,7 @@ void changeCDFunc(void *p)
 		String fn;
 		if (sys_gui_open_file_dialog(fn, "title", "*.*", "alle", "testa", true)) {
 			dev->acquire();
-			((CDROMDeviceFile *)dev)->changeDataSource(fn);
+			((CDROMDeviceFile *)dev)->changeDataSource(fn.contentChar());
 			dev->setReady(true);
 			dev->release();
 		} else {
@@ -196,12 +196,6 @@ extern "C" int SDL_main(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-/*	SYS_FILE *a = sys_fopen("test\\c.img", SYS_OPEN_CREATE | SYS_OPEN_WRITE);
-	sys_fseek(a, 516096ULL*6200-1);
-	byte b= 1;
-	sys_fwrite(a, &b, 1);
-	sys_fclose(a);*/
-
 	if (argc != 2) {
 		usage();
 	}

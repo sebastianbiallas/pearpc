@@ -89,9 +89,9 @@ void nvram_init()
 	String filename;
 	gConfig->getConfigString(NRAM_KEY_FILE, filename);
 	
-	gNVRAM.f = fopen(filename, "rb+");
+	gNVRAM.f = fopen(filename.contentChar(), "rb+");
 	if (!gNVRAM.f) {
-		gNVRAM.f = fopen(filename, "wb+");
+		gNVRAM.f = fopen(filename.contentChar(), "wb+");
 		if (!gNVRAM.f) IO_NVRAM_ERR("couldn't create file '%y'\n", &filename);
 		byte buf[NVRAM_IMAGE_SIZE];
 		memset(buf, 0, sizeof buf);

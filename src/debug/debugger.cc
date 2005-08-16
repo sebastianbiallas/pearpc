@@ -447,7 +447,7 @@ Function *Debugger::matchFunction(const String &name, const Enumerator &params)
 			if (i+1<params.count()) msg.append(",");
 		}
 		msg.append(")'");
-		throw MsgException(msg);
+		throw MsgException(msg.contentChar());
 	}
 	return r;
 }

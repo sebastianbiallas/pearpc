@@ -173,6 +173,16 @@ void String::append(const String &s)
 	}
 }
 
+void String::append(const char *s)
+{
+	if (s && *s) {
+		int oldLength = mLength;
+		int slen = strlen(s);
+		realloc(mLength + slen);
+		memcpy(&mContent[oldLength], s, slen);
+	}
+}
+
 /**
  *	prepends |s| to the front
  */
@@ -208,6 +218,24 @@ int String::compareChar(char c1, char c2) const
 {
 	if (c1<c2) return -1;
 	if (c1>c2) return 1;
+	return 0;
+}
+
+int String::compare(const char *s) const
+{
+	if (!mLength) {
+		return (s) ? -1: 0;
+	}
+	if (!s) {
+		return 1;
+	}
+	int l = mLength;
+	for (int i=0; i < l; i++) {
+		if (!*s) return 1;
+		int r = compareChar(mContent[i], s[i]);
+		if (r) return r;
+	}
+	if (s[l]) return -1;
 	return 0;
 }
 

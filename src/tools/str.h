@@ -54,6 +54,7 @@ public:
 		void		assignFormat(const char *s, ...);
 
 		void		append(const String &s);
+		void		append(const char *s);
 	inline	char &		at(int aIndex) const;
 	inline	bool		chop();
 		void		clear();
@@ -97,23 +98,30 @@ public:
 	virtual	char *		toString() const;
 		void		unescape();
 
-	inline			operator const char *() const;
-
 	inline	char &	operator [](int aIndex) const;
 
 	inline	String &	operator =(const String &s);
 	inline	String &	operator =(const char *s);
 	inline	String &	operator +=(const String &s);
+	inline	String &	operator +=(const char *s);
 		String &	operator +=(char c);
 			
-	inline	bool		operator < (const String &s);
-	inline	bool		operator > (const String &s);
-	inline	bool		operator <=(const String &s);
-	inline	bool		operator >=(const String &s);
-	inline	bool		operator ==(const String &s);
-	inline	bool		operator !=(const String &s);
+	inline	bool		operator < (const String &s) const;
+	inline	bool		operator > (const String &s) const;
+	inline	bool		operator <=(const String &s) const;
+	inline	bool		operator >=(const String &s) const;
+	inline	bool		operator ==(const String &s) const;
+	inline	bool		operator !=(const String &s) const;
+
+	inline	bool		operator < (const char *s) const;
+	inline	bool		operator > (const char *s) const;
+	inline	bool		operator <=(const char *s) const;
+	inline	bool		operator >=(const char *s) const;
+	inline	bool		operator ==(const char *s) const;
+	inline	bool		operator !=(const char *s) const;
 
 protected:
+		int		compare(const char *s) const;
 		void		realloc(int aNewSize);
 };
 
@@ -214,11 +222,6 @@ inline int String::length() const
 	return mLength;
 }
 
-inline String::operator const char *() const
-{
-	return (char *)mContent;
-}
-
 inline char &String::operator [](int aIndex) const
 {
 	return at(aIndex);
@@ -242,32 +245,68 @@ inline String &String::operator +=(const String &s)
 	return *this;
 }
 
-inline bool String::operator < (const String &s)
+inline String &String::operator +=(const char *s)
+{
+	append(s);
+	return *this;
+}
+
+inline bool String::operator < (const String &s) const
 {
 	return compare(s) < 0;
 }
 
-inline bool String::operator <= (const String &s)
+inline bool String::operator <= (const String &s) const
 {
 	return compare(s) <= 0;
 }
 
-inline bool String::operator > (const String &s)
+inline bool String::operator > (const String &s) const
 {
 	return compare(s) > 0;
 }
 
-inline bool String::operator >= (const String &s)
+inline bool String::operator >= (const String &s) const
 {
 	return compare(s) >= 0;
 }
 
-inline bool String::operator == (const String &s)
+inline bool String::operator == (const String &s) const
 {
 	return compare(s) == 0;
 }
 
-inline bool String::operator != (const String &s)
+inline bool String::operator != (const String &s) const
+{
+	return compare(s) != 0;
+}
+
+inline bool String::operator < (const char *s) const
+{
+	return compare(s) < 0;
+}
+
+inline bool String::operator <= (const char *s) const
+{
+	return compare(s) <= 0;
+}
+
+inline bool String::operator > (const char *s) const
+{
+	return compare(s) > 0;
+}
+
+inline bool String::operator >= (const char *s) const
+{
+	return compare(s) >= 0;
+}
+
+inline bool String::operator == (const char *s) const
+{
+	return compare(s) == 0;
+}
+
+inline bool String::operator != (const char *s) const
 {
 	return compare(s) != 0;
 }

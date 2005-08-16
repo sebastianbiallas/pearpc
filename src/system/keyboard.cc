@@ -108,7 +108,7 @@ bool SystemKeyboard::convertKeycodeToString(String &result, int keycode)
 
 bool SystemKeyboard::convertStringToKeycode(int &keycode, const String &s)
 {
-	if (s == (String)"none") {
+	if (s == "none") {
 		keycode = 0xff;
 		return true;
 	}
