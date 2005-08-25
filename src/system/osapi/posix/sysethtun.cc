@@ -227,12 +227,12 @@ int initDevice()
 	::memset(&ifr, 0, sizeof(ifr));
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
-	if (::strlen(mIfName)+1 > IFNAMSIZ) {
+	if (::strlen(mIfName.contentChar())+1 > IFNAMSIZ) {
 		throw MsgfException("Interface name too long (%d > %d bytes)"
-			" in '%y'\n", ::strlen(mIfName)+1, IFNAMSIZ, &mIfName);
+			" in '%y'\n", ::strlen(mIfName.contentChar())+1, IFNAMSIZ, &mIfName);
 	}
 
-	::strncpy(ifr.ifr_name, mIfName, IFNAMSIZ);
+	::strncpy(ifr.ifr_name, mIfName.contentChar(), IFNAMSIZ);
 	if (::ioctl(mFD, TUNSETIFF, &ifr) < 0) {
 		const char *err = ::strerror(errno);
 		::close(mFD);
@@ -243,7 +243,7 @@ int initDevice()
 	::ioctl(mFD, TUNSETNOCSUM, 1);
 
 	/* Configure device */
-	if (execIFConfigScript("up", mIfName)) {
+	if (execIFConfigScript("up", mIfName.contentChar())) {
 		::close(mFD);
 		throw MsgException("error executing ifconfig.");
 	}
@@ -253,7 +253,7 @@ int initDevice()
 int shutdownDevice()
 {
 	/* tear down the device */
-	execIFConfigScript("down", mIfName);
+	execIFConfigScript("down", mIfName.contentChar());
 	::close(mFD);
 	return 0;
 }
@@ -282,7 +282,7 @@ LinuxEthTunDevice(const char *netif_prefix)
 		command.assignFormat("ifconfig %y%d", &mIfPrefix, counter);
 		// FIXME: Is there anything else than command() that I can use here?  
 		// Seems a fork&exec is a bit too much...
-		int ret = system(command);
+		int ret = system(command.contentChar());
 		if (WEXITSTATUS(ret)) { 
 			mIfName.assignFormat("%y%d", &mIfPrefix, counter);
 			ht_printf("mIfName = %y\n", &mIfName);

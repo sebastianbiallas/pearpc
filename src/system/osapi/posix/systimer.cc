@@ -33,14 +33,14 @@ static const int kTimerSignal = SYSTIMER_SIGNAL;
 static void signal_handler(int signo, siginfo_t *extra, void *junk);
 static const int kClockRT = CLOCK_PROCESS_CPUTIME_ID;
 static const int kClock = CLOCK_REALTIME;
-#else
-# ifdef USE_POSIX_SETITIMER
+#elif USE_POSIX_SETITIMER
 static void signal_handler(int signo);
 static const int kClock = ITIMER_REAL;
 struct sys_timer_struct;
 static sys_timer_struct *gSingleTimer = NULL;
 static const int kSignalFlags = 0;
-# endif
+#else
+#error no timer support
 #endif
 
 struct sys_timer_struct
