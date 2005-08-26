@@ -41,10 +41,10 @@ bool sys_gui_open_file_dialog(String &ret, const String &title, const String &fi
 	ofn.hwndOwner = NULL;
 	ofn.hInstance = 0;
 	String filter(filespecname);
-	filter += 0;
+	filter.appendChar(0);
 	filter += filespec;
-	filter += 0;
-	filter += 0;
+	filter.appendChar(0);
+	filter.appendChar(0);
 	ofn.lpstrFilter = filter.contentChar();
 	ofn.lpstrCustomFilter = NULL;
 	ofn.nMaxCustFilter = 0;
