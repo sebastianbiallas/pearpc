@@ -432,7 +432,7 @@ Object *Array::get(ObjHandle h) const
 
 uint Array::getObjIdx(ObjHandle h) const
 {
-	return InvObjHandle ? InvIdx : handleToNative(h);
+	return h == InvObjHandle ? InvIdx : handleToNative(h);
 }
 
 ObjHandle Array::findByIdx(int i) const

@@ -183,6 +183,12 @@ void String::append(const char *s)
 	}
 }
 
+void String::appendChar(char c)
+{
+	realloc(mLength+1);
+	mContent[mLength-1] = c;
+}
+
 /**
  *	prepends |s| to the front
  */
