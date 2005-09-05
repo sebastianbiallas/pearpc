@@ -7587,7 +7587,9 @@ JITCFlow ppc_opc_gen_vxor()
 
 #define CR_CR6		(0x00f0)
 #define CR_CR6_EQ	(1<<7)
+#define CR_CR6_NE_SOME	(1<<6)
 #define CR_CR6_NE	(1<<5)
+#define CR_CR6_EQ_SOME	(1<<4)
 
 /*	vcmpequbx	Vector Compare Equal-to Unsigned Byte
  *	v.160
@@ -7603,9 +7605,11 @@ void ppc_opc_vcmpequbx()
 		if (gCPU.vr[vrA].b[i] == gCPU.vr[vrB].b[i]) {
 			gCPU.vr[vrD].b[i] = 0xff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].b[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7631,7 +7635,7 @@ JITCFlow ppc_opc_gen_vcmpequbx()
 			jitcClobberCarryAndFlags();
 
 			asmAND(&gCPU.cr, ~CR_CR6);
-			asmOR(&gCPU.cr, CR_CR6_EQ);
+			asmOR(&gCPU.cr, CR_CR6_EQ | CR_CR6_EQ_SOME);
 		}
 
 		return flowContinue;
@@ -7661,11 +7665,13 @@ JITCFlow ppc_opc_gen_vcmpequbx()
 
 			asmMOV_NoFlags((NativeReg)reg2, 0xff);
 			asmALU(X86_AND, reg, ~CR_CR6_NE);
+			asmALU(X86_OR, reg, CR_CR6_EQ_SOME);
 			NativeAddress skip2 = asmJMPFixup();
 
 			asmResolveFixup(skip1);
 			asmALU(X86_XOR, reg2, reg2);
 			asmALU(X86_AND, reg, ~CR_CR6_EQ);
+			asmALU(X86_OR, reg, CR_CR6_NE_SOME);
 
 			asmResolveFixup(skip2);
 		} else {
@@ -7700,9 +7706,11 @@ void ppc_opc_vcmpequhx()
 		if (gCPU.vr[vrA].h[i] == gCPU.vr[vrB].h[i]) {
 			gCPU.vr[vrD].h[i] = 0xffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].h[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7728,7 +7736,7 @@ JITCFlow ppc_opc_gen_vcmpequhx()
 			jitcClobberCarryAndFlags();
 
 			asmAND(&gCPU.cr, ~CR_CR6);
-			asmOR(&gCPU.cr, CR_CR6_EQ);
+			asmOR(&gCPU.cr, CR_CR6_EQ | CR_CR6_EQ_SOME);
 		}
 
 		return flowContinue;
@@ -7758,11 +7766,13 @@ JITCFlow ppc_opc_gen_vcmpequhx()
 
 			asmMOV_NoFlags(reg2, 0xffff);
 			asmALU(X86_AND, reg, ~CR_CR6_NE);
+			asmALU(X86_OR, reg, CR_CR6_EQ_SOME);
 			NativeAddress skip2 = asmJMPFixup();
 
 			asmResolveFixup(skip1);
 			asmALU(X86_XOR, reg2, reg2);
 			asmALU(X86_AND, reg, ~CR_CR6_EQ);
+			asmALU(X86_OR, reg, CR_CR6_NE_SOME);
 
 			asmResolveFixup(skip2, asmHERE());
 		} else {
@@ -7798,9 +7808,11 @@ void ppc_opc_vcmpequwx()
 		if (gCPU.vr[vrA].w[i] == gCPU.vr[vrB].w[i]) {
 			gCPU.vr[vrD].w[i] = 0xffffffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].w[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7829,9 +7841,11 @@ void ppc_opc_vcmpeqfpx()
 		if (gCPU.vr[vrA].f[i] == gCPU.vr[vrB].f[i]) {
 			gCPU.vr[vrD].w[i] = 0xffffffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].w[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7860,9 +7874,11 @@ void ppc_opc_vcmpgtubx()
 		if (gCPU.vr[vrA].b[i] > gCPU.vr[vrB].b[i]) {
 			gCPU.vr[vrD].b[i] = 0xff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].b[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7891,9 +7907,11 @@ void ppc_opc_vcmpgtsbx()
 		if (gCPU.vr[vrA].sb[i] > gCPU.vr[vrB].sb[i]) {
 			gCPU.vr[vrD].b[i] = 0xff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].b[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7922,9 +7940,11 @@ void ppc_opc_vcmpgtuhx()
 		if (gCPU.vr[vrA].h[i] > gCPU.vr[vrB].h[i]) {
 			gCPU.vr[vrD].h[i] = 0xffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].h[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -7950,7 +7970,7 @@ JITCFlow ppc_opc_gen_vcmpgtuhx()
 			jitcClobberCarryAndFlags();
 
 			asmAND(&gCPU.cr, ~CR_CR6);
-			asmOR(&gCPU.cr, CR_CR6_NE);
+			asmOR(&gCPU.cr, CR_CR6_NE | CR_CR6_NE_SOME);
 		}
 
 		return flowContinue;
@@ -7980,11 +8000,13 @@ JITCFlow ppc_opc_gen_vcmpgtuhx()
 
 			asmMOV_NoFlags(reg2, 0xffff);
 			asmALU(X86_AND, reg, ~CR_CR6_NE);
+			asmALU(X86_OR, reg, CR_CR6_EQ_SOME);
 			NativeAddress skip2 = asmJMPFixup();
 
 			asmResolveFixup(skip1);
 			asmALU(X86_XOR, reg2, reg2);
 			asmALU(X86_AND, reg, ~CR_CR6_EQ);
+			asmALU(X86_OR, reg, CR_CR6_NE_SOME);
 
 			asmResolveFixup(skip2);
 		} else {
@@ -8020,9 +8042,11 @@ void ppc_opc_vcmpgtshx()
 		if (gCPU.vr[vrA].sh[i] > gCPU.vr[vrB].sh[i]) {
 			gCPU.vr[vrD].h[i] = 0xffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].h[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -8051,9 +8075,11 @@ void ppc_opc_vcmpgtuwx()
 		if (gCPU.vr[vrA].w[i] > gCPU.vr[vrB].w[i]) {
 			gCPU.vr[vrD].w[i] = 0xffffffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].w[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -8082,9 +8108,11 @@ void ppc_opc_vcmpgtswx()
 		if (gCPU.vr[vrA].sw[i] > gCPU.vr[vrB].sw[i]) {
 			gCPU.vr[vrD].w[i] = 0xffffffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].w[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -8113,9 +8141,11 @@ void ppc_opc_vcmpgtfpx()
 		if (gCPU.vr[vrA].f[i] > gCPU.vr[vrB].f[i]) {
 			gCPU.vr[vrD].w[i] = 0xffffffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].w[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -8144,9 +8174,11 @@ void ppc_opc_vcmpgefpx()
 		if (gCPU.vr[vrA].f[i] >= gCPU.vr[vrB].f[i]) {
 			gCPU.vr[vrD].w[i] = 0xffffffff;
 			tf &= ~CR_CR6_NE;
+			tf |= CR_CR6_EQ_SOME;
 		} else {
 			gCPU.vr[vrD].w[i] = 0;
 			tf &= ~CR_CR6_EQ;
+			tf |= CR_CR6_NE_SOME;
 		}
 	}
 
@@ -8192,4 +8224,3 @@ JITCFlow ppc_opc_gen_vcmpbfpx()
 	ppc_opc_gen_interpret(ppc_opc_vcmpbfpx);
 	return flowEndBlock;
 }
-
