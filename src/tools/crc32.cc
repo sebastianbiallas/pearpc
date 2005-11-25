@@ -1,283 +1,124 @@
-/* 
- * Oct 15, 2000 Matt Domsch <Matt_Domsch@dell.com>
- * Nicer crc32 functions/docs submitted by linux@horizon.com.  Thanks!
+/*
+ * Function for computing CRC32 for the purpose of adding to Ethernet packets.
  *
- * Oct 12, 2000 Matt Domsch <Matt_Domsch@dell.com>
- * Same crc32 function was used in 5 other places in the kernel.
- * I made one version, and deleted the others.
- * There are various incantations of crc32().  Some use a seed of 0 or ~0.
- * Some xor at the end with ~0.  The generic crc32() function takes
- * seed as an argument, and doesn't xor at the end.  Then individual
- * users can do whatever they need.
- *   drivers/net/smc9194.c uses seed ~0, doesn't xor with ~0.
- *   fs/jffs2 uses seed 0, doesn't xor with ~0.
- *   fs/partitions/efi.c uses seed ~0, xor's with ~0.
- * 
  */
-
-#include "system/types.h"
-typedef uint32 u32;
-typedef uint8 u8;
 
 #include "crc32.h"
 
-// FIXME: HACKED / host endianess
-//#define __LITTLE_ENDIAN
+static const uint32 crc32table[0x100] = {
+    0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL,
+    0x076dc419L, 0x706af48fL, 0xe963a535L, 0x9e6495a3L,
+    0x0edb8832L, 0x79dcb8a4L, 0xe0d5e91eL, 0x97d2d988L,
+    0x09b64c2bL, 0x7eb17cbdL, 0xe7b82d07L, 0x90bf1d91L,
+    0x1db71064L, 0x6ab020f2L, 0xf3b97148L, 0x84be41deL,
+    0x1adad47dL, 0x6ddde4ebL, 0xf4d4b551L, 0x83d385c7L,
+    0x136c9856L, 0x646ba8c0L, 0xfd62f97aL, 0x8a65c9ecL,
+    0x14015c4fL, 0x63066cd9L, 0xfa0f3d63L, 0x8d080df5L,
+    0x3b6e20c8L, 0x4c69105eL, 0xd56041e4L, 0xa2677172L,
+    0x3c03e4d1L, 0x4b04d447L, 0xd20d85fdL, 0xa50ab56bL,
+    0x35b5a8faL, 0x42b2986cL, 0xdbbbc9d6L, 0xacbcf940L,
+    0x32d86ce3L, 0x45df5c75L, 0xdcd60dcfL, 0xabd13d59L,
+    0x26d930acL, 0x51de003aL, 0xc8d75180L, 0xbfd06116L,
+    0x21b4f4b5L, 0x56b3c423L, 0xcfba9599L, 0xb8bda50fL,
+    0x2802b89eL, 0x5f058808L, 0xc60cd9b2L, 0xb10be924L,
+    0x2f6f7c87L, 0x58684c11L, 0xc1611dabL, 0xb6662d3dL,
+    0x76dc4190L, 0x01db7106L, 0x98d220bcL, 0xefd5102aL,
+    0x71b18589L, 0x06b6b51fL, 0x9fbfe4a5L, 0xe8b8d433L,
+    0x7807c9a2L, 0x0f00f934L, 0x9609a88eL, 0xe10e9818L,
+    0x7f6a0dbbL, 0x086d3d2dL, 0x91646c97L, 0xe6635c01L,
+    0x6b6b51f4L, 0x1c6c6162L, 0x856530d8L, 0xf262004eL,
+    0x6c0695edL, 0x1b01a57bL, 0x8208f4c1L, 0xf50fc457L,
+    0x65b0d9c6L, 0x12b7e950L, 0x8bbeb8eaL, 0xfcb9887cL,
+    0x62dd1ddfL, 0x15da2d49L, 0x8cd37cf3L, 0xfbd44c65L,
+    0x4db26158L, 0x3ab551ceL, 0xa3bc0074L, 0xd4bb30e2L,
+    0x4adfa541L, 0x3dd895d7L, 0xa4d1c46dL, 0xd3d6f4fbL,
+    0x4369e96aL, 0x346ed9fcL, 0xad678846L, 0xda60b8d0L,
+    0x44042d73L, 0x33031de5L, 0xaa0a4c5fL, 0xdd0d7cc9L,
+    0x5005713cL, 0x270241aaL, 0xbe0b1010L, 0xc90c2086L,
+    0x5768b525L, 0x206f85b3L, 0xb966d409L, 0xce61e49fL,
+    0x5edef90eL, 0x29d9c998L, 0xb0d09822L, 0xc7d7a8b4L,
+    0x59b33d17L, 0x2eb40d81L, 0xb7bd5c3bL, 0xc0ba6cadL,
+    0xedb88320L, 0x9abfb3b6L, 0x03b6e20cL, 0x74b1d29aL,
+    0xead54739L, 0x9dd277afL, 0x04db2615L, 0x73dc1683L,
+    0xe3630b12L, 0x94643b84L, 0x0d6d6a3eL, 0x7a6a5aa8L,
+    0xe40ecf0bL, 0x9309ff9dL, 0x0a00ae27L, 0x7d079eb1L,
+    0xf00f9344L, 0x8708a3d2L, 0x1e01f268L, 0x6906c2feL,
+    0xf762575dL, 0x806567cbL, 0x196c3671L, 0x6e6b06e7L,
+    0xfed41b76L, 0x89d32be0L, 0x10da7a5aL, 0x67dd4accL,
+    0xf9b9df6fL, 0x8ebeeff9L, 0x17b7be43L, 0x60b08ed5L,
+    0xd6d6a3e8L, 0xa1d1937eL, 0x38d8c2c4L, 0x4fdff252L,
+    0xd1bb67f1L, 0xa6bc5767L, 0x3fb506ddL, 0x48b2364bL,
+    0xd80d2bdaL, 0xaf0a1b4cL, 0x36034af6L, 0x41047a60L,
+    0xdf60efc3L, 0xa867df55L, 0x316e8eefL, 0x4669be79L,
+    0xcb61b38cL, 0xbc66831aL, 0x256fd2a0L, 0x5268e236L,
+    0xcc0c7795L, 0xbb0b4703L, 0x220216b9L, 0x5505262fL,
+    0xc5ba3bbeL, 0xb2bd0b28L, 0x2bb45a92L, 0x5cb36a04L,
+    0xc2d7ffa7L, 0xb5d0cf31L, 0x2cd99e8bL, 0x5bdeae1dL,
+    0x9b64c2b0L, 0xec63f226L, 0x756aa39cL, 0x026d930aL,
+    0x9c0906a9L, 0xeb0e363fL, 0x72076785L, 0x05005713L,
+    0x95bf4a82L, 0xe2b87a14L, 0x7bb12baeL, 0x0cb61b38L,
+    0x92d28e9bL, 0xe5d5be0dL, 0x7cdcefb7L, 0x0bdbdf21L,
+    0x86d3d2d4L, 0xf1d4e242L, 0x68ddb3f8L, 0x1fda836eL,
+    0x81be16cdL, 0xf6b9265bL, 0x6fb077e1L, 0x18b74777L,
+    0x88085ae6L, 0xff0f6a70L, 0x66063bcaL, 0x11010b5cL,
+    0x8f659effL, 0xf862ae69L, 0x616bffd3L, 0x166ccf45L,
+    0xa00ae278L, 0xd70dd2eeL, 0x4e048354L, 0x3903b3c2L,
+    0xa7672661L, 0xd06016f7L, 0x4969474dL, 0x3e6e77dbL,
+    0xaed16a4aL, 0xd9d65adcL, 0x40df0b66L, 0x37d83bf0L,
+    0xa9bcae53L, 0xdebb9ec5L, 0x47b2cf7fL, 0x30b5ffe9L,
+    0xbdbdf21cL, 0xcabac28aL, 0x53b39330L, 0x24b4a3a6L,
+    0xbad03605L, 0xcdd70693L, 0x54de5729L, 0x23d967bfL,
+    0xb3667a2eL, 0xc4614ab8L, 0x5d681b02L, 0x2a6f2b94L,
+    0xb40bbe37L, 0xc30c8ea1L, 0x5a05df1bL, 0x2d02ef8dL
+};
 
-#include "crc32defs.h"
-#if CRC_LE_BITS == 8
 
-// FIXME: host endianess
-#define tole(x) x
-//__constant_cpu_to_le32(x)
-
-// FIXME: host endianess
-#define tobe(x) 0
-//__constant_cpu_to_be32(x)
-#else
-#define tole(x) (x)
-#define tobe(x) (x)
-#endif
-
-// FIXME: host endianess
-#define __cpu_to_le32(x) (x)
-#define __le32_to_cpu(x) (x)
-#define __cpu_to_be32(x) (x)
-#define __be32_to_cpu(x) (x)
-
-#define likely(x) (x)
-#define unlikely(x) (x)
-
-#include "crc32table.h"
-
-#if __GNUC__ >= 3	/* 2.x has "attribute", but only 3.0 has "pure */
-#define attribute(x) __attribute__(x)
-#else
-#define attribute(x)
-#endif
+// The previous table could have been built using the following function :
 
 /*
- * This code is in the public domain; copyright abandoned.
- * Liability for non-performance of this code is limited to the amount
- * you paid for it.  Since it is distributed for free, your refund will
- * be very very small.  If it breaks, you get to keep both pieces.
- */
 
-#if CRC_LE_BITS == 1
-/*
- * In fact, the table-based code will work in this case, but it can be
- * simplified by inlining the table in ?: form.
- */
+#define CRC32_POLY 0xedb88320;          // this is a 0x04c11db7 reflection
 
-/**
- * crc32_le() - Calculate bitwise little-endian Ethernet AUTODIN II CRC32
- * @crc - seed value for computation.  ~0 for Ethernet, sometimes 0 for
- *        other uses, or the previous crc32 value if computing incrementally.
- * @p   - pointer to buffer over which CRC is run
- * @len - length of buffer @p
- * 
- */
-u32 attribute((pure)) crc32_le(u32 crc, unsigned char const *p, size_t len)
+void init_crc32()
 {
-	int i;
-	while (len--) {
-		crc ^= *p++;
-		for (i = 0; i < 8; i++)
-			crc = (crc >> 1) ^ ((crc & 1) ? CRCPOLY_LE : 0);
-	}
-	return crc;
-}
-#else				/* Table-based approach */
+    int i, j, b;
+    uint32 c;
 
-/**
- * crc32_le() - Calculate bitwise little-endian Ethernet AUTODIN II CRC32
- * @crc - seed value for computation.  ~0 for Ethernet, sometimes 0 for
- *        other uses, or the previous crc32 value if computing incrementally.
- * @p   - pointer to buffer over which CRC is run
- * @len - length of buffer @p
- * 
- */
-u32 attribute((pure)) crc32_le(u32 crc, unsigned char const *p, size_t len)
+    for (i = 0; i < 0x100; i++) {
+        for (c = i, j = 0; j < 8; j++) {
+            b = c & 1;
+            c >>= 1;
+            if (b)
+                c ^= CRC32_POLY;
+        }
+        crc32table[i] = c;
+    }
+}
+*/
+
+// With this macro defined, the function runs about 35% faster, but the code is about 3 times bigger :
+#define RUN_FASTER
+
+#define DO_CRC(b) crc = (crc >> 8) ^ crc32table[(*(byte*)&crc) ^ (b)]
+
+uint32 ether_crc(size_t len, const byte *p)
 {
-# if CRC_LE_BITS == 8
-	const u32      *b =(u32 *)p;
-	const u32      *tab = crc32table_le;
+    uint32  crc = 0xffffffff;   // preload shift register, per CRC-32 spec
 
-# ifdef __LITTLE_ENDIAN
-#  define DO_CRC(x) crc = tab[ (crc ^ (x)) & 255 ] ^ (crc>>8)
-# else
-#  define DO_CRC(x) crc = tab[ ((crc >> 24) ^ (x)) & 255] ^ (crc<<8)
-# endif
-
-	crc = __cpu_to_le32(crc);
-	/* Align it */
-	if(unlikely(((long)b)&3 && len)){
-		do {
-			u8 *p = (u8 *)b;
-			DO_CRC(*p++);
-			b = (const u32 *)p;
-		} while ((--len) && ((long)b)&3 );
-	}
-	if(likely(len >= 4)){
-		/* load data 32 bits wide, xor data 32 bits wide. */
-		size_t save_len = len & 3;
-	        len = len >> 2;
-		--b; /* use pre increment below(*++b) for speed */
-		do {
-			crc ^= *++b;
-			DO_CRC(0);
-			DO_CRC(0);
-			DO_CRC(0);
-			DO_CRC(0);
-		} while (--len);
-		b++; /* point to next byte(s) */
-		len = save_len;
-	}
-	/* And the last few bytes */
-	if(len){
-		do {
-			u8 *p = (u8 *)b;
-			DO_CRC(*p++);
-			b = (const u32 *)p;
-		} while (--len);
-	}
-
-	return __le32_to_cpu(crc);
-#undef ENDIAN_SHIFT
-#undef DO_CRC
-
-# elif CRC_LE_BITS == 4
-	while (len--) {
-		crc ^= *p++;
-		crc = (crc >> 4) ^ crc32table_le[crc & 15];
-		crc = (crc >> 4) ^ crc32table_le[crc & 15];
-	}
-	return crc;
-# elif CRC_LE_BITS == 2
-	while (len--) {
-		crc ^= *p++;
-		crc = (crc >> 2) ^ crc32table_le[crc & 3];
-		crc = (crc >> 2) ^ crc32table_le[crc & 3];
-		crc = (crc >> 2) ^ crc32table_le[crc & 3];
-		crc = (crc >> 2) ^ crc32table_le[crc & 3];
-	}
-	return crc;
-# endif
-}
+#ifdef RUN_FASTER
+    for (; (((uint32)p)&0x03)!=0 && len>0; len--)
+        DO_CRC(*p++);           // will execute if *p is not dword aligned
+    for (; len>=sizeof(uint32); p += sizeof(uint32), len -= sizeof(uint32)) {
+        uint32 data = *(uint32*)p;
+        DO_CRC(((byte *)&data)[0]);
+        DO_CRC(((byte *)&data)[1]);
+        DO_CRC(((byte *)&data)[2]);
+        DO_CRC(((byte *)&data)[3]);
+    }
 #endif
-
-#if CRC_BE_BITS == 1
-/*
- * In fact, the table-based code will work in this case, but it can be
- * simplified by inlining the table in ?: form.
- */
-
-/**
- * crc32_be() - Calculate bitwise big-endian Ethernet AUTODIN II CRC32
- * @crc - seed value for computation.  ~0 for Ethernet, sometimes 0 for
- *        other uses, or the previous crc32 value if computing incrementally.
- * @p   - pointer to buffer over which CRC is run
- * @len - length of buffer @p
- * 
- */
-u32 attribute((pure)) crc32_be(u32 crc, unsigned char const *p, size_t len)
-{
-	int i;
-	while (len--) {
-		crc ^= *p++ << 24;
-		for (i = 0; i < 8; i++)
-			crc =
-			    (crc << 1) ^ ((crc & 0x80000000) ? CRCPOLY_BE :
-					  0);
-	}
-	return crc;
-}
-
-#else				/* Table-based approach */
-/**
- * crc32_be() - Calculate bitwise big-endian Ethernet AUTODIN II CRC32
- * @crc - seed value for computation.  ~0 for Ethernet, sometimes 0 for
- *        other uses, or the previous crc32 value if computing incrementally.
- * @p   - pointer to buffer over which CRC is run
- * @len - length of buffer @p
- * 
- */
-u32 attribute((pure)) crc32_be(u32 crc, unsigned char const *p, size_t len)
-{
-# if CRC_BE_BITS == 8
-	const u32      *b =(u32 *)p;
-	const u32      *tab = crc32table_be;
-
-# ifdef __LITTLE_ENDIAN
-#  define DO_CRC(x) crc = tab[ (crc ^ (x)) & 255 ] ^ (crc>>8)
-# else
-#  define DO_CRC(x) crc = tab[ ((crc >> 24) ^ (x)) & 255] ^ (crc<<8)
-# endif
-
-	crc = __cpu_to_be32(crc);
-	/* Align it */
-	if(unlikely(((long)b)&3 && len)){
-		do {
-			u8 *p = (u8 *)b;
-			DO_CRC(*p++);
-			b = (u32 *)p;
-		} while ((--len) && ((long)b)&3 );
-	}
-	if(likely(len >= 4)){
-		/* load data 32 bits wide, xor data 32 bits wide. */
-		size_t save_len = len & 3;
-	        len = len >> 2;
-		--b; /* use pre increment below(*++b) for speed */
-		do {
-			crc ^= *++b;
-			DO_CRC(0);
-			DO_CRC(0);
-			DO_CRC(0);
-			DO_CRC(0);
-		} while (--len);
-		b++; /* point to next byte(s) */
-		len = save_len;
-	}
-	/* And the last few bytes */
-	if(len){
-		do {
-			u8 *p = (u8 *)b;
-			DO_CRC(*p++);
-			b = (const u32 *)p;
-		} while (--len);
-	}
-	return __be32_to_cpu(crc);
-#undef ENDIAN_SHIFT
-#undef DO_CRC
-
-# elif CRC_BE_BITS == 4
-	while (len--) {
-		crc ^= *p++ << 24;
-		crc = (crc << 4) ^ crc32table_be[crc >> 28];
-		crc = (crc << 4) ^ crc32table_be[crc >> 28];
-	}
-	return crc;
-# elif CRC_BE_BITS == 2
-	while (len--) {
-		crc ^= *p++ << 24;
-		crc = (crc << 2) ^ crc32table_be[crc >> 30];
-		crc = (crc << 2) ^ crc32table_be[crc >> 30];
-		crc = (crc << 2) ^ crc32table_be[crc >> 30];
-		crc = (crc << 2) ^ crc32table_be[crc >> 30];
-	}
-	return crc;
-# endif
-}
-#endif
-
-u32 bitreverse(u32 x)
-{
-	x = (x >> 16) | (x << 16);
-	x = (x >> 8 & 0x00ff00ff) | (x << 8 & 0xff00ff00);
-	x = (x >> 4 & 0x0f0f0f0f) | (x << 4 & 0xf0f0f0f0);
-	x = (x >> 2 & 0x33333333) | (x << 2 & 0xcccccccc);
-	x = (x >> 1 & 0x55555555) | (x << 1 & 0xaaaaaaaa);
-	return x;
+    for (; len>0; len--)
+        DO_CRC(*p++);
+    return ~crc;                // transmit complement, per CRC-32 spec
 }
 
 /*
@@ -325,8 +166,8 @@ u32 bitreverse(u32 x)
  *
  * A big-endian CRC written this way would be coded like:
  * for (i = 0; i < input_bits; i++) {
- * 	multiple = remainder & 0x80000000 ? CRCPOLY : 0;
- * 	remainder = (remainder << 1 | next_input_bit()) ^ multiple;
+ *  multiple = remainder & 0x80000000 ? CRCPOLY : 0;
+ *  remainder = (remainder << 1 | next_input_bit()) ^ multiple;
  * }
  * Notice how, to get at bit 32 of the shifted remainder, we look
  * at bit 31 of the remainder *before* shifting it.
@@ -345,14 +186,14 @@ u32 bitreverse(u32 x)
  * This changes the code to:
  * for (i = 0; i < input_bits; i++) {
  *      remainder ^= next_input_bit() << 31;
- * 	multiple = (remainder & 0x80000000) ? CRCPOLY : 0;
- * 	remainder = (remainder << 1) ^ multiple;
+ *  multiple = (remainder & 0x80000000) ? CRCPOLY : 0;
+ *  remainder = (remainder << 1) ^ multiple;
  * }
  * With this optimization, the little-endian code is simpler:
  * for (i = 0; i < input_bits; i++) {
  *      remainder ^= next_input_bit();
- * 	multiple = (remainder & 1) ? CRCPOLY : 0;
- * 	remainder = (remainder >> 1) ^ multiple;
+ *  multiple = (remainder & 1) ? CRCPOLY : 0;
+ *  remainder = (remainder >> 1) ^ multiple;
  * }
  *
  * Note that the other details of endianness have been hidden in CRCPOLY
@@ -362,19 +203,19 @@ u32 bitreverse(u32 x)
  * order, we can actually do the merging 8 or more bits at a time rather
  * than one bit at a time:
  * for (i = 0; i < input_bytes; i++) {
- * 	remainder ^= next_input_byte() << 24;
- * 	for (j = 0; j < 8; j++) {
- * 		multiple = (remainder & 0x80000000) ? CRCPOLY : 0;
- * 		remainder = (remainder << 1) ^ multiple;
- * 	}
+ *  remainder ^= next_input_byte() << 24;
+ *  for (j = 0; j < 8; j++) {
+ *      multiple = (remainder & 0x80000000) ? CRCPOLY : 0;
+ *      remainder = (remainder << 1) ^ multiple;
+ *  }
  * }
  * Or in little-endian:
  * for (i = 0; i < input_bytes; i++) {
- * 	remainder ^= next_input_byte();
- * 	for (j = 0; j < 8; j++) {
- * 		multiple = (remainder & 1) ? CRCPOLY : 0;
- * 		remainder = (remainder << 1) ^ multiple;
- * 	}
+ *  remainder ^= next_input_byte();
+ *  for (j = 0; j < 8; j++) {
+ *      multiple = (remainder & 1) ? CRCPOLY : 0;
+ *      remainder = (remainder >> 1) ^ multiple;
+ *  }
  * }
  * If the input is a multiple of 32 bits, you can even XOR in a 32-bit
  * word at a time and increase the inner loop count to 32.
@@ -388,7 +229,7 @@ u32 bitreverse(u32 x)
  * in the correct multiple to subtract, we can shift a byte at a time.
  * This produces a 40-bit (rather than a 33-bit) intermediate remainder,
  * but again the multiple of the polynomial to subtract depends only on
- * the high bits, the high 8 bits in this case.  
+ * the high bits, the high 8 bits in this case.
  *
  * The multile we need in that case is the low 32 bits of a 40-bit
  * value whose high 8 bits are given, and which is a multiple of the

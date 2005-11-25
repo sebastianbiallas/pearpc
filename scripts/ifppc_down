@@ -6,7 +6,7 @@
 
 . ./scripts/settings
 
-if [ $BRIDGE ]; then
+if [ $BRIDGE == 1 ]; then
 	rm $PPC_INTERFACE.active
 	brctl delif $BRIDGE_INTERFACE $PPC_INTERFACE
 	if [ `ls -l *.active | wc -l` == 0 ]; then
@@ -17,5 +17,5 @@ if [ $BRIDGE ]; then
 		route add -net default gw $HOST_DEFAULT_ROUTER
 	fi
 else
-/sbin/ifconfig $PPC_INTERFACE down
+	/sbin/ifconfig $PPC_INTERFACE down
 fi
