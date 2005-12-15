@@ -45,6 +45,7 @@ NVRAM gNVRAM;
 
 void nvram_write(uint32 addr, uint32 data, int size)
 {
+	uint8 d = (uint8) data;
 	addr -= IO_NVRAM_PA_START;
 	IO_NVRAM_TRACE("write(%d): %08x at %08x (from @%08x, lr: %08x)\n", size, data, addr, gCPU.pc, gCPU.lr);
 	if (addr & 0xf) IO_NVRAM_ERR("address not aligned\n");
@@ -52,12 +53,13 @@ void nvram_write(uint32 addr, uint32 data, int size)
 	if (addr >= NVRAM_IMAGE_SIZE) IO_NVRAM_ERR("out of bounds\n");
 	if (size != 1) IO_NVRAM_ERR("only supports byte writes\n");
 	fseek(gNVRAM.f, addr, SEEK_SET);
-	fwrite(&data, 1, 1, gNVRAM.f);
+	fwrite(&d, 1, 1, gNVRAM.f);
 	fflush(gNVRAM.f);
 }
 
 void nvram_read(uint32 addr, uint32 &data, int size)
 {
+	uint8 d = 0;
 	addr -= IO_NVRAM_PA_START;
 	IO_NVRAM_TRACE("read(%d): at %08x (from @%08x, lr: %08x)\n", size, addr, gCPU.pc, gCPU.lr);
 	if (addr & 0xf) IO_NVRAM_ERR("address not aligned\n");
@@ -65,8 +67,8 @@ void nvram_read(uint32 addr, uint32 &data, int size)
 	if (addr >= NVRAM_IMAGE_SIZE) IO_NVRAM_ERR("out of bounds\n");
 	if (size != 1) IO_NVRAM_ERR("only supports byte reads\n");
 	fseek(gNVRAM.f, addr, SEEK_SET);
-	data = 0;
-	fread(&data, 1, 1, gNVRAM.f);
+	fread(&d, 1, 1, gNVRAM.f);
+	data = d;
 }
 
 static uint8 calcChksum(byte *buf)
