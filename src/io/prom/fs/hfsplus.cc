@@ -437,10 +437,40 @@ HFSPlusFileSystem::~HFSPlusFileSystem()
 
 File *HFSPlusFileSystem::open(const String &filename)
 {
-/*	hfsfile *f = hfs_open((hfsvol*)hfshandle, filename.contentChar());
-	if (!f) return NULL;
-	return new HFSPlusFile(f, this, false);*/
-	return NULL;
+volume *vol = (volume*)hfsplushandle;
+
+record dir;
+record file;
+record_init_root(&dir, &vol->catalog);
+
+IO_PROM_FS_TRACE("opening %s\n", filename.toString());
+
+char *path = filename.toString();
+char buffer[128];
+if(*path == '/')
+	path++;
+    
+char *lastPart = path;
+
+while(1) {
+	while(*path && *path != '/')
+		path++;
+
+	strncpy(buffer, lastPart, path-lastPart);
+	buffer[path-lastPart] = 0;
+
+	if (record_init_string_parent(&file, &dir, buffer) == -1)
+		return NULL;
+	dir = file;
+      
+	if (!*path)
+		break;
+      
+	path++;
+	lastPart = path;
+}
+    
+return new HFSPlusFile(vol, file.record.u.file, this, true);
 }
 
 // WARNING: on success this will bind this filesystem to the file (mOwnFS)
