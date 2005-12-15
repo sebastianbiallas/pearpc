@@ -109,7 +109,7 @@ void SDLSystemDisplay::updateTitle()
 	SystemKeyboard::convertKeycodeToString(key, key_toggle_mouse_grab);
 	String curTitle;
 	curTitle.assignFormat("%s - [%s %s mouse]", mTitle, key.contentChar(), (isMouseGrabbed() ? "disables" : "enables"));
-	SDL_WM_SetCaption(curTitle, NULL);
+	SDL_WM_SetCaption(curTitle.contentChar(), NULL);
 }
 
 int SDLSystemDisplay::toString(char *buf, int buflen) const
