@@ -40,14 +40,14 @@ int hfsp_os_same(void **priv, const char *path);
 /** Offset that is silently used by os_seek.
  *  Needed to transparaently support things like partitions */
 /*extern APPLEUInt64 os_offset;*/
-unsigned long hfsp_get_offset(void **priv);
-void hfsp_set_offset(void **priv, unsigned long ofs);
+uint64 hfsp_get_offset(void **priv);
+void hfsp_set_offset(void **priv, uint64 ofs);
 
 /*
  * NAME:	os->seek()
  * DESCRIPTION:	set a descriptor's seek pointer (offset in blocks)
  */
-unsigned long hfsp_os_seek(void **priv, unsigned long offset, int blksize_bits);
+uint64 hfsp_os_seek(void **priv, uint64 offset, int blksize_bits);
 
 /*
  * NAME:	os->read()

@@ -64,13 +64,13 @@ extern "C" {
 /** Offset that is silently used by os_seek.
  *  Nedded to transparaently support things like partitions */
 /*APPLEUInt64 os_offset;*/
-extern "C" unsigned long hfsp_get_offset(void **priv)
+extern "C" uint64 hfsp_get_offset(void **priv)
 {
 	hfsplus_devicehandle_s *dh = (hfsplus_devicehandle_s *)*priv;
 	return dh->mStart;
 }
 
-extern "C" void hfsp_set_offset(void **priv, unsigned long ofs)
+extern "C" void hfsp_set_offset(void **priv, uint64 ofs)
 {
 	hfsplus_devicehandle_s *dh = (hfsplus_devicehandle_s *)*priv;
 	dh->mStart = ofs;
@@ -205,17 +205,17 @@ unsigned long os_seek(void **priv, unsigned long offset, int blksize_bits)
 }
 #endif
 
-extern "C" unsigned long hfsp_os_seek(void **priv, unsigned long offset, int blksize_bits)
+extern "C" uint64 hfsp_os_seek(void **priv, uint64 offset, int blksize_bits)
 {
 	hfsplus_devicehandle_s *dh = (hfsplus_devicehandle_s *)*priv;
 	try {
 		FileOfs s = dh->mStart + (offset << blksize_bits);
 		dh->mDevice->seek(s);
 	} catch (const IOException &x) {
-		return (unsigned long)-1;
+		return (uint64)-1;
 	}
 //	FileOfs t = dh->mDevice->tell();
-	long result = (dh->mDevice->tell() - dh->mStart) >> blksize_bits;
+	uint64 result = (dh->mDevice->tell() - dh->mStart) >> blksize_bits;
 	return result;
 }
 
