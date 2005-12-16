@@ -28,8 +28,7 @@ ppc_start_full_screen = 0
 ##
 ## If you set this higher, PearPC will spend less time doing redraws 
 ## (and so run faster) but feel less responsive. You should adjust 
-## this to your computer speed and personal
-## preference.
+## this to your computer speed and personal preference.
 ##
 
 redraw_interval_msec = 40
@@ -53,7 +52,8 @@ key_toggle_full_screen = "Alt+Return"
 ##	  this can be
 ##	  1. "auto", prom will boot the first bootable partition found (default)
 ##	  2. "select", prom will show you a list of bootable partitions
-##	  3. "force", prom will load and boot the local file prom_loadfile
+##	  3. "force" [ADVANCED USERS ONLY], prom will load and boot the 
+##           local file prom_loadfile
 ##
 
 prom_bootmethod = "auto"
