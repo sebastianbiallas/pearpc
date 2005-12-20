@@ -426,10 +426,7 @@ int main(int argc, char *argv[])
 
 		io_done();
 
-	} catch (std::exception *e) {
-		ht_printf("main() caught exception: %s\n", e->what());
-		return 1;
-	} catch (std::exception &e) {
+	} catch (const std::exception &e) {
 		ht_printf("main() caught exception: %s\n", e.what());
 		return 1;
 	} catch (const Exception &e) {

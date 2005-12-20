@@ -406,7 +406,7 @@ static int btree_init(btree* bt, volume* vol, hfsp_fork_raw* fork)
     }
 
     /*** for debugging ***/ 
-    // bt->attributes |= BTREE_HEADDIRTY;
+    bt->attributes = 0;
 
     if (node_cache_init(&bt->cache, bt, bt->head.depth + EXTRA_CACHESIZE))
 	return -1;
