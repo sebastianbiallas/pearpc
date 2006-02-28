@@ -1,7 +1,10 @@
  PearPC ChangeLog
 ==================
 
-version 0.4pre (not yet released):
+version 0.5pre (not yet released):
+	- slightly better code for lmw/stmw opcodes
+
+version 0.4 (released 20. December 2005):
 	- CPU: stfiwx implemented
 	- config: "ppc_start_fullscreen" for starting in fullscreen mode
 	- POSIX: allow bridging of tun device

@@ -2083,12 +2083,18 @@ JITCFlow ppc_opc_gen_lmw()
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, rD, rA, imm);
-	while (rD <= 31) {
+	while (rD <= 30) {
+		ppc_opc_gen_helper_l(PPC_GPR(rA), imm);
+		asmCALL((NativeAddress)ppc_read_effective_dword_asm);
+		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | ECX);
+		jitcMapClientRegisterDirty(PPC_GPR(rD+1), NATIVE_REG | EDX);
+		rD += 2;
+		imm += 8;
+         }
+	if (rD == 31) {
 		ppc_opc_gen_helper_l(PPC_GPR(rA), imm);
 		asmCALL((NativeAddress)ppc_read_effective_word_asm);
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
-		rD++;
-		imm += 4;
 	}
 	return flowContinue;
 }
@@ -3530,11 +3536,16 @@ JITCFlow ppc_opc_gen_stmw()
 	int rS, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(gJITC.current_opc, rS, rA, imm);
-	while (rS <= 31) {
+        while (rS <= 30) {
+                ppc_opc_gen_helper_st(PPC_GPR(rA), imm, PPC_GPR(rS+1));
+                jitcGetClientRegister(PPC_GPR(rS), NATIVE_REG | ECX);
+                asmCALL((NativeAddress)ppc_write_effective_dword_asm);
+                rS += 2;
+                imm += 8;
+        } 
+	if (rS == 31) {
 		ppc_opc_gen_helper_st(PPC_GPR(rA), imm, PPC_GPR(rS));
 		asmCALL((NativeAddress)ppc_write_effective_word_asm);
-		rS++;
-		imm += 4;
 	}
 	return flowEndBlock;
 }
