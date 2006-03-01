@@ -59,8 +59,6 @@ AM_CONFIG_HEADER(config.h)
 
 dnl Check OS specifica
 
-NASM_OPTS="-f elf"
-
 case "$target_os" in
 linux* | gnu* | k*bsd*-gnu)
 	OSAPI_DIR=posix
@@ -87,7 +85,6 @@ cygwin*)
 	PPC_CFLAGS="$PPC_CFLAGS -mno-cygwin"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -mno-cygwin"
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
-	NASM_OPTS="--prefix _ -f gnuwin32"
 	PPC_CCASFLAGS="-DPREFIX=_"
 ;;
 mingw32*)
@@ -97,7 +94,6 @@ mingw32*)
 	fi
 	AC_MSG_RESULT([*** MinGW, building native Win32 version])
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
-        NASM_OPTS="--prefix _ -f win32"
 	PPC_CCASFLAGS="-DPREFIX=_"
 ;;
 darwin*)
@@ -106,7 +102,6 @@ darwin*)
 		enable_ui="x11"
 	fi
 	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
-        NASM_OPTS="--prefix _ -f macho"
 	PPC_CCASFLAGS="-DPREFIX=_"
 ;;
 beos*)
@@ -243,20 +238,6 @@ no*)
 ;;
 esac
 dnl /non-sense
-
-NASM_OPTS="-O99 $NASM_OPTS"
-
-if test "x$CPU_DIR" = "xcpu_jitc_x86" -o "x$ARCH_DIR" = "x86"; then
-	AC_PATH_PROG(NASM, yasm)
-	if test -z "$NASM"; then
-		AC_PATH_PROG(NASM2, nasm)
-		if test -z "$NASM2"; then
-			AC_MSG_ERROR([*** 'yasm' and 'nasm' missing, please install either one or fix your \$PATH ***])
-		fi
-		AC_MSG_RESULT([*** 'yasm' is preferred to 'nasm' ***])
-		NASM = "$NASM2"
-	fi
-fi
 
 if test -z "$AR"; then
 	AC_MSG_ERROR([*** 'ar' and 'gar' missing, please install one of them or fix your \$PATH ***])
@@ -452,7 +433,6 @@ AC_SUBST(ARCH_DIR)
 AC_SUBST(CPU_DIR)
 AC_SUBST(UI_DIR)
 AC_SUBST(OSAPI_DIR)
-AC_SUBST(NASM_OPTS)
 AC_SUBST(CFLAGS)
 AC_SUBST(CXXFLAGS)
 AC_SUBST(PPC_LDADD)

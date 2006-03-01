@@ -34,17 +34,27 @@
 
 .text
 
-.balign 8
+.balign 16
 d1:	.long 0x00ff00ff
 	.long 0x00ff00ff
+	.long 0x00ff00ff
+	.long 0x00ff00ff
 d2:	.long 0xff00ff00
+	.long 0xff00ff00
+	.long 0xff00ff00
 	.long 0xff00ff00
 
 _2be555_mask_r:	.long	0x7c007c00
 		.long	0x7c007c00
+		.long	0x7c007c00
+		.long	0x7c007c00
 _2be555_mask_g:	.long	0x03e003e0
 		.long	0x03e003e0
+		.long	0x03e003e0
+		.long	0x03e003e0
 _2be555_mask_b:	.long	0x001f001f
+		.long	0x001f001f
+		.long	0x001f001f
 		.long	0x001f001f
 
 .balign 16
@@ -54,7 +64,7 @@ _2be555_mask_b:	.long	0x001f001f
 ##	    %edx -- input
 ##          %ecx -- output
 
-EXPORT(x86_convert_2be555_to_2le555):
+EXPORT(x86_mmx_convert_2be555_to_2le555):
 	add		%eax, 7
 	shr		%eax, 3		# we can convert 8 pixels at a time
 	movq		%mm5, [d1]
@@ -96,7 +106,7 @@ EXPORT(x86_convert_2be555_to_2le555):
 ##	    %edx -- input
 ##          %ecx -- output
 
-EXPORT(x86_convert_2be555_to_2le565):
+EXPORT(x86_mmx_convert_2be555_to_2le565):
 	add		%eax, 7
 	shr		%eax, 3		# we can convert 8 pixels at a time
 	movq		%mm0, [d1]
@@ -157,7 +167,7 @@ EXPORT(x86_convert_2be555_to_2le565):
 ##	    %edx -- input
 ##          %ecx -- output
 
-EXPORT(x86_convert_2be555_to_4le888):
+EXPORT(x86_mmx_convert_2be555_to_4le888):
 	add		%eax, 3
 	shr		%eax, 2		# we can convert 4 pixels at a time
 	movq		%mm7, [d1]
@@ -252,3 +262,162 @@ EXPORT(x86_convert_4be888_to_4le888):
 	pop		%ebx
 2:
 	ret
+
+.balign 16
+#################################################################################
+##
+##	IN: eax -- number of pixels to convert
+##	    %edx -- input
+##          %ecx -- output
+
+EXPORT(x86_sse2_convert_2be555_to_2le555):
+	add		%eax, 15
+	shr		%eax, 4		# we can convert 16 pixels at a time
+	movaps		%xmm5, [d1]
+	movaps		%xmm6, [d2]
+	jz		2f
+1:
+	movaps		%xmm1, [%edx]
+	movaps		%xmm3, [%edx+16]
+
+	## convert big to little endian
+	movaps		%xmm2, %xmm1
+	movaps		%xmm4, %xmm3
+	andps		%xmm1, %xmm5
+	andps		%xmm2, %xmm6
+	andps		%xmm3, %xmm5
+	andps		%xmm4, %xmm6
+	psllw		%xmm1, 8
+	psrlw		%xmm2, 8
+	psllw		%xmm3, 8
+	psrlw		%xmm4, 8
+	orps		%xmm1, %xmm2
+	orps		%xmm3, %xmm4
+
+	movaps		[%ecx], %xmm1
+	movaps		[%ecx+16], %xmm3
+	add		%edx, 32
+	add		%ecx, 32
+	dec		%eax
+	jnz		1b
+
+2:
+	ret
+
+.balign 16
+#################################################################################
+##
+##	IN: %eax -- number of pixels to convert
+##	    %edx -- input
+##          %ecx -- output
+
+EXPORT(x86_sse2_convert_2be555_to_2le565):
+	add		%eax, 15
+	shr		%eax, 4		# we can convert 16 pixels at a time
+	movaps		%xmm0, [d1]
+	movaps		%xmm7, [d2]
+	jz		2f
+1:
+	movaps		%xmm1, [%edx]
+	movaps		%xmm3, [%edx+16]
+	## convert big to little endian
+	movaps		%xmm2, %xmm1
+	movaps		%xmm4, %xmm3
+	andps		%xmm1, %xmm0
+	andps		%xmm2, %xmm7
+	andps		%xmm3, %xmm0
+	andps		%xmm4, %xmm7
+	psllw		%xmm1, 8
+	psrlw		%xmm2, 8
+	psllw		%xmm3, 8
+	psrlw		%xmm4, 8
+	orps		%xmm1, %xmm2
+	orps		%xmm4, %xmm3
+
+	movaps		%xmm2, %xmm1
+	movaps		%xmm3, %xmm1
+	movaps		%xmm5, %xmm4
+	movaps		%xmm6, %xmm4
+	andps		%xmm1, [_2be555_mask_r]
+	andps		%xmm2, [_2be555_mask_g]
+	andps		%xmm3, [_2be555_mask_b]
+	andps		%xmm4, [_2be555_mask_r]
+	andps		%xmm5, [_2be555_mask_g]
+	andps		%xmm6, [_2be555_mask_b]
+	psllw		%xmm1, 1		# red
+	psllw		%xmm2, 1		# green
+#	psllw		%xmm3, 0		# blue
+	psllw		%xmm4, 1		# red
+	psllw		%xmm5, 1		# green
+#	psllw		%xmm6, 0		# blue
+	orps		%xmm1, %xmm2
+	orps		%xmm4, %xmm5
+	orps		%xmm1, %xmm3
+	orps		%xmm4, %xmm6
+	movaps		[%ecx], %xmm1
+	movaps		[%ecx+16], %xmm4
+	add		%edx, 32
+	add		%ecx, 32
+	dec		%eax
+	jnz		1b
+2:
+	ret
+
+.balign 16
+#################################################################################
+##
+##	IN: %eax -- number of pixels to convert
+##	    %edx -- input
+##          %ecx -- output
+
+EXPORT(x86_sse2_convert_2be555_to_4le888):
+	add		%eax, 3
+	shr		%eax, 3		# we can convert 8 pixels at a time
+	movaps		%xmm7, [d1]
+	jz		2f
+
+	xorps		%xmm0, %xmm0
+1:
+	movaps		%xmm1, [%edx]
+
+	## convert big to little endian
+	movaps		%xmm3, %xmm1
+	andps		%xmm1, %xmm7
+	andps		%xmm3, [d2]
+	psllw		%xmm1, 8
+	psrlw		%xmm3, 8
+	orps		%xmm1, %xmm3
+
+	movaps		%xmm2, %xmm1
+	movaps		%xmm3, %xmm1
+	andps		%xmm1, [_2be555_mask_r]
+	andps		%xmm2, [_2be555_mask_g]
+	andps		%xmm3, [_2be555_mask_b]
+	movaps		%xmm4, %xmm1
+	movaps		%xmm5, %xmm2
+	movaps		%xmm6, %xmm3
+	punpcklwd	%xmm1, %xmm0
+	punpcklwd	%xmm2, %xmm0
+	punpcklwd	%xmm3, %xmm0
+	punpckhwd	%xmm4, %xmm0
+	punpckhwd	%xmm5, %xmm0
+	punpckhwd	%xmm6, %xmm0
+	pslld		%xmm1, 16-10+3	# red
+	pslld		%xmm2, 8-5+3	# green
+	pslld		%xmm3, 0+3	# blue
+	pslld		%xmm4, 16-10+3	# red
+	pslld		%xmm5, 8-5+3	# green
+	pslld		%xmm6, 0+3	# blue
+	orps		%xmm1, %xmm2
+	orps		%xmm1, %xmm3
+	orps		%xmm4, %xmm5
+	orps		%xmm4, %xmm6
+	movaps		[%ecx], %xmm1
+	movaps		[%ecx+16], %xmm4
+	add		%edx, 16
+	add		%ecx, 32
+	dec		%eax
+	jnz		1b
+2:
+	ret
+

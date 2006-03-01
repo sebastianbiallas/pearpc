@@ -22,9 +22,12 @@
 
 #include "tools/snprintf.h"
 
-extern "C" void __attribute__((regparm (3))) x86_convert_2be555_to_2le555(uint32 pixel, byte *input, byte *output);
-extern "C" void __attribute__((regparm (3))) x86_convert_2be555_to_2le565(uint32 pixel, byte *input, byte *output);
-extern "C" void __attribute__((regparm (3))) x86_convert_2be555_to_4le888(uint32 pixel, byte *input, byte *output);
+extern "C" void __attribute__((regparm (3))) x86_mmx_convert_2be555_to_2le555(uint32 pixel, byte *input, byte *output);
+extern "C" void __attribute__((regparm (3))) x86_mmx_convert_2be555_to_2le565(uint32 pixel, byte *input, byte *output);
+extern "C" void __attribute__((regparm (3))) x86_mmx_convert_2be555_to_4le888(uint32 pixel, byte *input, byte *output);
+extern "C" void __attribute__((regparm (3))) x86_sse2_convert_2be555_to_2le555(uint32 pixel, byte *input, byte *output);
+extern "C" void __attribute__((regparm (3))) x86_sse2_convert_2be555_to_2le565(uint32 pixel, byte *input, byte *output);
+extern "C" void __attribute__((regparm (3))) x86_sse2_convert_2be555_to_4le888(uint32 pixel, byte *input, byte *output);
 extern "C" void __attribute__((regparm (3))) x86_convert_4be888_to_4le888(uint32 pixel, byte *input, byte *output);
 
 static inline void convertBaseColor(uint &b, uint fromBits, uint toBits)
@@ -105,14 +108,14 @@ void sys_convert_display(
 	uint32 pixel = (lastLine-firstLine+1) * aSrcChar.width;
 	if (aSrcChar.bytesPerPixel == 2 && aDestChar.bytesPerPixel == 2) {
 		if (aDestChar.redSize == 5 && aDestChar.greenSize == 6 && aDestChar.blueSize == 5) {
-			x86_convert_2be555_to_2le565(pixel, src, dest);
+			x86_mmx_convert_2be555_to_2le565(pixel, src, dest);
 		} else if (aDestChar.redSize == 5 && aDestChar.greenSize == 5 && aDestChar.blueSize == 5) {
-			x86_convert_2be555_to_2le555(pixel, src, dest);
+			x86_mmx_convert_2be555_to_2le555(pixel, src, dest);
 		} else {
 			genericConvertDisplay(aSrcChar, aDestChar, aSrcBuf, aDestBuf, firstLine, lastLine);
 		}
 	} else if (aSrcChar.bytesPerPixel == 2 && aDestChar.bytesPerPixel == 4) {
-		x86_convert_2be555_to_4le888(pixel, src, dest);
+		x86_mmx_convert_2be555_to_4le888(pixel, src, dest);
 	} else if (aSrcChar.bytesPerPixel == 4 && aDestChar.bytesPerPixel == 4) {
 		x86_convert_4be888_to_4le888(pixel, src, dest);
 	} else {

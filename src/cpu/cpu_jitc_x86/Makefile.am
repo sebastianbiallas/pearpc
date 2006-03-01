@@ -11,6 +11,3 @@ ppc_vec.h ppc_vec.cc ppc_tools.h jitc.cc jitc.h jitc_debug.cc jitc_debug.h \
 jitc_types.h jitc_mmu.S jitc_tools.S x86asm.cc x86asm.h jitc_asm.h
 
 INCLUDES = -I ../..
-
-.asm.o:
-	@NASM@ @NASM_OPTS@ -o $@ -- $<

@@ -1,3 +1,8 @@
+- set_msr0
+EXPORT(ppc_opc_icbi_asm):
+	add	%eax, 1			# FIXME: WTF???
+
+
 - why do 2.6 Linux-kernels not display console?
 - OpenBSD doesn't start. why?
 - NetBSD doesn't start. why?
