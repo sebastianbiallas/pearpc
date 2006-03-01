@@ -229,8 +229,8 @@ ppc_pte_protection:
 ##############################################################################################
 ##		bat_lookup
 #define bat_lookup(di, n, rw, datacode)                                        \
-	mov	%edx, [gCPU(di##bat_bl17 + n*4)];                              \
-	mov	%ecx, %edx;                                                    \
+	mov	%ecx, [gCPU(di##bat_bl17 + n*4)];                              \
+	mov	%edx, %ecx;                                                    \
 	or	%ecx, 0xf001ffff;                                              \
 	and	%ecx, %eax;                                                    \
 	mov	%ebx, [gCPU(di##batu + n*4)];                                  \
@@ -239,8 +239,11 @@ ppc_pte_protection:
 	cmp	%ebx, %ecx;                                                    \
 	jne	3f;                                                            \
 	                                                                       \
-	mov	%ebx, [gCPU(di##batu + n*4)];                                  \
-	test	%ebx, %ebp;	        /* BATU_Vp  / BATU_Vs */               \
+	bt	dword ptr [gCPU(msr)], 14;                                     \
+	mov	%ebp, 2;                                                       \
+	sbb	%ebp, 0;	        /* BATU_Vp  / BATU_Vs */               \
+	                                                                       \
+	test	[gCPU(di##batu + n*4)], %ebp;                                  \
 	jz	3f;                                                            \
 	                                                                       \
 	mov	%ecx, %eax;                                                    \
@@ -273,30 +276,32 @@ ppc_pte_protection:
 ##	param1: PTE1_H or 0
 ##	param2: 0 for read, 8 for write
 ##	param3: data / code
-#define pg_table_lookup(n, rw, datacode)                                       \
-	read_physical_word_pg %ebx, %ecx;                                      \
+##	param4: pt offset
+#define pg_table_lookup(n, rw, datacode, offset)                               \
+	read_physical_word_pg %ebx+offset, %eax;                               \
 	/* %ecx = pte1 */                                                      \
 	                                                                       \
-	mov	%eax, %ecx;                                                    \
+	mov	%ecx, %eax;                                                    \
 	and	%eax, (1<<6) | (1<<31);  	/* (PTE1_V | PTE1_H) */        \
 	cmp	%eax, (n) | (1<<31);                                           \
 	jne	1f;                                                            \
 	                                                                       \
 	mov	%eax, %ecx;                                                    \
-	shr	%eax, 7;                                                       \
-	and	%eax, 0xffffff; /* VSID */                                     \
-	cmp	%eax, %ebp;                                                    \
+	shr	%ecx, 7;                                                       \
+	and	%ecx, 0xffffff; /* VSID */                                     \
+	cmp	%ecx, %ebp;                                                    \
 	jne	1f;                                                            \
 	                                                                       \
-	and	%ecx, 0x3f;     /* API */                                      \
-	cmp	%ecx, %edi;                                                    \
+	and	%eax, 0x3f;     /* API */                                      \
+	cmp	%eax, %edi;                                                    \
 	jne	1f;                                                            \
 	                                                                       \
 	/* page found */                                                       \
 	                                                                       \
-	read_physical_word_pg %ebx+4, %esi;                                    \
+	read_physical_word_pg %ebx+4+offset, %esi;                             \
 	/* # %esi = pte2; */                                                   \
 	                                                                       \
+	/* FIXME: use bt trick? */                                             \
 	test	dword ptr [gCPU(msr)], (1<<14); /* MSR_PR */                   \
 	mov	%eax, (1<<29);	/* SR_Kp */                                    \
 	setz	%cl;                                                           \
@@ -325,7 +330,7 @@ ppc_pte_protection:
 .endif;                                                                        \
 	bswap	%edx;                                                          \
 	add	%ebx, [EXTERN(gMemory)];                                       \
-	mov	[%ebx+4], %edx;                                                  \
+	mov	[%ebx+4+offset], %edx;                                         \
 	                                                                       \
 	and	%esi, 0xfffff000;                                              \
 /** TLB-Code */                                                                \
@@ -342,9 +347,7 @@ ppc_pte_protection:
 	and	%eax, 0x00000fff;                                              \
 	or	%eax, %esi;                                                    \
 	ret	4;                                                             \
-1:                                                                             \
-	/* advance to next pteg entry */                                       \
-	add	%ebx, 8;
+1:
 
 ##############################################################################################
 ##	protection_fault_%2_%3
@@ -417,12 +420,6 @@ EXPORT(ppc_effective_to_physical_code):
 	test	byte ptr [gCPU(msr)], (1<<5)	# MSR_IR
 	jz	ppc_effective_to_physical_code_ret
 
-	mov	%ecx, [gCPU(msr)]
-	mov	%ebp, 2	
-	shr	%ecx, 14		/* MSR_PR */
-	and	%ecx, 1
-	sub	%ebp, %ecx		/* BATU_Vp/BATU_Vs Mask */
-
 	bat_lookup(i, 0, 0, code)
 	bat_lookup(i, 1, 0, code)
 	bat_lookup(i, 2, 0, code)
@@ -465,14 +462,14 @@ EXPORT(ppc_effective_to_physical_code):
 	
 	# %ebx = pteg_addr
 	
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
-	pg_table_lookup(0, 0, code)
+	pg_table_lookup(0, 0, code, 0)
+	pg_table_lookup(0, 0, code, 8)
+	pg_table_lookup(0, 0, code, 16)
+	pg_table_lookup(0, 0, code, 24)
+	pg_table_lookup(0, 0, code, 32)
+	pg_table_lookup(0, 0, code, 40)
+	pg_table_lookup(0, 0, code, 48)
+	pg_table_lookup(0, 0, code, 56)
 	
 	# hash function number 2
 	pop	%ebx
@@ -481,14 +478,14 @@ EXPORT(ppc_effective_to_physical_code):
 	shl	%ebx, 6
 	or	%ebx, [gCPU(pagetable_base)]
 
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
-	pg_table_lookup(1<<6, 0, code)
+	pg_table_lookup(1<<6, 0, code, 0)
+	pg_table_lookup(1<<6, 0, code, 8)
+	pg_table_lookup(1<<6, 0, code, 16)
+	pg_table_lookup(1<<6, 0, code, 24)
+	pg_table_lookup(1<<6, 0, code, 32)
+	pg_table_lookup(1<<6, 0, code, 40)
+	pg_table_lookup(1<<6, 0, code, 48)
+	pg_table_lookup(1<<6, 0, code, 56)
 
 	# page lookup failed --> throw exception
 	
@@ -533,12 +530,6 @@ ppc_effective_to_physical_data_read:
 	test	byte ptr [gCPU(msr)], (1<<4)	# MSR_DR
 	jz	ppc_effective_to_physical_data_read_ret
 	                        
-	mov	%ecx, [gCPU(msr)]
-	mov	%ebp, 2	
-	shr	%ecx, 14		/* MSR_PR */
-	and	%ecx, 1
-	sub	%ebp, %ecx		/* BATU_Vp/BATU_Vs Mask */
-
 	bat_lookup(d, 0, 0, data)
 	bat_lookup(d, 1, 0, data)
 	bat_lookup(d, 2, 0, data)
@@ -578,14 +569,14 @@ ppc_effective_to_physical_data_read:
 	
 	# %ebx = pteg_addr
 	
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
-	pg_table_lookup(0, 0, data)
+	pg_table_lookup(0, 0, data, 0)
+	pg_table_lookup(0, 0, data, 8)
+	pg_table_lookup(0, 0, data, 16)
+	pg_table_lookup(0, 0, data, 24)
+	pg_table_lookup(0, 0, data, 32)
+	pg_table_lookup(0, 0, data, 40)
+	pg_table_lookup(0, 0, data, 48)
+	pg_table_lookup(0, 0, data, 56)
 	
 	# hash function number 2
 	pop	%ebx
@@ -594,14 +585,14 @@ ppc_effective_to_physical_data_read:
 	shl	%ebx, 6
 	or	%ebx, [gCPU(pagetable_base)]
 
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
-	pg_table_lookup(1<<6, 0, data)
+	pg_table_lookup(1<<6, 0, data, 0)
+	pg_table_lookup(1<<6, 0, data, 8)
+	pg_table_lookup(1<<6, 0, data, 16)
+	pg_table_lookup(1<<6, 0, data, 24)
+	pg_table_lookup(1<<6, 0, data, 32)
+	pg_table_lookup(1<<6, 0, data, 40)
+	pg_table_lookup(1<<6, 0, data, 48)
+	pg_table_lookup(1<<6, 0, data, 56)
 
 	# page lookup failed --> throw exception
 	
@@ -638,27 +629,21 @@ ppc_effective_to_physical_data_write:
 	test	byte ptr [gCPU(msr)], (1<<4)	# MSR_DR
 	jz	ppc_effective_to_physical_data_write_ret
 	
-	mov	%ecx, [gCPU(msr)]
-	mov	%ebp, 2	
-	shr	%ecx, 14		/* MSR_PR */
-	and	%ecx, 1
-	sub	%ebp, %ecx		/* BATU_Vp/BATU_Vs Mask */
-
 	bat_lookup(d, 0, 8, data)
 	bat_lookup(d, 1, 8, data)
 	bat_lookup(d, 2, 8, data)
 	bat_lookup(d, 3, 8, data)
 
 	mov	%ebx, %eax
-	shr	%ebx, 28			# SR
-	mov	%edx, [gCPU(sr+4*%ebx)]
+	shr	%eax, 28			# SR
+	mov	%edx, [gCPU(sr+4*%eax)]
 	
 	# test %edx, SR_T --> die
 	
-	mov	%ebx, %eax
+	mov	%eax, %ebx
+	mov	%edi, %ebx
 	mov	%ebp, %edx
 	shr	%ebx, 12
-	mov	%edi, %eax
 	and	%ebx, 0xffff
 	shr	%edi, 22
 	and	%ebp, 0xffffff
@@ -683,30 +668,31 @@ ppc_effective_to_physical_data_write:
 	
 	# %ebx = pteg_addr
 	
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
-	pg_table_lookup(0, 8, data)
+	pg_table_lookup(0, 8, data, 0)
+	pg_table_lookup(0, 8, data, 8)
+	pg_table_lookup(0, 8, data, 16)
+	pg_table_lookup(0, 8, data, 24)
+	pg_table_lookup(0, 8, data, 32)
+	pg_table_lookup(0, 8, data, 40)
+	pg_table_lookup(0, 8, data, 48)
+	pg_table_lookup(0, 8, data, 56)
 	
 	# hash function number 2
-	pop	%ebx
+	mov	%ebx, [esp]
+	add	%esp, 4
 	not	%ebx
 	and	%ebx, [gCPU(pagetable_hashmask)]
 	shl	%ebx, 6
 	or	%ebx, [gCPU(pagetable_base)]
 
-	pg_table_lookup(1<<6, 8, data)
-	pg_table_lookup(1<<6, 8, data)
-	pg_table_lookup(1<<6, 8, data) 
-	pg_table_lookup(1<<6, 8, data)
-	pg_table_lookup(1<<6, 8, data)
-	pg_table_lookup(1<<6, 8, data)
-	pg_table_lookup(1<<6, 8, data)
-	pg_table_lookup(1<<6, 8, data)
+	pg_table_lookup(1<<6, 8, data, 0)
+	pg_table_lookup(1<<6, 8, data, 8)
+	pg_table_lookup(1<<6, 8, data, 16) 
+	pg_table_lookup(1<<6, 8, data, 24)
+	pg_table_lookup(1<<6, 8, data, 32)
+	pg_table_lookup(1<<6, 8, data, 40)
+	pg_table_lookup(1<<6, 8, data, 48)
+	pg_table_lookup(1<<6, 8, data, 56)
 
 	# page lookup failed --> throw exception
 	
@@ -750,7 +736,7 @@ EXPORT(ppc_write_effective_byte_asm):
 ##	uint32 FASTCALL ppc_effective_write_half()
 ##
 ##	IN	%eax: address to translate
-##		 dx: half to be written
+##		 %dx: half to be written
 ##		%esi: current client pc offset
 ##
 ##	WILL NOT RETURN ON EXCEPTION!
