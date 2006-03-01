@@ -787,7 +787,7 @@ EXPORT(ppc_write_effective_half_asm):
 	cmp	%ebx, [EXTERN(gMemorySize)]
 	jae	1f
 	add	%ebx, [EXTERN(gMemory)]
-	mov	[%ebx], dh
+	mov	[%ebx], %dh
 	3:
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
@@ -1160,7 +1160,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%eax, [EXTERN(gMemory)]
-	mov	dh, [%eax]
+	mov	%dh, [%eax]
 1:
 	pop	%eax
 	push	%edx
@@ -1178,7 +1178,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	pusha
 	mov	%edx, 1
 	call	EXTERN(io_mem_read_glue)
-	mov	[gCPU(temp2)], al
+	mov	[gCPU(temp2)], %al
 	popa
 	mov	%dh, [gCPU(temp2)]
 	jmp	1b
@@ -1523,7 +1523,7 @@ EXPORT(ppc_read_effective_qword_sse_asm):
 
 	add	%eax, [EXTERN(gMemory)]
 
-	movaps	xmm0, [%eax]
+	movaps	%xmm0, [%eax]
 
 	mov	%ebx, [%eax]
 	mov	%ecx, [%eax+4]
@@ -1546,7 +1546,7 @@ EXPORT(ppc_read_effective_qword_sse_asm):
 	call	EXTERN(io_mem_read128_native_glue)
 	pop	%edx
 
-	movaps	xmm0, [%edx]
+	movaps	%xmm0, [%edx]
 
 	mov	%eax, [%edx]
 	mov	%ebx, [%edx+4]
