@@ -249,9 +249,9 @@ EXPORT(x86_convert_4be888_to_4le888):
 	bswap		%edi
 	add		%edx, 16
 	mov		[%ecx], %ebx
-	mov		[%ecx+4], ebp
-	mov		[%ecx+8], esi
-	mov		[%ecx+12], edi
+	mov		[%ecx+4], %ebp
+	mov		[%ecx+8], %esi
+	mov		[%ecx+12], %edi
 	add		%ecx, 16
 	dec		%eax
 	jnz		1b

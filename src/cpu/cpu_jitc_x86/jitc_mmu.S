@@ -775,7 +775,7 @@ EXPORT(ppc_write_effective_half_asm):
 2:
 	xchg	%dh, %dl
 	mov	%ecx, 2
-	movzx	%edx, dx
+	movzx	%edx, %dx
 	jmp	EXTERN(io_mem_write_glue)
 
 1:
