@@ -103,6 +103,8 @@ darwin*)
 	fi
 	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
 	PPC_CCASFLAGS="-DPREFIX=_"
+	PPC_CFLAGS="$PPC_CFLAGS -mdynamic-no-pic"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -mdynamic-no-pic"
 ;;
 beos*)
 	OSAPI_DIR=beos
