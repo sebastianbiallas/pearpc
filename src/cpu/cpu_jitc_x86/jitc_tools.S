@@ -127,8 +127,8 @@ STRUCT	#ClientPage
 .text
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
+##############################################################################################
+##
 EXPORT(ppc_flush_carry_and_flags_asm):
 	jc	1f
 	call	EXTERN(ppc_flush_flags_asm)
@@ -139,17 +139,18 @@ EXPORT(ppc_flush_carry_and_flags_asm):
 	or	byte ptr [gCPU(xer+3)], (1<<5)
 	ret
 
-.balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
+##############################################################################################
+##
+
 #ifndef EXACT_SO
 #define HANDLE_SO
 #else
 #define HANDLE_SO test byte ptr [gCPU(xer+3)], 1<<7; jnz 4f
 #endif
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
+.balign 16
+##############################################################################################
+##
 EXPORT(ppc_flush_flags_asm):
 	js	3f
 	jnz	2f
@@ -175,7 +176,7 @@ EXPORT(ppc_flush_flags_asm):
 #endif
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	called after "cmp cr0, ..", with X even
 EXPORT(ppc_flush_flags_signed_0_asm):
 	jl	3f
@@ -202,7 +203,7 @@ EXPORT(ppc_flush_flags_signed_0_asm):
 #endif
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	called after "cmpl cr0, ..", with X even
 EXPORT(ppc_flush_flags_unsigned_0_asm):
 	jb	3f
@@ -229,7 +230,7 @@ EXPORT(ppc_flush_flags_unsigned_0_asm):
 #endif
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	called after "cmp crX, ..", with X even
 ppc_flush_flags_signed_even_asm:
 	jl	3f
@@ -256,7 +257,7 @@ ppc_flush_flags_signed_even_asm:
 #endif
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	called after "cmpl crX, ..", with X even
 ppc_flush_flags_unsigned_even_asm:
 	jb	3f
@@ -283,7 +284,7 @@ ppc_flush_flags_unsigned_even_asm:
 #endif
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	called after "cmp crX, ..", with X odd
 EXPORT(ppc_flush_flags_signed_odd_asm):
 	jl	3f
@@ -310,7 +311,7 @@ EXPORT(ppc_flush_flags_signed_odd_asm):
 #endif
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	called after "cmpl crX, ..", with X odd
 EXPORT(ppc_flush_flags_unsigned_odd_asm):
 	jb	3f
@@ -336,7 +337,7 @@ EXPORT(ppc_flush_flags_unsigned_odd_asm):
 	ret
 #endif
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	ppc_set_msr_asm
 ##
 ##	IN: %eax: new msr
@@ -381,12 +382,12 @@ EXPORT(ppc_set_msr_asm):
 5:
 	jmp	EXTERN(jitc_error_msr_unsupported_bits)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 .macro ppc_atomic_raise_ext_exception_macro
 	lock or	dword ptr [gCPU(exception_pending)], 0x00010001
 .endm
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 .macro ppc_atomic_cancel_ext_exception_macro
 	mov	%eax, [gCPU(exception_pending)]
 9:
@@ -398,12 +399,12 @@ EXPORT(ppc_set_msr_asm):
 	jne	9b
 .endm
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 .macro ppc_atomic_raise_dec_exception_macro
 	lock or	dword ptr [gCPU(exception_pending)], 0x00000101
 .endm
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 .macro ppc_atomic_cancel_dec_exception_macro
 	mov	%eax, [gCPU(exception_pending)]
 9:
@@ -416,19 +417,19 @@ EXPORT(ppc_set_msr_asm):
 .endm
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 EXPORT(ppc_cpu_atomic_raise_dec_exception):
 	ppc_atomic_raise_dec_exception_macro
 	ret
 	
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 EXPORT(ppc_cpu_atomic_raise_ext_exception):
 	ppc_atomic_raise_ext_exception_macro
 	ret
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 EXPORT(ppc_cpu_atomic_cancel_ext_exception):
 	ppc_atomic_cancel_ext_exception_macro
 	ret
@@ -472,7 +473,7 @@ ppc_jitc_new_pc:
 	and	%ecx, 0x00000fff
 	jmp	EXTERN(jitcStartTranslation)
 	
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN: %eax new client pc (physical address)
 ##
@@ -482,8 +483,19 @@ ppc_jitc_new_pc:
 	jmp	%eax
 .endm
 
+##############################################################################################
+##
+.macro exception_epilogue entry
+	xor	%eax, %eax
+	mov	[gCPU(msr)], %eax
+	mov	[gCPU(current_code_base)], %eax
+	call	EXTERN(ppc_mmu_tlb_invalidate_all_asm)
+	mov	%eax, \entry
+	ppc_new_pc_intern
+.endm
+
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	ppc_dsi_exception
 ##
 ##	IN: %eax fault addr
@@ -500,15 +512,10 @@ EXPORT(ppc_dsi_exception_special_asm):
 	and	%eax, 0x87c0ffff
 	mov	[gCPU(srr1)], %eax
 	mov	[gCPU(srr0)], %edx
-	xor	%eax, %eax
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0x300	# entry of DSI exception
-	ppc_new_pc_intern
+	exception_epilogue 0x300
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	ppc_isi_exception_asm
 ##
 ##	IN: %eax: fault addr
@@ -521,15 +528,10 @@ EXPORT(ppc_isi_exception_asm):
 	and	%eax, 0x87c0ffff
 	or	%eax, %ecx
 	mov	[gCPU(srr1)], %eax
-	xor	%eax, %eax
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0x400	# entry of ISI exception
-	ppc_new_pc_intern
+	exception_epilogue 0x400
 	
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN: 
 ##          %eax: current pc
@@ -540,16 +542,11 @@ EXPORT(ppc_ext_exception_asm):
 	mov	%edx, [gCPU(msr)]
 	ppc_atomic_cancel_ext_exception_macro
 	and	%edx, 0x87c0ffff
-	xor	%eax, %eax
 	mov	[gCPU(srr1)], %edx
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0x500	# entry of ext int exception
-	ppc_new_pc_intern
+	exception_epilogue 0x500
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN: %ecx: srr1 bits
 ##          %esi: pc_ofs
@@ -558,10 +555,10 @@ EXPORT(ppc_ext_exception_asm):
 EXPORT(ppc_program_exception_asm):
 
 	# debug
-	pusha
-	mov	%eax, %ecx
-	call	EXTERN(jitc_error_program)
-	popa
+#	pusha
+#	mov	%eax, %ecx
+#	call	EXTERN(jitc_error_program)
+#	popa
 
 	mov	[gCPU(pc_ofs)], %esi
 	mov	%eax, [gCPU(msr)]
@@ -571,15 +568,10 @@ EXPORT(ppc_program_exception_asm):
 	or	%eax, %ecx
 	mov	[gCPU(srr0)], %edx
 	mov	[gCPU(srr1)], %eax
-	xor	%eax, %eax
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0x700	# entry of program exception
-	ppc_new_pc_intern
+	exception_epilogue 0x700
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN:
 ##          %esi: pc_ofs
@@ -593,15 +585,10 @@ EXPORT(ppc_no_fpu_exception_asm):
 	and	%eax, 0x87c0ffff
 	mov	[gCPU(srr0)], %edx
 	mov	[gCPU(srr1)], %eax
-	xor	%eax, %eax
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0x800	# entry of no fpu exception
-	ppc_new_pc_intern
+	exception_epilogue 0x800
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN:
 ##          %esi: pc_ofs
@@ -615,15 +602,10 @@ EXPORT(ppc_no_vec_exception_asm):
 	and	%eax, 0x87c0ffff
 	mov	[gCPU(srr0)], %edx
 	mov	[gCPU(srr1)], %eax
-	xor	%eax, %eax
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0xf20	# entry of no vec exception
-	ppc_new_pc_intern
+	exception_epilogue 0xf20
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN:
 ##          %eax: current pc
@@ -634,16 +616,11 @@ EXTERN(ppc_dec_exception_asm):
 	mov	%edx, [gCPU(msr)]
 	ppc_atomic_cancel_dec_exception_macro
 	and	%edx, 0x87c0ffff
-	xor	%eax, %eax
 	mov	[gCPU(srr1)], %edx
-	call	EXTERN(ppc_set_msr_asm)
-	xor	%eax, %eax
-	mov	[gCPU(current_code_base)], %eax
-	mov	%eax, 0x900	# entry of decrementer exception
-	ppc_new_pc_intern
+	exception_epilogue 0x900
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN:
 ##          %esi: pc_ofs
@@ -665,7 +642,7 @@ EXPORT(ppc_sc_exception_asm):
 	ppc_new_pc_intern
 	
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	ppc_heartbeat_ext_rel_asm
 ##
 ##
@@ -692,7 +669,7 @@ EXPORT(ppc_heartbeat_ext_rel_asm):
 	jmp	ppc_stop_jitc_asm
 	
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	ppc_heartbeat_ext_asm
 ##	%eax -- new pc
 ##
@@ -738,7 +715,7 @@ EXPORT(ppc_new_pc_rel_asm):
 	ppc_new_pc_intern
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##	ppc_new_pc_asm
 ## 
 ##	IN: %eax new client pc (effective address)
@@ -751,7 +728,7 @@ EXPORT(ppc_new_pc_asm):
 	ppc_new_pc_intern
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##
 EXPORT(ppc_new_pc_this_page_asm):
@@ -812,7 +789,7 @@ EXPORT(ppc_new_pc_this_page_asm):
 ppc_start_fpu_cw: .short 0x37f
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN: %eax new client pc (effective address)
 ##
@@ -825,7 +802,7 @@ EXPORT(ppc_start_jitc_asm):
 	jmp	EXTERN(ppc_new_pc_asm)
 
 .balign 16
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	call per JMP
 ##
@@ -836,7 +813,7 @@ ppc_stop_jitc_asm:
 	pop	%ebx
 	ret
 
-#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+##############################################################################################
 ##
 ##	IN: %eax cpuid level
 ##	    %edx dest

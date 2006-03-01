@@ -4,7 +4,7 @@
  *
  *	Copyright (C) 2003-2006 Sebastian Biallas (sb@biallas.net)
  *
- *	This program is free software; you can r%edistribute it and/or modify
+ *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
  *	published by the Free Software Foundation.
  *
@@ -239,17 +239,9 @@ ppc_pte_protection:
 	cmp	%ebx, %ecx;                                                    \
 	jne	3f;                                                            \
 	                                                                       \
-	mov	%ecx, [gCPU(msr)];                                             \
 	mov	%ebx, [gCPU(di##batu + n*4)];                                  \
-	test	%ecx, (1<<14);		/* MSR_PR */                           \
-	jz	1f;                                                            \
-			test	%ebx, 1;	/* BATU_Vp */                  \
-			jz	3f;                                            \
-			jmp	2f;                                            \
-	1:;                                                                    \
-			test	%ebx, 2; 	/* BATU_Vs */                  \
-			jz	3f;                                            \
-	2:;                                                                    \
+	test	%ebx, %ebp;	        /* BATU_Vp  / BATU_Vs */               \
+	jz	3f;                                                            \
 	                                                                       \
 	mov	%ecx, %eax;                                                    \
 	mov	%esi, %eax;                                                    \
@@ -302,8 +294,7 @@ ppc_pte_protection:
 	                                                                       \
 	/* page found */                                                       \
 	                                                                       \
-	add	%ebx, 4;                                                       \
-	read_physical_word_pg %ebx, %esi;                                      \
+	read_physical_word_pg %ebx+4, %esi;                                    \
 	/* # %esi = pte2; */                                                   \
 	                                                                       \
 	test	dword ptr [gCPU(msr)], (1<<14); /* MSR_PR */                   \
@@ -313,12 +304,11 @@ ppc_pte_protection:
 	test	%edx, %eax;	/* SR_Kp / SR_Ks */                            \
 	mov	%eax, 0;                                                       \
 	setnz	%al;                                                           \
-	shl	%eax, 2;                                                       \
 	                                                                       \
 	mov	%ecx, %esi;                                                    \
 	and	%ecx, 3;                                                       \
-	/* FIXME: optimize: use %eax*4: */                                     \
-	cmp	byte ptr [ppc_pte_protection + (rw) + %eax + %ecx], 1;         \
+	                                                                       \
+	cmp	byte ptr [ppc_pte_protection + (rw) + 4*%eax + %ecx], 1;       \
 .if n==0;                                                                      \
 /*	add	%esp, 4;	/* hash1, no longer needed */                  \
 	pop	%edx;                                                          \
@@ -335,7 +325,7 @@ ppc_pte_protection:
 .endif;                                                                        \
 	bswap	%edx;                                                          \
 	add	%ebx, [EXTERN(gMemory)];                                       \
-	mov	[%ebx], %edx;                                                  \
+	mov	[%ebx+4], %edx;                                                  \
 	                                                                       \
 	and	%esi, 0xfffff000;                                              \
 /** TLB-Code */                                                                \
@@ -427,7 +417,12 @@ EXPORT(ppc_effective_to_physical_code):
 	test	byte ptr [gCPU(msr)], (1<<5)	# MSR_IR
 	jz	ppc_effective_to_physical_code_ret
 
-	# FIXME: self-modifying code would be better
+	mov	%ecx, [gCPU(msr)]
+	mov	%ebp, 2	
+	shr	%ecx, 14		/* MSR_PR */
+	and	%ecx, 1
+	sub	%ebp, %ecx		/* BATU_Vp/BATU_Vs Mask */
+
 	bat_lookup(i, 0, 0, code)
 	bat_lookup(i, 1, 0, code)
 	bat_lookup(i, 2, 0, code)
@@ -538,6 +533,12 @@ ppc_effective_to_physical_data_read:
 	test	byte ptr [gCPU(msr)], (1<<4)	# MSR_DR
 	jz	ppc_effective_to_physical_data_read_ret
 	                        
+	mov	%ecx, [gCPU(msr)]
+	mov	%ebp, 2	
+	shr	%ecx, 14		/* MSR_PR */
+	and	%ecx, 1
+	sub	%ebp, %ecx		/* BATU_Vp/BATU_Vs Mask */
+
 	bat_lookup(d, 0, 0, data)
 	bat_lookup(d, 1, 0, data)
 	bat_lookup(d, 2, 0, data)
@@ -637,6 +638,12 @@ ppc_effective_to_physical_data_write:
 	test	byte ptr [gCPU(msr)], (1<<4)	# MSR_DR
 	jz	ppc_effective_to_physical_data_write_ret
 	
+	mov	%ecx, [gCPU(msr)]
+	mov	%ebp, 2	
+	shr	%ecx, 14		/* MSR_PR */
+	and	%ecx, 1
+	sub	%ebp, %ecx		/* BATU_Vp/BATU_Vs Mask */
+
 	bat_lookup(d, 0, 8, data)
 	bat_lookup(d, 1, 8, data)
 	bat_lookup(d, 2, 8, data)
