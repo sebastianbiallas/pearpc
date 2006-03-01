@@ -929,7 +929,6 @@ JitcFloatReg FASTCALL jitcMapClientFloatRegisterDirty(int creg, JitcFloatReg fre
 /*
  *
  */
-
 NativeAddress FASTCALL asmHERE()
 {
 	return gJITC.currentPage->tcp;

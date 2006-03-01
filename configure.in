@@ -27,6 +27,7 @@ PPC_CFLAGS="-Wundef -Wall -fsigned-char"
 PPC_CXXFLAGS="-Wundef -Wall -Woverloaded-virtual -fsigned-char"
 PPC_LDADD=""
 PPC_LDFLAGS="$LDFLAGS"
+PPC_CCASFLAGS=""
 
 if test "x$enable_release" = "xyes"; then
 	PPC_CFLAGS="$CFLAGS $PPC_CFLAGS -O2"
@@ -87,6 +88,7 @@ cygwin*)
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -mno-cygwin"
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
 	NASM_OPTS="--prefix _ -f gnuwin32"
+	PPC_CCASFLAGS="-DPREFIX=_"
 ;;
 mingw32*)
         OSAPI_DIR=win32
@@ -96,6 +98,7 @@ mingw32*)
 	AC_MSG_RESULT([*** MinGW, building native Win32 version])
         PPC_LDADD="$PPC_LDADD -lgdi32 -lcomdlg32 -lwinmm"
         NASM_OPTS="--prefix _ -f win32"
+	PPC_CCASFLAGS="-DPREFIX=_"
 ;;
 darwin*)
 	OSAPI_DIR=posix
@@ -103,6 +106,8 @@ darwin*)
 		enable_ui="x11"
 	fi
 	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
+        NASM_OPTS="--prefix _ -f macho"
+	PPC_CCASFLAGS="-DPREFIX=_"
 ;;
 beos*)
 	OSAPI_DIR=beos
@@ -171,6 +176,7 @@ AC_PROG_MAKE_SET
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_CPP
+AM_PROG_AS
 
 dnl To ensure backward compatibility, Automake's `AM_PROG_LEX' invokes
 dnl (indirectly) this macro twice, which will cause an annoying but
@@ -238,10 +244,17 @@ no*)
 esac
 dnl /non-sense
 
+NASM_OPTS="-O99 $NASM_OPTS"
+
 if test "x$CPU_DIR" = "xcpu_jitc_x86" -o "x$ARCH_DIR" = "x86"; then
-	AC_PATH_PROG(NASM, nasm)
+	AC_PATH_PROG(NASM, yasm)
 	if test -z "$NASM"; then
-		AC_MSG_ERROR([*** 'nasm' missing, please install or fix your \$PATH ***])
+		AC_PATH_PROG(NASM2, nasm)
+		if test -z "$NASM2"; then
+			AC_MSG_ERROR([*** 'yasm' and 'nasm' missing, please install either one or fix your \$PATH ***])
+		fi
+		AC_MSG_RESULT([*** 'yasm' is preferred to 'nasm' ***])
+		NASM = "$NASM2"
 	fi
 fi
 
@@ -432,6 +445,7 @@ dnl AC_CONFIG_HEADER(config.h)
 
 CFLAGS="$PPC_CFLAGS"
 CXXFLAGS="$PPC_CXXFLAGS"
+CCASFLAGS="$PPC_CCASFLAGS"
 
 dnl Makefile vars.
 AC_SUBST(ARCH_DIR)
