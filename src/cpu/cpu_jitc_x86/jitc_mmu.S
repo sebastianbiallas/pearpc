@@ -307,9 +307,9 @@ ppc_pte_protection:
 	setz	%cl;                                                           \
 	shl	%eax, %cl;	/* SR_Kp <--> SR_Ks */                         \
 	test	%edx, %eax;	/* SR_Kp / SR_Ks */                            \
-	mov	%eax, 0;                                                       \
 	setnz	%al;                                                           \
-	                                                                       \
+	movzx	%eax, %al;                                                     \
+                                                                               \
 	mov	%ecx, %esi;                                                    \
 	and	%ecx, 3;                                                       \
 	                                                                       \
