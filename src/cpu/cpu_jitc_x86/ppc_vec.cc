@@ -17,6 +17,11 @@
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
+/*	Pages marked: v.???
+ *	From: IBM PowerPC MicroProcessor Family: Altivec(tm) Technology...
+ *		Programming Environments Manual
+ */
  
 #include <string.h>
 #include <math.h>
