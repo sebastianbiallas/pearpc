@@ -4030,7 +4030,7 @@ JITCFlow ppc_opc_gen_stvewx()
 	asmALUReg(X86_NOT, regA);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
+	if (regA != EAX) asmALURegReg(X86_MOV, EAX, regA);
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 
 	asmALURegMem(X86_MOV, EDX, modrm,

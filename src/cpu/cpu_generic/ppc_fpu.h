@@ -423,6 +423,7 @@ inline void ppc_fpu_single_to_double(ppc_single &s, ppc_double &d)
 
 inline uint32 ppc_fpu_pack_double_as_single(ppc_double &d, uint64 &res)
 {
+	// .757
 	ppc_single s;
 	s.m = d.m >> 29;
 	s.e = d.e;

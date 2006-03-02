@@ -937,7 +937,7 @@ void ppc_opc_fdivsx()
 	}
 	if (B.type == ppc_fpr_zero && A.type != ppc_fpr_zero) {
 		// FIXME::
-		gCPU.fpscr |= FPSCR_VXIDI;		
+		gCPU.fpscr |= FPSCR_VXIDI;
 	}
 	ppc_fpu_div(D, A, B);
 	gCPU.fpscr |= ppc_fpu_pack_double_as_single(D, gCPU.fpr[frD]);

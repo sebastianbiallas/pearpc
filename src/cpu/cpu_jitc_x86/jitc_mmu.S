@@ -33,7 +33,7 @@
 #define STRUCT .struct 0
 #define MEMBER(m, s) m:;.struct m+s
 
-.intel_syntax
+.intel_syntax prefix
 
 #define TLB_ENTRIES 32
 
@@ -678,7 +678,7 @@ ppc_effective_to_physical_data_write:
 	pg_table_lookup(0, 8, data, 56)
 	
 	# hash function number 2
-	mov	%ebx, [esp]
+	mov	%ebx, [%esp]
 	add	%esp, 4
 	not	%ebx
 	and	%ebx, [gCPU(pagetable_hashmask)]

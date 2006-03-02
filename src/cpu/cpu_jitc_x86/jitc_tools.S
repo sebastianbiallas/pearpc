@@ -34,7 +34,7 @@
 #define STRUCT .struct 0
 #define MEMBER(m, s) m:;.struct m+s
 
-.intel_syntax
+.intel_syntax prefix
 
 #	Define this if you want exact handling of the SO bit.
 /* #define EXACT_SO */
