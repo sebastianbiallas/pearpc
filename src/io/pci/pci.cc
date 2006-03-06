@@ -534,6 +534,7 @@ bool pci_read_device(uint32 addr, uint32 &data, int size)
 #include "io/3c90x/3c90x.h"
 #include "io/rtl8139/rtl8139.h"
 #include "io/usb/usb.h"
+#include "io/serial/serial.h"
 
 void pci_init()
 {
@@ -547,10 +548,12 @@ void pci_init()
 	_3c90x_init();
 	rtl8139_init();
 	usb_init();
+	serial_init();
 }
 
 void pci_done()
 {
+	serial_done();
 	usb_done();
 	rtl8139_done();
 	_3c90x_done();
@@ -569,4 +572,5 @@ void pci_init_config()
 	_3c90x_init_config();
 	rtl8139_init_config();
 	usb_init_config();
+	serial_init_config();
 }

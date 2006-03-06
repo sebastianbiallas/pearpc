@@ -766,6 +766,9 @@ void ppc_opc_mtspr()
 		case 21:
 			PPC_OPC_ERR("write(%08x) to spr %d:%d (DABR) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;
+		case 24:
+			PPC_OPC_WARN("write(%08x) to spr %d:%d (?) not supported!\n", gCPU.gpr[rS], spr1, spr2);
+			return;
 		case 27:
 			PPC_OPC_WARN("write(%08x) to spr %d:%d (ICTC) not supported!\n", gCPU.gpr[rS], spr1, spr2);
 			return;

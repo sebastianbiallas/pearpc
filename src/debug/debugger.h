@@ -18,13 +18,19 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __EVAL_H__
-#define __EVAL_H__
+#ifndef __DEBUGGER_H__
+#define __DEBUGGER_H__
+
+#define HAVE_DEBUGGER
 
 #include "tools/data.h"
 #include "tools/str.h"
 #include "parsehelper.h"
 #include "cpu/cpu.h"
+
+#ifdef HAVE_DEBUGGER
+#include "cpu/cpu_generic/ppc_cpu.h"
+#endif
 
 enum EvalType {
 	ET_INTEGER,
@@ -152,7 +158,9 @@ public:
 class Debugger {
 protected:
 	Container *mWatches;
-//	PPC_CPU_State savedCPUState; NEWIF
+#ifdef HAVE_DEBUGGER
+	PPC_CPU_State savedCPUState;
+#endif
 	bool mForceSinglestep;
 
 		Function *eval_scalarToFunction(eval_scalar &s);
