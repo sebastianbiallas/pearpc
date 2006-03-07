@@ -475,6 +475,7 @@ src/io/pic/Makefile
 src/io/macio/Makefile
 src/io/nvram/Makefile
 src/io/usb/Makefile
+src/io/serial/Makefile
 src/system/Makefile
 src/system/arch/Makefile
 src/system/arch/x86/Makefile
