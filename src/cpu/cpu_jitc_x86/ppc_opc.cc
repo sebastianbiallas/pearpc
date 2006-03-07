@@ -1386,6 +1386,29 @@ JITCFlow ppc_opc_gen_mtmsr()
 //	return flowContinue;
 	return flowEndBlockUnreachable;
 }
+
+
+static inline void ppc_opc_batu_helper(bool dbat, int idx)
+{
+	if (dbat) {
+		gCPU.dbat_bl[idx] = ((~gCPU.dbatu[idx] << 15) & 0xfffe0000);
+		gCPU.dbat_nbl[idx] = ~gCPU.dbat_bl[idx];
+		gCPU.dbat_bepi[idx] = (gCPU.dbatu[idx] & gCPU.dbat_bl[idx]);
+	} else {
+		gCPU.ibat_bl[idx] = ((~gCPU.ibatu[idx] << 15) & 0xfffe0000);
+		gCPU.ibat_bepi[idx] = (gCPU.ibatu[idx] & gCPU.ibat_bl[idx]);
+	}
+}
+
+static inline void ppc_opc_batl_helper(bool dbat, int idx)
+{
+	if (dbat) {
+		gCPU.dbat_brpn[idx] = (gCPU.dbatl[idx] & gCPU.dbat_bl[idx]);
+	} else {
+		gCPU.ibat_brpn[idx] = (gCPU.ibatl[idx] & gCPU.ibat_bl[idx]);
+	}
+}
+
 /*
  *	mtspr		Move to Special-Purpose Register
  *	.584
@@ -1448,59 +1471,67 @@ void ppc_opc_mtspr()
 		switch (spr1) {
 		case 16:
 			gCPU.ibatu[0] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[0] = ~(BATU_BL(gCPU.ibatu[0])<<17);
+			ppc_opc_batu_helper(false, 0);
 			return;
 		case 17:
 			gCPU.ibatl[0] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(false, 0);
 			return;
 		case 18:
 			gCPU.ibatu[1] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[1] = ~(BATU_BL(gCPU.ibatu[1])<<17);
+			ppc_opc_batu_helper(false, 1);
 			return;
 		case 19:
 			gCPU.ibatl[1] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(false, 1);
 			return;
 		case 20:
 			gCPU.ibatu[2] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[2] = ~(BATU_BL(gCPU.ibatu[2])<<17);
+			ppc_opc_batu_helper(false, 2);
 			return;
 		case 21:
 			gCPU.ibatl[2] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(false, 2);
 			return;
 		case 22:
 			gCPU.ibatu[3] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[3] = ~(BATU_BL(gCPU.ibatu[3])<<17);
+			ppc_opc_batu_helper(false, 3);
 			return;
 		case 23:
 			gCPU.ibatl[3] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(false, 3);
 			return;
 		case 24:
 			gCPU.dbatu[0] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0])<<17);
+			ppc_opc_batu_helper(true, 0);
 			return;
 		case 25:
 			gCPU.dbatl[0] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(true, 0);
 			return;
 		case 26:
 			gCPU.dbatu[1] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[1] = ~(BATU_BL(gCPU.dbatu[1])<<17);
+			ppc_opc_batu_helper(true, 1);
 			return;
 		case 27:
 			gCPU.dbatl[1] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(true, 1);
 			return;
 		case 28:
 			gCPU.dbatu[2] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[2] = ~(BATU_BL(gCPU.dbatu[2])<<17);
+			ppc_opc_batu_helper(true, 2);
 			return;
 		case 29:
 			gCPU.dbatl[2] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(true, 2);
 			return;
 		case 30:
 			gCPU.dbatu[3] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[3] = ~(BATU_BL(gCPU.dbatu[3])<<17);
+			ppc_opc_batu_helper(true, 3);
 			return;
 		case 31:
 			gCPU.dbatl[3] = gCPU.gpr[rS];
+			ppc_opc_batl_helper(true, 3);
 			return;
 		}
 		break;
@@ -1560,17 +1591,46 @@ static void FASTCALL ppc_mmu_set_sdr1_check_error(uint32 newsdr1)
 	}
 }
 
-void ppc_opc_gen_bl17(int ibatdbat, int idx)
+static inline void ppc_opc_gen_batu_helper(bool dbat, int idx)
 {
-	NativeReg reg = jitcGetClientRegister(ibatdbat ? PPC_DBATU(idx) : PPC_IBATU(idx));
+	NativeReg tmp = jitcAllocRegister();
+	NativeReg reg = jitcGetClientRegister(dbat ? PPC_DBATU(idx) : PPC_IBATU(idx));
+
 	jitcClobberCarryAndFlags();
 	jitcClobberRegister(NATIVE_REG | reg);
-	asmALURegImm(X86_AND, reg, 0x1ffc);
-	asmShiftRegImm(X86_SHL, reg, 15);
+
+	asmALURegReg(X86_MOV, tmp, reg);
+
 	asmALUReg(X86_NOT, reg);
-	asmMOVDMemReg(ibatdbat ? (uint32)&gCPU.dbat_bl17[idx] : (uint32)&gCPU.ibat_bl17[idx], reg);
-	// gCPU.dbat_bl17[3] = ~(BATU_BL(gCPU.dbatu[3])<<17);
+	asmShiftRegImm(X86_SHL, reg, 15);
+	asmALURegImm(X86_AND, reg, 0xfffe0000);
+	asmMOVDMemReg(dbat ? (uint32)&gCPU.dbat_bl[idx] : (uint32)&gCPU.ibat_bl[idx], reg);
+
+	asmALURegReg(X86_AND, tmp, reg);
+	asmMOVDMemReg(dbat ? (uint32)&gCPU.dbat_bepi[idx] : (uint32)&gCPU.ibat_bepi[idx], tmp);
+
+	asmMOVRegDMem(tmp, dbat ? (uint32)&gCPU.dbatl[idx] : (uint32)&gCPU.ibatl[idx]);
+	asmALURegReg(X86_AND, tmp, reg);
+	asmMOVDMemReg(dbat ? (uint32)&gCPU.dbat_brpn[idx] : (uint32)&gCPU.ibat_brpn[idx], tmp);
+
+	asmALUReg(X86_NOT, reg);
+	asmMOVDMemReg(dbat ? (uint32)&gCPU.dbat_nbl[idx] : (uint32)&gCPU.ibat_nbl[idx], reg);
 }
+
+static inline void ppc_opc_gen_batl_helper(bool dbat, int idx)
+{
+	byte modrm[6];
+
+	NativeReg reg = jitcGetClientRegister(dbat ? PPC_DBATL(idx) : PPC_IBATL(idx));
+
+	jitcClobberCarryAndFlags();
+	jitcClobberRegister(NATIVE_REG | reg);
+
+	asmALURegMem(X86_AND, reg, modrm, x86_mem(modrm, REG_NO, dbat ? (uint32)&gCPU.dbat_bl[idx] : (uint32)&gCPU.ibat_bl[idx]));
+
+	asmMOVDMemReg(dbat ? (uint32)&gCPU.dbat_brpn[idx] : (uint32)&gCPU.ibat_brpn[idx], reg);
+}
+
 
 JITCFlow ppc_opc_gen_mtspr()
 {
@@ -1642,59 +1702,67 @@ JITCFlow ppc_opc_gen_mtspr()
 		switch (spr1) {
 		case 16:
 			move_reg(PPC_IBATU(0), PPC_GPR(rS));
-			ppc_opc_gen_bl17(0, 0);
+			ppc_opc_gen_batu_helper(false, 0);
 			break;
 		case 17:
 			move_reg(PPC_IBATL(0), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(false, 0);
 			break;
 		case 18:
 			move_reg(PPC_IBATU(1), PPC_GPR(rS));
-			ppc_opc_gen_bl17(0, 1);
+			ppc_opc_gen_batu_helper(false, 1);
 			break;
 		case 19:
 			move_reg(PPC_IBATL(1), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(false, 1);
 			break;
 		case 20:
 			move_reg(PPC_IBATU(2), PPC_GPR(rS));
-			ppc_opc_gen_bl17(0, 2);
+			ppc_opc_gen_batu_helper(false, 2);
 			break;
 		case 21:
 			move_reg(PPC_IBATL(2), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(false, 2);
 			break;
 		case 22:
 			move_reg(PPC_IBATU(3), PPC_GPR(rS));
-			ppc_opc_gen_bl17(0, 3);
+			ppc_opc_gen_batu_helper(false, 3);
 			break;
 		case 23:
 			move_reg(PPC_IBATL(3), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(false, 3);
 			break;
 		case 24:
 			move_reg(PPC_DBATU(0), PPC_GPR(rS));
-			ppc_opc_gen_bl17(1, 0);
+			ppc_opc_gen_batu_helper(true, 0);
 			break;
 		case 25:
 			move_reg(PPC_DBATL(0), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(true, 0);
 			break;
 		case 26:
 			move_reg(PPC_DBATU(1), PPC_GPR(rS));
-			ppc_opc_gen_bl17(1, 1);
+			ppc_opc_gen_batu_helper(true, 1);
 			break;
 		case 27:
 			move_reg(PPC_DBATL(1), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(true, 1);
 			break;
 		case 28:
 			move_reg(PPC_DBATU(2), PPC_GPR(rS));
-			ppc_opc_gen_bl17(1, 2);
+			ppc_opc_gen_batu_helper(true, 2);
 			break;
 		case 29:
 			move_reg(PPC_DBATL(2), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(true, 2);
 			break;
 		case 30:
 			move_reg(PPC_DBATU(3), PPC_GPR(rS));
-			ppc_opc_gen_bl17(1, 3);
+			ppc_opc_gen_batu_helper(true, 3);
 			break;
 		case 31:
 			move_reg(PPC_DBATL(3), PPC_GPR(rS));
+			ppc_opc_gen_batl_helper(true, 3);
 			break;
 		default: goto invalid;
 		}

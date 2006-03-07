@@ -54,11 +54,17 @@ struct PPC_CPU_State {
 	//    * memory managment
 	uint32 ibatu[4];	// spr 528, 530, 532, 534
 	uint32 ibatl[4];	// spr 529, 531, 533, 535
-	uint32 ibat_bl17[4];	// for internal use
+	uint32 ibat_bl[4];	// internal
+	uint32 ibat_nbl[4];	// internal
+	uint32 ibat_bepi[4];	// internal
+	uint32 ibat_brpn[4];	// internal
 
 	uint32 dbatu[4];	// spr 536, 538, 540, 542
 	uint32 dbatl[4];	// spr 537, 539, 541, 543
-	uint32 dbat_bl17[4];	// for internal use
+	uint32 dbat_bl[4];	// internal
+	uint32 dbat_nbl[4];	// internal
+	uint32 dbat_bepi[4];	// internal
+	uint32 dbat_brpn[4];	// internal
 
 	uint32 sdr1;	// spr 25       (page table base address)
 

@@ -56,11 +56,17 @@ STRUCT    #PPC_CPU_State
 
 	MEMBER(ibatu, 4*4)
 	MEMBER(ibatl, 4*4)
-	MEMBER(ibat_bl17, 4*4)
+	MEMBER(ibat_bl, 4*4)
+	MEMBER(ibat_nbl, 4*4)
+	MEMBER(ibat_bepi, 4*4)
+	MEMBER(ibat_brpn, 4*4)
 
 	MEMBER(dbatu, 4*4)
 	MEMBER(dbatl, 4*4)
-	MEMBER(dbat_bl17, 4*4)
+	MEMBER(dbat_bl, 4*4)
+	MEMBER(dbat_nbl, 4*4)
+	MEMBER(dbat_bepi, 4*4)
+	MEMBER(dbat_brpn, 4*4)
 
 	MEMBER(sdr1, 4)
 
@@ -226,17 +232,14 @@ ppc_pte_protection:
 	.byte 1 # r/w
 	.byte 0 # r
 
-##############################################################################################
+###############################################################################
 ##		bat_lookup
 #define bat_lookup(di, n, rw, datacode)                                        \
-	mov	%ecx, [gCPU(di##bat_bl17 + n*4)];                              \
-	mov	%edx, %ecx;                                                    \
-	or	%ecx, 0xf001ffff;                                              \
-	and	%ecx, %eax;                                                    \
-	mov	%ebx, [gCPU(di##batu + n*4)];                                  \
-	and	%ecx, 0xfffe0000;	/* BATU_BEPI */                        \
-	and	%ebx, 0xfffe0000;	/* BATU_BEPI */                        \
-	cmp	%ebx, %ecx;                                                    \
+	mov	%edx, [gCPU(di##bat_bl + n*4)];                                \
+	mov	%ebx, [gCPU(di##bat_bepi + n*4)];                              \
+	                                                                       \
+	and	%edx, %eax;                                                    \
+	cmp	%ebx, %edx;                                                    \
 	jne	3f;                                                            \
 	                                                                       \
 	bt	dword ptr [gCPU(msr)], 14;                                     \
@@ -246,23 +249,18 @@ ppc_pte_protection:
 	test	[gCPU(di##batu + n*4)], %ebp;                                  \
 	jz	3f;                                                            \
 	                                                                       \
-	mov	%ecx, %eax;                                                    \
+	/* FIXME: check access rights */                                       \
 	mov	%esi, %eax;                                                    \
 	mov	%edi, %eax;                                                    \
-	and	%ecx, 0x1ffff;		/* BAT_EA_OFFSET */                    \
-	not	%edx;                                                          \
-	and	%eax, 0x0ffe0000;	/* BAT_EA_11 */                        \
-	and	%eax, %edx;                                                    \
-	mov	%ebx, [gCPU(di##batl + n*4)];                                  \
-	and	%ebx, 0xfffe0000;                                              \
-	or	%eax, %ebx;                                                    \
-	or	%eax, %ecx;                                                    \
+	mov	%edx, 0xfffff000;                                              \
+	and     %eax, [gCPU(di##bat_nbl + n*4)];                               \
+	or      %eax, [gCPU(di##bat_brpn + n*4)];                              \
+                                                                               \
 /** TLB-Code */                                                                \
-	and	%esi, 0xfffff000;                                              \
 	shr	%edi, 12;                                                      \
-	mov	%edx, %eax;                                                    \
+	and	%esi, %edx;                                                    \
 	and	%edi, TLB_ENTRIES-1;                                           \
-	and	%edx, 0xfffff000;                                              \
+	and	%edx, %eax;                                                    \
 	mov	[gJITC(tlb_##datacode##_##rw##_eff+%edi*4)], %esi;             \
 	mov	[gJITC(tlb_##datacode##_##rw##_phys+%edi*4)], %edx;            \
 /*	add	dword ptr [gJITC(tlb_##datatcode##_##rw##_misses)], 1;   */    \

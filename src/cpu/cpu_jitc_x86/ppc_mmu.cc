@@ -75,19 +75,15 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 		 * BAT translation .329
 		 */
 		for (int i=0; i<4; i++) {
-			uint32 bl17 = gCPU.ibat_bl17[i];
-			uint32 addr2 = addr & (bl17 | 0xf001ffff);
-			if (BATU_BEPI(addr2) == BATU_BEPI(gCPU.ibatu[i])) {
+			if ((addr & gCPU.ibat_bl[i]) == gCPU.ibat_bepi[i]) {
 				// bat applies to this address
 				if (((gCPU.ibatu[i] & BATU_Vs) && !(gCPU.msr & MSR_PR))
 				 || ((gCPU.ibatu[i] & BATU_Vp) &&  (gCPU.msr & MSR_PR))) {
 					// bat entry valid
-					uint32 offset = BAT_EA_OFFSET(addr);
-					uint32 page = BAT_EA_11(addr);
-					page &= ~bl17;
-					page |= BATL_BRPN(gCPU.ibatl[i]);
-					// fixme: check access rights
-					result = page | offset;
+					addr &= gCPU.ibat_nbl[i];
+					addr |= gCPU.ibat_brpn[i];
+					result = addr;
+					// FIXME: check access rights
 					return PPC_MMU_OK;
 				}
 			}
@@ -101,19 +97,15 @@ int FASTCALL ppc_effective_to_physical(uint32 addr, int flags, uint32 &result)
 		 * BAT translation .329
 		 */
 		for (int i=0; i<4; i++) {
-			uint32 bl17 = gCPU.dbat_bl17[i];
-			uint32 addr2 = addr & (bl17 | 0xf001ffff);
-			if (BATU_BEPI(addr2) == BATU_BEPI(gCPU.dbatu[i])) {
+			if ((addr & gCPU.dbat_bl[i]) == gCPU.dbat_bepi[i]) {
 				// bat applies to this address
 				if (((gCPU.dbatu[i] & BATU_Vs) && !(gCPU.msr & MSR_PR))
 				 || ((gCPU.dbatu[i] & BATU_Vp) &&  (gCPU.msr & MSR_PR))) {
 					// bat entry valid
-					uint32 offset = BAT_EA_OFFSET(addr);
-					uint32 page = BAT_EA_11(addr);
-					page &= ~bl17;
-					page |= BATL_BRPN(gCPU.dbatl[i]);
-					// fixme: check access rights
-					result = page | offset;
+					addr &= gCPU.dbat_nbl[i];
+					addr |= gCPU.dbat_brpn[i];
+					result = addr;
+					// FIXME: check access rights
 					return PPC_MMU_OK;
 				}
 			}
@@ -316,21 +308,16 @@ int FASTCALL ppc_effective_to_physical_vm(uint32 addr, int flags, uint32 &result
 	 * BAT translation .329
 	 */
 	for (int i=0; i<4; i++) {
-		uint32 bl17 = gCPU.dbat_bl17[i];
-		uint32 addr2 = addr & (bl17 | 0xf001ffff);
-		if (BATU_BEPI(addr2) == BATU_BEPI(gCPU.dbatu[i])) {
+		if ((addr & gCPU.dbat_bl[i]) == gCPU.dbat_bepi[i]) {
 			// bat applies to this address
 			if (((gCPU.dbatu[i] & BATU_Vs) && !(gCPU.msr & MSR_PR))
 			 || ((gCPU.dbatu[i] & BATU_Vp) &&  (gCPU.msr & MSR_PR))) {
 				// bat entry valid
-				uint32 offset = BAT_EA_OFFSET(addr);
-				uint32 page = BAT_EA_11(addr);
-				page &= ~bl17;
-				page |= BATL_BRPN(gCPU.dbatl[i]);
-				// fixme: check access rights
-				result = page | offset;
-//				ht_printf("MMU: DBAT: %08x -> %08x\n", addr, result);
-				return PPC_MMU_READ | PPC_MMU_WRITE;
+				addr &= gCPU.dbat_nbl[i];
+				addr |= gCPU.dbat_brpn[i];
+				result = addr;
+				// FIXME: check access rights
+				return PPC_MMU_OK;
 			}
 		}
 	}

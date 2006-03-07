@@ -55,11 +55,17 @@ STRUCT    #PPC_CPU_State
 
 	MEMBER(ibatu, 4*4)
 	MEMBER(ibatl, 4*4)
-	MEMBER(ibat_bl17, 4*4)
+	MEMBER(ibat_bl, 4*4)
+	MEMBER(ibat_nbl, 4*4)
+	MEMBER(ibat_bepi, 4*4)
+	MEMBER(ibat_brpn, 4*4)
 
 	MEMBER(dbatu, 4*4)
 	MEMBER(dbatl, 4*4)
-	MEMBER(dbat_bl17, 4*4)
+	MEMBER(dbat_bl, 4*4)
+	MEMBER(dbat_nbl, 4*4)
+	MEMBER(dbat_bepi, 4*4)
+	MEMBER(dbat_brpn, 4*4)
 
 	MEMBER(sdr1, 4)
 

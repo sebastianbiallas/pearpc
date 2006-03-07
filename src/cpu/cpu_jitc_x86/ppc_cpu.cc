@@ -128,10 +128,15 @@ void ppc_cpu_run()
 
 void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)
 {
-	// use BAT for framebuffer
-	gCPU.dbatu[0] = ea|(7<<2)|0x3;
-	gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0])<<17);
+        // use BAT for framebuffer
+        gCPU.dbatu[0] = ea|(7<<2)|0x3;
 	gCPU.dbatl[0] = pa;
+
+	gCPU.dbat_bl[0] = (~gCPU.dbatu[0] << 15) & 0xfffe0000;
+	gCPU.dbat_nbl[0] = ~gCPU.dbat_bl[0];
+
+	gCPU.dbat_bepi[0] = gCPU.dbatu[0] & gCPU.dbat_bl[0];
+	gCPU.dbat_brpn[0] = gCPU.dbatl[0] & gCPU.dbat_bl[0];
 }
 
 
