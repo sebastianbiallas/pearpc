@@ -230,14 +230,14 @@ uint64 sys_get_timer_resolution(sys_timer t)
 
 uint64 sys_get_hiresclk_ticks()
 {
-#ifdef __i386__
-# ifdef __linux__
-	uint64 retval;
-	__asm__ __volatile__("rdtsc" : "=A" (retval));
-	return retval;
-# else
-	return clock();
-# endif
+#if HAVE_GETTIMEOFDAY
+       struct timeval tv;
+       struct timezone tz;
+
+       gettimeofday(&tv, &tz);
+       //__asm__ __volatile__("rdtsc" : "=A" (retval));
+
+       return ((uint64)tv.tv_sec * 1000000) + tv.tv_usec;
 #else
 	return clock();
 #endif
@@ -245,52 +245,9 @@ uint64 sys_get_hiresclk_ticks()
 
 uint64 sys_get_hiresclk_ticks_per_second()
 {
-#ifdef __i386__
-# ifdef __linux__
-	// FIXME: Doesn't handle variable speed CPUs
-	static bool init = true;
-	static uint64 ticksPerSec = 0;
-
-	if (init) {
-		FILE *cpuFile = fopen("/proc/cpuinfo", "r");
-		if (cpuFile) {
-			char lineBuf[1024];
-
-			lineBuf[1023] = '\0';
-			while (fgets(lineBuf, 1023, cpuFile)) {
-				if (strncmp("cpu MHz", lineBuf, 7) == 0) {
-					char *sep = strchr(lineBuf, ':');
-					if (sep) {
-						double tmpval = 0.0;
-						if (sscanf(sep, ": %lf", &tmpval) == 1) {
-							if (tmpval < 1.0) {								
-								ticksPerSec = 1000000000;
-								printf("cpu speed in /proc/cpuinfo looks bogus. Defaulting to 1 GHz\n");
-							} else {
-								tmpval *= 1000000.0;
-								ticksPerSec = static_cast<uint64>(tmpval);
-							}
-							break;
-						}
-					}
-				}
-			}
-			fclose(cpuFile);
-		}
-
-		if (!ticksPerSec) {
-			printf("Unable to query cpu speed from /proc/cpuinfo\n");
-			ticksPerSec = 1000000000;
-		}
-
-		init = false;
-	}
-
-	return ticksPerSec;
-# else
-	return CLOCKS_PER_SEC;
-# endif
+#if HAVE_GETTIMEOFDAY
+       return 1000000;
 #else
-	return CLOCKS_PER_SEC;
+	return clock();
 #endif
 }
