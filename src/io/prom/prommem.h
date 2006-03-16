@@ -23,6 +23,8 @@
 
 #include "system/types.h"
 
+#define PROM_MEM_SIZE (2*1024*1024)
+
 bool prom_get_string(String &result, uint32 ea);
 bool prom_claim_page(uint32 phys);
 bool prom_claim_pages(uint32 phys, uint32 size);

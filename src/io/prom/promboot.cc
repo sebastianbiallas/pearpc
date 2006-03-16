@@ -79,17 +79,6 @@ byte ELF_PROGRAM_HEADER32_struct[]= {
 	0,
 };
 
-struct ELF_PROGRAM_HEADER32 {
-	uint32 p_type;
-	uint32 p_offset;
-	uint32 p_vaddr;
-	uint32 p_paddr;
-	uint32 p_filesz;
-	uint32 p_memsz;
-	uint32 p_flags;
-	uint32 p_align;
-};
-
 byte MACHO_HEADER_struct[]= {
 	STRUCT_ENDIAN_32 | STRUCT_ENDIAN_HOST,
 	STRUCT_ENDIAN_32 | STRUCT_ENDIAN_HOST,
@@ -316,14 +305,48 @@ static byte ELF_NHEADER_struct[] = {
 	0
 };
 
-typedef struct CHRP_desc {
+struct ELF_HEADER32 {
+	uint8  e_ident[ELF_SIZEOF_IDENT];
+	uint16 e_type;
+	uint16 e_machine;
+	uint32 e_version;
+	uint32 e_entry;
+	uint32 e_phoff;
+	uint32 e_shoff;
+	uint32 e_flags;
+	uint16 e_ehsize;
+	uint16 e_phentsize;
+	uint16 e_phnum;
+	uint16 e_shentsize;
+	uint16 e_shnum;
+	uint16 e_shstrndx;
+};
+
+struct ELF_PROGRAM_HEADER32 {
+	uint32 p_type;
+	uint32 p_offset;
+	uint32 p_vaddr;
+	uint32 p_paddr;
+	uint32 p_filesz;
+	uint32 p_memsz;
+	uint32 p_flags;
+	uint32 p_align;
+};
+
+struct ELF_NHEADER32 {
+	uint32 n_descsz;
+	uint32 n_namesz;
+	uint32 n_type;
+};
+
+struct CHRP_desc {
 	uint32 real_mode;
 	uint32 real_base;
 	uint32 real_size;
 	uint32 virt_base;
 	uint32 virt_size;
 	uint32 load_base;
-} CHRP_desc;
+};
 
 static byte ELF_DESC_struct[] = {
 	STRUCT_ENDIAN_32 | STRUCT_ENDIAN_HOST,	// real_mode
@@ -335,7 +358,7 @@ static byte ELF_DESC_struct[] = {
 	0
 };
 
-static uint32 real_mode = 0;
+static bool real_mode = false;
 
 /*
  *	helpers
@@ -355,19 +378,18 @@ static bool chrp_init_page_create(uint32 ea, uint32 pa, int no_claim)
 	if (real_mode)
 		return ret;
 	else
-		return ppc_prom_page_create(ea, pa) && ret;
+		return ret && ppc_prom_page_create(ea, pa);
 }
 
 /*
  *	ELF
  */
-#define ELF_LOAD_ADDRESS 0x20000
-#define ROM_BASE 0x40800000
-#define MAX_ELF_HEADERS	32
-#define PPC_PAGE_SIZE	4096
-#define PPC_PAGE_MASK	0x00000fff
-
-#include "elf.h"
+//#define ELF_LOAD_ADDRESS	0x20000
+#define ELF_LOAD_ADDRESS	0x800000
+#define ROM_BASE		0x40800000
+#define MAX_ELF_HEADERS		32
+#define PPC_PAGE_SIZE		4096
+#define PPC_PAGE_MASK		0x00000fff
 
 #define PROMBOOT_OUTPUT(...)	do { \
 		gDisplay->printf(__VA_ARGS__);	\
@@ -381,33 +403,33 @@ bool promboot_copy_file_to_memory(File &f, uint32 &paddr, uint32 &vaddr, sint32 
 {
 	byte page[PPC_PAGE_SIZE];
 
-	int no_copy = flags & PLOAD_NOCOPY;
-	int paddr_map = flags & PLOAD_PADDR_MAP;
+	bool no_copy = flags & PLOAD_NOCOPY;
+	bool paddr_map = flags & PLOAD_PADDR_MAP;
 
-	int copy = !no_copy;
+	bool copy = !no_copy;
 	if (paddr_map) {
-		copy = 1;
+		copy = true;
 	}
-
+	printf("promboot_copy_file_to_memory(%08x, %08x, %08x, %08x)\n", paddr, vaddr, loader_size, zero_size);
 	while (loader_size > 0) {
 		sint32 size = loader_size;
 		if (size > PPC_PAGE_SIZE)
 			size = PPC_PAGE_SIZE;
 
-		if (paddr_map && !chrp_init_page_create(paddr, paddr, 0)) {
+/*		if (paddr_map && !chrp_init_page_create(vaddr, paddr, false)) {
 			PROMBOOT_OUTPUT("PROM ERROR: Unable to create load page!\n");
 			return false;
-		}
+		}*/
 
 		if (!chrp_init_page_create(vaddr, paddr, no_copy)) {
-			//PROMBOOT_OUTPUT("LOADER WARNING: data overwrite!\n");
-			//return false;
+			PROMBOOT_OUTPUT("LOADER WARNING: data overwrite!\n");
+			return false;
 		}
 
 		if (copy) {
 			f.readx(page, size);
 
-			if ((size < PPC_PAGE_SIZE) && zero_size) {
+			if (size < PPC_PAGE_SIZE && zero_size) {
 				sint32 offset = size;
 
 				size += zero_size;
@@ -432,7 +454,7 @@ bool promboot_copy_file_to_memory(File &f, uint32 &paddr, uint32 &vaddr, sint32 
 	if (zero_size > 0) {
 		loader_size += zero_size;
 
-		memset(page, 0, PPC_PAGE_SIZE);
+		if (copy) memset(page, 0, PPC_PAGE_SIZE);
 
 		while(loader_size > 0) {
 			sint32 size = loader_size;
@@ -440,15 +462,15 @@ bool promboot_copy_file_to_memory(File &f, uint32 &paddr, uint32 &vaddr, sint32 
 				size = PPC_PAGE_SIZE;
 
 			if (!chrp_init_page_create(vaddr, paddr, no_copy)) {
-				//PROMBOOT_OUTPUT("LOADER WARNING: zero-page overwrite!\n");
-				//return false;
-			}
-
-			if (!ppc_dma_write(paddr, page, size)) {
-				PROMBOOT_OUTPUT("LOADER ERROR: Unable to zero page!\n");
+				PROMBOOT_OUTPUT("LOADER WARNING: zero-page overwrite!\n");
 				return false;
 			}
-
+			if (copy) {
+				if (!ppc_dma_write(paddr, page, size)) {
+					PROMBOOT_OUTPUT("LOADER ERROR: Unable to write page!\n");
+					return false;
+				}
+			}
 			paddr += PPC_PAGE_SIZE;
 			vaddr += PPC_PAGE_SIZE;
 			loader_size -= size;
@@ -469,48 +491,48 @@ extern uint32 gMemorySize;
 bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 {
 	String fn;
-	PROMBOOT_OUTPUT("ELF: trying to load '%y'\n", &fn);
+	PROMBOOT_OUTPUT("ELF: trying to load '%y'\n", &f.getDesc(fn));
 	try {
-		Elf32_Ehdr hdr;
-		Elf32_Phdr *phdr;
-		Elf32_Nhdr nhdr;
+		ELF_HEADER32 hdr;
+		ELF_PROGRAM_HEADER32 *phdr;
+		ELF_NHEADER32 nhdr;
 		uint32 stack = 0;
 		uint32 stackp = 0;
 
-		for (int i=0; i<gMemorySize; i+=4096)
-			ppc_prom_page_create(i, i);
+//		for (int i=0; i < gMemorySize - PROM_MEM_SIZE; i+=4096)
+//			ppc_prom_page_create(i, i);
 
 		f.seek(disp_off);
 		f.readx(&hdr, sizeof hdr);
 		createHostStructx(&hdr, sizeof hdr, ELF_HEADER_struct, big_endian);
 
-		if ((hdr.e_ident[EI_MAG0] != ELFMAG0) ||
-		    (hdr.e_ident[EI_MAG1] != ELFMAG1) ||
-		    (hdr.e_ident[EI_MAG2] != ELFMAG2) ||
-		    (hdr.e_ident[EI_MAG3] != ELFMAG3)) {
+		if (hdr.e_ident[0] != 0x7f
+		 || hdr.e_ident[1] != 'E'
+		 || hdr.e_ident[2] != 'L'
+		 || hdr.e_ident[3] != 'F') {
 			PROMBOOT_OUTPUT("ELF ERROR: bad magic number.\n");
 			return false;
 		}
 
-		if (hdr.e_ident[EI_CLASS] != ELFCLASS32) {
+		if (hdr.e_ident[4] != 1) {
 			PROMBOOT_OUTPUT("ELF ERROR: non-32-bit ELF.\n");
 			return false;
 		}
 
-		if (hdr.e_ident[EI_DATA] != ELFDATA2MSB) {
+		if (hdr.e_ident[5] != 2) {
 			PROMBOOT_OUTPUT("ELF ERROR: non-big-endian ELF.\n");
 			return false;
 		}
 
-		if (hdr.e_type != ET_EXEC) {
+		if (hdr.e_type != 2) {
 			PROMBOOT_OUTPUT("ELF ERROR: non-executable ELF.\n");
 			return false;
 		}
-		if (hdr.e_machine != EM_PPC) {
+		if (hdr.e_machine != 20) {
 			PROMBOOT_OUTPUT("ELF ERROR: non-PowerPC ELF.\n");
 			return false;
 		}
-		if (hdr.e_version != EV_CURRENT) {
+		if (hdr.e_version != 1) {
 			PROMBOOT_OUTPUT("ELF ERROR: bad ELF version.\n");
 			return false;
 		}
@@ -525,10 +547,10 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 			return false;
 		}
 
-		phdr = (Elf32_Phdr *)malloc(sizeof(Elf32_Phdr) * hdr.e_phnum);
-		f.seek(disp_off+hdr.e_phoff);
-		f.readx(phdr, sizeof(Elf32_Phdr) * hdr.e_phnum);
-		for (int i=0; i<hdr.e_phnum; i++) {
+		phdr = new ELF_PROGRAM_HEADER32[hdr.e_phnum];
+		f.seek(disp_off + hdr.e_phoff);
+		f.readx(phdr, sizeof(ELF_PROGRAM_HEADER32) * hdr.e_phnum);
+		for (int i=0; i < hdr.e_phnum; i++) {
 			createHostStructx(&(phdr[i]), sizeof(phdr[i]), ELF_PHEADER_struct, big_endian);
 		}
 
@@ -538,9 +560,9 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 		uint32 virt_base = 0x00000000;
 		uint32 virt_size = 0xffffffff;
 
-		for (int i=0; i<hdr.e_phnum; i++) {
-			if (phdr[i].p_type == PT_NOTE) {
-				f.seek(disp_off+phdr[i].p_offset);
+		for (int i=0; i < hdr.e_phnum; i++) {
+			if (phdr[i].p_type == 4) { // PT_NOTE
+				f.seek(disp_off + phdr[i].p_offset);
 				f.readx(&nhdr, sizeof nhdr);
 				
 				createHostStructx(&nhdr, sizeof nhdr, ELF_NHEADER_struct, big_endian);
@@ -597,40 +619,17 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 
 		sint32 client_size = f.getSize() - disp_off;
 
-		stack = load_base + client_size;
-		stackp = load_base + client_size;
-
 		uint32 paddr = load_base;
-		uint32 vaddr = ROM_BASE;
 		byte page[PPC_PAGE_SIZE];
 
 		f.seek(disp_off);
-		promboot_copy_file_to_memory(f, paddr, vaddr, client_size, 0, PLOAD_PADDR_MAP | PLOAD_NOCOPY);
+//		promboot_copy_file_to_memory(f, paddr, vaddr, client_size, 0, PLOAD_PADDR_MAP);
 
-		for (int i=0; i<hdr.e_phnum; i++) {
-			if (phdr[i].p_type != PT_LOAD)
+		for (int i=0; i < hdr.e_phnum; i++) {
+			if (phdr[i].p_type != 1) // PT_LOAD
 				continue;
 
-			if ((!real_mode) && (phdr[i].p_paddr == -1))
-				phdr[i].p_paddr = phdr[i].p_vaddr;
-
-			uint32 paddr = phdr[i].p_paddr;
 			uint32 vaddr = phdr[i].p_vaddr;
-
-			uint32 no_copy = 0;
-			if ((load_base + phdr[i].p_offset) == paddr) {
-				no_copy = PLOAD_NOCOPY;
-			}
-
-			if (no_copy && (paddr == vaddr)) {
-				paddr += phdr[i].p_memsz;
-				vaddr += phdr[i].p_memsz;
-
-				if (stackp < paddr)	stackp = paddr;
-				if (stack < vaddr)	stack = vaddr;
-
-				continue;
-			}
 
 			sint32 loader_size = phdr[i].p_filesz;
 			if (loader_size > phdr[i].p_memsz) {
@@ -641,21 +640,17 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 			if (phdr[i].p_memsz > phdr[i].p_filesz)
 				zero_size = phdr[i].p_memsz - phdr[i].p_filesz;
 
-			if (!no_copy)
-				f.seek(disp_off+phdr[i].p_offset);
+			f.seek(disp_off+phdr[i].p_offset);
 
-			promboot_copy_file_to_memory(f, paddr, vaddr, loader_size, zero_size, no_copy);
-
-			if (stackp < paddr)	stackp = paddr;
-			if (stack < vaddr)	stack = vaddr;
+			promboot_copy_file_to_memory(f, paddr, vaddr, loader_size, zero_size, 0);
 		}
 
-		stack = gMemorySize - 65536 - 32;
-		stackp = gMemorySize - 65536 - 32;
+		stack = gMemorySize - 21*4096 - PROM_MEM_SIZE;
+		stackp = gMemorySize - 21*4096 - PROM_MEM_SIZE;
 		//stack = (stack + PPC_PAGE_MASK) & ~PPC_PAGE_MASK;
 		//stackp = (stackp + PPC_PAGE_MASK) & ~PPC_PAGE_MASK;
 
-		/*for (int i=0; i<20; i++) {
+		for (int i=0; i<20; i++) {
 			if (!init_page_create(stack, stackp)) {
 				PROMBOOT_OUTPUT("ELF ERROR: Unable to create stack page %i!\n", i);
 				return false;
@@ -663,18 +658,18 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 
 			stack += PPC_PAGE_SIZE;
 			stackp += PPC_PAGE_SIZE;
-		}*/
+		}
 
-		free(phdr);
+		delete[] phdr;
 
 		ppc_cpu_set_pc(0, hdr.e_entry);
 
 		if (real_mode) {
 			ppc_cpu_set_msr(0, MSR_FP);
-			ppc_cpu_set_gpr(0, 1, stackp);
+			ppc_cpu_set_gpr(0, 1, stackp-(4096+32));
 		} else {	// turn on address translation
 			ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
-			ppc_cpu_set_gpr(0, 1, stack);
+			ppc_cpu_set_gpr(0, 1, stack-(4096+32));
 		}
 
 		ppc_cpu_set_gpr(0, 2, 0);
@@ -684,7 +679,7 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 
 		PROMBOOT_OUTPUT("Booting ELF...\n");
 
-		//ppc_prom_page_create(0, 0);
+		ppc_prom_page_create(0, 0);
 		return true;
 	} catch (...) {
 		PROMBOOT_OUTPUT("ELF ERROR: caught exception.\n");
@@ -763,8 +758,8 @@ bool mapped_load_elf(File &f)
 			stackp = la;
 		}
 
-		stack = gMemorySize - 65536 - (4096*20);
-		stackp = gMemorySize - 65536 - (4096*20);
+		stack = gMemorySize - 65536 - (4096*20) - PROM_MEM_SIZE;
+		stackp = gMemorySize - 65536 - (4096*20) - PROM_MEM_SIZE;
 		// allocate stack
 		for (int i=0; i<20; i++) {
 			if (!init_page_create(stack, stackp)) return false;
@@ -782,7 +777,7 @@ bool mapped_load_elf(File &f)
 		ppc_cpu_set_msr(0, MSR_IR | MSR_DR | MSR_FP);
 		ppc_cpu_set_pc(0, entry);
 		
-		ppc_cpu_set_gpr(0, 1, gMemorySize - 65536 - 32);
+		ppc_cpu_set_gpr(0, 1, gMemorySize - 65536 - 32 - PROM_MEM_SIZE);
 		ppc_cpu_set_gpr(0, 2, 0);
 		ppc_cpu_set_gpr(0, 3, 0);
 		ppc_cpu_set_gpr(0, 4, 0);
@@ -1586,7 +1581,8 @@ bool prom_load_boot_file()
 			}
 
 			LocalFile f(loadfile);
-			if (!mapped_load_elf_from_chrp(f, 0)
+//			if (!mapped_load_elf_from_chrp(f, 0)
+			if (!mapped_load_elf(f)
 			&&  !mapped_load_xcoff(f, 0)
 			&&  !mapped_load_chrp(f)) {
 				IO_PROM_WARN("couldn't load '%y'.\n", &loadfile);

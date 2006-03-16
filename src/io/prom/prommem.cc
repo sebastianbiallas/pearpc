@@ -67,21 +67,21 @@ bool prom_get_string(String &result, uint32 ea)
 	}
 }
 
-byte *gPhysMemoryUsed;
-int gPhysMemoryLastpage;
+static byte *gPhysMemoryUsed;
+static int gPhysMemoryLastpage;
 
-int gPromMemStart, gPromMemEnd;
-#define PROM_MEM_SIZE (2*1024*1024)
+static int gPromMemStart, gPromMemEnd;
 
 struct malloc_entry {
 	uint32 prev PACKED;
 	uint32 size PACKED;
 };
+
 #define MALLOC_BLOCK_FREE (1<<31)
 #define MALLOC_BLOCK_GUARD (1)
 
-uint32 gPromMemFreeBlock;
-uint32 gPromMemLastBlock;
+static uint32 gPromMemFreeBlock;
+static uint32 gPromMemLastBlock;
 
 bool prom_claim_page(uint32 phys)
 {
@@ -295,7 +295,7 @@ bool prom_mem_init()
 
 	/*
 	 * The Prom-Memory (where the device-tree etc. resides) will be at the
-	 * end the the physical and virtual memory
+	 * end of the physical and virtual memory
 	 */
 
 	gPromMemStart = gMemorySize - PROM_MEM_SIZE;
