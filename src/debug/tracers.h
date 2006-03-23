@@ -33,7 +33,7 @@
 //#define PPC_EXC_TRACE(msg...) ht_printf("[CPU/EXC] "msg)
 #define PPC_MMU_TRACE(msg...) ht_printf("[CPU/MMU] "msg)
 #define PPC_OPC_TRACE(msg...) ht_printf("[CPU/OPC] "msg)
-#define IO_PROM_TRACE(msg...) ht_printf("[IO/PROM] "msg)
+//#define IO_PROM_TRACE(msg...) ht_printf("[IO/PROM] "msg)
 //#define IO_PROM_FS_TRACE(msg...) ht_printf("[IO/PROM/FS] "msg)
 //#define IO_3C90X_TRACE(msg...) ht_printf("[IO/3c90x] "msg)
 //#define IO_RTL8139_TRACE(msg...) ht_printf("[IO/rtl8139] "msg)
@@ -45,6 +45,7 @@
 //#define IO_NVRAM_TRACE(msg...) ht_printf("[IO/NVRAM] "msg)
 //#define IO_IDE_TRACE(msg...) ht_printf("[IO/IDE] "msg)
 //#define IO_USB_TRACE(msg...) ht_printf("[IO/USB] "msg)
+#define IO_SERIAL_TRACE(msg...) ht_printf("[IO/SERIAL] "msg)
 #define IO_CORE_TRACE(msg...) ht_printf("[IO/Generic] "msg)
 
 #define PPC_CPU_WARN(msg...) ht_printf("[CPU/CPU] <Warning> "msg)
@@ -67,6 +68,7 @@
 #define IO_NVRAM_WARN(msg...) ht_printf("[IO/NVRAM] <Warning> "msg)
 #define IO_IDE_WARN(msg...) ht_printf("[IO/IDE] <Warning> "msg)
 #define IO_USB_WARN(msg...) ht_printf("[IO/USB] <Warning> "msg)
+#define IO_SERIAL_WARN(msg...) ht_printf("[IO/SERIAL] <Warning> "msg)
 #define IO_CORE_WARN(msg...) ht_printf("[IO/Generic] <Warning> "msg)
 
 #define PPC_CPU_ERR(msg...) {ht_printf("[CPU/CPU] <Error> "msg);exit(1); } 
@@ -89,6 +91,7 @@
 #define IO_NVRAM_ERR(msg...) {ht_printf("[IO/NVRAM] <Error> "msg);exit(1); }
 #define IO_IDE_ERR(msg...) {ht_printf("[IO/IDE] <Error> "msg);exit(1); }
 #define IO_USB_ERR(msg...) {ht_printf("[IO/IDE] <Error> "msg);exit(1); }
+#define IO_SERIAL_ERR(msg...) {ht_printf("[IO/SERIAL] <Error> "msg);exit(1); }
 #define IO_CORE_ERR(msg...) {ht_printf("[IO/Generic] <Error> "msg);exit(1); }
 
 /*
@@ -176,6 +179,10 @@
 
 #ifndef IO_USB_TRACE
 #define IO_USB_TRACE(msg...)
+#endif
+
+#ifndef IO_SERIAL_TRACE
+#define IO_SERIAL_TRACE(msg...)
 #endif
 
 #ifndef IO_3C90X_TRACE

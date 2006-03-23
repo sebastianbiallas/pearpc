@@ -31,13 +31,13 @@ typedef unsigned long ObjectID;
 
 /* actually a str => bigendian-int */
 /** used to define ObjectIDs */
-#define MAGIC16(magic) (unsigned long)(((unsigned char)magic[0]<<8) | (unsigned char)magic[1])
-#define MAGIC32(magic) (unsigned long)(((unsigned char)magic[0]<<24) | ((unsigned char)magic[1]<<16) | ((unsigned char)magic[2]<<8) | (unsigned char)magic[3])
+#define MAGIC16(magic) (((uint16)magic[0]<<8) | (uint16)magic[1])
+#define MAGIC32(magic) (((uint32)magic[0]<<24) | ((uint32)magic[1]<<16) | ((uint32)magic[2]<<8) | (uint32)magic[3])
 
 /** No/invalid object */
-#define OBJID_INVALID			((unsigned long)0)
+#define OBJID_INVALID			((ObjectID)0)
 /** A placeholder object id */
-#define OBJID_TEMP			((unsigned long)-1)
+#define OBJID_TEMP			((ObjectID)-1)
 
 #define OBJID_OBJECT			MAGIC32("DAT\x00")
 

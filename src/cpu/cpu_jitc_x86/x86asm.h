@@ -731,8 +731,8 @@ static inline int x86_mem_sib_r(byte *modrm, NativeReg reg1, int factor, NativeR
 			/* internal error */
 			break;
 	}
-	//                       0     1     2  3     4  5  6  7     8
-	const byte factors[9] = {0, 0x00, 0x40, 0, 0x80, 0, 0, 0, 0xc0};
+	//                              0     1     2  3     4  5  6  7     8
+	static const byte factors[9] = {0, 0x00, 0x40, 0, 0x80, 0, 0, 0, 0xc0};
 	if (reg1 == REG_NO) {
 		// [eax*4+disp]
 		modrm[0] = 0x04;
@@ -864,8 +864,8 @@ static inline modrm_p x86_mem2_sib_r(modrm_o modrm, NativeReg reg1, int factor, 
 			/* internal error */
 			break;
 	}
-	//                       0     1     2  3     4  5  6  7     8
-	const byte factors[9] = {0, 0x00, 0x40, 0, 0x80, 0, 0, 0, 0xc0};
+	//                              0     1     2  3     4  5  6  7     8
+	static const byte factors[9] = {0, 0x00, 0x40, 0, 0x80, 0, 0, 0, 0xc0};
 	if (reg1 == REG_NO) {
 		// [eax*4+disp]
 		modrm[0] = 6;
