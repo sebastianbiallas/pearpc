@@ -152,6 +152,11 @@ pci_rtl8139_mac = "de:ad:ca:fe:12:35"
 pci_usb_installed = 1
 
 ##
+##	Serial Port (internal use)
+##
+pci_serial_installed = 0
+
+##
 ##	NVRAM
 ##
 nvram_file = "nvram"
