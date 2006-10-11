@@ -41,52 +41,52 @@ extern "C" {
 typedef uint32	HFSCatalogNodeID;
 
 struct HFSPlusExtentDescriptor {
-        uint32                  startBlock PACKED;
-	uint32                  blockCount PACKED;
-};
+        uint32                  startBlock;
+	uint32                  blockCount;
+} PACKED;
 
 struct HFSPlusForkData {
-	uint64                  logicalSize PACKED;
-        uint32                  clumpSize PACKED;
-        uint32                  totalBlocks PACKED;
-	HFSPlusExtentDescriptor	extents[8] PACKED;
-};
+	uint64                  logicalSize;
+        uint32                  clumpSize;
+        uint32                  totalBlocks;
+	HFSPlusExtentDescriptor	extents[8];
+} PACKED;
 
 struct HFSPlusVolumeHeader {
-	uint16		signature PACKED;
-	uint16		version PACKED;
-	uint32		attributes PACKED;
-	uint32              lastMountedVersion PACKED;
-	uint32              journalInfoBlock PACKED;
+	uint16		signature;
+	uint16		version;
+	uint32		attributes;
+	uint32              lastMountedVersion;
+	uint32              journalInfoBlock;
 
-	uint32              createDate PACKED;
-	uint32              modifyDate PACKED;
-	uint32              backupDate PACKED;
-        uint32              checkedDate PACKED;
+	uint32              createDate;
+	uint32              modifyDate;
+	uint32              backupDate;
+        uint32              checkedDate;
 
-	uint32              fileCount PACKED;
-        uint32              folderCount PACKED;
+	uint32              fileCount;
+        uint32              folderCount;
 
-	uint32              blockSize PACKED;
-        uint32              totalBlocks PACKED;
-	uint32              freeBlocks PACKED;
+	uint32              blockSize;
+        uint32              totalBlocks;
+	uint32              freeBlocks;
 
-        uint32              nextAllocation PACKED;
-	uint32              rsrcClumpSize PACKED;
-	uint32              dataClumpSize PACKED;
-        HFSCatalogNodeID    nextCatalogID PACKED;
+        uint32              nextAllocation;
+	uint32              rsrcClumpSize;
+	uint32              dataClumpSize;
+        HFSCatalogNodeID    nextCatalogID;
 
-	uint32              writeCount PACKED;
-        uint64              encodingsBitmap PACKED;
+	uint32              writeCount;
+        uint64              encodingsBitmap;
 
-	uint32              finderInfo[8] PACKED;
+	uint32              finderInfo[8];
 
-        HFSPlusForkData     allocationFile PACKED;
-	HFSPlusForkData     extentsFile PACKED;
-        HFSPlusForkData     catalogFile PACKED;
-	HFSPlusForkData     attributesFile PACKED;
-        HFSPlusForkData     startupFile PACKED;
-};
+        HFSPlusForkData     allocationFile;
+	HFSPlusForkData     extentsFile;
+        HFSPlusForkData     catalogFile;
+	HFSPlusForkData     attributesFile;
+        HFSPlusForkData     startupFile;
+} PACKED;
 
 byte HFSPlusVolumeHeader_struct[]= {
 	   STRUCT_ENDIAN_16 | STRUCT_ENDIAN_HOST,

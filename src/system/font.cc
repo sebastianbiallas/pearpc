@@ -23,11 +23,11 @@
 #include "system/font.h"
 
 struct FFH {
-	byte magic[4] PACKED;
-	byte height PACKED;
-	byte dist PACKED;
-	byte res0[11] PACKED;
-};
+	byte magic[4];
+	byte height;
+	byte dist;
+	byte res0[11];
+} PACKED;
 
 struct FChar {
 	byte width;
@@ -41,12 +41,12 @@ Font::Font()
 
 Font::~Font()
 {
-	if (mData) free(mData);
+	free(mData);
 }
 
 bool Font::loadFromFile(File &file)
 {
-	if (mData) free(mData);
+	free(mData);
 	mData = NULL;
 	FFH hdr;
 	file.readx(&hdr, sizeof hdr);

@@ -24,51 +24,51 @@
 #define HFSSigWord		MAGIC16("BD")
 
 struct HFSExtentDescriptor {
-	uint16 startBlock PACKED;
-	uint16 blockCount PACKED;
-};
+	uint16 startBlock;
+	uint16 blockCount;
+} PACKED;
 
 struct HFSMDB {
-	uint16 drSigWord PACKED;
-	uint32 drCrDate PACKED;
-	uint32 drLsMod PACKED;
-	uint16 drAtrb PACKED;
-	uint16 drNmFls PACKED;
-	uint16 drVBMSt PACKED;
-	uint16 drAllocPtr PACKED;
-	uint16 drNmAlBlks PACKED;
-	uint32 drAlblkSz PACKED;
-	uint32 drClpSiz PACKED;
-	uint16 drAlBlSt PACKED;
-	uint32 drNxtCNID PACKED;
-	uint16 drFreeBks PACKED;
-	char drVN[28] PACKED;
-	uint32 drVolBkUp PACKED;
-	uint16 drVSeqNum PACKED;
-	uint32 drWrCnt PACKED;
-	uint32 drXTClpSiz PACKED;
-	uint32 drCTClpSiz PACKED;
-	uint16 drNmRtDirs PACKED;
-	uint32 drFilCnt PACKED;
-	uint32 drDirCnt PACKED;
-	uint32 drFndrInfo[8] PACKED;
-	uint16 drEmbedSigWord PACKED;
-	HFSExtentDescriptor drEmbedExtent PACKED;
-	uint32 drXtFlSize PACKED;
-	HFSExtentDescriptor drXTExtRec[3] PACKED;
-	uint32 drCTFlSize PACKED;
-	HFSExtentDescriptor drCTExtRec[3] PACKED;
-};
+	uint16 drSigWord;
+	uint32 drCrDate;
+	uint32 drLsMod;
+	uint16 drAtrb;
+	uint16 drNmFls;
+	uint16 drVBMSt;
+	uint16 drAllocPtr;
+	uint16 drNmAlBlks;
+	uint32 drAlblkSz;
+	uint32 drClpSiz;
+	uint16 drAlBlSt;
+	uint32 drNxtCNID;
+	uint16 drFreeBks;
+	char drVN[28];
+	uint32 drVolBkUp;
+	uint16 drVSeqNum;
+	uint32 drWrCnt;
+	uint32 drXTClpSiz;
+	uint32 drCTClpSiz;
+	uint16 drNmRtDirs;
+	uint32 drFilCnt;
+	uint32 drDirCnt;
+	uint32 drFndrInfo[8];
+	uint16 drEmbedSigWord;
+	HFSExtentDescriptor drEmbedExtent;
+	uint32 drXtFlSize;
+	HFSExtentDescriptor drXTExtRec[3];
+	uint32 drCTFlSize;
+	HFSExtentDescriptor drCTExtRec[3];
+} PACKED;
 
 #if 0
 struct HFSNodeDescriptor {
-	uint32	ndFLink PACKED;		// forward link
-	uint32	ndBLink PACKED;		// backward link
-	char	ndType PACKED;		// node type
-	char	ndNHeight PACKED;	// node level
-	uint16	ndNRecs PACKED;		// number of records in node
-	uint16	ndResv2 PACKED;		// reserved
-};
+	uint32	ndFLink;		// forward link
+	uint32	ndBLink;		// backward link
+	char	ndType;		// node type
+	char	ndNHeight;	// node level
+	uint16	ndNRecs;		// number of records in node
+	uint16	ndResv2;		// reserved
+} PACKED;
 
 enum HFSNodeType {
 	ndIndxNode	= 0,
@@ -78,29 +78,29 @@ enum HFSNodeType {
 };
 
 union HFSNode {
-	HFSNodeDescriptor	desc PACKED;
-	byte			raw[512] PACKED;
-};
+	HFSNodeDescriptor	desc;
+	byte			raw[512];
+} PACKED;
 
 struct HFSBTHdrRec {
-        uint16	bthDepth PACKED;
-	uint32	bthRoot PACKED;
-        uint32	bthNRecs PACKED;
-	uint32	bthFNode PACKED;
-        uint32	bthLNode PACKED;
-	uint16	bthNodeSize PACKED;
-        uint16	bthKeyLen PACKED;
-	uint32	bthNNodes PACKED;
-        uint32	bthFree PACKED;
-	char	bthResv[76] PACKED;
-};
+        uint16	bthDepth;
+	uint32	bthRoot;
+        uint32	bthNRecs;
+	uint32	bthFNode;
+        uint32	bthLNode;
+	uint16	bthNodeSize;
+        uint16	bthKeyLen;
+	uint32	bthNNodes;
+        uint32	bthFree;
+	char	bthResv[76];
+} PACKED;
 
 struct HFSCatKeyRec {
-	char	ckrKeyLen PACKED;
-	char	ckrResrv1 PACKED;
-	uint32	ckrParID PACKED;
-	char	ckrCName[31] PACKED;
-};
+	char	ckrKeyLen;
+	char	ckrResrv1;
+	uint32	ckrParID;
+	char	ckrCName[31];
+} PACKED;
 
 enum HFSCatDataType {
 	cdrDirRec	= 1,
@@ -110,78 +110,78 @@ enum HFSCatDataType {
 };
 
 struct HFSFXInfo {
-	uint16	fdIconID PACKED;	//icon ID
-	uint16	fdUnused[3] PACKED;	//unused but reserved 6 bytes
-	char	fdScript PACKED;	//script flag and code
-	char	fdXFlags PACKED;	//reserved
-	uint16	fdComment PACKED;	//comment ID
-	uint32	fdPutAway PACKED;	//home directory ID
-};      
+	uint16	fdIconID;	//icon ID
+	uint16	fdUnused[3];	//unused but reserved 6 bytes
+	char	fdScript;	//script flag and code
+	char	fdXFlags;	//reserved
+	uint16	fdComment;	//comment ID
+	uint32	fdPutAway;	//home directory ID
+} PACKED;
 
 struct HFSFInfo {
-	char	fdType[4] PACKED;	//file type
-	char	fdCreator[4] PACKED;	//file creator
-	uint16	fdFlags PACKED;		//Finder flags
-	uint16	fdLocation_v PACKED;	//file's location in window
-	uint16	fdLocation_h PACKED;
-	uint16	fdFldr PACKED;		//directory that contains file
-};
+	char	fdType[4];	//file type
+	char	fdCreator[4];	//file creator
+	uint16	fdFlags;		//Finder flags
+	uint16	fdLocation_v;	//file's location in window
+	uint16	fdLocation_h;
+	uint16	fdFldr;		//directory that contains file
+} PACKED;
 
 struct HFSCatDirRec {
-	uint16	dirFlags PACKED;	//directory flags
-	uint16	dirVal PACKED;		//directory valence
-	uint32	dirDirID PACKED;	//directory ID
-	uint32	dirCrDat PACKED;	//date and time of creation
-	uint32	dirMdDat PACKED;	//date and time of last modification
-	uint32	dirBkDat PACKED;	//date and time of last backup
+	uint16	dirFlags;	//directory flags
+	uint16	dirVal;		//directory valence
+	uint32	dirDirID;	//directory ID
+	uint32	dirCrDat;	//date and time of creation
+	uint32	dirMdDat;	//date and time of last modification
+	uint32	dirBkDat;	//date and time of last backup
 	// dont care
 //	dirUsrInfo:DInfo;//Finder information
 //	dirFndrInfo:DXInfo;//additional Finder information
 //	uint32	dirResrv[4];
-};
+} PACKED;
 
 struct HFSCatFileRec {
-	char		filFlags PACKED;	//file flags
-	char		filTyp PACKED;		//file type
-	HFSFInfo	filUsrWds PACKED;	//Finder information
-	uint32		filFlNum PACKED;	//file ID
-	uint16		filStBlk PACKED;	//first alloc. blk. of data fork
-	uint32		filLgLen PACKED;	//logical EOF of data fork
-	uint32		filPyLen PACKED;	//physical EOF of data fork
-	uint16		filRStBlk PACKED;	//first alloc.blk.of resource fork
-	uint32		filRLgLen PACKED;	//logical EOF of resource fork
-	uint32		filRPyLen PACKED;	//physical EOF of resource fork
-	uint32		filCrDat PACKED;	//date and time of creation
-	uint32		filMdDat PACKED;	//date and time of last modification
-	uint32		filBkDat PACKED;	//date and time of last backup
-	HFSFXInfo	filFndrInfo PACKED;	//additional Finder information
-	uint16		filClpSize PACKED;	//file clump size
-	HFSExtentDescriptor filExtRec[3] PACKED;//first data fork extent record
-	HFSExtentDescriptor filRExtRec[3] PACKED;//first resource fork extent record
-	uint32		filResrv PACKED;	//reserved
-};
+	char		filFlags;	//file flags
+	char		filTyp;		//file type
+	HFSFInfo	filUsrWds;	//Finder information
+	uint32		filFlNum;	//file ID
+	uint16		filStBlk;	//first alloc. blk. of data fork
+	uint32		filLgLen;	//logical EOF of data fork
+	uint32		filPyLen;	//physical EOF of data fork
+	uint16		filRStBlk;	//first alloc.blk.of resource fork
+	uint32		filRLgLen;	//logical EOF of resource fork
+	uint32		filRPyLen;	//physical EOF of resource fork
+	uint32		filCrDat;	//date and time of creation
+	uint32		filMdDat;	//date and time of last modification
+	uint32		filBkDat;	//date and time of last backup
+	HFSFXInfo	filFndrInfo;	//additional Finder information
+	uint16		filClpSize;	//file clump size
+	HFSExtentDescriptor filExtRec[3];//first data fork extent record
+	HFSExtentDescriptor filRExtRec[3];//first resource fork extent record
+	uint32		filResrv;	//reserved
+} PACKED;
 
 struct HFSCatDataRec {
-	char	cdrType PACKED;
-	char	cdrResrv2 PACKED;
+	char	cdrType;
+	char	cdrResrv2;
 	// layout depends on cdrType
 	union {
 		HFSCatDirRec	dirRec;
 		HFSCatFileRec	fileRec;
 		//directory thread record
 		struct {
-			uint32	thdResrv[2] PACKED;
-			uint32	thdParID PACKED;	//parent ID for this directory
-			char	thdCName[31] PACKED;	//name of this directory
+			uint32	thdResrv[2];
+			uint32	thdParID;	//parent ID for this directory
+			char	thdCName[31];	//name of this directory
 		} dirThreadRec;
 		//file thread record
 		struct {
-		        uint32	fthdResrv[2] PACKED;
-			uint32	fthdParID PACKED;	//parent ID for this file
-			char	fthdCName[31] PACKED;	//name of this file
+		        uint32	fthdResrv[2];
+			uint32	fthdParID;	//parent ID for this file
+			char	fthdCName[31];	//name of this file
 		} fileThreadRec;
 	};
-};
+} PACKED;
 #endif
 
 #endif

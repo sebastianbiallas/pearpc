@@ -99,25 +99,15 @@ void init_crc32()
 // With this macro defined, the function runs about 35% faster, but the code is about 3 times bigger :
 #define RUN_FASTER
 
-#define DO_CRC(b) crc = (crc >> 8) ^ crc32table[(*(byte*)&crc) ^ (b)]
+#define DO_CRC(b) crc = (crc >> 8) ^ crc32table[(crc & 0xff) ^ (b)]
 
 uint32 ether_crc(size_t len, const byte *p)
 {
     uint32  crc = 0xffffffff;   // preload shift register, per CRC-32 spec
 
-#ifdef RUN_FASTER
-    for (; (((uint32)p)&0x03)!=0 && len>0; len--)
-        DO_CRC(*p++);           // will execute if *p is not dword aligned
-    for (; len>=sizeof(uint32); p += sizeof(uint32), len -= sizeof(uint32)) {
-        uint32 data = *(uint32*)p;
-        DO_CRC(((byte *)&data)[0]);
-        DO_CRC(((byte *)&data)[1]);
-        DO_CRC(((byte *)&data)[2]);
-        DO_CRC(((byte *)&data)[3]);
-    }
-#endif
-    for (; len>0; len--)
+    for (; len>0; len--) {
         DO_CRC(*p++);
+    }
     return ~crc;                // transmit complement, per CRC-32 spec
 }
 

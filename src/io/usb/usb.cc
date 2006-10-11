@@ -36,12 +36,12 @@
 #define MAX_ROOT_PORTS	15	/* maximum OHCI root hub ports */
 
 struct ohci_hcca {
-	uint32	int_table[NUM_INTS] PACKED;	/* Interrupt ED table */
-	uint16	frame_no PACKED;		/* current frame number */
-	uint16	pad1 PACKED;			/* set to 0 on each frame_no change */
-	uint32	done_head PACKED;		/* info returned for an interrupt */
-	uint8	reserved_for_hc[116] PACKED;
-};
+	uint32	int_table[NUM_INTS];	/* Interrupt ED table */
+	uint16	frame_no;		/* current frame number */
+	uint16	pad1;			/* set to 0 on each frame_no change */
+	uint32	done_head;		/* info returned for an interrupt */
+	uint8	reserved_for_hc[116];
+} PACKED;
 
 // [1].122
 #define OHCI_REG_REVISION	0x00	// [1].123

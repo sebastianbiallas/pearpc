@@ -28,14 +28,14 @@ int main(int argc, char *argv[])
 	int relfilenamesize = strlen(relfilename);
 	char cwdbuf[2048];
 	if (!getcwd(cwdbuf, sizeof cwdbuf)) {
-		printf("CWD name too long (>%d bytes). move to a higher level directory.\n", sizeof cwdbuf);
+		printf("CWD name too long (>%d bytes). move to a higher level directory.\n", (int)sizeof cwdbuf);
 		return 1;
 	}
 	char filename[2048+128];
 	if (canonicalize(filename, sizeof filename, cwdbuf, argv[0])) {
 		printf("unable to determine absolute executable filename. "
 			"probably absolute filename too long (>%d bytes). "
-			"move to a higher level directory.\n", sizeof cwdbuf);
+			"move to a higher level directory.\n", (int)sizeof cwdbuf);
 		return 1;
 	}
 	char *bs = strrchr(filename, '/');
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	int pathsize = bs-filename;
 	if (pathsize + 1 + relfilenamesize + 1 > sizeof filename) {
 		printf("absolute pathname too long (>%d bytes). "
-			"move to a higher level directory.\n", sizeof cwdbuf);
+			"move to a higher level directory.\n", (int)sizeof cwdbuf);
 		return 1;
 	}
 	strcpy(bs+1, relfilename);

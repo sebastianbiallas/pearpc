@@ -72,69 +72,69 @@ enum RxConfigurationBits {
 
 /* registers */
 struct Registers {
-	uint8  id0 PACKED; // 0x00 (mac address)
-	uint8  id1 PACKED;
-	uint8  id2 PACKED;
-	uint8  id3 PACKED;
-	uint8  id4 PACKED;
-	uint8  id5 PACKED;
-	uint16 rsvd0 PACKED; // 0x06-0x07
-	uint8  mar0 PACKED;
-	uint8  mar1 PACKED;
-	uint8  mar2 PACKED;
-	uint8  mar3 PACKED;
-	uint8  mar4 PACKED;
-	uint8  mar5 PACKED;
-	uint8  mar6 PACKED;
-	uint8  mar7 PACKED;
- 	uint32 TxStatusD0 PACKED; // 0x10
- 	uint32 TxStatusD1 PACKED; // 0x14
- 	uint32 TxStatusD2 PACKED; // 0x18
- 	uint32 TxStatusD3 PACKED; // 0x1c
-	uint32 TxStartAddrD0 PACKED; // 0x20
-	uint32 TxStartAddrD1 PACKED; // 0x24
-	uint32 TxStartAddrD2 PACKED; // 0x28
-	uint32 TxStartAddrD3 PACKED; // 0x2c
-	uint32 RxBufferStartAddr PACKED; // 0x30
-	uint16 EarlyRxByteCount PACKED; // 0x34
-	uint8  EarlyRxStatus PACKED; // 0x36
-	uint8  CommandRegister PACKED; // 0x37
-	uint16 CAPR PACKED; // 0x38 initial 0xfff0
-	uint16 CBA PACKED; // 0x3a initial 0x0000
-	uint16 InterruptMask PACKED; // 0x3c
-	uint16 InterruptStatus PACKED; // 0x3e
-	uint32 TxConfiguration PACKED; // 0x40
-	uint32 RxConfiguration PACKED; // 0x44
-	uint32 TimerCount PACKED; // 0x48
-	uint32 MissedPacketCounter PACKED; // 0x4c
-	uint8  Command93C46 PACKED; //0x50
-	uint8  Config0 PACKED; // 0x51
-	uint8  Config1 PACKED; // 0x52
-	uint8  rsvd1  PACKED; // 0x53
-	uint32 TimerInterrupt PACKED; // 0x54
-	uint8  MediaStatus PACKED; // 0x58
-	uint8  Config3 PACKED; // 0x59
-	uint8  Config4 PACKED; // 0x5a
-	uint8  rsvd2 PACKED; // 0x5b
-	uint16 MultipleInterruptSelect PACKED; // 0x5c
-	uint8  PCIRevisionID PACKED; // 0x5e should be 0x10
-	uint8  rsvd3 PACKED; // 0x5f
-	uint16 TSAD PACKED; // 0x60 Transmit Status of All Descriptors
-	uint16 BMCR PACKED; // 0x62 Basic Mode Control
-	uint16 BMSR PACKED; // 0x64 Basic Mode Status
-	uint16 ANAR PACKED; // 0x66 Auto-Negotiation Advertisement
-	uint16 ANLPAR PACKED; // 0x68 "" Link Partner
-	uint16 ANER PACKED; // 0x6a "" Expansion
-	uint16 DisconnectCounter PACKED; // 0x6c
-	uint16 FalseCarrierSenseCounter PACKED; // 0x6e
-	uint16 NWayTest PACKED; // 0x70
-	uint16 RX_ER_Counter PACKED; //0x72
-	uint16 CSConfiguration PACKED; // 0x74
-	uint16 rsvd4 PACKED;
-	uint32 PHY1 PACKED; //0x78
-	uint32 Twister PACKED; // 0x7c
-	uint8  PHY2 PACKED; // 0x80
-};
+	uint8  id0; // 0x00 (mac address)
+	uint8  id1;
+	uint8  id2;
+	uint8  id3;
+	uint8  id4;
+	uint8  id5;
+	uint16 rsvd0; // 0x06-0x07
+	uint8  mar0;
+	uint8  mar1;
+	uint8  mar2;
+	uint8  mar3;
+	uint8  mar4;
+	uint8  mar5;
+	uint8  mar6;
+	uint8  mar7;
+ 	uint32 TxStatusD0; // 0x10
+ 	uint32 TxStatusD1; // 0x14
+ 	uint32 TxStatusD2; // 0x18
+ 	uint32 TxStatusD3; // 0x1c
+	uint32 TxStartAddrD0; // 0x20
+	uint32 TxStartAddrD1; // 0x24
+	uint32 TxStartAddrD2; // 0x28
+	uint32 TxStartAddrD3; // 0x2c
+	uint32 RxBufferStartAddr; // 0x30
+	uint16 EarlyRxByteCount; // 0x34
+	uint8  EarlyRxStatus; // 0x36
+	uint8  CommandRegister; // 0x37
+	uint16 CAPR; // 0x38 initial 0xfff0
+	uint16 CBA; // 0x3a initial 0x0000
+	uint16 InterruptMask; // 0x3c
+	uint16 InterruptStatus; // 0x3e
+	uint32 TxConfiguration; // 0x40
+	uint32 RxConfiguration; // 0x44
+	uint32 TimerCount; // 0x48
+	uint32 MissedPacketCounter; // 0x4c
+	uint8  Command93C46; //0x50
+	uint8  Config0; // 0x51
+	uint8  Config1; // 0x52
+	uint8  rsvd1 ; // 0x53
+	uint32 TimerInterrupt; // 0x54
+	uint8  MediaStatus; // 0x58
+	uint8  Config3; // 0x59
+	uint8  Config4; // 0x5a
+	uint8  rsvd2; // 0x5b
+	uint16 MultipleInterruptSelect; // 0x5c
+	uint8  PCIRevisionID; // 0x5e should be 0x10
+	uint8  rsvd3; // 0x5f
+	uint16 TSAD; // 0x60 Transmit Status of All Descriptors
+	uint16 BMCR; // 0x62 Basic Mode Control
+	uint16 BMSR; // 0x64 Basic Mode Status
+	uint16 ANAR; // 0x66 Auto-Negotiation Advertisement
+	uint16 ANLPAR; // 0x68 "" Link Partner
+	uint16 ANER; // 0x6a "" Expansion
+	uint16 DisconnectCounter; // 0x6c
+	uint16 FalseCarrierSenseCounter; // 0x6e
+	uint16 NWayTest; // 0x70
+	uint16 RX_ER_Counter; //0x72
+	uint16 CSConfiguration; // 0x74
+	uint16 rsvd4;
+	uint32 PHY1; //0x78
+	uint32 Twister; // 0x7c
+	uint8  PHY2; // 0x80
+} PACKED;
 
 struct Packet {
 	uint32  pid;
@@ -144,10 +144,10 @@ struct Packet {
 
 // IEEE 802.3 MAC, Ethernet-II
 struct EthFrameII {
-	byte	destMAC[6] PACKED;
-	byte	srcMAC[6] PACKED;
-	byte	type[2] PACKED;
-};
+	byte	destMAC[6];
+	byte	srcMAC[6];
+	byte	type[2];
+} PACKED;
 
 enum EEPROMField {
         EEPROM_NodeAddress0 =           0x00,

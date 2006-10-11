@@ -137,15 +137,15 @@ enum DmaCtrlBits {
 };*/
 
 struct MIIRegisters {
-	uint16 control PACKED;
-	uint16 status PACKED;
-	uint16 id0 PACKED;
-	uint16 id1 PACKED;
-	uint16 advert PACKED;
-	uint16 linkPartner PACKED;
-	uint16 expansion PACKED;
-	uint16 nextPage PACKED;
-};
+	uint16 control;
+	uint16 status;
+	uint16 id0;
+	uint16 id1;
+	uint16 advert;
+	uint16 linkPartner;
+	uint16 expansion;
+	uint16 nextPage;
+} PACKED;
 
 /*
  *	Registers
@@ -157,48 +157,48 @@ struct RegWindow {
 
 struct Registers {
 	// 0x10 bytes missing (current window)
-	uint32	r0 PACKED;
-	uint32	r1 PACKED;
-	uint8	TxPktId PACKED;
-	uint8	r2 PACKED;
-	uint8	Timer PACKED;
-	uint8	TxStatus PACKED;
-	uint16	r3 PACKED;
-	uint16	__dontUseMe PACKED;//	really:	uint16	IntStatusAuto PACKED;
-	uint32	DmaCtrl PACKED;		// [1] p.95 (dn), p.100 (up)
-	uint32	DnListPtr PACKED;	// [1] p.98
-	uint16	r4 PACKED;
-	uint8	DnBurstThresh PACKED;	// [1] p.97
-	uint8	r5 PACKED;
-	uint8	DnPriorityThresh PACKED;
-	uint8	DnPoll PACKED;		// [1] p.100
-	uint16	r6 PACKED;
-	uint32	UpPktStatus PACKED;
-	uint16	FreeTimer PACKED;
-	uint16	Countdown PACKED;
-	uint32	UpListPtr PACKED;	// [1] p.115
-	uint8	UpPriorityThresh PACKED;
-	uint8	UpPoll PACKED;
-	uint8	UpBurstThresh PACKED;
-	uint8	r7 PACKED;
-	uint32	RealTimeCount PACKED;
-	uint8	ConfigAddress PACKED;
-	uint8	r8 PACKED;
-	uint8	r9 PACKED;
-	uint8	r10 PACKED;
-	uint8	ConfigData PACKED;
-	uint8	r11 PACKED;
-	uint8	r12 PACKED;
-	uint8	r13 PACKED;
-	uint32	r14[9] PACKED;
-	uint32	DebugData PACKED;
-	uint16	DebugControl PACKED;
-	uint16	r15 PACKED;
-	uint16	DnMaxBurst PACKED;
-	uint16	UpMaxBurst PACKED;
-	uint16	PowerMgmtCtrl PACKED;
-	uint16	r16 PACKED;
-};
+	uint32	r0;
+	uint32	r1;
+	uint8	TxPktId;
+	uint8	r2;
+	uint8	Timer;
+	uint8	TxStatus;
+	uint16	r3;
+	uint16	__dontUseMe;//	really:	uint16	IntStatusAuto;
+	uint32	DmaCtrl;		// [1] p.95 (dn), p.100 (up)
+	uint32	DnListPtr;	// [1] p.98
+	uint16	r4;
+	uint8	DnBurstThresh;	// [1] p.97
+	uint8	r5;
+	uint8	DnPriorityThresh;
+	uint8	DnPoll;		// [1] p.100
+	uint16	r6;
+	uint32	UpPktStatus;
+	uint16	FreeTimer;
+	uint16	Countdown;
+	uint32	UpListPtr;	// [1] p.115
+	uint8	UpPriorityThresh;
+	uint8	UpPoll;
+	uint8	UpBurstThresh;
+	uint8	r7;
+	uint32	RealTimeCount;
+	uint8	ConfigAddress;
+	uint8	r8;
+	uint8	r9;
+	uint8	r10;
+	uint8	ConfigData;
+	uint8	r11;
+	uint8	r12;
+	uint8	r13;
+	uint32	r14[9];
+	uint32	DebugData;
+	uint16	DebugControl;
+	uint16	r15;
+	uint16	DnMaxBurst;
+	uint16	UpMaxBurst;
+	uint16	PowerMgmtCtrl;
+	uint16	r16;
+} PACKED;
 
 #define RA_INV	0
 
@@ -281,14 +281,14 @@ static byte gRegAccess[0x70] =
  *	Window 0
  */
 struct RegWindow0 {
-	uint32	r0 PACKED;
-	uint32	BiosRomAddr PACKED;
-	uint8	BiosRomData PACKED;
-	uint8	r1 PACKED;
-	uint16	EepromCommand PACKED;
-	uint16	EepromData PACKED;
-	uint16	XXX PACKED;		// IntStatus/CommandRegister
-};
+	uint32	r0;
+	uint32	BiosRomAddr;
+	uint8	BiosRomData;
+	uint8	r1;
+	uint16	EepromCommand;
+	uint16	EepromData;
+	uint16	XXX;		// IntStatus/CommandRegister
+} PACKED;
 
 enum W0_Offsets {
 	W0_EEPROMCmd = 0xa,
@@ -313,24 +313,24 @@ enum W0_EEPROMSubCmd {
  *	Window 2
  */
 struct RegWindow2 {
-	uint16	StationAddress[6] PACKED;
-	uint16	StationMask[6] PACKED;
-	uint16	ResetOptions PACKED;
-	uint16	XXX PACKED;		// IntStatus/CommandRegister
-};
+	uint16	StationAddress[6];
+	uint16	StationMask[6];
+	uint16	ResetOptions;
+	uint16	XXX;		// IntStatus/CommandRegister
+} PACKED;
 
 /*
  *	Window 3
  */
 struct RegWindow3 {
-	uint32	InternalConfig PACKED;	// [1] p.58,76
-	uint16	MaxPktSize PACKED;
-	uint16	MacControl PACKED;	// [1] p.179
-	uint16	MediaOptions PACKED;	// [1] p.78 (EE), p.181
-	uint16	RxFree PACKED;
-	uint16	TxFree PACKED;		// [1] p.101
-	uint16	XXX PACKED;		// IntStatus/CommandRegister
-};
+	uint32	InternalConfig;	// [1] p.58,76
+	uint16	MaxPktSize;
+	uint16	MacControl;	// [1] p.179
+	uint16	MediaOptions;	// [1] p.78 (EE), p.181
+	uint16	RxFree;
+	uint16	TxFree;		// [1] p.101
+	uint16	XXX;		// IntStatus/CommandRegister
+} PACKED;
 
 /*
  *	Window 4
@@ -342,16 +342,16 @@ enum W4_PhysMgmtBits {
 };
 
 struct RegWindow4 {
-	uint16	r0 PACKED;
-	uint16	r1 PACKED;
-	uint16	FifoDiagnostic PACKED;
-	uint16	NetDiagnostic PACKED;	// [1] p.184
-	uint16	PhysMgmt PACKED;	// [1] p.186
-	uint16	MediaStatus PACKED;	// [1] p.182
-	byte	BadSSD PACKED;
-	byte	UpperBytesOK PACKED;
-	uint16	XXX PACKED;		// IntStatus/CommandRegister
-};
+	uint16	r0;
+	uint16	r1;
+	uint16	FifoDiagnostic;
+	uint16	NetDiagnostic;	// [1] p.184
+	uint16	PhysMgmt;	// [1] p.186
+	uint16	MediaStatus;	// [1] p.182
+	byte	BadSSD;
+	byte	UpperBytesOK;
+	uint16	XXX;		// IntStatus/CommandRegister
+} PACKED;
 
 /*
  *	Window 5
@@ -365,35 +365,35 @@ enum RxFilterBits {	// [1] p.112
 };
  
 struct RegWindow5 {
-	uint16	TxStartThresh PACKED;
-	uint16	r0 PACKED;
-	uint16	r1 PACKED;
-	uint16	RxEarlyThresh PACKED;
-	byte	RxFilter PACKED;	// [1] p.112
-	byte	TxReclaimThresh PACKED;
-	uint16	InterruptEnable PACKED;	// [1] p.120
-	uint16	IndicationEnable PACKED;// [1] p.120
-	uint16	XXX PACKED;		// IntStatus/CommandRegister
-};
+	uint16	TxStartThresh;
+	uint16	r0;
+	uint16	r1;
+	uint16	RxEarlyThresh;
+	byte	RxFilter;	// [1] p.112
+	byte	TxReclaimThresh;
+	uint16	InterruptEnable;	// [1] p.120
+	uint16	IndicationEnable;// [1] p.120
+	uint16	XXX;		// IntStatus/CommandRegister
+} PACKED;
 
 /*
  *	Window 6
  */
 struct RegWindow6 {
-	uint8	CarrierLost PACKED;
-	uint8	SqeErrors PACKED;
-	uint8	MultipleCollisions PACKED;
-	uint8	SingleCollisions PACKED;
-	uint8	LateCollisions PACKED;
-	uint8	RxOverruns PACKED;
-	uint8	FramesXmittedOk PACKED;
-	uint8	FramesRcvdOk PACKED;
-	uint8	FramesDeferred PACKED;
-	uint8	UpperFramesOk PACKED;
-	uint16	BytesRcvdOk PACKED;
-	uint16	BytesXmittedOk PACKED;
-	uint16	XXX PACKED;		// IntStatus/CommandRegister
-};
+	uint8	CarrierLost;
+	uint8	SqeErrors;
+	uint8	MultipleCollisions;
+	uint8	SingleCollisions;
+	uint8	LateCollisions;
+	uint8	RxOverruns;
+	uint8	FramesXmittedOk;
+	uint8	FramesRcvdOk;
+	uint8	FramesDeferred;
+	uint8	UpperFramesOk;
+	uint16	BytesRcvdOk;
+	uint16	BytesXmittedOk;
+	uint16	XXX;		// IntStatus/CommandRegister
+} PACKED;
 
 /*
  *	EEPROM
@@ -463,9 +463,9 @@ struct DPD1 {
 };
 
 struct DPDFragDesc {
-	uint32	DnFragAddr PACKED;
-	uint32	DnFragLen PACKED;	// [12:0] fragLen, [31] lastFrag
-};
+	uint32	DnFragAddr;
+	uint32	DnFragLen;	// [12:0] fragLen, [31] lastFrag
+} PACKED;
 
 // must be on 8-byte physical address boundary
 struct UPD {
@@ -475,9 +475,9 @@ struct UPD {
 };
 
 struct UPDFragDesc {
-	uint32	UpFragAddr PACKED;
-	uint32	UpFragLen PACKED;	// [12:0] fragLen, [31] lastFrag
-};
+	uint32	UpFragAddr;
+	uint32	UpFragLen;	// [12:0] fragLen, [31] lastFrag
+} PACKED;
 
 #define MAX_DPD_FRAGS	63
 #define MAX_UPD_FRAGS	63
@@ -507,10 +507,10 @@ enum UpPktStatusBits {
 
 // IEEE 802.3 MAC, Ethernet-II
 struct EthFrameII {
-	byte	destMAC[6] PACKED;
-	byte	srcMAC[6] PACKED;
-	byte	type[2] PACKED;
-};
+	byte	destMAC[6];
+	byte	srcMAC[6];
+	byte	type[2];
+} PACKED;
 
 /*
  *	misc
