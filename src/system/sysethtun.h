@@ -29,6 +29,8 @@
 
 class PacketDevice {
 public:
+	virtual ~PacketDevice() {}
+	
 	/**
 	 *	Read a packet from the device into a buffer
 	 *
@@ -77,6 +79,8 @@ public:
  */
 class EthTunDevice: public PacketDevice {
 public:
+	virtual ~EthTunDevice() {}
+
 	/**
 	 *	Get driver-specific ethernet write frame prefix.
 	 *
