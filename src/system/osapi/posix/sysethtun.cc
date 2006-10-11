@@ -143,7 +143,7 @@ virtual int execIFConfigScript(const char *action, const char *interface)
 		setenv("PPC_INTERFACE", interface, 1);
 		printf("executing '%s' ...\n"
 "********************************************************************************\n", progname);
-		execl(progname, progname, 0);
+		execl(progname, progname, (char*)NULL);
 		printf("couldn't exec '%s': %s\n", progname, strerror(errno));
 		exit(1);
 	} else if (pid != -1) {

@@ -68,6 +68,6 @@ int main(int argc, char *argv[])
 		printf("script '%s' must not be world-writable\n", filename);
 		return 1;
 	}
-	execl("/bin/sh", "/bin/sh", filename, 0);
+	execl("/bin/sh", "/bin/sh", filename, (char*)NULL);
 	return 0;
 }
