@@ -361,7 +361,7 @@ EXPORT(ppc_set_msr_asm):
 	jnz	2f
 1:
 		## Do this first so the invalidate can clobber %eax and
-		## we won't care
+		## we won''t care
  	mov	[gCPU(msr)], %eax
 	xor	%eax, %ecx
 	
@@ -739,7 +739,7 @@ EXPORT(ppc_new_pc_asm):
 ##
 EXPORT(ppc_new_pc_this_page_asm):
 #	mov	%esi, [%esp]
-#	mov	[%esi-6], %eax			# patch it now, later we don't have the value
+#	mov	[%esi-6], %eax			# patch it now, later we don''t have the value
 	add	%eax, [gCPU(current_code_base)]
 	
 	push	4
