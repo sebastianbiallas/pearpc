@@ -175,6 +175,7 @@ virtual bool readDeviceIO(uint r, uint32 address, uint32 &data, uint size)
 		data = state.intr_id & 0x07;
 		return true;
 	case SERIAL_FORMAT:
+		data = state.format;
 		return true;
 	case SERIAL_CONTROL_OUT:
 		return true;
