@@ -390,8 +390,8 @@ protection_fault_8_data:
 /*	adc	dword ptr [gJITC(tlb_##datacode##_##rw##_hits+4)], 0; */       \
 	and	%eax, 0x00000fff;                                              \
 	or	%eax, [gJITC(tlb_##datacode##_##rw##_phys + %edx*4)];          \
+1:                                                                             \
 	ret	4;                                                             \
-1:
 
 .balign 16
 ppc_effective_to_physical_code_ret:
