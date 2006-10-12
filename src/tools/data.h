@@ -73,10 +73,10 @@ typedef unsigned long ObjectID;
  */
 class Object {
 public:
-				Object();
-	virtual			~Object();
-		void		init();
-	virtual	void		done();
+				Object() {};
+	virtual			~Object() {};
+		void		init() {};
+	virtual	void		done() {};
 /* new */
 
 /**
@@ -661,6 +661,7 @@ public:
 struct BinTreeNode {
 	Object *key;
 	BinTreeNode *left, *right;
+	int unbalance;
 };
 
 /**
@@ -673,11 +674,13 @@ protected:
 	BinTreeNode *root;
 	Comparator compare;
 
-	virtual	BinTreeNode *	allocNode() const;
+		BinTreeNode *	allocNode() const;
 		void		cloneR(BinTreeNode *node);
 	virtual	void		deleteNode(BinTreeNode *node) const;
 		BinTreeNode *	findNode(BinTreeNode *node, const Object *obj) const;
+		BinTreeNode *	findNodeG(BinTreeNode *node, const Object *obj) const;
 		BinTreeNode *	findNodeGE(BinTreeNode *node, const Object *obj) const;
+		BinTreeNode *	findNodeL(BinTreeNode *node, const Object *obj) const;
 		BinTreeNode *	findNodeLE(BinTreeNode *node, const Object *obj) const;
 		BinTreeNode **	findNodePtr(BinTreeNode **nodeptr, const Object *obj) const;
 		void		freeAll(BinTreeNode *n);
@@ -688,24 +691,24 @@ protected:
 		BinTreeNode **	getRightmostPtr(BinTreeNode **nodeptr) const;
 		ObjHandle	findByIdxR(BinTreeNode *n, int &i) const;
 		ObjHandle	insertR(BinTreeNode *&node, Object *obj);
-	inline	bool		validHandle(ObjHandle h) const;
-	inline	BinTreeNode *	handleToNative(ObjHandle h) const;
-	inline	ObjHandle	nativeToHandle(BinTreeNode *n) const;
+	virtual	void		setNodeIdentity(BinTreeNode *node, BinTreeNode *newident);
+	inline	bool		validHandle(ObjHandle h) const { return (h != InvObjHandle); }
+	inline	BinTreeNode *	handleToNative(ObjHandle h) const { return (BinTreeNode*)h; }
+	inline	ObjHandle	nativeToHandle(BinTreeNode *n) const { return (ObjHandle*)n; }
 public:
 				BinaryTree(bool own_objects, Comparator comparator = autoCompare);
 	virtual			~BinaryTree();
-/* extends Object */
+	/* extends Object */
 	virtual	BinaryTree *	clone() const;
-#ifdef HAVE_HT_OBJECTS
-	virtual	bool		instanceOf(ObjectID id) const;
 	virtual	ObjectID	getObjectID() const;
-#endif
-/* extends Enumerator */
+	/* extends Enumerator */
 	virtual	void		delAll();
 	virtual	uint		count() const;
 	virtual	int		compareObjects(const Object *a, const Object *b) const;
 	virtual	ObjHandle	find(const Object *obj) const;
+	virtual	ObjHandle	findG(const Object *obj) const;
 	virtual	ObjHandle	findGE(const Object *obj) const;
+	virtual	ObjHandle	findL(const Object *obj) const;
 	virtual	ObjHandle	findLE(const Object *obj) const;
 	virtual	ObjHandle	findByIdx(int i) const;
 	virtual	ObjHandle	findFirst() const;
@@ -714,39 +717,29 @@ public:
 	virtual	ObjHandle	findPrev(ObjHandle h) const;
 	virtual	Object *	get(ObjHandle h) const;
 	virtual	uint		getObjIdx(ObjHandle h) const;
-/* extends Container */
+	/* extends Container */
 	virtual	bool		del(ObjHandle h);
 	virtual	ObjHandle	insert(Object *obj);
 	virtual	Object *	remove(ObjHandle h);
 };
 
-/**
- *   AVLTree's node structure
- */
-struct AVLTreeNode: public BinTreeNode {
-	int unbalance;
-};
 
 /**
  *   A height-balanced binary tree (AVL)
  */
 class AVLTree: public BinaryTree {
 private:
-	virtual	AVLTreeNode *	allocNode() const;
-			void	cloneR(AVLTreeNode *node);
-			Object *removeR(Object *key, BinTreeNode *&root, int &change, int cmp);
+		void		cloneR(BinTreeNode *node);
+		BinTreeNode *	removeR(Object *key, BinTreeNode *&root, int &change, int cmp);
 public:
 				AVLTree(bool own_objects, Comparator comparator = autoCompare);
 
 		void		debugOut();
-		bool		expensiveCheck();
-/* extends Object */
+		bool		expensiveCheck() const;
+	/* extends Object */
 	virtual	AVLTree *	clone() const;
-#ifdef HAVE_HT_OBJECTS
-	virtual	bool		instanceOf(ObjectID id) const;
 	virtual	ObjectID	getObjectID() const;
-#endif
-/* extends Container */
+	/* extends Container */
 	virtual	ObjHandle	insert(Object *obj);
 	virtual	Object *	remove(ObjHandle h);
 };

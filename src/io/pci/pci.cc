@@ -352,12 +352,14 @@ void pci_write(uint32 addr, uint32 data, int size)
 	case 0x200000:
 	case 0x200cfc:
 		if (size == 1) {
-			(*(((uint8 *)&gPCI_Data_LE))) = data;
+			void *p = &gPCI_Data_LE;
+			*(uint8 *)p = data;
 			pci_config_read_write(true, 0, 1);
 			return;
 		}
 		if (size == 2) {
-			(*(((uint16 *)&gPCI_Data_LE))) = ppc_half_to_LE(data);
+			void *p = &gPCI_Data_LE;
+			*(uint16 *)p = ppc_half_to_LE(data);
 			pci_config_read_write(true, 0, 2);
 			return;
 		}
@@ -368,34 +370,41 @@ void pci_write(uint32 addr, uint32 data, int size)
 		pci_config_read_write(true, 0, 4);
 		return;
 	case 0x200001:
-	case 0x200cfd:
+	case 0x200cfd: {
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		(*(((uint8 *)&gPCI_Data_LE)+1)) = data;
+		char *p = (char*)&gPCI_Data_LE;
+		*(uint8 *)(p+1) = data;
 		pci_config_read_write(true, 1, 1);
 		return;
+	}
 	case 0x200002:
-	case 0x200cfe:
+	case 0x200cfe: {
 		if (size > 2) {
 			IO_PCI_ERR("pci bla\n");
 		}
 		if (size == 1) {
-			(*(((uint8 *)&gPCI_Data_LE)+2)) = data;
+			char *p = (char *)&gPCI_Data_LE;
+			*(uint8 *)(p+2) = data;
 			pci_config_read_write(true, 2, 1);
 			return;
 		}
-		(*(((uint16 *)&gPCI_Data_LE)+1)) = ppc_half_to_LE(data);
+		char *p = (char *)&gPCI_Data_LE;
+		*(uint16 *)(p+2) = ppc_half_to_LE(data);
 		pci_config_read_write(true, 2, 2);
 		return;
+	}
 	case 0x200003:
-	case 0x200cff:
+	case 0x200cff: {
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		(*(((uint8 *)&gPCI_Data_LE)+3)) = data;
+		char *p = (char *)&gPCI_Data_LE;
+		*(uint8 *)(p+3) = data;
 		pci_config_read_write(true, 3, 1);
 		return;
+	}
 	}
 	SINGLESTEP("unknown service\n");
 }
@@ -413,12 +422,14 @@ void pci_read(uint32 addr, uint32 &data, int size)
 	case 0x200000:
 	case 0x200cfc:
 		if (size == 1) {
-			data = *((uint8 *)&gPCI_Data_LE);
+			void *p = &gPCI_Data_LE;
+			data = *(uint8 *)p;
 			IO_PCI_TRACE("%02x\n", data);
 			return;
 		}
 		if (size == 2) {
-			data = ppc_half_from_LE(*((uint16 *)&gPCI_Data_LE));
+			void *p = &gPCI_Data_LE;
+			data = ppc_half_from_LE(*(uint16 *)p);
 			IO_PCI_TRACE("%04x\n", data);
 			return;
 		}
@@ -429,32 +440,38 @@ void pci_read(uint32 addr, uint32 &data, int size)
 		IO_PCI_TRACE("%08x\n", data);
 		return;
 	case 0x200001:
-	case 0x200cfd:
+	case 0x200cfd: {
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		data = (*(((uint8 *)&gPCI_Data_LE)+1));
+		char *p = (char*)&gPCI_Data_LE;
+		data = *(uint8 *)(p+1);
 		IO_PCI_TRACE("%02x\n", data);
 		return;
+	}
 	case 0x200002: 
-	case 0x200cfe:
+	case 0x200cfe: {
 		if (size > 2) {
 			IO_PCI_ERR("pci bla\n");
 		}
 		if (size==1) {
-			data = *(((uint8 *)&gPCI_Data_LE)+2);
+			char *p = (char*)&gPCI_Data_LE;
+			data = *(uint8 *)(p+2);
 			IO_PCI_TRACE("%02x\n", data);
 			return;
 		}
-		data = ppc_half_from_LE(*(((uint16 *)&gPCI_Data_LE)+1));
+		char *p = (char*)&gPCI_Data_LE;
+		data = ppc_half_from_LE(*(uint16 *)(p+2));
 		IO_PCI_TRACE("%04x\n", data);
 		return;
+	}
 	case 0x200003:
 	case 0x200cff:
 		if (size != 1) {
 			IO_PCI_ERR("pci bla\n");
 		}
-		data = (*(((uint8 *)&gPCI_Data_LE)+3));
+		char *p = (char*)&gPCI_Data_LE;
+		data = *(uint8 *)(p+3);
 		IO_PCI_TRACE("%02x\n", data);
 		return;
 	}

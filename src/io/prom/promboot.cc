@@ -240,17 +240,17 @@ byte COFF_HEADER_struct[] = {
 #define COFF_SIZEOF_SHORT_NAME			8
 
 struct COFF_SECTION_HEADER {
-	byte name[COFF_SIZEOF_SHORT_NAME] PACKED;
-	uint32 data_vsize PACKED;	// or data_phys_address !
-	uint32 data_address PACKED;
-	uint32 data_size PACKED;
-	uint32 data_offset PACKED;
-	uint32 relocation_offset PACKED;
-	uint32 linenumber_offset PACKED;
-	uint16 relocation_count PACKED;
-	uint16 linenumber_count PACKED;
-	uint32 characteristics PACKED;
-};
+	byte name[COFF_SIZEOF_SHORT_NAME];
+	uint32 data_vsize;	// or data_phys_address !
+	uint32 data_address;
+	uint32 data_size;
+	uint32 data_offset;
+	uint32 relocation_offset;
+	uint32 linenumber_offset;
+	uint16 relocation_count;
+	uint16 linenumber_count;
+	uint32 characteristics;
+} PACKED;
 
 byte COFF_SECTION_HEADER_struct[] = {
 	COFF_SIZEOF_SHORT_NAME,

@@ -85,4 +85,14 @@ typedef struct sint128 {
 } sint128;
 #endif
 
+union float_uint32 {
+	uint32 u;
+	float f;
+};
+
+union double_uint64 {
+	uint64 u;
+	double d;
+};
+
 #endif

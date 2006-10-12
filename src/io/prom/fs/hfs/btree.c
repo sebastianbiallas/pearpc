@@ -408,7 +408,7 @@ fail:
  * DESCRIPTION:	recursively locate a node and insert a record
  */
 static
-int insertx(node *np, byte *record, int *reclen)
+int insertx(node *np, byte *record, unsigned int *reclen)
 {
   node child;
   byte *rec;

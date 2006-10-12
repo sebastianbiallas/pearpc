@@ -541,7 +541,12 @@ protected:
 	uint		mRxPacketSize;
 	EthTunDevice *	mEthTun;
 	sys_mutex	mLock;
-	uint16		mMIIRegs[8];
+	
+	union {
+		MIIRegisters s;
+		uint16       reg[8];
+	} 		mMIIRegs;
+
 	uint32		mMIIReadWord;
 	uint64		mMIIWriteWord;
 	uint		mMIIWrittenBits;
@@ -626,11 +631,10 @@ void totalReset()
 	mEEPROM[EEPROM_Checksum] =		0;
 
 	// MII
-	memset(mMIIRegs, 0, sizeof mMIIRegs);
-	MIIRegisters &miiregs = *(MIIRegisters*)mMIIRegs;
-	miiregs.status = (1<<14) | (1<<13) | (1<<12) | (1<<11) | (1<<5) | (1<<3) | (1<<2) | 1;
-	miiregs.linkPartner = (1<<14) | (1<<7) | 1;
-	miiregs.advert = (1<<14) | (1 << 10) | (1<<7) | 1;
+	memset(&mMIIRegs, 0, sizeof mMIIRegs);
+	mMIIRegs.s.status = (1<<14) | (1<<13) | (1<<12) | (1<<11) | (1<<5) | (1<<3) | (1<<2) | 1;
+	mMIIRegs.s.linkPartner = (1<<14) | (1<<7) | 1;
+	mMIIRegs.s.advert = (1<<14) | (1 << 10) | (1<<7) | 1;
 	mMIIReadWord = 0;
 	mMIIWriteWord = 0;
 	mMIIWrittenBits = 0;
@@ -1033,8 +1037,8 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 								if (mMIIWrittenBits == 64) {
 									uint32 value = mMIIWriteWord & 0xffff;
 //									IO_3C90X_TRACE("NOT writing 0x%04x to register. feature disabled. (old = 0x%04x)\n", value, mMIIRegs[REGaddr]);
-									IO_3C90X_TRACE("Writing 0x%04x to MII register %d (old = 0x%04x)\n", value, REGaddr, mMIIRegs[REGaddr]);
-									mMIIRegs[REGaddr] = value;
+									IO_3C90X_TRACE("Writing 0x%04x to MII register %d (old = 0x%04x)\n", value, REGaddr, mMIIRegs.reg[REGaddr]);
+									mMIIRegs.reg[REGaddr] = value;
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
 								}
@@ -1047,8 +1051,8 @@ void writeRegWindow(uint window, uint32 port, uint32 data, uint size)
 								if (mMIIWrittenBits == 32+2+2+5+5) {
 									// msb gets sent first and is zero to indicated success
 									// the register to be sent follows msb to lsb
-									mMIIReadWord = mMIIRegs[REGaddr] << 15;
-									IO_3C90X_TRACE("Read 0x%04x from register %d\n", mMIIRegs[REGaddr], REGaddr);
+									mMIIReadWord = mMIIRegs.reg[REGaddr] << 15;
+									IO_3C90X_TRACE("Read 0x%04x from register %d\n", mMIIRegs.reg[REGaddr], REGaddr);
 								} else {
 									IO_3C90X_TRACE("But invalid write count=%d\n", mMIIWrittenBits);
 								}

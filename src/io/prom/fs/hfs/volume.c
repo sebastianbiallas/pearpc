@@ -413,7 +413,8 @@ int v_writevbm(hfsvol *vol)
 {
   unsigned int vbmst = vol->mdb.drVBMSt;
   unsigned int vbmsz = vol->vbmsz;
-  const block *bp;
+//  const 
+  block *bp;
 
   for (bp = vol->vbm; vbmsz--; ++bp)
     {
@@ -764,7 +765,7 @@ fail:
  * DESCRIPTION:	translate a pathname; return catalog information
  */
 int v_resolve(hfsvol **vol, const char *path,
-	      CatDataRec *data, long *parid, char *fname, node *np)
+	      CatDataRec *data, unsigned long *parid, char *fname, node *np)
 {
   unsigned long dirid;
   char name[HFS_MAX_FLEN + 1], *nptr;

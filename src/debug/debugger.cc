@@ -188,7 +188,8 @@ EvalType FPRFunction::getReturnType() const
 Float *FPRFunction::evalFloat() const
 {
 #ifdef HAVE_DEBUGGER
-	return new Float(*(double *)&gCPU.fpr[mNumber]);
+	double_uint64 du = { gCPU.fpr[mNumber] };
+	return new Float(du.d);
 #else
 	return NULL;
 #endif
@@ -607,7 +608,9 @@ bool Debugger::parse(const String &str)
 				break;
 			case REG_FPR: {
 				Float *f = params[1]->evalFloat();
-				gCPU.fpr[s.param[0].scalar.reg.num] = *(uint64*)&f->value;
+				double_uint64 du;
+				du.d = f->value;
+				gCPU.fpr[s.param[0].scalar.reg.num] = du.u;
 				delete f;
 				break;
 			}

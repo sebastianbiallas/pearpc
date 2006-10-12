@@ -55,22 +55,6 @@ int autoCompare(const Object *a, const Object *b)
  *	Class Object
  */
 
-Object::Object()
-{
-}
-
-Object::~Object()
-{
-}
-
-void Object::init()
-{
-}
-
-void Object::done()
-{
-}
-
 int Object::compareTo(const Object *obj) const
 {
 #ifdef HAVE_HT_OBJECTS
@@ -877,9 +861,8 @@ ObjectID Queue::getObjectID() const
 #endif
 
 /*
- *	Class BinaryTree
+ *	BinaryTree
  */
-
 BinaryTree::BinaryTree(bool oo, Comparator comp)
 {
 	root = NULL;
@@ -926,52 +909,87 @@ BinTreeNode **BinaryTree::findNodePtr(BinTreeNode **nodeptr, const Object *obj) 
 
 BinTreeNode *BinaryTree::findNode(BinTreeNode *node, const Object *obj) const
 {
-	BinTreeNode *x = node;
-	while (x) {
-		int c = compareObjects(x->key, obj);
+	while (node) {
+		int c = compareObjects(node->key, obj);
 		if (c < 0) {
-			x = x->right;
+			node = node->right;
 		} else if (c > 0) {
-			x = x->left;
+			node = node->left;
 		} else break;
 	}
-	return x;
+	return node;
+}
+
+BinTreeNode *BinaryTree::findNodeG(BinTreeNode *node, const Object *obj) const
+{
+	if (!node) return NULL;
+	BinTreeNode *lastGreater = NULL;
+	while (true) {
+		int c = compareObjects(obj, node->key);
+		if (c < 0) {
+			if (!node->left) return node;
+			lastGreater = node;
+			node = node->left;
+		} else {
+			if (!node->right) return lastGreater;
+			node = node->right;
+		}
+	}
 }
 
 BinTreeNode *BinaryTree::findNodeGE(BinTreeNode *node, const Object *obj) const
 {
-	BinTreeNode *x = node;
+	if (!node) return NULL;
 	BinTreeNode *lastGreater = NULL;
-	while (x) {
-		int c = compareObjects(x->key, obj);
+	while (true) {
+		int c = compareObjects(obj, node->key);
 		if (c < 0) {
-			if (!x->right) return lastGreater;
-			x = x->right;
+			if (!node->left) return node;
+			lastGreater = node;
+			node = node->left;
 		} else if (c > 0) {
-			if (!x->left) return x;
-			lastGreater = x;
-			x = x->left;
-		} else return x;
+			if (!node->right) return lastGreater;
+			node = node->right;
+		} else {
+			return node;
+		}
 	}
-	return NULL;
+}
+
+BinTreeNode *BinaryTree::findNodeL(BinTreeNode *node, const Object *obj) const
+{
+	if (!node) return NULL;
+	BinTreeNode *lastLower = NULL;
+	while (true) {
+		int c = compareObjects(obj, node->key);
+		if (c <= 0) {
+			if (!node->left) return lastLower;
+			node = node->left;
+		} else {
+			if (!node->right) return node;
+			lastLower = node;
+			node = node->right;
+		}
+	}
 }
 
 BinTreeNode *BinaryTree::findNodeLE(BinTreeNode *node, const Object *obj) const
 {
-	BinTreeNode *x = node;
+	if (!node) return NULL;
 	BinTreeNode *lastLower = NULL;
-	while (x) {
-		int c = compareObjects(x->key, obj);
+	while (true) {
+		int c = compareObjects(obj, node->key);
 		if (c < 0) {
-			if (!x->right) return x;
-			lastLower = x;
-			x = x->right;
+			if (!node->left) return lastLower;
+			node = node->left;
 		} else if (c > 0) {
-			if (!x->left) return lastLower;
-			x = x->left;
-		} else return x;
+			if (!node->right) return node;
+			lastLower = node;
+			node = node->right;
+		} else {
+			return node;
+		}
 	}
-	return NULL;
 }
 
 void BinaryTree::freeAll(BinTreeNode *n)
@@ -1044,18 +1062,10 @@ BinaryTree *BinaryTree::clone() const
 	return c;
 }
 
-#ifdef HAVE_HT_OBJECTS
-bool	BinaryTree::instanceOf(ObjectID id) const
-{
-	return (id == getObjectID()) || Container::instanceOf(id);
-}
-
 ObjectID BinaryTree::getObjectID() const
 {
 	return OBJID_BINARY_TREE;
 }
-
-#endif
 
 uint BinaryTree::count() const
 {
@@ -1072,9 +1082,19 @@ ObjHandle BinaryTree::find(const Object *key) const
 	return findNode(root, key);
 }
 
+ObjHandle BinaryTree::findG(const Object *key) const
+{
+	return findNodeG(root, key);
+}
+
 ObjHandle BinaryTree::findGE(const Object *key) const
 {
 	return findNodeGE(root, key);
+}
+
+ObjHandle BinaryTree::findL(const Object *key) const
+{
+	return findNodeL(root, key);
 }
 
 ObjHandle BinaryTree::findLE(const Object *key) const
@@ -1216,258 +1236,57 @@ Object *BinaryTree::remove(ObjHandle h)
 	return o;
 }
 
-bool BinaryTree::validHandle(ObjHandle h) const
+void BinaryTree::setNodeIdentity(BinTreeNode *node, BinTreeNode *newident)
 {
-	return (h != InvObjHandle);
-}
-
-BinTreeNode *BinaryTree::handleToNative(ObjHandle h) const
-{
-	return (BinTreeNode*)h;
-}
-
-ObjHandle BinaryTree::nativeToHandle(BinTreeNode *n) const
-{
-	return (ObjHandle*)n;
+	node->key = newident->key;
 }
 
 /*
- *	Class AVLTree
+ *	AVLTree
  */
-
 AVLTree::AVLTree(bool aOwnObjects, Comparator aComparator)
  : BinaryTree(aOwnObjects, aComparator)
 {
 
 }
 
-void debugOutNode(FILE *f, AVLTreeNode *n, AVLTreeNode *p)
-{
-	if (n) {
-		char b[1024];
-		ht_snprintf(b, sizeof b, "node: { title: \"%y\" label: \"%y (%d)\" }\n", n->key, n->key, n->unbalance);
-		fputs(b, f);
-		if (p) {
-			ht_snprintf(b, sizeof b, "edge: { sourcename: \"%y\" targetname: \"%y\" }\n", p->key, n->key);
-			fputs(b, f);
-		}
-		debugOutNode(f, (AVLTreeNode *)n->right, n);
-		debugOutNode(f, (AVLTreeNode *)n->left, n);
-	}
-}
-
-void AVLTree::debugOut()
-{
-	FILE *f = fopen("test.vcg", "wb");
-	fputs("graph: {\nlayoutalgorithm: tree\n", f);
-	debugOutNode(f, (AVLTreeNode *)root, NULL);
-	fputs("}\n", f);
-	fclose(f);
-}
-
-bool AVLTree__expensiveCheck(BinTreeNode *n, int &height)
-{
-	if (n) {
-		int left, right;
-		if (!AVLTree__expensiveCheck(n->left, left)) return false;
-		if (!AVLTree__expensiveCheck(n->right, right)) return false;
-		height = MAX(left, right)+1;
-		if (left < right) {
-			return ((AVLTreeNode *)n)->unbalance == 1;
-		} else if (left > right) {
-			return ((AVLTreeNode *)n)->unbalance == -1;
-		} else {
-			return ((AVLTreeNode *)n)->unbalance == 0;
-		}
-	} else {
-		height = 0;
-		return true;
-	}
-}
-
-bool AVLTree::expensiveCheck()
-{
-	int dummy;
-	return AVLTree__expensiveCheck(root, dummy);
-}
-
-AVLTreeNode *AVLTree::allocNode() const
-{
-	return new AVLTreeNode;
-}
-
-
-void AVLTree::cloneR(AVLTreeNode *node)
+void AVLTree::cloneR(BinTreeNode *node)
 {
 	if (!node) return;
 	Object *o = own_objects ? node->key->clone() : node->key;
 	// SB: nicht gut: (unnoetige compares)
 	insert(o);
 
-	cloneR((AVLTreeNode *)node->left);
-	cloneR((AVLTreeNode *)node->right);
+	cloneR(node->left);
+	cloneR(node->right);
 }
 
 AVLTree *AVLTree::clone() const
 {
 	AVLTree *c = new AVLTree(own_objects, compare);
-	c->cloneR((AVLTreeNode *)root);
+	c->cloneR(root);
 	return c;
 }
 
-#ifdef HAVE_HT_OBJECTS
-bool AVLTree::instanceOf(ObjectID id) const
-{
-	return (id == getObjectID()) || BinaryTree::instanceOf(id);
-}
 
 ObjectID AVLTree::getObjectID() const
 {
 	return OBJID_AVL_TREE;
 }
 
-#endif
-
 ObjHandle AVLTree::insert(Object *obj)
 {
-#if 0
-	// to be removed:
-	if (!root) {
-		root = allocNode();
-		root->key = obj;
-		root->left = root->right = NULL;
-		((AVLTreeNode *)root)->unbalance = 0;
-		ecount++;
-		return true;
-	}
-	
-	AVLTreeNode *t = NULL;
-	AVLTreeNode *s = (AVLTreeNode *)root;
-	AVLTreeNode *p = (AVLTreeNode *)root;     
-	AVLTreeNode *q;
-	// Search
-	while (1) {
-		int c = compareObjects(obj, p->key);
-		if (c < 0) {
-			q = (AVLTreeNode *)p->left;
-			if (!q) {
-				p->left = q = allocNode();
-				break;
-			} else {
-				if (q->unbalance) {
-					t = p;
-					s = q;
-				}
-			}
-		} else if (c>0) {
-			q = (AVLTreeNode *)p->right;
-			if (!q) {
-				p->right = q = allocNode();
-				break;
-			} else {
-				if (q->unbalance) {
-					t = p;
-					s = q;
-				}
-			}
-		} else {
-			// element found
-			return false;
-		}
-		p = q;
-	}
-	// Insert
-	q->key = obj;
-	q->left = q->right = NULL;
-	q->unbalance = 0;
-	ecount++;
-	// Rebalance
-	int a;
-	AVLTreeNode *r;
-	if (compareObjects(obj, s->key) < 0) {
-		a = -1;
-		r = p = (AVLTreeNode *)s->left;
-	} else {
-		a = 1;
-		r = p = (AVLTreeNode *)s->right;
-	}
-	while (p != q) {
-		if (compareObjects(obj, p->key) < 0) {
-			p->unbalance = -1;
-			p = (AVLTreeNode *)p->left;
-		} else {
-			p->unbalance = 1;
-			p = (AVLTreeNode *)p->right;
-		}
-	}
-	if (!s->unbalance) {
-		// tree was balanced before insertion
-		s->unbalance = a;
-	} else if (s->unbalance == -a) {
-		// tree has become more balanced
-		s->unbalance = 0;
-	} else {
-		// tree is out of balance
-		if (r->unbalance == a) {
-			// single rotation
-			p = r;
-			if (a < 0) {
-				s->left = r->right;
-				r->right = s;
-			} else {
-				s->right = r->left;
-				r->left = s;
-			}
-			s->unbalance = r->unbalance = 0;
-		} else {
-			// double rotation
-			if (a < 0) {
-				p = (AVLTreeNode *)r->right;
-				r->right = p->left;
-				p->left = r;
-				s->left = p->right;
-				p->right = s;
-			} else {
-				p = (AVLTreeNode *)r->left;
-				r->left = p->right;
-				p->right = r;
-				s->right = p->left;
-				p->left = s;
-			}
-			// to be optimized
-			if (p->unbalance == a) {
-				s->unbalance = -a;
-				r->unbalance = 0;
-			} else if (p->unbalance == -a) {
-				s->unbalance = 0;
-				r->unbalance = a;
-			} else {
-				s->unbalance = 0;
-				r->unbalance = 0;
-			}
-		}
-		// finalization
-		if (t == NULL) {
-			root = p;
-		} else if (s == t->right) {
-			t->right = p;
-		} else {
-			t->left = p;
-		}
-	}
-	return true;
-#else
 	/* t will point to the node where rebalancing may be necessary */
-	AVLTreeNode **t = (AVLTreeNode **)&root;
+	BinTreeNode **t = &root;
 	/* *pp will walk through the tree */
-	AVLTreeNode **pp = (AVLTreeNode **)&root;
+	BinTreeNode **pp = &root;
 	// Search
 	while (*pp) {
 		int c = compareObjects(obj, (*pp)->key);
 		if (c < 0) {
-			pp = (AVLTreeNode **)&(*pp)->left;
+			pp = &(*pp)->left;
 		} else if (c > 0) {
-			pp = (AVLTreeNode **)&(*pp)->right;
+			pp = &(*pp)->right;
 		} else {
 			// element found
 			return InvObjHandle;
@@ -1478,11 +1297,11 @@ ObjHandle AVLTree::insert(Object *obj)
 	}
 
 	/* s points to the node where rebalancing may be necessary */
-	AVLTreeNode *s = *t;
+	BinTreeNode *s = *t;
 
 	// Insert
 	*pp = allocNode();
-	AVLTreeNode *retval = *pp;
+	BinTreeNode *retval = *pp;
 	retval->key = obj;
 	retval->left = retval->right = NULL;
 	retval->unbalance = 0;
@@ -1492,22 +1311,22 @@ ObjHandle AVLTree::insert(Object *obj)
 
 	// Rebalance
 	int a;
-	AVLTreeNode *r;
-	AVLTreeNode *p;
+	BinTreeNode *r;
+	BinTreeNode *p;
 	if (compareObjects(obj, s->key) < 0) {
 		a = -1;
-		r = p = (AVLTreeNode *)s->left;
+		r = p = s->left;
 	} else {
 		a = 1;
-		r = p = (AVLTreeNode *)s->right;
+		r = p = s->right;
 	}
 	while (p != retval) {
 		if (compareObjects(obj, p->key) < 0) {
 			p->unbalance = -1;
-			p = (AVLTreeNode *)p->left;
+			p = p->left;
 		} else {
 			p->unbalance = 1;
-			p = (AVLTreeNode *)p->right;
+			p = p->right;
 		}
 	}
 	if (!s->unbalance) {
@@ -1532,13 +1351,13 @@ ObjHandle AVLTree::insert(Object *obj)
 		} else {
 			// double rotation
 			if (a < 0) {
-				p = (AVLTreeNode *)r->right;
+				p = r->right;
 				r->right = p->left;
 				p->left = r;
 				s->left = p->right;
 				p->right = s;
 			} else {
-				p = (AVLTreeNode *)r->left;
+				p = r->left;
 				r->left = p->right;
 				p->right = r;
 				s->right = p->left;
@@ -1553,17 +1372,16 @@ ObjHandle AVLTree::insert(Object *obj)
 	}
 	ASSERT(root);
 	return nativeToHandle(retval);
-#endif
 }
 
-Object *AVLTree::removeR(Object *key, BinTreeNode *&node, int &change, int cmp)
+BinTreeNode *AVLTree::removeR(Object *key, BinTreeNode *&node, int &change, int cmp)
 {
 	if (node == NULL) {
 		change = 0;
 		return NULL;
 	}
 
-	Object *found = NULL;
+	BinTreeNode *found = NULL;
 	int decrease = 0;
 
 	int result;
@@ -1579,48 +1397,45 @@ Object *AVLTree::removeR(Object *key, BinTreeNode *&node, int &change, int cmp)
 	} else {
 		result = (node->right == NULL) ? 0 : 1;
 	}
-	
+
 	if (result) {
 		found = removeR(key, (result < 0) ? node->left : node->right, change, cmp);
 		if (!found) return NULL;
 		decrease = result * change;
-	} else  {
-		found = node->key;
-		
+	} else {
+		found = node;
+
 		/*
 		 *	Same logic as in BinaryTree::remove()
 		 */
-
 		if (!node->left && !node->right) {
-			deleteNode(node);
 			node = NULL;
 			change = 1;
 			return found;
 		} else if (!node->left || !node->right) {
-			AVLTreeNode *toDelete = (AVLTreeNode *)node;
 			node = node->right ? node->right : node->left;
 			change = 1;
-			toDelete->left = toDelete->right = NULL;
-			deleteNode(toDelete);
 			return found;
 		} else {
-			node->key = removeR(key, node->right, decrease, -1);
+			BinTreeNode *n = removeR(key, node->right, decrease, -1);
+			setNodeIdentity(node, n);
+			found = n;
 		}
 	}
 
-	((AVLTreeNode *)node)->unbalance -= decrease;
+	node->unbalance -= decrease;
 
 	if (decrease) {
-		if (((AVLTreeNode *)node)->unbalance) {
+		if (node->unbalance) {
 			change = 0;
 			int a;
-			AVLTreeNode *r = NULL;
-			if (((AVLTreeNode *)node)->unbalance < -1) {
+			BinTreeNode *r = NULL;
+			if (node->unbalance < -1) {
 				a = -1;
-				r = (AVLTreeNode *)node->left;
-			} else if (((AVLTreeNode *)node)->unbalance > 1) {
+				r = node->left;
+			} else if (node->unbalance > 1) {
 				a = 1;
-				r = (AVLTreeNode *)node->right;
+				r = node->right;
 			} else {
 				a = 0;
 			}
@@ -1634,21 +1449,21 @@ Object *AVLTree::removeR(Object *key, BinTreeNode *&node, int &change, int cmp)
 					 *	double rotation.
 					 *	See insert
 					 */
-					AVLTreeNode *p;
+					BinTreeNode *p;
 					if (a > 0) {
-						p = (AVLTreeNode *)r->left;
+						p = r->left;
 						r->left = p->right;
 						p->right = r;
 						node->right = p->left;
 						p->left = node;
 					} else {
-						p = (AVLTreeNode *)r->right;
+						p = r->right;
 						r->right = p->left;
 						p->left = r;
 						node->left = p->right;
 						p->right = node;
 					}
-					((AVLTreeNode*)node)->unbalance = (p->unbalance == a) ? -a: 0;
+					node->unbalance = (p->unbalance == a) ? -a: 0;
 					r->unbalance = (p->unbalance == -a) ? a: 0;
 					p->unbalance = 0;
 					node = p;
@@ -1668,7 +1483,7 @@ Object *AVLTree::removeR(Object *key, BinTreeNode *&node, int &change, int cmp)
 						r->right = node;
 						r->unbalance++;
 					}
-					((AVLTreeNode *)node)->unbalance = - r->unbalance;
+					node->unbalance = - r->unbalance;
 					node = r;
 				}
 			}
@@ -1691,10 +1506,13 @@ Object *AVLTree::remove(ObjHandle h)
 	BinTreeNode *n = handleToNative(h);
 	Object *o = n->key;
 	int change;
-	Object *obj = removeR(n->key, root, change, 0);
-		ASSERT(obj == o);
-	ecount--;
-	return o;
+	BinTreeNode *node = removeR(n->key, root, change, 0);
+	if (node) {
+		deleteNode(node);
+		ecount--;
+		return o;
+	}
+	return NULL;
 }
 
 /*
