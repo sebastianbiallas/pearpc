@@ -1153,7 +1153,7 @@ void ppc_opc_fctiwx()
 	ppc_double B;
 	ppc_fpu_unpack_double(B, gCPU.fpr[frB]);
 	gCPU.fpr[frD] = ppc_fpu_double_to_int(B);
-	if (gJITC.current_opc & PPC_OPC_Rc) {
+	if (gCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fctiw.\n");
 	}
