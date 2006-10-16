@@ -25,7 +25,7 @@
 #include "ppc_cpu.h"
 #include "jitc_types.h"
 
-/* FSCAKE is also defined in FreeBSD's sys/param.h */
+/* FSCALE is also defined in FreeBSD's sys/param.h */
 #ifdef FSCALE 
 #undef FSCALE 
 #endif /* FSCALE */
@@ -85,6 +85,8 @@ struct X86CPUCaps {
 	bool sse;
 	bool sse2;
 	bool sse3;
+	bool ssse3;
+	bool sse4;
 	int  loop_align;
 };
 

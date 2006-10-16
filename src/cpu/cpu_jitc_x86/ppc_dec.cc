@@ -47,6 +47,7 @@ static void ppc_opc_invalid()
 static JITCFlow ppc_opc_gen_invalid()
 {
 //	PPC_DEC_WARN("invalid instruction 0x%08x\n", gJITC.current_opc);
+	jitcClobberAll();
 	asmALURegImm(X86_MOV, ESI, gJITC.pc);
 	asmALURegImm(X86_MOV, EDX, gJITC.current_opc);
 	asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_ILL);
