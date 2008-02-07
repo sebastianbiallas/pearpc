@@ -1554,7 +1554,7 @@ void rxUPD(UPD *upd)
 void indicate(uint indications)
 {
 	RegWindow5 &w5 = (RegWindow5&)mWindows[5];
-	if (w5.IndicationEnable & indications != indications) {
+	if ((w5.IndicationEnable & indications) != indications) {
 		IO_3C90X_TRACE("some masked: %08x\n", w5.IndicationEnable & indications);
 	}
 	mIntStatus |= w5.IndicationEnable & indications;
