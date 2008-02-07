@@ -820,7 +820,7 @@ int CDROMDeviceSCSI::getConfig(byte *buf, int len, byte RT, int first)
 	};
 	if (SCSI_ExecCmd(rt[(4<<4)+13], SCSI_CMD_DIR_IN,
 	  params, buf, len) == SCSI_STATUS_GOOD) {
-		uint32 reslen = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | (buf[3] << 0) + 4;
+		uint32 reslen = (buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]<<0) + 4;
 		return reslen;
 	} else {
 		ht_printf("getconfig failed\n");
@@ -845,7 +845,7 @@ int CDROMDeviceSCSI::readDVDStructure(byte *buf, int len, uint8 subcommand, uint
 	};
 	if (SCSI_ExecCmd(0xad, SCSI_CMD_DIR_IN,
 	  params, buf, len) == SCSI_STATUS_GOOD) {
-		uint32 reslen = (buf[0] << 8) | (buf[1] << 0) + 2;
+		uint32 reslen = (buf[0]<<8 | buf[1]<<0) + 2;
 		return reslen;
 	} else {
 		ht_printf("readDVDStructure failed\n");

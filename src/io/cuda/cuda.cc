@@ -799,10 +799,10 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		data = gCUDA.rIFR;
 		if (gCUDA.state == cuda_idle) {
 			if (!gCUDA.left /*&& !(gCUDA.rIER & SR_INT)*/) {
-				if (cuda_interrupt()) {
-					data |= SR_INT;
+//				if (cuda_interrupt()) {
+//					data |= SR_INT;
 //					if (gCUDA.autopoll) pic_raise_interrupt(IO_PIC_IRQ_CUDA);
-				}
+//				}
 			}
 //			ht_printf("is idle!\n");
 		} else {
@@ -827,11 +827,6 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 	sys_unlock_mutex(gCUDAMutex);
 }
 
-bool cuda_interrupt()
-{
-	return false;
-}
-
 static sys_semaphore	gCUDAEventSem;
 static Queue		gCUDAEvents(true);
 
@@ -840,8 +835,8 @@ static bool cudaEventHandler(const SystemEvent &ev)
 	sys_lock_semaphore(gCUDAEventSem);
 //	ht_printf("queue  %d\n", ev.key.pressed);
 	gCUDAEvents.enQueue(new SystemEventObject(ev));
-	sys_unlock_semaphore(gCUDAEventSem);
 	sys_signal_semaphore(gCUDAEventSem);
+	sys_unlock_semaphore(gCUDAEventSem);
 	return true;
 }
 
@@ -928,9 +923,6 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 
 static void *cudaEventLoop(void *arg)
 {
-	if (sys_create_semaphore(&gCUDAEventSem)) {
-		IO_CUDA_ERR("Can't create semaphore\n");
-	}
 	gKeyboard->attachEventHandler(cudaEventHandler);
 	gMouse->attachEventHandler(cudaEventHandler);
 	sys_lock_semaphore(gCUDAEventSem);
@@ -944,6 +936,7 @@ static void *cudaEventLoop(void *arg)
 			delete seo;
 		}
 	}
+	return NULL;
 }
 
 bool cuda_prom_get_key(uint32 &key)
@@ -956,6 +949,15 @@ bool cuda_prom_get_key(uint32 &key)
 		gCUDA.left = 0;
 		return false;
 	}
+}
+
+void cuda_pre_init()
+{
+	if (sys_create_semaphore(&gCUDAEventSem)) {
+		IO_CUDA_ERR("Can't create semaphore\n");
+	}
+	sys_lock_semaphore(gCUDAEventSem);
+	sys_unlock_semaphore(gCUDAEventSem);	
 }
 
 void cuda_init()

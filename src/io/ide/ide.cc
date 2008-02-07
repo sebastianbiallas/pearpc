@@ -752,10 +752,10 @@ void receive_atapi_packet()
 			sector[1] = capacity >> 16;
 			sector[2] = capacity >> 8;
 			sector[3] = capacity;
-			sector[4] = 2048 >> 24;
-			sector[5] = 2048 >> 16;
-			sector[6] = 2048 >> 8;
-			sector[7] = 2048;
+			sector[4] = uint8(2048 >> 24);
+			sector[5] = uint8(2048 >> 16);
+			sector[6] = uint8(2048 >> 8);
+			sector[7] = uint8(2048);
 		} else {
 			atapi_command_error(IDE_ATAPI_SENSE_NOT_READY, IDE_ATAPI_ASC_MEDIUM_NOT_PRESENT);
 		}
@@ -887,14 +887,14 @@ void receive_atapi_packet()
 				sector[14] = (dev->isLocked() ? (1<<1):0)
 					| 1 | (1<<3) | (1<<5);
 				sector[15] = 0;
-				sector[16] = 706 >> 8;
-				sector[17] = 706;
+				sector[16] = uint8(706 >> 8);
+				sector[17] = uint8(706);
 				sector[18] = 0;
 				sector[19] = 2;
-				sector[20] = 512 >> 8;
-				sector[21] = 512;
-				sector[22] = 706 >> 8;
-				sector[23] = 706;
+				sector[20] = uint8(512 >> 8);
+				sector[21] = uint8(512);
+				sector[22] = uint8(706 >> 8);
+				sector[23] = uint8(706);
 				sector[24] = 0;
 				sector[25] = 0;
 				sector[26] = 0;
@@ -1096,7 +1096,7 @@ void receive_atapi_packet()
 
 	bool bm_ide_dotransfer(bool &prd_exhausted, uint32 prd_addr, byte bmide_command, byte bmide_status, uint32 lba, uint32 count)
 	{
-		IO_IDE_TRACE("BM IDE transfer: prd_addr = %08x, lba = %08x, size = %08x\n", bmide_prd_addr, lba, count ? count : gIDEState.state[gIDEState.drive].sector_count);
+		IO_IDE_TRACE("BM IDE transfer: prd_addr = %08x, lba = %08x, size = %08x\n", prd_addr, lba, count ? count : gIDEState.state[gIDEState.drive].sector_count);
 
 		struct prd_entry {
 			uint32 addr PACKED;
@@ -1187,7 +1187,7 @@ void receive_atapi_packet()
 
 	bool read_bmdma_reg(uint32 port, uint32 &data, uint size)
 	{
-		IO_IDE_TRACE("bm-dma: read port: %08x, size: %d from (%08x, lr: %08x)\n", port, size, gCPU.pc, gCPU.lr);
+		IO_IDE_TRACE("bm-dma: read port: %08x, size: %d from (%08x)\n", port, size, ppc_cpu_get_pc(0));
 		switch (port) {
 		case 0:
 			if (size==1) {
@@ -1270,7 +1270,7 @@ void receive_atapi_packet()
 	
 	bool write_bmdma_reg(uint32 port, uint32 data, uint size)
 	{
-		IO_IDE_TRACE("bm-dma: write port: %08x, data: %08x, size: %d from (%08x, lr: %08x)\n", port, data, size, gCPU.pc, gCPU.lr);
+		IO_IDE_TRACE("bm-dma: write port: %08x, data: %08x, size: %d from (%08x)\n", port, data, size, ppc_cpu_get_pc(0));
 		switch (port) {
 		case 0:
 			if (size==1) {
@@ -1875,7 +1875,7 @@ void ide_read_reg(uint32 addr, uint32 &data, int size)
 	}
 	case IDE_ADDRESS_SEC_CNT: {
 		data = gIDEState.state[gIDEState.drive].sector_count;
-		IO_IDE_TRACE("sec_cnt: %x (from: @%08x)\n", data, gCPU.pc);
+		IO_IDE_TRACE("sec_cnt: %x (from: @%08x)\n", data, ppc_cpu_get_pc(0));
 		return;
 	}
 	case IDE_ADDRESS_SEC_NO: {
