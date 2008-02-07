@@ -139,6 +139,21 @@ int ht_stricmp(const char *s1, const char *s2)
 	return 0;
 }
 
+size_t ht_strlcpy(char *s1, const char *s2, size_t maxlen)
+{
+	if (!maxlen) return 0;
+	char *os1 = s1;
+	while (true) {
+		if (!--maxlen) {
+			*s1 = 0;
+			return s1 - os1;
+		}
+		*s1 = *s2;
+		if (!*s2) return s1 - os1;
+		s1++; s2++;
+	}
+}
+
 int strccomm(const char *s1, const char *s2)
 {
 	if (!s1 || !s2) return 0;
