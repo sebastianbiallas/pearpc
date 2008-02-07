@@ -31,6 +31,7 @@
 #include "io/graphic/gcard.h"
 #include "io/ide/ide.h"
 #include "io/ide/cd.h"
+#include "io/cuda/cuda.h"
 #include "io/prom/prom.h"
 #include "io/prom/promboot.h"
 #include "io/prom/prommem.h"
@@ -107,7 +108,7 @@ void initMenu()
 	gDisplay->finishMenu();*/
 }
 
-static char *textlogo UNUSED = "\e[?7h\e[40m\e[2J\e[40m\n\n\n\n\n\e[0;1m"
+static const char *textlogo UNUSED = "\e[?7h\e[40m\e[2J\e[40m\n\n\n\n\n\e[0;1m"
 "\e[24C\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
 "\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4   "
 "\xda\xc4\xc4\xc4\xc4\xc4\xc4\n\e[24C\e[0m\xda\xc4\xc4   "
@@ -195,7 +196,7 @@ extern "C" int SDL_main(int argc, char *argv[])
 #endif
 
 int main(int argc, char *argv[])
-{
+{	
 	if (argc != 2) {
 		usage();
 	}
@@ -345,6 +346,8 @@ int main(int argc, char *argv[])
 			ht_printf("cpu_init failed! Out of memory?\n");
 			exit(1);
 		}
+
+		cuda_pre_init();
 
 		initUI(APPNAME" "APPVERSION, gm, msec, keyConfig, fullscreen);
 

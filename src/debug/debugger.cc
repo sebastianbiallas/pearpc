@@ -17,7 +17,6 @@
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#define HAVE_DEBUGGER
 
 #include <stdio.h>
 
@@ -471,7 +470,7 @@ Function *Debugger::matchFunction(const String &name, const Enumerator &params)
 
 inline static void disasm(uint32 code, uint32 ea, char *result)
 {
-	PPCDisassembler dis;
+	PPCDisassembler dis(PPC_MODE_32);
 	CPU_ADDR addr;
 	addr.addr32.offset = ea;
 	strcpy(result, dis.str(dis.decode((byte*)&code, 4, addr), 0));

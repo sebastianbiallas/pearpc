@@ -104,19 +104,17 @@ public:
 };
 
 class ConfigEntryString: public ConfigEntry {
-	String *value;
+	String value;
 public:
 
 	ConfigEntryString(const String &aName, bool mandatory)
 		:ConfigEntry(aName, mandatory)
 	{
-		value = new String;
 	}
 	
 	ConfigEntryString(const String &aName, const String &defaultvalue)
-		:ConfigEntry(aName, false)
+		: ConfigEntry(aName, false), value(defaultvalue)
 	{
-		value = new String(defaultvalue);
 		mInitialized = true;
 	}
 	
@@ -127,14 +125,14 @@ public:
 	
 	void set(const String &s)
 	{
-		*value = s;
+		value = s;
 		mInitialized = true;
 		mSet = true;
 	}
 	
 	virtual String &asString(String &result) const
 	{
-		result = *value;
+		result = value;
 		return result;
 	}
 };

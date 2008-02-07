@@ -21,7 +21,7 @@
 #ifndef __DEBUGGER_H__
 #define __DEBUGGER_H__
 
-#define HAVE_DEBUGGER
+//#define HAVE_DEBUGGER
 
 #include "tools/data.h"
 #include "tools/str.h"

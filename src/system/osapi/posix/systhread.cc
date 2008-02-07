@@ -37,20 +37,20 @@ struct sys_pthread_semaphore {
 
 int sys_create_mutex(sys_mutex *m)
 {
-	*m = (pthread_mutex_t *)malloc(sizeof (pthread_mutex_t));
+	*m = malloc(sizeof (pthread_mutex_t));
 	return pthread_mutex_init((pthread_mutex_t *)*m, NULL);
 }
 
 int sys_create_semaphore(sys_semaphore *s)
 {
-	*s = (sys_pthread_semaphore *)malloc(sizeof (sys_pthread_semaphore));
+	*s = malloc(sizeof (sys_pthread_semaphore));
 	pthread_mutex_init(&((sys_pthread_semaphore*)*s)->mutex, NULL);
 	return pthread_cond_init(&((sys_pthread_semaphore*)*s)->cond, NULL);
 }
 
 int sys_create_thread(sys_thread *t, int flags, sys_thread_function start_routine, void *arg)
 {
-	*t = (pthread_t *)malloc(sizeof (pthread_t));
+	*t = malloc(sizeof (pthread_t));
 	return pthread_create((pthread_t *)*t, 0, start_routine, arg);
 }
 
@@ -110,12 +110,12 @@ void sys_wait_semaphore_bounded(sys_semaphore s, int ms)
 	mach_timespec_t ts2;
 	clock_get_time(clock_port, &ts2);
 	nsec = (ts2.tv_nsec + ((uint64)ms)*1000*1000);
-	ts.tv_sec = ts2.tv_sec+(uint)(nsec/1000000000);
+	ts.tv_sec = ts2.tv_sec+(uint)(nsec/1000000000ULL);
 	ts.tv_nsec = (nsec % 1000000000ULL);
 #else
 	clock_gettime(CLOCK_REALTIME, &ts);
 	nsec = (ts.tv_nsec + ((uint64)ms)*1000*1000);
-	ts.tv_sec = ts.tv_sec+(uint)(nsec/1000000000);
+	ts.tv_sec = ts.tv_sec+(uint)(nsec/1000000000ULL);
 	ts.tv_nsec = (nsec % 1000000000ULL);
 #endif
 	pthread_cond_timedwait(&((sys_pthread_semaphore*)s)->cond, &((sys_pthread_semaphore*)s)->mutex, &ts);

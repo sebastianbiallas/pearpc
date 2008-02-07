@@ -6,6 +6,8 @@ version 0.5pre (not yet released):
 	- use "GNU as" instead of nasm
 	- use -mdynamic-no-pic on *darwin
 	- fixed strict-aliasing problems
+	- JITC: AMD64 support
+	- compiles with gcc 4.3
 
 version 0.4 (released 20. December 2005):
 	- CPU: stfiwx implemented

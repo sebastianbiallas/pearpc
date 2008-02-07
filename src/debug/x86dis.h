@@ -3,6 +3,7 @@
  *	x86dis.h
  *
  *	Copyright (C) 1999-2002 Stefan Weyergraf
+ *	Copyright (C) 2005 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -23,31 +24,30 @@
 
 #include "asm.h"
 #include "x86opc.h"
-#include "tools/data.h"
-
-#define word uint16
 
 #define X86DIS_OPCODE_CLASS_STD		0		/* no prefix */
 #define X86DIS_OPCODE_CLASS_EXT		1		/* 0F */
-#define X86DIS_OPCODE_CLASS_EXTEXT		2		/* 0F0F */
+#define X86DIS_OPCODE_CLASS_EXT_F2	2		/* F2 0F */
+#define X86DIS_OPCODE_CLASS_EXT_F3	3		/* F3 0F */
+#define X86DIS_OPCODE_CLASS_EXTEXT	4		/* 0F 0F */
 
 /* x86-specific styles */
-#define X86DIS_STYLE_EXPLICIT_MEMSIZE	0x00000001		/* IF SET: mov word ptr [0000], ax 	ELSE: mov [0000], ax */
-#define X86DIS_STYLE_OPTIMIZE_ADDR		0x00000002		/* IF SET: mov [eax*3], ax 			ELSE: mov [eax+eax*2+00000000], ax */
-/*#define X86DIS_STYLE_USE16			0x00000004
-#define X86DIS_STYLE_USE32			0x00000008*/
+#define X86DIS_STYLE_EXPLICIT_MEMSIZE	0x00000001	/* IF SET: mov word ptr [0000], ax 	ELSE: mov [0000], ax */
+#define X86DIS_STYLE_OPTIMIZE_ADDR	0x00000002	/* IF SET: mov [eax*3], ax 		ELSE: mov [eax+eax*2+00000000], ax */
 
 struct x86dis_insn {
 	bool invalid;
+	sint8 opsizeprefix;
 	sint8 lockprefix;
 	sint8 repprefix;
 	sint8 segprefix;
-	byte size;
+	uint8 rexprefix;	
+	int size;
 	int opcode;
 	int opcodeclass;
-	int eopsize;
-	int eaddrsize;
-	char *name;
+	X86OpSize eopsize;
+	X86AddrSize eaddrsize;
+	const char *name;
 	x86_insn_op op[3];
 };
 
@@ -55,54 +55,79 @@ struct x86dis_insn {
  *	CLASS x86dis
  */
 
-class X86Disassembler: public Disassembler {
+class x86dis: public Disassembler {
 public:
-	int opsize, addrsize;
+	X86OpSize opsize;
+	X86AddrSize addrsize;
+
+	x86opc_insn (*x86_insns)[256];
+	x86opc_insn (*x86_insns_ext)[256];
+	x86opc_insn (*x86_group_insns)[X86_GROUPS][8];
+
 protected:
 	x86dis_insn insn;
 	char insnstr[256];
-/* initme! */
 	const byte *codep, *ocodep;
-	int seg;
-	int addr; // FIXME: int??
+	CPU_ADDR addr;
 	byte c;
 	int modrm;
 	int sib;
 	int maxlen;
 
 /* new */
-			void decode_insn(x86opc_insn *insn);
-			void decode_modrm(x86_insn_op *op, char size, int allow_reg, int allow_mem, int mmx);
-			void decode_op(x86_insn_op *op, x86opc_insn_op *xop);
-			void decode_sib(x86_insn_op *op, int mod);
-			int esizeaddr(char c);
-			int esizeop(char c);
-			byte getbyte();
-			word getword();
-			dword getdword();
-			int getmodrm();
-			int getsib();
-			void invalidate();
-			int isfloat(char c);
-			void prefixes();
-			int special_param_ambiguity(x86dis_insn *disasm_insn);
-			void str_format(char **str, char **format, char *p, char *n, char *op[3], int oplen[3], char stopchar, int print);
-	virtual	void str_op(char *opstr, int *opstrlen, x86dis_insn *insn, x86_insn_op *op, bool explicit_params);
+	virtual		void	checkInfo(x86opc_insn *xinsn);
+			void	decode_insn(x86opc_insn *insn);
+	virtual		void	decode_modrm(x86_insn_op *op, char size, bool allow_reg, bool allow_mem, bool mmx, bool xmm);
+			void	decode_op(x86_insn_op *op, x86opc_insn_op *xop);
+			void	decode_sib(x86_insn_op *op, int mod);
+			int	esizeop(uint c);
+			int	esizeop_ex(uint c);
+			byte	getbyte();
+			uint16	getword();
+			uint32	getdword();
+			uint64	getqword();
+			int	getmodrm();
+			int	getsib();
+			void	invalidate();
+			bool	isfloat(char c);
+			bool	isaddr(char c);
+	virtual		void	prefixes();
+			int	special_param_ambiguity(x86dis_insn *disasm_insn);
+			void	str_format(char **str, const char **format, char *p, char *n, char *op[3], int oplen[3], char stopchar, int print);
+	virtual		void	str_op(char *opstr, int *opstrlen, x86dis_insn *insn, x86_insn_op *op, bool explicit_params);
+			uint	mkmod(uint modrm);
+			uint	mkreg(uint modrm);
+			uint	mkindex(uint modrm);
+			uint	mkrm(uint modrm);
+	virtual		uint64	getoffset();
+	virtual		void	filloffset(CPU_ADDR &addr, uint64 offset);
 public:
-	X86Disassembler();
-	X86Disassembler(int opsize, int addrsize);
-	virtual ~X86Disassembler();
+				x86dis(X86OpSize opsize, X86AddrSize addrsize);
 
 /* overwritten */
-	virtual dis_insn *decode(const byte *code, int maxlen, CPU_ADDR addr);
-	virtual dis_insn *duplicateInsn(dis_insn *disasm_insn);
-	virtual void getOpcodeMetrics(int &min_length, int &max_length, int &min_look_ahead, int &avg_look_ahead, int &addr_align);
-	virtual char *getName();
-	virtual byte getSize(dis_insn *disasm_insn);
-	virtual char *str(dis_insn *disasm_insn, int options);
-	virtual char *strf(dis_insn *disasm_insn, int options, char *format);
-	virtual bool validInsn(dis_insn *disasm_insn);
+	virtual	dis_insn *	decode(const byte *code, int maxlen, CPU_ADDR addr);
+	virtual	dis_insn *	duplicateInsn(dis_insn *disasm_insn);
+	virtual	void		getOpcodeMetrics(int &min_length, int &max_length, int &min_look_ahead, int &avg_look_ahead, int &addr_align);
+	virtual	const char *	getName();
+	virtual	byte		getSize(dis_insn *disasm_insn);
+	virtual const char *	str(dis_insn *disasm_insn, int options);
+	virtual const char *	strf(dis_insn *disasm_insn, int options, const char *format);
+	virtual bool		validInsn(dis_insn *disasm_insn);
 };
 
+class x86_64dis: public x86dis {
+	static x86opc_insn (*x86_64_insns)[256];
+	static x86opc_insn (*x86_64_insns_ext)[256];
+	static x86opc_insn (*x86_64_group_insns)[X86_GROUPS][8];
+public:	
+				x86_64dis();
+	virtual	void		checkInfo(x86opc_insn *xinsn);
+	virtual	void		decode_modrm(x86_insn_op *op, char size, bool allow_reg, bool allow_mem, bool mmx, bool xmm);
+	virtual	void		prefixes();
+	virtual	uint64		getoffset();
+	virtual	void		filloffset(CPU_ADDR &addr, uint64 offset);
+	
+			void	prepInsns();
+};
 
 #endif /* __X86DIS_H__ */

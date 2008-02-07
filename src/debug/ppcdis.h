@@ -2,7 +2,7 @@
  *	HT Editor
  *	ppcdis.h
  *
- *	Copyright (C) 1999-2002 Sebastian Biallas (sb@web-productions.de)
+ *	Copyright (C) 1999-2002 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -33,44 +33,47 @@ struct ppcdis_operand {
 		int freg;   // float register
 		int creg;   // condition register
 		int vreg;   // vector register
-		uint32 imm;
+		uint64 imm;
 		struct {
-			uint32 disp;
+			uint64 disp;
 			int gr;
 		} mem;
 		struct {
-			uint32 mem;
+			uint64 mem;
 		} abs;
 		struct {
-			uint32 mem;
+			uint64 mem;
 		} rel;
 	};
 };
 
 struct ppcdis_insn {
-	bool				valid;
-	int				size;
+	bool			valid;
+	int			size;
 	const char *		name;
 	uint32			data;
-	int				ops;
+	int			ops;
 	ppcdis_operand		op[8];
 };
+
+#define PPC_MODE_32 0
+#define PPC_MODE_64 1
 
 class PPCDisassembler: public Disassembler {
 protected:
 	char insnstr[256];
 	ppcdis_insn insn;
+	int mode;
 public:
-			PPCDisassembler();
+			PPCDisassembler(int mode);
 
 	virtual	dis_insn	*decode(const byte *code, int maxlen, CPU_ADDR addr);
 	virtual	dis_insn	*duplicateInsn(dis_insn *disasm_insn);
 	virtual	void		getOpcodeMetrics(int &min_length, int &max_length, int &min_look_ahead, int &avg_look_ahead, int &addr_align);
 	virtual	byte		getSize(dis_insn *disasm_insn);
-	virtual	char		*getName();
-	virtual	char		*str(dis_insn *disasm_insn, int style);
-	virtual	char		*strf(dis_insn *disasm_insn, int style, char *format);
-	virtual	ObjectID	getObjectID() const;
+	virtual	const char	*getName();
+	virtual	const char	*str(dis_insn *disasm_insn, int style);
+	virtual	const char	*strf(dis_insn *disasm_insn, int style, const char *format);
 	virtual	bool		validInsn(dis_insn *disasm_insn);
 };
 

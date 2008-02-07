@@ -25,7 +25,7 @@
 
 SystemKeyboard *gKeyboard = NULL;
 
-static char *key_names[] = {
+static const char *key_names[] = {
 "A","S","D","F","H","G","Z","X","C","V",
 NULL,"B","Q","W","E","R","Y","T","1","2",
 "3","4","6","5","=","9","7","-","8","0","]",
@@ -199,7 +199,7 @@ bool SystemKeyboard::adbKeyToAscii(char &chr, int adbcode)
 
 bool SystemKeyboard::setKeyConfig(KeyboardCharacteristics keycon)
 {
-	keyConfig=keycon;
+	keyConfig = keycon;
 	return true;
 }
 

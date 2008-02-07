@@ -271,16 +271,10 @@ FileOfs	sys_ftell(SYS_FILE *file)
 
 void *sys_alloc_read_write_execute(int size)
 {
-	void *p = malloc(size+PAGESIZE-1);
-	if (!p) return NULL;
+	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, 
+		MAP_32BIT | MAP_ANON | MAP_PRIVATE, -1, 0);
 
-	void *ret = (void *)(((ptrdiff_t)p + PAGESIZE-1) & ~(PAGESIZE-1));
-
-	if (mprotect(ret, size, PROT_READ | PROT_WRITE | PROT_EXEC)) {
-		free(p);
-		return NULL;
-	}
-	return ret;
+	return p;
 }
 
 void sys_free_read_write_execute(void *p)

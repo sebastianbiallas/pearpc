@@ -29,28 +29,28 @@
 /* The opcode table is an array of struct powerpc_opcode.  */
 struct powerpc_opcode
 {
-  /* The opcode name.  */
-  const char *name;
+	/* The opcode name.  */
+	const char *name;
 
-  /* The opcode itself.  Those bits which will be filled in with
-	operands are zeroes.  */
-  uint32 opcode;
+	/* The opcode itself.  Those bits which will be filled in with
+	   operands are zeroes.  */
+	uint32 opcode;
 
-  /* The opcode mask.  This is used by the disassembler.  This is a
-	mask containing ones indicating those bits which must match the
-	opcode field, and zeroes indicating those bits which need not
-	match (and are presumably filled in by operands).  */
-  uint32 mask;
+	/* The opcode mask.  This is used by the disassembler.  This is a
+	   mask containing ones indicating those bits which must match the
+	   opcode field, and zeroes indicating those bits which need not
+	   match (and are presumably filled in by operands).  */
+	uint32 mask;
 
-  /* One bit flags for the opcode.  These are used to indicate which
-	specific processors support the instructions.  The defined values
-	are listed below.  */
-  uint32 flags;
+	/* One bit flags for the opcode.  These are used to indicate which
+	   specific processors support the instructions.  The defined values
+	   are listed below.  */
+	uint32 flags;
 
-  /* An array of operand codes.  Each code is an index into the
-	operand table.  They appear in the order which the operands must
-	appear in assembly code, and are terminated by a zero.  */
-  byte operands[8];
+	/* An array of operand codes.  Each code is an index into the
+	   operand table.  They appear in the order which the operands must
+	   appear in assembly code, and are terminated by a zero.  */
+	byte operands[8];
 };
 
 /* The table itself is sorted by major opcode number, and is otherwise
@@ -141,14 +141,14 @@ extern const int powerpc_num_opcodes;
 
 struct powerpc_operand
 {
-  /* The number of bits in the operand.  */
-  byte bits;
+	/* The number of bits in the operand.  */
+	byte bits;
 
-  /* How far the operand is left shifted in the instruction.  */
-  byte shift;
+	/* How far the operand is left shifted in the instruction.  */
+	byte shift;
 
-  /* Extraction function.  This is used by the disassembler.  To
-	extract this operand type from an instruction, check this field.
+	/* Extraction function.  This is used by the disassembler.  To
+	   extract this operand type from an instruction, check this field.
 
 	If it is NULL, compute
 	    op = ((i) >> o->shift) & ((1 << o->bits) - 1);
@@ -164,10 +164,11 @@ struct powerpc_operand
 	non-zero if this operand type can not actually be extracted from
 	this operand (i.e., the instruction does not match).  If the
 	operand is valid, *INVALID will not be changed.  */
-  uint32 (*extract)(uint32 instruction, bool *invalid);
 
-  /* One bit syntax flags.  */
-  uint32 flags;
+	uint32 (*extract)(uint32 instruction, bool *invalid);
+
+	/* One bit syntax flags.  */
+	uint32 flags;
 };
 
 /* Elements in the table are retrieved by indexing with values from
@@ -214,17 +215,20 @@ extern const struct powerpc_operand powerpc_operands[];
    register names with a leading 'r'.  */
 #define PPC_OPERAND_GPR (040)
 
+/* Like PPC_OPERAND_GPR, but don't print a leading 'r' for r0.  */
+#define PPC_OPERAND_GPR_0 (0100)
+
 /* This operand names a floating point register.  The disassembler
    prints these with a leading 'f'.  */
-#define PPC_OPERAND_FPR (0100)
+#define PPC_OPERAND_FPR (0200)
 
 /* This operand is a relative branch displacement.  The disassembler
    prints these symbolically if possible.  */
-#define PPC_OPERAND_RELATIVE (0200)
+#define PPC_OPERAND_RELATIVE (0400)
 
 /* This operand is an absolute branch address.  The disassembler
    prints these symbolically if possible.  */
-#define PPC_OPERAND_ABSOLUTE (0400)
+#define PPC_OPERAND_ABSOLUTE (01000)
 
 /* This operand is optional, and is zero if omitted.  This is used for
    the optional BF and L fields in the comparison instructions.  The
@@ -232,7 +236,7 @@ extern const struct powerpc_operand powerpc_operands[];
    and the number of operands remaining for the opcode, and decide
    whether this operand is present or not.  The disassembler should
    print this operand out only if it is not zero.  */
-#define PPC_OPERAND_OPTIONAL (01000)
+#define PPC_OPERAND_OPTIONAL (02000)
 
 /* This flag is only used with PPC_OPERAND_OPTIONAL.  If this operand
    is omitted, then for the next operand use this operand value plus
@@ -240,20 +244,20 @@ extern const struct powerpc_operand powerpc_operands[];
    hack is needed because the Power rotate instructions can take
    either 4 or 5 operands.  The disassembler should print this operand
    out regardless of the PPC_OPERAND_OPTIONAL field.  */
-#define PPC_OPERAND_NEXT (02000)
+#define PPC_OPERAND_NEXT (04000)
 
 /* This operand should be regarded as a negative number for the
    purposes of overflow checking (i.e., the normal most negative
    number is disallowed and one more than the normal most positive
    number is allowed).  This flag will only be set for a signed
    operand.  */
-#define PPC_OPERAND_NEGATIVE (04000)
+#define PPC_OPERAND_NEGATIVE (010000)
 
 /* This operand names a vector unit register.  The disassembler
    prints these with a leading 'v'.  */
-#define PPC_OPERAND_VR (010000)
+#define PPC_OPERAND_VR (020000)
 
 /* This operand is for the DS field in a DS form instruction.  */
-#define PPC_OPERAND_DS (020000)
+#define PPC_OPERAND_DS (01000000)
 
 #endif

@@ -28,7 +28,7 @@
 typedef Function *(*FunctionCreator)();
 
 struct FunctionDesc {
-	char *name;
+	const char *name;
 	int declparam_count;
 	EvalType declparam[FUNCTION_MAX_DECL_PARAMS];
 	FunctionCreator creator;

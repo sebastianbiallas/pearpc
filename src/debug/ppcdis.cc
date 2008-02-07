@@ -2,7 +2,7 @@
  *	HT Editor
  *	ppcdis.cc
  *
- *	Copyright (C) 1999-2002 Sebastian Biallas (sb@web-productions.de)
+ *	Copyright (C) 1999-2002 Sebastian Biallas (sb@biallas.net)
  *	Copyright 1994 Free Software Foundation, Inc.
  *	Written by Ian Lance Taylor, Cygnus Support
  *
@@ -20,7 +20,6 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <cstdlib>
 #include <cstring>
 
 #include "tools/endianess.h"
@@ -28,8 +27,9 @@
 #include "ppcdis.h"
 #include "ppcopc.h"
 
-PPCDisassembler::PPCDisassembler()
+PPCDisassembler::PPCDisassembler(int aMode)
 {
+	mode = aMode;
 }
 
 dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
@@ -39,7 +39,7 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 	uint32 op;
 	int dialect = -1;
 
-	insn.data = createHostInt(code, 4, little_endian);
+	insn.data = createHostInt(code, 4, big_endian);
 	
 	if (maxlen<4) {
 		insn.valid = false;
@@ -48,7 +48,7 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 	}
 
 	insn.size = 4;
-	
+
 	/* Get the major opcode of the instruction.  */
 	op = PPC_OP(insn.data);
 
@@ -61,12 +61,8 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 		const byte *opindex;
 		const struct powerpc_operand *operand;
 		bool invalid;
-		bool need_comma;
-		bool need_paren;
 
 		table_op = PPC_OP (opcode->opcode);
-		if (op < table_op) break;
-		if (op > table_op) continue;
 
 		if ((insn.data & opcode->mask) != opcode->opcode || (opcode->flags & dialect) == 0) {
 			continue;
@@ -83,16 +79,12 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 		if (invalid) continue;
 
 		/* The instruction is valid.  */
-//		fprintf(out, "%s", opcode->name);
 		insn.name = opcode->name;
-//		if (opcode->operands[0] != 0) fprintf(out, "\t");
 
 		/* Now extract and print the operands.  */
-		need_comma = false;
-		need_paren = false;
 		int opidx = 0;
 		for (opindex = opcode->operands; *opindex != 0; opindex++) {
-			uint32 value;
+			sint32 value;
 
 			operand = powerpc_operands + *opindex;
 
@@ -120,54 +112,33 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 				continue;
 			}
 
-			if (need_comma) {
-//				fprintf(out, ", ");
-				need_comma = false;
-			}
-
-			/* Print the operand as directed by the flags.  */
-			if ((operand->flags & PPC_OPERAND_GPR) != 0) {
+			if (operand->flags & PPC_OPERAND_GPR_0) {
+				if (value) {
+					insn.op[opidx].flags |= PPC_OPERAND_GPR;
+					insn.op[opidx++].reg = value;
+				} else {
+					insn.op[opidx].flags = 0;
+					insn.op[opidx].imm = value;
+				}
+			} else if (operand->flags & PPC_OPERAND_GPR) {
 				insn.op[opidx++].reg = value;
-			} else if ((operand->flags & PPC_OPERAND_FPR) != 0) {
+			} else if (operand->flags & PPC_OPERAND_FPR) {
 				insn.op[opidx++].freg = value;
-			} else if ((operand->flags & PPC_OPERAND_VR) != 0) {
+			} else if (operand->flags & PPC_OPERAND_VR) {
 				insn.op[opidx++].vreg = value;
-			} else if ((operand->flags & PPC_OPERAND_RELATIVE) != 0) {
-				insn.op[opidx++].rel.mem = addr.addr32.offset + value;
+			} else if (operand->flags & PPC_OPERAND_RELATIVE) {
+				if (mode == PPC_MODE_32) {
+					insn.op[opidx++].rel.mem = addr.addr32.offset + value;
+				} else {
+					insn.op[opidx++].rel.mem = addr.flat64.addr + value;
+				}
 			} else if ((operand->flags & PPC_OPERAND_ABSOLUTE) != 0) {
 				insn.op[opidx++].abs.mem = value;
 			} else if ((operand->flags & PPC_OPERAND_CR) == 0 || (dialect & PPC_OPCODE_PPC) == 0) {
-				insn.op[opidx++].imm = value;
+				insn.op[opidx++].imm = (sint64)value;
 			} else {
-				insn.op[opidx++].creg = value;
-				if (operand->bits == 3) {
-//					fprintf(out, "cr%d", value);
-				} else {
+				insn.op[opidx++].creg = value;			}
 
-//					static const char *cbnames[4] = { "lt", "gt", "eq", "so" };
-					int cr;
-					int cc;
-					cr = value >> 2;
-//					if (cr != 0) fprintf(out, "4*cr%d", cr);
-					cc = value & 3;
-					if (cc != 0) {
-//						if (cr != 0) fprintf(out, "+");
-//						fprintf(out, "%s", cbnames[cc]);
-					}
-				}
-			}
-
-			if (need_paren) {
-//				fprintf(out, ")");
-				need_paren = false;
-			}
-
-			if ((operand->flags & PPC_OPERAND_PARENS) == 0) {
-				need_comma = true;
-			} else {
-//				fprintf(out, "(");
-				need_paren = true;
-			}
 		}
 		insn.ops = opidx;
 
@@ -182,7 +153,7 @@ dis_insn *PPCDisassembler::decode(const byte *code, int maxlen, CPU_ADDR addr)
 
 dis_insn *PPCDisassembler::duplicateInsn(dis_insn *disasm_insn)
 {
-	ppcdis_insn *insn = (ppcdis_insn *)malloc(sizeof (ppcdis_insn));
+	ppcdis_insn *insn = ppc_malloc(sizeof (ppcdis_insn));
 	*insn = *(ppcdis_insn *)disasm_insn;
 	return insn;
 }
@@ -197,17 +168,17 @@ byte PPCDisassembler::getSize(dis_insn *disasm_insn)
 	return ((ppcdis_insn*)disasm_insn)->size;
 }
 
-char *PPCDisassembler::getName()
+const char *PPCDisassembler::getName()
 {
 	return "PPC/Disassembler";
 }
 
-char *PPCDisassembler::str(dis_insn *disasm_insn, int style)
+const char *PPCDisassembler::str(dis_insn *disasm_insn, int style)
 {
 	return strf(disasm_insn, style, "");
 }
 
-char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
+const char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, const char *format)
 {
 	if (style & DIS_STYLE_HIGHLIGHT) enable_highlighting();
 	
@@ -228,9 +199,11 @@ char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
 				strcpy(insnstr, "db         ? * 3");
 				break;
 			case 4:
-				ht_snprintf(insnstr, sizeof insnstr, "dd        %s0x%08x", cs_number, ppc_insn->data);
+				sprintf(insnstr, "dd         %s0x%08x", cs_number, ppc_insn->data);
 				break;
 			default: { /* braces for empty assert */
+				strcpy(insnstr, "?");
+//				assert(0);
 			}
 		}
 	} else {
@@ -248,7 +221,7 @@ char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
 				is += sprintf(is, "%s, ", cs_symbol);
 				need_comma = false;
 			}
-			if ((flags & PPC_OPERAND_GPR) != 0) {
+			if (flags & PPC_OPERAND_GPR) {
 				is += sprintf(is, "%sr%d", cs_default, ppc_insn->op[opidx].reg);
 			} else if ((flags & PPC_OPERAND_FPR) != 0) {
 				is += sprintf(is, "%sf%d", cs_default, ppc_insn->op[opidx].freg);
@@ -256,21 +229,25 @@ char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
 				is += sprintf(is, "%svr%d", cs_default, ppc_insn->op[opidx].vreg);
 			} else if ((flags & PPC_OPERAND_RELATIVE) != 0) {
 				CPU_ADDR caddr;
-				caddr.addr32.offset = (uint32)ppc_insn->op[opidx].mem.disp;
+				if (mode == PPC_MODE_32) {
+					caddr.addr32.offset = (uint32)ppc_insn->op[opidx].mem.disp;
+				} else {
+					caddr.flat64.addr = ppc_insn->op[opidx].mem.disp;
+				}
 				int slen;
 				char *s = (addr_sym_func) ? addr_sym_func(caddr, &slen, addr_sym_func_context) : 0;
 				if (s) {
 					is += sprintf(is, "%s", cs_default);
-					memmove(is, s, slen);
+					memcpy(is, s, slen);
 					is[slen] = 0;
 					is += slen;
 				} else {
-					is += sprintf(is, "%s0x%x", cs_number, ppc_insn->op[opidx].rel.mem);
+					is += ht_snprintf(is, 100, "%s0x%qx", cs_number, ppc_insn->op[opidx].rel.mem);
 				}
 			} else if ((flags & PPC_OPERAND_ABSOLUTE) != 0) {
-				is += sprintf(is, "%s0x%x", cs_number, ppc_insn->op[opidx].abs.mem);
+				is += ht_snprintf(is, 100, "%s0x%qx", cs_number, ppc_insn->op[opidx].abs.mem);
 			} else if ((flags & PPC_OPERAND_CR) == 0 || (dialect & PPC_OPCODE_PPC) == 0) {
-				is += sprintf(is, "%s%d", cs_number, ppc_insn->op[opidx].imm);
+				is += ht_snprintf(is, 100, "%s%qd", cs_number, ppc_insn->op[opidx].imm);
 			} else if (ppc_insn->op[opidx].op->bits == 3) {
 				is += sprintf(is, "%scr%d", cs_default, ppc_insn->op[opidx].creg);
 			} else {
@@ -301,11 +278,6 @@ char *PPCDisassembler::strf(dis_insn *disasm_insn, int style, char *format)
 	}
 	disable_highlighting();
 	return insnstr;     
-}
-
-ObjectID PPCDisassembler::getObjectID() const
-{
-	return 0;
 }
 
 bool PPCDisassembler::validInsn(dis_insn *disasm_insn)

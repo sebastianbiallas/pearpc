@@ -24,7 +24,7 @@ int canonicalize(char *buf, int bufsize, char *cwd, char *fn)
 int main(int argc, char *argv[])
 {
 	setuid(0);
-	char *relfilename = "ifppc_up";
+	const char *relfilename = "ifppc_up";
 	int relfilenamesize = strlen(relfilename);
 	char cwdbuf[2048];
 	if (!getcwd(cwdbuf, sizeof cwdbuf)) {

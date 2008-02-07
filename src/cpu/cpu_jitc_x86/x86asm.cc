@@ -1054,7 +1054,7 @@ static void FASTCALL asmSimpleALU(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg
 }
 
 
-void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+void FASTCALL asmALU32(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 {
 	switch (opc) {
 	case X86_MOV: 
@@ -1064,9 +1064,9 @@ void FASTCALL asmALU(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 		asmSimpleMODRM(0x85, reg1, reg2);
 	        break;
 	case X86_XCHG:
-		if (reg1 == EAX) {
+		if (reg1 == RAX) {
 			jitcEmit1(0x90+reg2);
-		} else if (reg2 == EAX) {
+		} else if (reg2 == RAX) {
 			jitcEmit1(0x90+reg1);
 		} else {
 			asmSimpleMODRM(0x87, reg1, reg2);

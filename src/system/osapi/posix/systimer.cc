@@ -133,6 +133,11 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 		return false;
 	}
 
+	if (sigemptyset(&act.sa_mask) == -1) {
+		perror("Error calling sigemptyset");
+		return false;
+	}
+
 #ifdef USE_POSIX_REALTIME_CLOCK
 	act.sa_sigaction = signal_handler;
 	act.sa_flags = SA_SIGINFO;
@@ -181,6 +186,10 @@ void sys_delete_timer(sys_timer t)
 void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 {
 	sys_timer_struct *timer = reinterpret_cast<sys_timer_struct *>(t);
+	if (!secs && !nanosecs) {
+		timer->callback(t);
+		return;
+	}
 #ifdef USE_POSIX_REALTIME_CLOCK
 	struct itimerspec itime;
 
@@ -215,6 +224,8 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 	}
 
 	setitimer(timer->clock, &itime, NULL);
+#else
+#error No timer implementation!
 # endif
 #endif
 }

@@ -168,7 +168,7 @@ public:
 		free(mTitle);
 		free(mouseData);
 		free(gFrameBuffer);
-		if (menuData) free(menuData);
+		free(menuData);
 	}
 
 	virtual	void finishMenu()
@@ -186,10 +186,10 @@ public:
 //		convertDisplayClientToServer(0, mClientChar.height-1);
 		if (mXFrameBuffer) {
 			sys_convert_display(mClientChar, mXChar, gFrameBuffer, mXFrameBuffer, 0, mClientChar.height-1);
-			memmove(menuData, mXFrameBuffer, mXChar.width * mMenuHeight
+			memcpy(menuData, mXFrameBuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		} else {
-			memmove(menuData, gFrameBuffer, mXChar.width * mMenuHeight
+			memcpy(menuData, gFrameBuffer, mXChar.width * mMenuHeight
 				* mXChar.bytesPerPixel);
 		}
 	}
@@ -357,8 +357,10 @@ public:
 		ht_snprintf(mCurTitle, sizeof mCurTitle, "%s - [%s %s mouse]", mTitle,key.contentChar(), (isMouseGrabbed() ? "disables" : "enables"));
 		XTextProperty name_prop;
 		char *mCurTitlep = mCurTitle;
+		sys_lock_mutex(gX11Mutex);		
 		XStringListToTextProperty(&mCurTitlep, 1, &name_prop);
 		XSetWMName(gX11Display, gX11Window, &name_prop);
+		sys_unlock_mutex(gX11Mutex);		
 	}
 	
 	virtual	int toString(char *buf, int buflen) const
@@ -370,6 +372,7 @@ public:
 	{
 		SystemDisplay::setMouseGrab(enable);
 		updateTitle();
+		sys_lock_mutex(gX11Mutex);		
 		if (enable) {
 			mResetMouseX = mCurMouseX;
 			mResetMouseY = mCurMouseY;
@@ -402,6 +405,7 @@ public:
 			XWarpPointer(gX11Display, gX11Window, gX11Window, 0, 0, 0, 0, mResetMouseX, mResetMouseY);
 			XUndefineCursor(gX11Display, gX11Window);
 		}
+		sys_unlock_mutex(gX11Mutex);		
 	}
 
 	virtual void displayShow()
