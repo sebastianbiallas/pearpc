@@ -81,7 +81,7 @@ void Stream::addEventListener(StreamEventListener *l, StreamEvent mask)
 */
 void Stream::checkAccess(IOAccessMode mask)
 {
-	if (mAccessMode & mask != mask) throw IOException(EACCES);
+	if ((mAccessMode & mask) != mask) throw IOException(EACCES);
 }
 
 /**
@@ -907,7 +907,7 @@ int LocalFile::setAccessModeInternal(IOAccessMode am)
 {
 //RETRY:
 	if (getAccessMode() == am) return 0;
-	char *mode = NULL;
+	const char *mode = NULL;
 
 	switch (mOpenMode) {
 		case FOM_APPEND:
