@@ -12,13 +12,14 @@ else
 ppc_RES =
 endif
 
-ppc_LDADD	= cpu/@CPU_DIR@/libcpu.a io/graphic/libgraphic.a \
+ppc_LDADD	= io/graphic/libgraphic.a \
 io/ide/libide.a system/ui/@UI_DIR@/libui.a  \
-debug/libdebug.a io/libio.a io/prom/libprom.a \
+io/libio.a io/prom/libprom.a \
 io/prom/fs/libfs.a io/prom/fs/hfs/libhfs.a io/prom/fs/hfsplus/libhfsplus.a \
 io/pic/libpic.a io/pci/libpci.a io/macio/libmacio.a io/nvram/libnvram.a \
 io/cuda/libcuda.a io/3c90x/lib3c90x.a io/rtl8139/librtl8139.a io/usb/libusb.a \
-io/serial/libserial.a tools/libtools.a system/libsystem.a \
+io/serial/libserial.a cpu/@CPU_DIR@/libcpu.a debug/libdebug.a  \
+tools/libtools.a system/libsystem.a \
 system/arch/@ARCH_DIR@/libsarch.a \
 system/osapi/@OSAPI_DIR@/libsosapi.a $(ppc_RES) @PPC_LDADD@
 
