@@ -158,7 +158,7 @@ static inline const char *hc_regname(uint32 a)
 {
 	a >>= 2;
 	if (a > 20) return "unknown";
-	char *names[] = {"revision","control","cmdstatus","intrstatus","intrenable",
+	const char *names[] = {"revision","control","cmdstatus","intrstatus","intrenable",
 	"intrdisable","hcca","ed_periodcurrent","ed_controlhead","ed_controlcurrent",
 	"ed_bulkhead","ed_bulkcurrent","donehead","fminterval","fmremaining",
 	"fmnumber","periodicstart", "lsthresh", "roothub.a", "roothub.b", "roothub.status"};
@@ -393,7 +393,7 @@ virtual bool writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 				| OHCI_RH_PS_OCIC | OHCI_RH_PS_PRSC));
 
 			// writing 1 to these bits set them only if CCS is set
-			uint32 p = data & OHCI_RH_PS_PES | OHCI_RH_PS_PSS | OHCI_RH_PS_PRS;
+			uint32 p = data & (OHCI_RH_PS_PES | OHCI_RH_PS_PSS | OHCI_RH_PS_PRS);
 			if (p) {
 				if (hcregs.roothub.portstatus[address] & OHCI_RH_PS_CCS) {
 					hcregs.roothub.portstatus[address] |= p;

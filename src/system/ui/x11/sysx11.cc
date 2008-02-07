@@ -243,8 +243,7 @@ static inline bool checkHandleX11Event()
 		| VisibilityChangeMask;
 
 	sys_lock_mutex(gX11Mutex);
-	if (!XCheckWindowEvent(gX11Display, gX11Window,
-	xevmask, &event)) {
+	if (!XCheckWindowEvent(gX11Display, gX11Window, xevmask, &event)) {
 		sys_unlock_mutex(gX11Mutex);
 		return false;
 	}
@@ -308,7 +307,7 @@ extern SystemKeyboard *allocSystemKeyboard();
 void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig, bool fullscreen)
 {
 	// connect to X server
-	char *display = getenv("DISPLAY");
+	const char *display = getenv("DISPLAY");
 	if (display == NULL) {
 		display = ":0.0";
 	}

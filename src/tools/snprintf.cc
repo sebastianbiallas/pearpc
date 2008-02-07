@@ -102,7 +102,7 @@
 static size_t dopr(char *buffer, size_t maxlen, const char *format, 
 			    va_list args);
 static void fmtstr(char *buffer, size_t *currlen, size_t maxlen,
-				char *value, int flags, int min, int max);
+				const char *value, int flags, int min, int max);
 static void fmtint(char *buffer, size_t *currlen, size_t maxlen,
 				long value, int base, int min, int max, int flags);
 static void fmtqword(char *buffer, size_t *currlen, size_t maxlen,
@@ -151,7 +151,7 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 	char ch;
 	LLONG value;
 	LDOUBLE fvalue;
-	char *strvalue;
+	const char *strvalue;
 	int min;
 	int max;
 	int state;
@@ -460,7 +460,7 @@ static size_t dopr(char *buffer, size_t maxlen, const char *format, va_list args
 }
 
 static void fmtstr(char *buffer, size_t *currlen, size_t maxlen,
-				char *value, int flags, int min, int max)
+				const char *value, int flags, int min, int max)
 {
 	int padlen, strln;     /* amount to pad */
 	int cnt = 0;

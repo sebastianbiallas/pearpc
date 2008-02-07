@@ -238,9 +238,8 @@ PartitionMapFDisk::PartitionMapFDisk(File *aDevice, uint aDeviceBlocksize)
 			
 		// FIXME: add extended partition support here
 	
-		char *type;
+		const char *type;
 		switch (fdisk_part->sys_ind) {
-		
 		case 0x00:
 			type = NULL;
 			break;

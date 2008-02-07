@@ -355,7 +355,7 @@ forth_word forth_internal_word_table[] = {
 {"new-token", FCODE_NEW_TOKEN, fcode_opc_NEW_TOKEN},
 };
 
-static char *forth_aliases = ""
+static const char forth_aliases[] = ""
 " : << lshift ;"
 " : >> rshift ;"
 " : 1+ 1 + ;"
@@ -391,7 +391,7 @@ static char *forth_aliases = ""
 /*
  *	Initialize stuff
  */
-static char *forth_prepend = ""
+static const char forth_prepend[] = ""
 " 10 base !"
 " 1 to line#"
 " 0 span !" 

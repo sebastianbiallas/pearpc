@@ -216,7 +216,7 @@ struct MachOPPCThreadState {
 	uint32 vrsave;		/* Vector Save Register */
 };
 
-typedef struct COFF_HEADER {
+struct COFF_HEADER {
 	uint16 machine PACKED;
 	uint16 section_count PACKED;
 	uint32 timestamp PACKED;
@@ -1416,8 +1416,8 @@ public:
 static void read_partitions(Container &brs, bool only_bootable)
 {
 	brs.delAll();
-	char *boot_devices[] = {"cdrom0", "cdrom1", "disk0", "disk1", NULL};
-	char **boot_device = boot_devices;
+	const char *boot_devices[] = {"cdrom0", "cdrom1", "disk0", "disk1", NULL};
+	const char **boot_device = boot_devices;
 	while (*boot_device) {
 		PromNode *node = findDevice(*boot_device, FIND_DEVICE_FIND, NULL);
 		PromNodeDisk *d = dynamic_cast<PromNodeDisk*>(node);
