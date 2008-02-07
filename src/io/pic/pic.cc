@@ -143,7 +143,7 @@ void pic_raise_interrupt(int intr)
 	sys_lock_mutex(PIC_mutex);
 	uint32 mask, pending;
 	int intr_;
-	if (intr>31) {
+	if (intr > 31) {
 		mask = PIC_enable_high;
 		pending = PIC_pending_high;
 		intr_ = intr-32;
@@ -152,9 +152,9 @@ void pic_raise_interrupt(int intr)
 		pending = PIC_pending_low;
 		intr_ = intr;
 	}
-	uint32 ibit = 1<<intr_;
+	uint32 ibit = 1 << intr_;
 	bool level = false;
-	if (intr>31) {
+	if (intr > 31) {
 		PIC_pending_high |= ibit;
 	} else {
 		PIC_pending_low |= ibit;
@@ -184,17 +184,13 @@ void pic_raise_interrupt(int intr)
 void pic_cancel_interrupt(int intr)
 {
 	sys_lock_mutex(PIC_mutex);
-	if (intr>31) {
+	if (intr > 31) {
 	        PIC_pending_high &= ~(1<<(intr-32));
 	} else {
 		PIC_pending_low &= ~(1<<intr);
 		PIC_pending_level &= ~(1<<intr);
 	}
-	if (((PIC_pending_low | PIC_pending_level) & PIC_enable_low) || (PIC_pending_high & PIC_enable_high)) {
-		ppc_cpu_raise_ext_exception();	
-	} else {
-		ppc_cpu_cancel_ext_exception();
-	}
+	pic_renew_interrupts();
 	sys_unlock_mutex(PIC_mutex);
 }
 

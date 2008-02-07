@@ -1593,8 +1593,8 @@ static void FASTCALL ppc_mmu_set_sdr1_check_error(uint32 newsdr1)
 
 static inline void ppc_opc_gen_batu_helper(bool dbat, int idx)
 {
-	NativeReg tmp = jitcAllocRegister();
 	NativeReg reg = jitcGetClientRegister(dbat ? PPC_DBATU(idx) : PPC_IBATU(idx));
+	NativeReg tmp = jitcAllocRegister();
 
 	jitcClobberCarryAndFlags();
 	jitcClobberRegister(NATIVE_REG | reg);

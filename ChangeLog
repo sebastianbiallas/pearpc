@@ -3,8 +3,9 @@
 
 version 0.5pre (not yet released):
 	- slightly better code for lmw/stmw opcodes
-	- use GNU as instead of nasm
+	- use "GNU as" instead of nasm
 	- use -mdynamic-no-pic on *darwin
+	- fixed strict-aliasing problems
 
 version 0.4 (released 20. December 2005):
 	- CPU: stfiwx implemented

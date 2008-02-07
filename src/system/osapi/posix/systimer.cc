@@ -113,8 +113,8 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 		return false;
 	}
 
-	newTimer->timer_res = (uint64)clockRes.tv_sec * 1000 * 1000 * 1000;
-	newTimer->timer_res += (uint64)clockRes.tv_nsec;
+	newTimer->timer_res = uint64(clockRes.tv_sec) * 1000 * 1000 * 1000;
+	newTimer->timer_res += uint64(clockRes.tv_nsec);
 #else
 # ifdef USE_POSIX_SETITIMER
 	if (gSingleTimer != NULL) {
@@ -126,10 +126,13 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 	newTimer->timer_res = 10 * 1000 * 1000;
 # endif
 #endif
-
 	struct sigaction act;
 
-	sigemptyset(&act.sa_mask);
+	if (sigemptyset(&act.sa_mask) == -1) {
+		perror("Error calling sigemptyset");
+		return false;
+	}
+
 #ifdef USE_POSIX_REALTIME_CLOCK
 	act.sa_sigaction = signal_handler;
 	act.sa_flags = SA_SIGINFO;
@@ -139,12 +142,6 @@ bool sys_create_timer(sys_timer *t, sys_timer_callback cb_func)
 	act.sa_flags = 0;
 # endif
 #endif
-
-	if (sigemptyset(&act.sa_mask) == -1) {
-		perror("Error calling sigemptyset");
-		return false;
-	}
-
 	if (sigaction(kTimerSignal, &act, 0) == -1) {
 		perror("Error calling sigaction");
 		return false;
@@ -231,13 +228,13 @@ uint64 sys_get_timer_resolution(sys_timer t)
 uint64 sys_get_hiresclk_ticks()
 {
 #if HAVE_GETTIMEOFDAY
-       struct timeval tv;
-       struct timezone tz;
+	struct timeval tv;
+	struct timezone tz;
 
-       gettimeofday(&tv, &tz);
-       //__asm__ __volatile__("rdtsc" : "=A" (retval));
+	gettimeofday(&tv, &tz);
+	//__asm__ __volatile__("rdtsc" : "=A" (retval));
 
-       return ((uint64)tv.tv_sec * 1000000) + tv.tv_usec;
+	return (uint64(tv.tv_sec) * 1000000) + tv.tv_usec;
 #else
 	return clock();
 #endif
@@ -246,7 +243,7 @@ uint64 sys_get_hiresclk_ticks()
 uint64 sys_get_hiresclk_ticks_per_second()
 {
 #if HAVE_GETTIMEOFDAY
-       return 1000000;
+	return 1000000;
 #else
 	return clock();
 #endif
