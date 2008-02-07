@@ -37,9 +37,10 @@ uint32 PIC_pending_level;
 
 sys_mutex PIC_mutex;
 
-void pic_renew_interrupts()
+static void pic_renew_interrupts()
 {
 	if (((PIC_pending_low | PIC_pending_level) & PIC_enable_low) || (PIC_pending_high & PIC_enable_high)) {
+//	if (PIC_pending_level & PIC_enable_low) {
 		ppc_cpu_raise_ext_exception();	
 	} else {
 		ppc_cpu_cancel_ext_exception();
@@ -48,7 +49,7 @@ void pic_renew_interrupts()
 
 void pic_write(uint32 addr, uint32 data, int size)
 {
-	IO_PIC_TRACE("write word @%08x: %08x (from %08x)\n", addr, data, gCPU.pc);
+	IO_PIC_TRACE("write word @%08x: %08x (from %08x)\n", addr, data, ppc_cpu_get_pc(0));
 	addr -= IO_PIC_PA_START;
 	switch (addr) {
 	case 0x24:
@@ -96,7 +97,7 @@ void pic_write(uint32 addr, uint32 data, int size)
 
 void pic_read(uint32 addr, uint32 &data, int size)
 {
-	IO_PIC_TRACE("read word @%08x (from %08x)\n", addr, gCPU.pc);
+	IO_PIC_TRACE("read word @%08x (from %08x)\n", addr, ppc_cpu_get_pc(0));
 	addr -= IO_PIC_PA_START;
 	switch (addr) {
 	case 0x24:
