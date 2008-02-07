@@ -24,10 +24,43 @@
 
 #define HAVE_HT_OBJECTS
 
+#include <cstdlib>
 #include "system/types.h"
 
 #ifdef HAVE_HT_OBJECTS
 typedef unsigned long ObjectID;
+
+/*
+ *	C style malloc support
+ */
+
+class PPCMallocRes;
+PPCMallocRes ppc_malloc(size_t);
+
+class PPCMallocRes
+{
+private:
+	friend PPCMallocRes ppc_malloc(size_t);
+	const size_t mSize;
+
+	PPCMallocRes(size_t size)
+		: mSize(size)
+	{
+	}
+
+	PPCMallocRes operator=(const PPCMallocRes &); // not implemented
+
+public:
+	template <typename T> operator T* () const
+	{
+		return static_cast<T*>(::malloc(mSize));
+	}
+};
+
+inline PPCMallocRes ppc_malloc(size_t size)
+{
+	return PPCMallocRes(size);
+}
 
 /* actually a str => bigendian-int */
 /** used to define ObjectIDs */
