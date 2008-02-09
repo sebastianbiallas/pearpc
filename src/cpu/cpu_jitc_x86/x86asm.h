@@ -236,11 +236,17 @@ enum X86BitSearch {
 	void asmALU32(X86ALUopc1 opc, NativeReg reg);
 	void asmMOV32_NoFlags(NativeReg reg, uint32 imm);
 
+	void asmALU16(X86ALUopc opc, NativeReg16 reg, const void *mem);
+	void asmALU16(X86ALUopc opc, NativeReg16 reg, uint32 imm);
+	void asmALU16(X86ALUopc opc, const void *mem, NativeReg16 reg);
+
 	void asmALU8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2);
 	void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, uint8 imm);
 	void asmALU8(X86ALUopc opc, NativeReg8 reg, NativeReg base, uint32 disp);
 	void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg8 reg);
 	void asmALU8(X86ALUopc opc, const void *mem, uint8 imm);
+	void asmALU8(X86ALUopc opc, NativeReg8 reg1, uint8 imm);
+	void asmALU8(X86ALUopc opc, NativeReg8 reg1, const void *mem);
 	
 	void asmAND32(NativeReg base, uint32 disp, uint32 imm);
 	void asmAND32(const void *mem, uint32 imm);
@@ -251,8 +257,9 @@ enum X86BitSearch {
 	
 	void asmCMOV32(X86FlagTest flags, NativeReg reg1, NativeReg reg2);
 	void asmCMOV32(X86FlagTest flags, NativeReg reg, NativeReg base, uint32 disp);
+	void asmCMOV32(X86FlagTest flags, NativeReg reg1, const void *mem);
 
-	void asmSET8(X86FlagTest flags, NativeReg regb);
+	void asmSET8(X86FlagTest flags, NativeReg8 regb);
 	void asmSET8(X86FlagTest flags, NativeReg base, uint32 disp);
 	void asmSET8(X86FlagTest flags, const void *mem);
 
@@ -261,6 +268,7 @@ enum X86BitSearch {
 	void asmShift16(X86ShiftOpc opc, NativeReg reg, uint imm);
 	void asmShift32(X86ShiftOpc opc, NativeReg reg, uint imm);
 	void asmShift64(X86ShiftOpc opc, NativeReg reg, uint imm);
+	void asmShift8CL(X86ShiftOpc opc, NativeReg8 reg);
 	void asmShift32CL(X86ShiftOpc opc, NativeReg reg);
 	void asmINC32(NativeReg reg);
 	void asmDEC32(NativeReg reg);
@@ -410,20 +418,21 @@ void FASTCALL asmFST(NativeFloatReg sti);
 void FASTCALL asmFSTP(NativeFloatReg sti);
 void FASTCALL asmFISTTP(const void *mem);
 void FASTCALL asmFISTP_D(const void *mem);
+
+void FASTCALL asmFLD_Single(const void *mem);
+void FASTCALL asmFLD_Double(const void *mem);
+void FASTCALL asmFILD_W(const void *mem);
+void FASTCALL asmFILD_D(const void *mem);
+void FASTCALL asmFILD_Q(const void *mem);
+void FASTCALL asmFISTP_Q(const void *mem);
+void FASTCALL asmFIComp(X86FloatICompOp op, const void *mem);
+void FASTCALL asmFICompP(X86FloatICompOp op, const void *mem);
+void FASTCALL asmFSTP_Single(const void *mem);
 /*
-//void FASTCALL asmFLD_Single(modrm_p modrm);
-///void FASTCALL asmFLD_Double(modrm_p modrm);
-void FASTCALL asmFIComp(X86FloatICompOp op, modrm_p modrm);
-void FASTCALL asmFICompP(X86FloatICompOp op, modrm_p modrm);
-void FASTCALL asmFILD_W(modrm_p modrm);
-void FASTCALL asmFILD_D(modrm_p modrm);
-void FASTCALL asmFILD_Q(modrm_p modrm);
 void FASTCALL asmFST_Single(modrm_p modrm);
-void FASTCALL asmFSTP_Single(modrm_p modrm);
 void FASTCALL asmFST_Double(modrm_p modrm);
 void FASTCALL asmFSTP_Double(modrm_p modrm);
 void FASTCALL asmFISTP_W(modrm_p modrm);
-void FASTCALL asmFISTP_Q(modrm_p modrm);
 void FASTCALL asmFSTSW(modrm_p modrm);
 */
 void FASTCALL asmFSTSW_EAX(void);
