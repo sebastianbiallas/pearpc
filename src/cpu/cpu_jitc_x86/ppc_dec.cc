@@ -48,9 +48,9 @@ static JITCFlow ppc_opc_gen_invalid()
 {
 //	PPC_DEC_WARN("invalid instruction 0x%08x\n", gJITC.current_opc);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmALURegImm(X86_MOV, EDX, gJITC.current_opc);
-	asmALURegImm(X86_MOV, ECX, PPC_EXC_PROGRAM_ILL);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, EDX, gJITC.current_opc);
+	asmALU32(X86_MOV, ECX, PPC_EXC_PROGRAM_ILL);
 	asmJMP((NativeAddress)ppc_program_exception_asm);
 	return flowEndBlockUnreachable;
 }
@@ -114,8 +114,8 @@ static JITCFlow ppc_opc_gen_special()
 	if (gJITC.current_opc == PPC_OPC_ESCAPE_VM) {
 		jitcGetClientRegister(PPC_GPR(3), NATIVE_REG | EAX);
 		jitcClobberAll();
-		asmALURegReg(X86_MOV, EDX, ESP);
-		asmALURegImm(X86_MOV, ECX, gJITC.pc);
+		asmALU32(X86_MOV, EDX, ESP);
+		asmALU32(X86_MOV, ECX, gJITC.pc);
 		PPC_ESC_TRACE("pc = %08x\n", gJITC.pc);
 		asmCALL((NativeAddress)&ppc_escape_vm);
 		return flowEndBlock;
@@ -123,9 +123,9 @@ static JITCFlow ppc_opc_gen_special()
 	if (gJITC.pc == (gPromOSIEntry&0xfff) && gJITC.current_opc == PROM_MAGIC_OPCODE) {
 		jitcClobberAll();
 
-		asmMOVRegDMem(EAX, (uint32)&gCPU.current_code_base);
-		asmALURegImm(X86_ADD, EAX, gJITC.pc);
-		asmMOVDMemReg((uint32)&gCPU.pc, EAX);
+		asmALU32(X86_MOV, EAX, &gCPU.current_code_base);
+		asmALU32(X86_ADD, EAX, gJITC.pc);
+		asmALU32(X86_MOV, &gCPU.pc, EAX);
 		asmCALL((NativeAddress)&call_prom_osi);
 		return flowEndBlock;
 	}

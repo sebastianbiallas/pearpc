@@ -649,11 +649,11 @@ static UNUSED void ppc_opc_gen_check_fpu()
 		jitcClobberCarryAndFlags();
 
 		NativeReg r1 = jitcGetClientRegister(PPC_MSR);
-		asmALU(X86_TEST, r1, MSR_FP);
+		asmALU32(X86_TEST, r1, MSR_FP);
 		NativeAddress fixup = asmJxxFixup(X86_NZ);
 
 		jitcFlushRegisterDirty();
-		asmALU(X86_MOV, ESI, gJITC.pc);
+		asmALU32(X86_MOV, ESI, gJITC.pc);
 		asmJMP((NativeAddress)ppc_no_fpu_exception_asm);
 
 		asmResolveFixup(fixup);

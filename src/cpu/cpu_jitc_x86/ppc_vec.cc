@@ -743,21 +743,20 @@ JITCFlow ppc_opc_gen_vsel()
 			NativeVectorReg b = jitcGetClientVectorRegisterMapping(vrB);
 
 			if (b == VECTREG_NO) {
-				asmALUPS(X86_ANDPS, d,
-					x86_mem2(modrm, &gCPU.vr[vrB]));
-			} else
+				asmALUPS(X86_ANDPS, d, &gCPU.vr[vrB]);
+			} else {
 				asmALUPS(X86_ANDPS, d, b);
+			}
 		}
 
 		if (vrA != vrC) {
 			NativeVectorReg a = jitcGetClientVectorRegisterMapping(vrA);
 
 			if (a == VECTREG_NO) {
-				asmALUPS(X86_ANDNPS, c,
-					x86_mem2(modrm, &gCPU.vr[vrA]));
-			} else
+				asmALUPS(X86_ANDNPS, c, &gCPU.vr[vrA]);
+			} else {
 				asmALUPS(X86_ANDNPS, c, a);
-
+			}
 			asmALUPS(X86_ORPS, d, c);
 		}
 

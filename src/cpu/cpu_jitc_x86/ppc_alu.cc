@@ -508,7 +508,7 @@ JITCFlow ppc_opc_gen_addzex()
 		d = jitcMapClientRegisterDirty(PPC_GPR(rD));
 		asmALU32(X86_MOV, d, a);
 	}
-	asmALU32(X86_ADC, d, 0);
+	asmALU32(X86_ADC, d, 0u);
 	jitcMapCarryDirty();
 	if (gJITC.current_opc & PPC_OPC_Rc) jitcMapFlagsDirty();
 	return flowContinue;
@@ -2188,7 +2188,7 @@ JITCFlow ppc_opc_gen_slwx()
 		asmALU32(X86_MOV, a, s);
 	}
 	NativeAddress fixup = asmJxxFixup(X86_Z);
-	asmALU32(X86_MOV, a, 0);
+	asmALU32(X86_MOV, a, 0u);
 	asmResolveFixup(fixup, asmHERE());
 	asmShift32CL(X86_SHL, a);
 	if (rA != rS && rA == rB) {
@@ -2419,7 +2419,7 @@ JITCFlow ppc_opc_gen_srwx()
 		asmALU32(X86_MOV, a, s);
 	}
 	NativeAddress fixup = asmJxxFixup(X86_Z);
-	asmALU32(X86_MOV, a, 0);
+	asmALU32(X86_MOV, a, 0u);
 	asmResolveFixup(fixup, asmHERE());
 	asmShift32CL(X86_SHR, a);
 	if (rA != rS && rA == rB) {
@@ -2466,7 +2466,7 @@ JITCFlow ppc_opc_gen_subfx()
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
 	if (rD == rA) {
 		if (rD == rB) {
-			asmALU32(X86_MOV, a, 0);
+			asmALU32(X86_MOV, a, 0u);
 		} else {
 			// subf rA, rA, rB (a = b - a)
 			asmALU32(X86_NEG, a);
@@ -2760,7 +2760,7 @@ JITCFlow ppc_opc_gen_subfzex()
 	}
 	jitcGetClientCarry();
 	asmALU32(X86_NOT, a);
-	asmALU32(X86_ADC, a, 0);
+	asmALU32(X86_ADC, a, 0u);
 	jitcDirtyRegister(a);
 	jitcMapCarryDirty();
 	if (gJITC.current_opc & PPC_OPC_Rc) {

@@ -994,10 +994,9 @@ static void getEAXRsum(PPC_Register cr1, PPC_Register cr2)
 		/* intentional left empty */
 	} else if (r2 == EAX) {
 		if (r1 == REG_NO) {
-			byte modrm[6];
-			asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
+			asmALU32(X86_ADD, EAX, (byte*)&gCPU+cr1);
 		} else {
-			asmALURegReg(X86_ADD, EAX, r1);
+			asmALU32(X86_ADD, EAX, r1);
 		}
 		return;
 	} else {
@@ -1010,10 +1009,9 @@ static void getEAXRsum(PPC_Register cr1, PPC_Register cr2)
 	jitcClobberRegister(NATIVE_REG | EAX);
 	r2 = jitcGetClientRegisterMapping(cr2);
 	if (r2 == REG_NO) {
-		byte modrm[6];
-		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
+		asmALU32(X86_ADD, EAX, (byte*)&gCPU+cr2);
 	} else {
-		asmALURegReg(X86_ADD, EAX, r2);
+		asmALU32(X86_ADD, EAX, r2);
 	}
 }
 
@@ -1034,40 +1032,38 @@ static void getEAXRsumAndEDX(PPC_Register cr1, PPC_Register cr2, PPC_Register cr
 		jitcTouchRegister(EAX);
 		jitcClobberRegister(NATIVE_REG | EDX);
 		if (cr1 == cr3) {
-			asmALURegReg(X86_MOV, EDX, EAX);
+			asmALU32(X86_MOV, EDX, EAX);
 		} else {
 			jitcGetClientRegister(cr3, NATIVE_REG | EDX);
 		}
 		r2 = jitcGetClientRegisterMapping(cr2);
 		if (r2 == REG_NO) {
-			byte modrm[6];
-			asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
+			asmALU32(X86_ADD, EAX, (byte*)&gCPU+cr2);
 			return;
 		} else {
-			asmALURegReg(X86_ADD, EAX, r2);
+			asmALU32(X86_ADD, EAX, r2);
 			return;
 		}
 	} else if (r2 == EAX) {
 		jitcTouchRegister(EAX);
 		jitcClobberRegister(NATIVE_REG | EDX);
 		if (cr2 == cr3) {
-			asmALURegReg(X86_MOV, EDX, EAX);
+			asmALU32(X86_MOV, EDX, EAX);
 		} else {
 			jitcGetClientRegister(cr3, NATIVE_REG | EDX);
 		}
 		r1 = jitcGetClientRegisterMapping(cr1);
 		if (r1 == REG_NO) {
-			byte modrm[6];
-			asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
+			asmALU32(X86_ADD, EAX, (byte*)&gCPU+cr1);
 			return;
 		}
-		asmALURegReg(X86_ADD, EAX, r1);
+		asmALU32(X86_ADD, EAX, r1);
 		return;
 	} else {
 		jitcGetClientRegister(cr1, NATIVE_REG | EAX);
 		jitcClobberRegister(NATIVE_REG | EDX);
 		if (cr1 == cr3) {
-			asmALURegReg(X86_MOV, EDX, EAX);
+			asmALU32(X86_MOV, EDX, EAX);
 		} else {
 			jitcGetClientRegister(cr3, NATIVE_REG | EDX);
 		}
@@ -1075,10 +1071,9 @@ static void getEAXRsumAndEDX(PPC_Register cr1, PPC_Register cr2, PPC_Register cr
 	// FIXME: what if mapping of cr3==EDX?
 	r2 = jitcGetClientRegisterMapping(cr2);
 	if (r2 == REG_NO) {
-		byte modrm[6];
-		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
+		asmALU32(X86_ADD, EAX, (byte*)&gCPU+cr2);
 	} else {
-		asmALURegReg(X86_ADD, EAX, r2);
+		asmALU32(X86_ADD, EAX, r2);
 	}
 }
 
@@ -1088,7 +1083,7 @@ static void getEAX_0_RsumAndEDX(PPC_Register cr1, PPC_Register cr2, PPC_Register
 		if (jitcGetClientRegisterMapping(cr2) == EDX) jitcTouchRegister(EDX);
 		jitcGetClientRegister(cr2, NATIVE_REG | EAX);
 		if (cr2 == cr3) {
-			asmALURegReg(X86_MOV, EDX, EAX);
+			asmALU32(X86_MOV, EDX, EAX);
 		} else {
 			jitcGetClientRegister(cr3, NATIVE_REG | EDX);
 		}
@@ -1105,14 +1100,14 @@ static void getEAXIsum(PPC_Register cr1, uint32 imm)
 {
 	jitcGetClientRegister(cr1, NATIVE_REG | EAX);
 	if (imm) {
-		asmALURegImm(X86_ADD, EAX, imm);
+		asmALU32(X86_ADD, EAX, imm);
 	}
 }
 
 static void getEAX_0_Isum(PPC_Register cr1, uint32 imm)
 {
 	if (cr1 == PPC_GPR(0)) {
-		asmALURegImm(X86_MOV, EAX, imm);
+		asmALU32(X86_MOV, EAX, imm);
 	} else {
 		getEAXIsum(cr1, imm);
 	}
@@ -1123,13 +1118,13 @@ static void getEAXIsumAndEDX(PPC_Register cr1, uint32 imm, PPC_Register cr2)
 	if (jitcGetClientRegisterMapping(cr2) == EDX) jitcTouchRegister(EDX);
 	jitcGetClientRegister(cr1, NATIVE_REG | EAX);
 	if (cr1 == cr2) {
-		asmALURegReg(X86_MOV, EDX, EAX);
+		asmALU32(X86_MOV, EDX, EAX);
 	} else {
 		jitcGetClientRegister(cr2, NATIVE_REG | EDX);
 	}
 	jitcClobberRegister(NATIVE_REG | EAX);
 	if (imm) {
-		asmALURegImm(X86_ADD, EAX, imm);
+		asmALU32(X86_ADD, EAX, imm);
 	}
 }
 
@@ -1138,7 +1133,7 @@ static void getEAX_0_IsumAndEDX(PPC_Register cr1, uint32 imm, PPC_Register cr2)
 	if (cr1 == PPC_GPR(0)) {
 		jitcGetClientRegister(cr2, NATIVE_REG | EDX);
 		jitcClobberRegister(NATIVE_REG | EAX);
-		asmALURegImm(X86_MOV, EAX, imm);
+		asmALU32(X86_MOV, EAX, imm);
 	} else {
 		getEAXIsumAndEDX(cr1, imm, cr2);
 	}
@@ -1151,7 +1146,7 @@ void ppc_opc_gen_helper_l(PPC_Register cr1, uint32 imm)
 	jitcFlushRegister();
 	getEAX_0_Isum(cr1, imm);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_lu(PPC_Register cr1, uint32 imm)
@@ -1160,7 +1155,7 @@ void ppc_opc_gen_helper_lu(PPC_Register cr1, uint32 imm)
 	jitcFlushRegister();
 	getEAXIsum(cr1, imm);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_lux(PPC_Register cr1, PPC_Register cr2)
@@ -1169,7 +1164,7 @@ void ppc_opc_gen_helper_lux(PPC_Register cr1, PPC_Register cr2)
 	jitcFlushRegister();
 	getEAXRsum(cr1, cr2);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_lx(PPC_Register cr1, PPC_Register cr2)
@@ -1178,7 +1173,7 @@ void ppc_opc_gen_helper_lx(PPC_Register cr1, PPC_Register cr2)
 	jitcFlushRegister();
 	getEAX_0_Rsum(cr1, cr2);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_st(PPC_Register cr1, uint32 imm, PPC_Register cr2)
@@ -1187,7 +1182,7 @@ void ppc_opc_gen_helper_st(PPC_Register cr1, uint32 imm, PPC_Register cr2)
 	jitcFlushRegister();
 	getEAX_0_IsumAndEDX(cr1, imm, cr2);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_stu(PPC_Register cr1, uint32 imm, PPC_Register cr2)
@@ -1196,7 +1191,7 @@ void ppc_opc_gen_helper_stu(PPC_Register cr1, uint32 imm, PPC_Register cr2)
 	jitcFlushRegister();
 	getEAXIsumAndEDX(cr1, imm, cr2);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_stux(PPC_Register cr1, PPC_Register cr2, PPC_Register cr3)
@@ -1205,7 +1200,7 @@ void ppc_opc_gen_helper_stux(PPC_Register cr1, PPC_Register cr2, PPC_Register cr
 	jitcFlushRegister();
 	getEAXRsumAndEDX(cr1, cr2, cr3);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_stx(PPC_Register cr1, PPC_Register cr2, PPC_Register cr3)
@@ -1214,21 +1209,20 @@ void ppc_opc_gen_helper_stx(PPC_Register cr1, PPC_Register cr2, PPC_Register cr3
 	jitcFlushRegister();
 	getEAX_0_RsumAndEDX(cr1, cr2, cr3);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 /*
 
 void ppc_opc_gen_helper_l(PPC_Register cr1, uint32 imm)
 {
 	jitcClobberAll();
-	byte modrm[6];
 	if (cr1 == PPC_GPR(0)) {
-		asmALURegImm(X86_MOV, EAX, imm);
+		asmALU32(X86_MOV, EAX, imm);
 	} else {
-		asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
-		asmALURegImm(X86_ADD, EAX, imm);
+		asmALU32(X86_MOV, EAX, (byte*)&gCPU+cr1);
+		asmALU32(X86_ADD, EAX, imm);
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_lu(PPC_Register cr1, uint32 imm)
@@ -1236,8 +1230,8 @@ void ppc_opc_gen_helper_lu(PPC_Register cr1, uint32 imm)
 	jitcClobberAll();
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
-	asmALURegImm(X86_ADD, EAX, imm);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_ADD, EAX, imm);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_lux(PPC_Register cr1, PPC_Register cr2)
@@ -1246,7 +1240,7 @@ void ppc_opc_gen_helper_lux(PPC_Register cr1, PPC_Register cr2)
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
 	asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_lx(PPC_Register cr1, PPC_Register cr2)
@@ -1259,7 +1253,7 @@ void ppc_opc_gen_helper_lx(PPC_Register cr1, PPC_Register cr2)
 		asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
 		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_st(PPC_Register cr1, uint32 imm, PPC_Register cr2)
@@ -1267,14 +1261,14 @@ void ppc_opc_gen_helper_st(PPC_Register cr1, uint32 imm, PPC_Register cr2)
 	jitcClobberAll();
 	byte modrm[6];
 	if (cr1 == PPC_GPR(0)) {
-		asmALURegImm(X86_MOV, EAX, imm);
+		asmALU32(X86_MOV, EAX, imm);
 		asmALURegMem(X86_MOV, EDX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
 	} else {
 		asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
 		asmALURegMem(X86_MOV, EDX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
-		asmALURegImm(X86_ADD, EAX, imm);
+		asmALU32(X86_ADD, EAX, imm);
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_stu(PPC_Register cr1, uint32 imm, PPC_Register cr2)
@@ -1283,8 +1277,8 @@ void ppc_opc_gen_helper_stu(PPC_Register cr1, uint32 imm, PPC_Register cr2)
 	byte modrm[6];
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
 	asmALURegMem(X86_MOV, EDX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
-	asmALURegImm(X86_ADD, EAX, imm);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_ADD, EAX, imm);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_stux(PPC_Register cr1, PPC_Register cr2, PPC_Register cr3)
@@ -1294,7 +1288,7 @@ void ppc_opc_gen_helper_stux(PPC_Register cr1, PPC_Register cr2, PPC_Register cr
 	asmALURegMem(X86_MOV, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr1));
 	asmALURegMem(X86_MOV, EDX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr3));
 	asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 
 void ppc_opc_gen_helper_stx(PPC_Register cr1, PPC_Register cr2, PPC_Register cr3)
@@ -1309,7 +1303,7 @@ void ppc_opc_gen_helper_stx(PPC_Register cr1, PPC_Register cr2, PPC_Register cr3
 		asmALURegMem(X86_MOV, EDX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr3));
 		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU+cr2));
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 }
 */
 
@@ -1359,28 +1353,28 @@ JITCFlow ppc_opc_gen_dcbz()
 	jitcFlushRegister();
 	getEAX_0_Rsum(PPC_GPR(rA), PPC_GPR(rB));
 	jitcClobberRegister();
-	asmALURegImm(X86_MOV, ECX, 0);
-	asmMOVDMemReg((uint32)&gCPU.temp, EAX);
-	asmALURegImm(X86_MOV, EDX, 0);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ECX, 0u);
+	asmALU32(X86_MOV, EAX, &gCPU.temp);
+	asmALU32(X86_MOV, EDX, 0u);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
-	asmALURegImm(X86_MOV, ECX, 0);
-	asmMOVRegDMem(EAX, (uint32)&gCPU.temp);
-	asmALURegImm(X86_MOV, EDX, 0);
-	asmALURegImm(X86_ADD, EAX, 8);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ECX, 0u);
+	asmALU32(X86_MOV, EAX, &gCPU.temp);
+	asmALU32(X86_MOV, EDX, 0u);
+	asmALU32(X86_ADD, EAX, 8);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
-	asmALURegImm(X86_MOV, ECX, 0);
-	asmMOVRegDMem(EAX, (uint32)&gCPU.temp);
-	asmALURegImm(X86_MOV, EDX, 0);
-	asmALURegImm(X86_ADD, EAX, 16);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ECX, 0u);
+	asmALU32(X86_MOV, EAX, &gCPU.temp);
+	asmALU32(X86_MOV, EDX, 0u);
+	asmALU32(X86_ADD, EAX, 16);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
-	asmALURegImm(X86_MOV, ECX, 0);
-	asmMOVRegDMem(EAX, (uint32)&gCPU.temp);
-	asmALURegImm(X86_MOV, EDX, 0);
-	asmALURegImm(X86_ADD, EAX, 24);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ECX, 0u);
+	asmALU32(X86_MOV, EAX, &gCPU.temp);
+	asmALU32(X86_MOV, EDX, 0u);
+	asmALU32(X86_ADD, EAX, 24);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 	return flowEndBlock;
 }
@@ -1437,7 +1431,7 @@ JITCFlow ppc_opc_gen_lbzu()
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	if (imm) {
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, a, imm);
+		asmALU32(X86_ADD, a, imm);
 	}
 	return flowContinue;
 }
@@ -1465,15 +1459,14 @@ JITCFlow ppc_opc_gen_lbzux()
 	asmCALL((NativeAddress)ppc_read_effective_byte_asm);
 	if (rD == rB) {
 		// don't ask...
-		byte modrm[6];
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA), NATIVE_REG | EAX);
-		asmALURegMem(X86_ADD, a, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, a, &gCPU.gpr[rB]);
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	} else {
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-		asmALURegReg(X86_ADD, a, b);
+		asmALU32(X86_ADD, a, b);
 	}
 	return flowContinue;
 }
@@ -1566,7 +1559,7 @@ JITCFlow ppc_opc_gen_lfdu()
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EDX);
 	if (imm) {
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, a, imm);
+		asmALU32(X86_ADD, a, imm);
 	}
 	return flowContinue;
 }
@@ -1602,7 +1595,7 @@ JITCFlow ppc_opc_gen_lfdux()
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EDX);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -1667,7 +1660,7 @@ JITCFlow ppc_opc_gen_lfs()
 	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_l(PPC_GPR(rA), imm);
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	asmALURegReg(X86_MOV, EAX, EDX);
+	asmALU32(X86_MOV, EAX, EDX);
 	asmCALL((NativeAddress)ppc_opc_single_to_double);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | EDX);
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EAX);
@@ -1707,13 +1700,13 @@ JITCFlow ppc_opc_gen_lfsu()
 	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lu(PPC_GPR(rA), imm);
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	asmALURegReg(X86_MOV, EAX, EDX);
+	asmALU32(X86_MOV, EAX, EDX);
 	asmCALL((NativeAddress)ppc_opc_single_to_double);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | EDX);
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EAX);
 	if (imm) {
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, a, imm);
+		asmALU32(X86_ADD, a, imm);
 	}
 	return flowContinue;
 }
@@ -1749,13 +1742,13 @@ JITCFlow ppc_opc_gen_lfsux()
 	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lux(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	asmALURegReg(X86_MOV, EAX, EDX);
+	asmALU32(X86_MOV, EAX, EDX);
 	asmCALL((NativeAddress)ppc_opc_single_to_double);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | EDX);
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EAX);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -1788,7 +1781,7 @@ JITCFlow ppc_opc_gen_lfsx()
 	jitcFloatRegisterClobberAll();
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	asmALURegReg(X86_MOV, EAX, EDX);
+	asmALU32(X86_MOV, EAX, EDX);
 	asmCALL((NativeAddress)ppc_opc_single_to_double);
 	jitcMapClientRegisterDirty(PPC_FPR_U(frD), NATIVE_REG | EDX);
 	jitcMapClientRegisterDirty(PPC_FPR_L(frD), NATIVE_REG | EAX);
@@ -1846,7 +1839,7 @@ JITCFlow ppc_opc_gen_lhau()
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	if (imm) {
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, a, imm);
+		asmALU32(X86_ADD, a, imm);
 	}
 	return flowContinue;
 }
@@ -1873,15 +1866,14 @@ JITCFlow ppc_opc_gen_lhaux()
 	ppc_opc_gen_helper_lux(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
 	if (rD == rB) {
-		byte modrm[6];
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA), NATIVE_REG | EAX);
-		asmALURegMem(X86_ADD, a, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, a, &gCPU.gpr[rB]);
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	} else {
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-		asmALURegReg(X86_ADD, a, b);
+		asmALU32(X86_ADD, a, b);
 	}
 	return flowContinue;
 }
@@ -1929,7 +1921,7 @@ JITCFlow ppc_opc_gen_lhbrx()
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rD, rA, rB);
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
-	asmALURegReg8(X86_XCHG, DL, DH);
+	asmALU8(X86_XCHG, DL, DH);
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	return flowContinue;
 }
@@ -1985,7 +1977,7 @@ JITCFlow ppc_opc_gen_lhzu()
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	if (imm) {
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, a, imm);
+		asmALU32(X86_ADD, a, imm);
 	}
 	return flowContinue;
 }
@@ -2012,15 +2004,14 @@ JITCFlow ppc_opc_gen_lhzux()
 	ppc_opc_gen_helper_lux(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
 	if (rD == rB) {
-		byte modrm[6];
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA), NATIVE_REG | EAX);
-		asmALURegMem(X86_ADD, a, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, a, &gCPU.gpr[rB]);
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	} else {
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-		asmALURegReg(X86_ADD, a, b);
+		asmALU32(X86_ADD, a, b);
 	}
 	return flowContinue;
 }
@@ -2128,11 +2119,11 @@ JITCFlow ppc_opc_gen_lswi()
 	if (rA) {
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
 	} else {
-		asmALURegImm(X86_MOV, EAX, 0);
+		asmALU32(X86_MOV, EAX, 0u);
 	}
-	asmALURegImm(X86_MOV, ECX, NB);
-	asmALURegImm(X86_MOV, EBX, rD);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ECX, NB);
+	asmALU32(X86_MOV, EBX, rD);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_lswi_asm);
 	return flowEndBlock;
@@ -2179,17 +2170,16 @@ JITCFlow ppc_opc_gen_lswx()
 	jitcFlushRegister();
 	jitcGetClientRegister(PPC_XER, NATIVE_REG | ECX);
 	if (rA) {
-		byte modrm[6];
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
-		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, EAX, &gCPU.gpr[rB]);
 	} else {
 		jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	}
-	asmALURegImm(X86_AND, ECX, 0x7f);
+	asmALU32(X86_AND, ECX, 0x7f);
 	jitcClobberAll();
 	NativeAddress fixup = asmJxxFixup(X86_Z);
-	asmALURegImm(X86_MOV, EBX, rD);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, EBX, rD);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_opc_lswi_asm);
 	asmResolveFixup(fixup, asmHERE());
 	return flowEndBlock;
@@ -2217,9 +2207,8 @@ JITCFlow ppc_opc_gen_lwarx()
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
-	byte modrm[6];
-	asmALUMemReg(X86_MOV, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.reserve), EDX);
-	asmALUMemImm8(X86_MOV, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.have_reservation), 1);
+	asmALU32(X86_MOV, &gCPU.reserve, EDX);
+	asmALU8(X86_MOV, &gCPU.have_reservation, 1);
 	return flowContinue;
 }
 /*
@@ -2243,7 +2232,7 @@ JITCFlow ppc_opc_gen_lwbrx()
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
-	asmBSWAP(EDX);
+	asmBSWAP32(EDX);
 	return flowContinue;
 }
 /*
@@ -2298,7 +2287,7 @@ JITCFlow ppc_opc_gen_lwzu()
 	jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	if (imm) {
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, a, imm);
+		asmALU32(X86_ADD, a, imm);
 	}
 	return flowContinue;
 }
@@ -2326,15 +2315,14 @@ JITCFlow ppc_opc_gen_lwzux()
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	if (rD == rB) {
 		// don't ask...
-		byte modrm[6];
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA), NATIVE_REG | EAX);
-		asmALURegMem(X86_ADD, a, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, a, &gCPU.gpr[rB]);
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 	} else {
 		jitcMapClientRegisterDirty(PPC_GPR(rD), NATIVE_REG | EDX);
 		NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 		NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-		asmALURegReg(X86_ADD, a, b);
+		asmALU32(X86_ADD, a, b);
 	}
 	return flowContinue;
 }
@@ -2362,10 +2350,9 @@ JITCFlow ppc_opc_gen_lwzx()
 	return flowContinue;
 }
 
-static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, int hint)
+static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, uint hint)
 {
 	NativeReg ret = REG_NO;
-	byte modrm[6];
 
 	NativeReg reg1 = jitcGetClientRegisterMapping(PPC_GPR(rA));
 	NativeReg reg2 = jitcGetClientRegisterMapping(PPC_GPR(rB));
@@ -2377,10 +2364,9 @@ static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, int
 		jitcTouchRegister(ret);
 
 		if (reg2 != REG_NO) {
-			asmALURegReg(X86_ADD, ret, reg2);
+			asmALU32(X86_ADD, ret, reg2);
 		} else {
-			asmALURegMem(X86_ADD, ret, modrm,
-				x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+			asmALU32(X86_ADD, ret, &gCPU.gpr[rB]);
 		}
 	} else if (reg2 == hint) {
 		jitcClobberCarryAndFlags();
@@ -2389,10 +2375,9 @@ static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, int
 		jitcTouchRegister(ret);
 
 		if (reg1 != REG_NO) {
-			asmALURegReg(X86_ADD, ret, reg1);
+			asmALU32(X86_ADD, ret, reg1);
 		} else {
-			asmALURegMem(X86_ADD, ret, modrm,
-				x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rA]));
+			asmALU32(X86_ADD, ret, &gCPU.gpr[rA]);
 		}
 	} else if ((reg1 != REG_NO) && (reg2 != REG_NO)) {
 		/* If both are in register space, and not the hint we're best
@@ -2405,7 +2390,7 @@ static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, int
 		ret = (NativeReg)hint;
 		jitcTouchRegister(ret);
 
-		asmLEA(ret, modrm, x86_mem_sib(modrm, reg1, 1, reg2, 0));
+		asmALU32(X86_LEA, ret, reg1, 1, reg2, 0);
 	}
 
 	return ret;
@@ -2414,7 +2399,6 @@ static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx_hint(int rA, int rB, int
 static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx(int rA, int rB, int hint=0)
 {
 	NativeReg ret = REG_NO;
-	byte modrm[6];
 
 	if (!rA) {
 		ret = jitcGetClientRegisterMapping(PPC_GPR(rB));
@@ -2445,17 +2429,15 @@ static inline NativeReg FASTCALL ppc_opc_gen_helper_lvx(int rA, int rB, int hint
 		ret = jitcGetClientRegister(PPC_GPR(rA));
 		jitcClobberRegister(NATIVE_REG | ret);
 
-		asmALURegMem(X86_ADD, ret, modrm,
-			x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, ret, &gCPU.gpr[rB]);
 	} else {
 		jitcClobberRegister(NATIVE_REG | reg2);
 		ret = reg2;
 
 		if (reg1 != REG_NO) {
-			asmALURegReg(X86_ADD, ret, reg1);
+			asmALU32(X86_ADD, ret, reg1);
 		} else {
-			asmALURegMem(X86_ADD, ret, modrm,
-				x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rA]));
+			asmALU32(X86_ADD, ret, &gCPU.gpr[rA]);
 		}
 	}
 
@@ -2500,10 +2482,10 @@ JITCFlow ppc_opc_gen_lvx()
 	jitcClobberAll();
 	if (regA != EAX) {
 		//printf("*** hint miss r%u != r0\n", regA);
-		asmALURegReg(X86_MOV, EAX, regA);
+		asmALU32(X86_MOV, EAX, regA);
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
-	asmALURegImm(X86_MOV, EDX, (uint32)&(gCPU.vr[vrD]));
+	asmALU32(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, EDX, (uint32)&(gCPU.vr[vrD]));
 
 	if (0 && gJITC.hostCPUCaps.sse) {
 		asmCALL((NativeAddress)ppc_read_effective_qword_sse_asm);
@@ -2512,22 +2494,22 @@ JITCFlow ppc_opc_gen_lvx()
 		asmCALL((NativeAddress)ppc_read_effective_qword_asm);
 	}
 #else
-	asmALURegImm(X86_AND, regA, ~0x0f);
+	asmALU32(X86_AND, regA, ~0x0f);
 	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
 
 	jitcClobberAll();
 	if (regA != EAX) {
 		//printf("*** hint miss r%u != r0\n", regA);
-		asmALURegReg(X86_MOV, EAX, regA);
+		asmALU32(X86_MOV, EAX, regA);
 	}
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
 	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
 	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[3]), ECX);
 	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[2]), EDX);
 
 	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_OR, EAX, 8);
+	asmALU32(X86_OR, EAX, 8);
 
 	asmCALL((NativeAddress)ppc_read_effective_dword_asm);
 	asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[1]), ECX);
@@ -2581,7 +2563,6 @@ JITCFlow ppc_opc_gen_lvebx()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrD, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
 	jitcDropClientVectorRegister(vrD);
 	jitcAssertFlushedVectorRegister(vrD);
@@ -2592,19 +2573,18 @@ JITCFlow ppc_opc_gen_lvebx()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
-	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
+	asmALU32(X86_MOV, &gCPU.vtemp, regA);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX) asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
 	asmCALL((NativeAddress)ppc_read_effective_byte_asm);
-	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_AND, EAX, 0x0f);
-	asmALUReg(X86_NOT, EAX);
+	asmALU32(X86_MOV, EAX, &gCPU.vtemp);
+	asmALU32(X86_AND, EAX, 0x0f);
+	asmALU32(X86_NOT, EAX);
 
-	asmALUMemReg8(X86_MOV, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+16), DL);
+	asmALU8(X86_MOV, EAX, (uint32)&gCPU.vr[vrD]+16, DL);
 
 	return flowContinue;
 }
@@ -2635,7 +2615,6 @@ JITCFlow ppc_opc_gen_lvehx()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrD, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
 	jitcDropClientVectorRegister(vrD);
 	jitcAssertFlushedVectorRegister(vrD);
@@ -2646,22 +2625,20 @@ JITCFlow ppc_opc_gen_lvehx()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
-	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
-	asmALURegImm(X86_AND, regA, ~0x01);
+	asmALU32(X86_MOV, &gCPU.vtemp, regA);
+	asmALU32(X86_AND, regA, ~0x01);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX) asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
 	asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
-	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_AND, EAX, 0x0e);
-	asmALUReg(X86_NOT, EAX);
+	asmALU32(X86_MOV, EAX, &gCPU.vtemp);
+	asmALU32(X86_AND, EAX, 0x0e);
+	asmALU32(X86_NOT, EAX);
 
-	asmALUMemReg8(X86_MOV, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+15), DL);
-	asmALUMemReg8(X86_MOV, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+16), DH);
+	asmALU8(X86_MOV, EAX, (uint32)&gCPU.vr[vrD]+15, DL);
+	asmALU8(X86_MOV, EAX, (uint32)&gCPU.vr[vrD]+16, DH);
 
 	return flowContinue;
 }
@@ -2692,7 +2669,6 @@ JITCFlow ppc_opc_gen_lvewx()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrD, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
 	jitcDropClientVectorRegister(vrD);
 	jitcAssertFlushedVectorRegister(vrD);
@@ -2703,20 +2679,19 @@ JITCFlow ppc_opc_gen_lvewx()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
-	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
-	asmALURegImm(X86_AND, regA, ~0x03);
+	asmALU32(X86_MOV, &gCPU.vtemp, regA);
+	asmALU32(X86_AND, regA, ~0x03);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX) asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_AND, EAX, 0x0c);
-	asmALUReg(X86_NOT, EAX);
+	asmALU32(X86_MOV, EAX, &gCPU.vtemp);
+	asmALU32(X86_AND, EAX, 0x0c);
+	asmALU32(X86_NOT, EAX);
 
-	asmALUMemReg(X86_MOV, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrD])+13), EDX);
+	asmALU32(X86_MOV, EAX, (uint32)&gCPU.vr[vrD]+13, EDX);
 	return flowContinue;
 }
 
@@ -2803,7 +2778,6 @@ JITCFlow ppc_opc_gen_lvsl()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrD, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
 
 	if (vrD == gJITC.nativeVectorReg) {
@@ -2812,36 +2786,31 @@ JITCFlow ppc_opc_gen_lvsl()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB);
-	asmALURegImm(X86_AND, regA, 0x0f);
+	asmALU32(X86_AND, regA, 0x0f);
 
 	if (gJITC.hostCPUCaps.sse) {
-		asmShiftRegImm(X86_SHL, regA, 4);
+		asmShift32(X86_SHL, regA, 4);
 
 		NativeVectorReg reg1 = jitcMapClientVectorRegisterDirty(vrD);
 
-		asmALUPS(X86_MOVAPS, reg1,
-			x86_mem2(modrm, regA, (uint32)&lvsl_helper_full));
+		asmALUPS(X86_MOVAPS, reg1, regA, (uint32)&lvsl_helper_full);
 	} else {
-		asmALUReg(X86_NOT, regA);
+		asmALU32(X86_NOT, regA);
 		jitcDropClientVectorRegister(vrD);
 
 		NativeReg reg1 = jitcAllocRegister();
 		NativeReg reg2 = jitcAllocRegister();
 		NativeReg reg3 = jitcAllocRegister();
 
-		asmALURegMem(X86_MOV, reg1, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x11));
-		asmALURegMem(X86_MOV, reg2, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x15));
-		asmALURegMem(X86_MOV, reg3, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x19));
-		asmALURegMem(X86_MOV, regA, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+0x1d));
+		asmALU32(X86_MOV, reg1, regA, (uint32)&lvsl_helper+0x11);
+		asmALU32(X86_MOV, reg2, regA, (uint32)&lvsl_helper+0x15);
+		asmALU32(X86_MOV, reg3, regA, (uint32)&lvsl_helper+0x19);
+		asmALU32(X86_MOV, regA, regA, (uint32)&lvsl_helper+0x1d);
 
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[0]), reg1);
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[1]), reg2);
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[2]), reg3);
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[3]), regA);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[0], reg1);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[1], reg2);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[2], reg3);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[3], regA);
 	}
 
 	return flowContinue;
@@ -2865,9 +2834,9 @@ void ppc_opc_lvsr()
 	uint32 ea;
 	ea = ((rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB]);
 #if HOST_ENDIANESS == HOST_ENDIANESS_LE
-	memmove(&gCPU.vr[vrD], lvsl_helper+(ea & 0xf), 16);
+	memcpy(&gCPU.vr[vrD], lvsl_helper+(ea & 0xf), 16);
 #elif HOST_ENDIANESS == HOST_ENDIANESS_BE
-	memmove(&gCPU.vr[vrD], lvsl_helper+0x10-(ea & 0xf), 16);
+	memcpy(&gCPU.vr[vrD], lvsl_helper+0x10-(ea & 0xf), 16);
 #else
 #error Endianess not supported!
 #endif
@@ -2876,7 +2845,6 @@ JITCFlow ppc_opc_gen_lvsr()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrD, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrD, rA, rB);
 
 	if (vrD == gJITC.nativeVectorReg) {
@@ -2885,15 +2853,14 @@ JITCFlow ppc_opc_gen_lvsr()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB);
-	asmALURegImm(X86_AND, regA, 0x0f);
+	asmALU32(X86_AND, regA, 0x0f);
 
 	if (gJITC.hostCPUCaps.sse) {
-		asmShiftRegImm(X86_SHL, regA, 4);
+		asmShift32(X86_SHL, regA, 4);
 
 		NativeVectorReg reg1 = jitcMapClientVectorRegisterDirty(vrD);
 
-		asmALUPS(X86_MOVAPS, reg1,
-			x86_mem2(modrm, regA, (uint32)&lvsr_helper_full));
+		asmALUPS(X86_MOVAPS, reg1, regA, (uint32)&lvsr_helper_full);
 	} else {
 		jitcDropClientVectorRegister(vrD);
 		jitcAssertFlushedVectorRegister(vrD);
@@ -2902,19 +2869,15 @@ JITCFlow ppc_opc_gen_lvsr()
 		NativeReg reg2 = jitcAllocRegister();
 		NativeReg reg3 = jitcAllocRegister();
 
-		asmALURegMem(X86_MOV, reg1, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper));
-		asmALURegMem(X86_MOV, reg2, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+4));
-		asmALURegMem(X86_MOV, reg3, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+8));
-		asmALURegMem(X86_MOV, regA, modrm,
-			x86_mem(modrm, regA, (uint32)&lvsl_helper+12));
+		asmALU32(X86_MOV, reg1, regA, (uint32)&lvsl_helper);
+		asmALU32(X86_MOV, reg2, regA, (uint32)&lvsl_helper+4);
+		asmALU32(X86_MOV, reg3, regA, (uint32)&lvsl_helper+8);
+		asmALU32(X86_MOV, regA, regA, (uint32)&lvsl_helper+12);
 
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[0]), reg1);
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[1]), reg2);
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[2]), reg3);
-		asmMOVDMemReg((uint32)&(gCPU.vr[vrD].w[3]), regA);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[0], reg1);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[1], reg2);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[2], reg3);
+		asmALU32(X86_MOV, &gCPU.vr[vrD].w[3], regA);
 	}
 
 	return flowContinue;
@@ -2980,7 +2943,7 @@ JITCFlow ppc_opc_gen_stbu()
 	asmCALL((NativeAddress)ppc_write_effective_byte_asm);
 	if (imm) {
 		NativeReg r = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, r, imm);
+		asmALU32(X86_ADD, r, imm);
 	}
 	return flowContinue;
 }
@@ -3006,7 +2969,7 @@ JITCFlow ppc_opc_gen_stbux()
 	asmCALL((NativeAddress)ppc_write_effective_byte_asm);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -3056,13 +3019,13 @@ JITCFlow ppc_opc_gen_stfd()
 	if (rA) {
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
 		if (imm) {
-			asmALURegImm(X86_ADD, EAX, imm);
+			asmALU32(X86_ADD, EAX, imm);
 		}
 	} else {
-		asmALURegImm(X86_MOV, EAX, imm);
+		asmALU32(X86_MOV, EAX, imm);
 	}
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 	return flowEndBlock;
 }
@@ -3099,14 +3062,14 @@ JITCFlow ppc_opc_gen_stfdu()
 	// FIXME: check rA!=0
 	jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
 	if (imm) {
-		asmALURegImm(X86_ADD, EAX, imm);
+		asmALU32(X86_ADD, EAX, imm);
 	}
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 	if (imm) {
 		NativeReg r = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, r, imm);
+		asmALU32(X86_ADD, r, imm);
 	}
 	return flowContinue;
 }
@@ -3140,14 +3103,13 @@ JITCFlow ppc_opc_gen_stfdux()
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EDX);
 	// FIXME: check rA!=0
 	jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
-	byte modrm[6];
-	asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+	asmALU32(X86_ADD, EAX, &gCPU.gpr[rB]);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -3176,13 +3138,12 @@ JITCFlow ppc_opc_gen_stfdx()
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EDX);
 	if (rA) {
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
-		byte modrm[6];
-		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, EAX, &gCPU.gpr[rB]);
 	} else {
 		jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	}
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 	return flowEndBlock;
 }
@@ -3240,17 +3201,17 @@ JITCFlow ppc_opc_gen_stfs()
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_double_to_single);
-	asmALURegReg(X86_MOV, EDX, EAX);
+	asmALU32(X86_MOV, EDX, EAX);
 	if (rA) {
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
 		if (imm) {
-			asmALURegImm(X86_ADD, EAX, imm);
+			asmALU32(X86_ADD, EAX, imm);
 		}
 	} else {
-		asmALURegImm(X86_MOV, EAX, imm);
+		asmALU32(X86_MOV, EAX, imm);
 	}
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowEndBlock;
 }
@@ -3288,18 +3249,18 @@ JITCFlow ppc_opc_gen_stfsu()
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_double_to_single);
-	asmALURegReg(X86_MOV, EDX, EAX);
+	asmALU32(X86_MOV, EDX, EAX);
 	// FIXME: check rA!=0
 	jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
 	if (imm) {
-		asmALURegImm(X86_ADD, EAX, imm);
+		asmALU32(X86_ADD, EAX, imm);
 	}
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	if (imm) {
 		NativeReg r = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, r, imm);
+		asmALU32(X86_ADD, r, imm);
 	}
 	return flowContinue;
 }
@@ -3335,17 +3296,16 @@ JITCFlow ppc_opc_gen_stfsux()
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_double_to_single);
-	asmALURegReg(X86_MOV, EDX, EAX);
+	asmALU32(X86_MOV, EDX, EAX);
 	// FIXME: check rA!=0
 	jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
-	byte modrm[6];
-	asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+	asmALU32(X86_ADD, EAX, &gCPU.gpr[rB]);
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -3376,16 +3336,15 @@ JITCFlow ppc_opc_gen_stfsx()
 	jitcGetClientRegister(PPC_FPR_L(frS), NATIVE_REG | EAX);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_double_to_single);
-	asmALURegReg(X86_MOV, EDX, EAX);
+	asmALU32(X86_MOV, EDX, EAX);
 	if (rA) {
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
-		byte modrm[6];
-		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, EAX, &gCPU.gpr[rB]);
 	} else {
 		jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	}
 	jitcClobberAll();
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowEndBlock;
 }
@@ -3424,7 +3383,7 @@ JITCFlow ppc_opc_gen_sthbrx()
 	int rA, rS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
 	ppc_opc_gen_helper_stx(PPC_GPR(rA), PPC_GPR(rB), PPC_GPR(rS));
-	asmALURegReg8(X86_XCHG, DL, DH);
+	asmALU8(X86_XCHG, DL, DH);
 	asmCALL((NativeAddress)ppc_write_effective_half_asm);
 	return flowEndBlock;
 }
@@ -3453,7 +3412,7 @@ JITCFlow ppc_opc_gen_sthu()
 	asmCALL((NativeAddress)ppc_write_effective_half_asm);
 	if (imm) {
 		NativeReg r = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, r, imm);
+		asmALU32(X86_ADD, r, imm);
 	}
 	return flowContinue;
 }
@@ -3479,7 +3438,7 @@ JITCFlow ppc_opc_gen_sthux()
 	asmCALL((NativeAddress)ppc_write_effective_half_asm);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -3575,11 +3534,11 @@ JITCFlow ppc_opc_gen_stswi()
 	if (rA) {
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
 	} else {
-		asmALURegImm(X86_MOV, EAX, 0);
+		asmALU32(X86_MOV, EAX, 0u);
 	}
-	asmALURegImm(X86_MOV, ECX, NB);
-	asmALURegImm(X86_MOV, EBX, rS);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, ECX, NB);
+	asmALU32(X86_MOV, EBX, rS);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	jitcClobberAll();
 	asmCALL((NativeAddress)ppc_opc_stswi_asm);
 	return flowEndBlock;
@@ -3621,17 +3580,16 @@ JITCFlow ppc_opc_gen_stswx()
 	jitcFlushRegister();
 	jitcGetClientRegister(PPC_XER, NATIVE_REG | ECX);
 	if (rA) {
-		byte modrm[6];
 		jitcGetClientRegister(PPC_GPR(rA), NATIVE_REG | EAX);
-		asmALURegMem(X86_ADD, EAX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.gpr[rB]));
+		asmALU32(X86_ADD, EAX, &gCPU.gpr[rB]);
 	} else {
 		jitcGetClientRegister(PPC_GPR(rB), NATIVE_REG | EAX);
 	}
-	asmALURegImm(X86_AND, ECX, 0x7f);
+	asmALU32(X86_AND, ECX, 0x7f);
 	jitcClobberAll();
 	NativeAddress fixup = asmJxxFixup(X86_Z);
-	asmALURegImm(X86_MOV, EBX, rS);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	asmALU32(X86_MOV, EBX, rS);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_opc_stswi_asm);
 	asmResolveFixup(fixup, asmHERE());
 	return flowEndBlock;
@@ -3672,7 +3630,7 @@ JITCFlow ppc_opc_gen_stwbrx()
 	int rA, rS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
 	ppc_opc_gen_helper_stx(PPC_GPR(rA), PPC_GPR(rB), PPC_GPR(rS));
-	asmBSWAP(EDX);
+	asmBSWAP32(EDX);
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowEndBlock;
 }
@@ -3706,24 +3664,23 @@ JITCFlow ppc_opc_gen_stwcx_()
 {
 	int rA, rS, rB;
 	PPC_OPC_TEMPL_X(gJITC.current_opc, rS, rA, rB);
-	byte modrm[6];
 	jitcClobberCarryAndFlags();
-	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x0f);
-	asmBTxMemImm(X86_BTR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.have_reservation), 0);
+	asmALU8(X86_AND, (byte*)&gCPU.cr + 3, 0x0f);
+	asmBTx32(X86_BTR, &gCPU.have_reservation, 0);
 	NativeAddress no_reservation = asmJxxFixup(X86_NC);
 	ppc_opc_gen_helper_lx(PPC_GPR(rA), PPC_GPR(rB));
 	asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	asmALURegMem(X86_CMP, EDX, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.reserve));
+	asmALU32(X86_CMP, EDX, &gCPU.reserve);
 	// FIXME: mapFlags?
 	NativeAddress fixup = asmJxxFixup(X86_NE);
 	ppc_opc_gen_helper_stx(PPC_GPR(rA), PPC_GPR(rB), PPC_GPR(rS));
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
-	asmALUMemImm8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x20);  // CR_CR0_EQ
+	asmALU8(X86_OR, (byte*)&gCPU.cr + 3, 0x20);  // CR_CR0_EQ
 	asmResolveFixup(fixup, asmHERE());
 	asmResolveFixup(no_reservation, asmHERE());
-	asmTESTDMemImm((uint32)&gCPU.xer, XER_SO);
+	asmTEST32(&gCPU.xer, XER_SO);
 	fixup = asmJxxFixup(X86_Z);
-	asmALUMemImm8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x10);  // CR_CR0_SO
+	asmALU8(X86_OR, (byte*)&gCPU.cr + 3, 0x10);  // CR_CR0_SO
 	asmResolveFixup(fixup, asmHERE());
 	return flowEndBlock;
 }
@@ -3752,7 +3709,7 @@ JITCFlow ppc_opc_gen_stwu()
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	if (imm) {
 		NativeReg r = jitcGetClientRegisterDirty(PPC_GPR(rA));
-		asmALURegImm(X86_ADD, r, imm);
+		asmALU32(X86_ADD, r, imm);
 	}
 	return flowContinue;
 }
@@ -3778,7 +3735,7 @@ JITCFlow ppc_opc_gen_stwux()
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	NativeReg a = jitcGetClientRegisterDirty(PPC_GPR(rA));
 	NativeReg b = jitcGetClientRegister(PPC_GPR(rB));
-	asmALURegReg(X86_ADD, a, b);
+	asmALU32(X86_ADD, a, b);
 	return flowContinue;
 }
 /*
@@ -3833,23 +3790,23 @@ JITCFlow ppc_opc_gen_stvx()
 
 #if 1
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX)	asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
 	if (0 && vrS == gJITC.nativeVectorReg) {
-		asmALURegImm(X86_MOV, EDX, (uint32)&(gCPU.vr[JITC_VECTOR_TEMP]));
+		asmALU32(X86_MOV, EDX, (uint32)&(gCPU.vr[JITC_VECTOR_TEMP]));
 		asmCALL((NativeAddress)ppc_write_effective_qword_sse_asm);
 	} else {
-		asmALURegImm(X86_MOV, EDX, (uint32)&(gCPU.vr[vrS]));
+		asmALU32(X86_MOV, EDX, (uint32)&(gCPU.vr[vrS]));
 		asmCALL((NativeAddress)ppc_write_effective_qword_asm);
 	}
 #else
-	asmALURegImm(X86_AND, regA, ~0x0f);
+	asmALU32(X86_AND, regA, ~0x0f);
 	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX)	asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
 	asmMOVRegDMem(ECX, (uint32)&(gCPU.vr[vrS])+12);
 	asmMOVRegDMem(EDX, (uint32)&(gCPU.vr[vrS])+8);
@@ -3857,7 +3814,7 @@ JITCFlow ppc_opc_gen_stvx()
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 
 	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_OR, EAX, 8);
+	asmALU32(X86_OR, EAX, 8);
 
 	asmMOVRegDMem(ECX, (uint32)&(gCPU.vr[vrS])+4);
 	asmMOVRegDMem(EDX, (uint32)&(gCPU.vr[vrS])+0);
@@ -3905,7 +3862,6 @@ JITCFlow ppc_opc_gen_stvebx()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrS, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
 
 	jitcFlushClientVectorRegister(vrS);
@@ -3913,18 +3869,17 @@ JITCFlow ppc_opc_gen_stvebx()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
-	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
-	asmALURegImm(X86_AND, regA, 0x0f);
-	asmALUReg(X86_NOT, regA);
+	asmALU32(X86_MOV, &gCPU.vtemp, regA);
+	asmALU32(X86_AND, regA, 0x0f);
+	asmALU32(X86_NOT, regA);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX) asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
-	asmALURegMem8(X86_MOV, DL, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+16));
+	asmALU8(X86_MOV, DL, EAX, ((uint32)&gCPU.vr[vrS])+16);
 
-	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
+	asmALU32(X86_MOV, EAX, &gCPU.vtemp);
 
 	asmCALL((NativeAddress)ppc_write_effective_byte_asm);
 	return flowEndBlock;
@@ -3953,7 +3908,6 @@ JITCFlow ppc_opc_gen_stvehx()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrS, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
 
 	jitcFlushClientVectorRegister(vrS);
@@ -3961,21 +3915,19 @@ JITCFlow ppc_opc_gen_stvehx()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
-	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
-	asmALURegImm(X86_AND, regA, 0x0e);
-	asmALUReg(X86_NOT, regA);
+	asmALU32(X86_MOV, &gCPU.vtemp, regA);
+	asmALU32(X86_AND, regA, 0x0e);
+	asmALU32(X86_NOT, regA);
 
 	jitcClobberAll();
-	if (regA != EAX)	asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX) asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
-	asmALURegMem8(X86_MOV, DL, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+15));
-	asmALURegMem8(X86_MOV, DH, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+16));
+	asmALU8(X86_MOV, DL, EAX, ((uint32)&gCPU.vr[vrS])+15);
+	asmALU8(X86_MOV, DH, EAX, ((uint32)&gCPU.vr[vrS])+16);
 
-	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_AND, EAX, ~0x1);
+	asmALU32(X86_MOV, EAX, &gCPU.vtemp);
+	asmALU32(X86_AND, EAX, ~0x1);
 
 	asmCALL((NativeAddress)ppc_write_effective_half_asm);
 	return flowEndBlock;
@@ -4004,7 +3956,6 @@ JITCFlow ppc_opc_gen_stvewx()
 {
 	ppc_opc_gen_check_vec();
 	int rA, vrS, rB;
-	byte modrm[6];
 	PPC_OPC_TEMPL_X(gJITC.current_opc, vrS, rA, rB);
 
 	jitcFlushClientVectorRegister(vrS);
@@ -4012,19 +3963,18 @@ JITCFlow ppc_opc_gen_stvewx()
 
 	jitcClobberCarryAndFlags();
 	NativeReg regA = ppc_opc_gen_helper_lvx(rA, rB, NATIVE_REG | EAX);
-	asmMOVDMemReg((uint32)&gCPU.vtemp, regA);
-	asmALURegImm(X86_AND, regA, 0x0c);
-	asmALUReg(X86_NOT, regA);
+	asmALU32(X86_MOV, &gCPU.vtemp, regA);
+	asmALU32(X86_AND, regA, 0x0c);
+	asmALU32(X86_NOT, regA);
 
 	jitcClobberAll();
-	if (regA != EAX) asmALURegReg(X86_MOV, EAX, regA);
-	asmALURegImm(X86_MOV, ESI, gJITC.pc);
+	if (regA != EAX) asmALU32(X86_MOV, EAX, regA);
+	asmALU32(X86_MOV, ESI, gJITC.pc);
 
-	asmALURegMem(X86_MOV, EDX, modrm,
-		x86_mem(modrm, EAX, ((uint32)&gCPU.vr[vrS])+13));
+	asmALU32(X86_MOV, EDX, EAX, ((uint32)&gCPU.vr[vrS])+13);
 
-	asmMOVRegDMem(EAX, (uint32)&gCPU.vtemp);
-	asmALURegImm(X86_AND, EAX, ~0x3);
+	asmALU32(X86_MOV, EAX, &gCPU.vtemp);
+	asmALU32(X86_AND, EAX, ~0x3);
 
 	asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowEndBlock;

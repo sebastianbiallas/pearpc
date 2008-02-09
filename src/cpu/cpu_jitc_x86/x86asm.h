@@ -231,14 +231,15 @@ enum X86BitSearch {
 	void asmALU32(X86ALUopc opc, NativeReg base, int scale, NativeReg index, uint32 disp, NativeReg reg);
 	void asmALU32(X86ALUopc opc, NativeReg base, uint32 disp, uint32 imm);
 	void asmALU32(X86ALUopc opc, const void *mem, uint32 imm);
+	void asmALU32(X86ALUopc opc, const void *mem, NativeReg reg);
+	void asmALU32(X86ALUopc opc, NativeReg reg, const void *mem);
 	void asmALU32(X86ALUopc1 opc, NativeReg reg);
-	void asmMOV32(NativeReg reg, uint32 imm);
 	void asmMOV32_NoFlags(NativeReg reg, uint32 imm);
 
-	void asmALU8(X86ALUopc opc, NativeReg reg1, NativeReg reg2);
+	void asmALU8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2);
 	void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, uint8 imm);
-	void asmALU8(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp);
-	void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg reg);
+	void asmALU8(X86ALUopc opc, NativeReg8 reg, NativeReg base, uint32 disp);
+	void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg8 reg);
 	void asmALU8(X86ALUopc opc, const void *mem, uint8 imm);
 	
 	void asmAND32(NativeReg base, uint32 disp, uint32 imm);
@@ -269,6 +270,7 @@ enum X86BitSearch {
 
 	void asmBTx32(X86BitTest opc, NativeReg reg, int value);
 	void asmBTx32(X86BitTest opc, NativeReg base, uint32 disp, int value);
+	void asmBTx32(X86BitTest opc, const void *mem, int value);
 	void asmBSx32(X86BitSearch opc, NativeReg reg1, NativeReg reg2);
 
 	void asmBSWAP32(NativeReg reg);
@@ -385,9 +387,6 @@ enum X86FloatOp {
 // .277 FISTP [mem32]  0xDB /3
 
 void FASTCALL asmFCompSTi(X86FloatCompOp op, NativeFloatReg sti);
-void FASTCALL asmFICompMem(X86FloatICompOp op, byte *modrm, int len);
-void FASTCALL asmFICompPMem(X86FloatICompOp op, byte *modrm, int len);
-void FASTCALL asmFArithMem(X86FloatArithOp op, byte *modrm, int len);
 void FASTCALL asmFArithST0(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFArithSTi(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFArithSTiP(X86FloatArithOp op, NativeFloatReg sti);
@@ -395,34 +394,10 @@ void FASTCALL asmFXCHSTi(NativeFloatReg sti);
 void FASTCALL asmFFREESTi(NativeFloatReg sti);
 void FASTCALL asmFFREEPSTi(NativeFloatReg sti);
 void FASTCALL asmFSimpleST0(X86FloatOp op);
-#if 0
-void FASTCALL asmFLDSingleMem(byte *modrm, int len);
-void FASTCALL asmFLDDoubleMem(byte *modrm, int len);
-void FASTCALL asmFLDSTi(NativeFloatReg sti);
-void FASTCALL asmFILD16(byte *modrm, int len);
-void FASTCALL asmFILD(byte *modrm, int len);
-void FASTCALL asmFSTSingleMem(byte *modrm, int len);
-void FASTCALL asmFSTPSingleMem(byte *modrm, int len);
-void FASTCALL asmFSTDoubleMem(byte *modrm, int len);
-void FASTCALL asmFSTPDoubleMem(byte *modrm, int len);
-void FASTCALL asmFSTDSTi(NativeFloatReg sti);
-void FASTCALL asmFSTDPSTi(NativeFloatReg sti);
-void FASTCALL asmFISTPMem(byte *modrm, int len);
-void FASTCALL asmFISTPMem64(byte *modrm, int len);
-void FASTCALL asmFISTTPMem(byte *modrm, int len);
-                                                                                
-void FASTCALL asmFSTSWMem(byte *modrm, int len);
-                                                                                
-void FASTCALL asmFLDCWMem(byte *modrm, int len);
-void FASTCALL asmFSTCWMem(byte *modrm, int len);
-#endif
 void FASTCALL asmFSTSW_EAX(void);
 
 void FASTCALL asmFComp(X86FloatCompOp op, NativeFloatReg sti);
-/*
-void FASTCALL asmFIComp(X86FloatICompOp op, modrm_p modrm);
-void FASTCALL asmFICompP(X86FloatICompOp op, modrm_p modrm);
-void FASTCALL asmFArith(X86FloatArithOp op, modrm_p modrm);
+void FASTCALL asmFArith(X86FloatArithOp op, const void *mem);
 void FASTCALL asmFArith_ST0(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFArith_STi(X86FloatArithOp op, NativeFloatReg sti);
 void FASTCALL asmFArithP_STi(X86FloatArithOp op, NativeFloatReg sti);
@@ -430,9 +405,16 @@ void FASTCALL asmFXCH(NativeFloatReg sti);
 void FASTCALL asmFFREE(NativeFloatReg sti);
 void FASTCALL asmFFREEP(NativeFloatReg sti);
 void FASTCALL asmFSimple(X86FloatOp op);
-void FASTCALL asmFLD_Single(modrm_p modrm);
-void FASTCALL asmFLD_Double(modrm_p modrm);
 void FASTCALL asmFLD(NativeFloatReg sti);
+void FASTCALL asmFST(NativeFloatReg sti);
+void FASTCALL asmFSTP(NativeFloatReg sti);
+void FASTCALL asmFISTTP(const void *mem);
+void FASTCALL asmFISTP_D(const void *mem);
+/*
+//void FASTCALL asmFLD_Single(modrm_p modrm);
+///void FASTCALL asmFLD_Double(modrm_p modrm);
+void FASTCALL asmFIComp(X86FloatICompOp op, modrm_p modrm);
+void FASTCALL asmFICompP(X86FloatICompOp op, modrm_p modrm);
 void FASTCALL asmFILD_W(modrm_p modrm);
 void FASTCALL asmFILD_D(modrm_p modrm);
 void FASTCALL asmFILD_Q(modrm_p modrm);
@@ -440,19 +422,14 @@ void FASTCALL asmFST_Single(modrm_p modrm);
 void FASTCALL asmFSTP_Single(modrm_p modrm);
 void FASTCALL asmFST_Double(modrm_p modrm);
 void FASTCALL asmFSTP_Double(modrm_p modrm);
-void FASTCALL asmFST(NativeFloatReg sti);
-void FASTCALL asmFSTP(NativeFloatReg sti);
 void FASTCALL asmFISTP_W(modrm_p modrm);
-void FASTCALL asmFISTP_D(modrm_p modrm);
 void FASTCALL asmFISTP_Q(modrm_p modrm);
-void FASTCALL asmFISTTP(modrm_p modrm);
-
 void FASTCALL asmFSTSW(modrm_p modrm);
+*/
 void FASTCALL asmFSTSW_EAX(void);
 
-void FASTCALL asmFLDCW(modrm_p modrm);
-void FASTCALL asmFSTCW(modrm_p modrm);
-*/
+void FASTCALL asmFLDCW(const void *mem);
+void FASTCALL asmFSTCW(const void *mem);
 
 enum NativeVectorReg {
 	XMM0 = 0,
@@ -521,7 +498,6 @@ enum X86PALUopc {
 	X86_PADD    = 0xFC,
 };
 
-#if 0
 #define PALUB(op)	((X86PALUopc)((op) | 0x00))
 #define PALUW(op)	((X86PALUopc)((op) | 0x01))
 #define PALUD(op)	((X86PALUopc)((op) | 0x02))
@@ -570,14 +546,14 @@ void asmMOVSS(NativeVectorReg reg, const void *disp);
 void asmMOVSS(const void *disp, NativeVectorReg reg);
 
 void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
-void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, modrm_p modrm);
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, const void *mem);
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeReg base, uint32 disp);
 void asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
-void asmPALU(X86PALUopc opc, NativeVectorReg reg1, modrm_p modrm);
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, const void *mem);
 
 void asmSHUFPS(NativeVectorReg reg1, NativeVectorReg reg2, int order);
-void asmSHUFPS(NativeVectorReg reg1, modrm_p modrm, int order);
+void asmSHUFPS(NativeVectorReg reg1, const void *mem, int order);
 void asmPSHUFD(NativeVectorReg reg1, NativeVectorReg reg2, int order);
-void asmPSHUFD(NativeVectorReg reg1, modrm_p modrm, int order);
-#endif
+void asmPSHUFD(NativeVectorReg reg1, const void *mem, int order);
 
 #endif
