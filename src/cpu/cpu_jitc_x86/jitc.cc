@@ -405,7 +405,7 @@ extern "C" NativeAddress FASTCALL jitcNewEntrypoint(ClientPage *cp, uint32 basea
 			 *	ppc_new_pc_asm
 			 */
 			jitcClobberAll();
-			asmALURegImm(X86_MOV, EAX, 4096);
+			asmALU32(X86_MOV, EAX, 4096);
 			asmJMP((NativeAddress)ppc_new_pc_rel_asm);
 			break;
 		}

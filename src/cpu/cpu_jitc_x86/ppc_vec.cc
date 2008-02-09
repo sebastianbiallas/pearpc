@@ -186,7 +186,7 @@ static inline sint32 SATURATE_SW(sint64 val)
 
 static inline void vec_raise_saturate(void)
 {
-	asmOR(&gCPU.vscr, VSCR_SAT);
+	asmOR32(&gCPU.vscr, VSCR_SAT);
 }
 
 static inline void vec_saturateSB(NativeReg reg, NativeReg reg2)
@@ -242,8 +242,8 @@ static inline void vec_saturateUB(NativeReg8 reg)
 	asmALU32(X86_CMP, (NativeReg)reg, 0xff);
 	NativeAddress skip1 = asmJxxFixup(X86_BE);
 
-	asmSET(X86_S, reg);
-	asmALU32(X86_SUB, reg, 1);
+	asmSET8(X86_S, reg);
+	asmALU8(X86_SUB, reg, 1);
 
 	vec_raise_saturate();
 
@@ -297,6 +297,7 @@ static inline void vec_saturateSUH(NativeReg reg, NativeReg reg2)
 	asmResolveFixup(skip3);
 }
 
+/*
 static inline void vec_saturateUH(NativeReg8 reg)
 {
 	jitcClobberCarryAndFlags();
@@ -304,14 +305,15 @@ static inline void vec_saturateUH(NativeReg8 reg)
 	asmALU32(X86_CMP, (NativeReg)reg, 0xffff);
 	NativeAddress skip1 = asmJxxFixup(X86_BE);
 
-	asmSET(X86_S, reg);
-	asmMOVxx(X86_MOVZX, (NativeReg)reg, reg);
+	asmSET8(X86_S, reg);
+	asmMOVxx32_8(X86_MOVZX, (NativeReg)reg, reg);
 	asmALU32(X86_SUB, (NativeReg)reg, 1);
 
 	vec_raise_saturate();
 
 	asmResolveFixup(skip1);
 }
+*/
 
 static inline void vec_getByte(NativeReg8 dest, int src, NativeReg r, int i)
 {
@@ -345,14 +347,14 @@ static inline void vec_getHalf(NativeReg16 dest, int src, int i)
 {
 	ASSERT_FLUSHED(src);
 
-	asmMOV(dest, &(gCPU.vr[src].b[i]));
+	asmALU16(X86_MOV, dest, &gCPU.vr[src].b[i]);
 }
 
 static inline void vec_setHalf(int dest, int i, NativeReg16 src)
 {
 	ASSERT_FLUSHED(dest);
 
-	asmMOV(&(gCPU.vr[dest].b[i]), src);
+	asmALU16(X86_MOV, &gCPU.vr[dest].b[i], src);
 }
 
 static inline void vec_getHalfZ(NativeReg dest, int src, int i)
@@ -501,33 +503,32 @@ static inline void vec_Not(int dest, int src)
 
 static inline void vec_SelectiveLoadByte(X86FlagTest flags, NativeReg8 reg1, NativeReg reg2, int vrA, int vrB)
 {
-	// FIXME: sepp
 	NativeAddress skip = asmJxxFixup(flags);
-	asmALU32(X86_MOV, NativeReg(reg1), reg2, &gCPU.vr[vrA].b[16]);
+	asmALU8(X86_MOV, reg1, reg2, uint32(&gCPU.vr[vrA].b[16]));
 
 	NativeAddress end = asmJMPFixup();
 
 	asmResolveFixup(skip);
-	asmALU32(X86_MOV, NativeReg(reg1), reg2, &(gCPU.vr[vrB].b[16]);
+	asmALU8(X86_MOV, reg1, reg2, uint32(&gCPU.vr[vrB].b[16]));
 
 	asmResolveFixup(end);
 }
 
 static inline void vec_PermuteQuad(NativeReg8 reg1, NativeReg reg2, NativeReg8 regT, NativeReg regA, NativeReg regB, int vrA, int vrB, int vrD, int i)
 {
-	asmMOVxx(X86_MOVSX, regA, reg1);
-	asmMOVxx(X86_MOVSX, regB, RL2RH(reg1));
+	asmMOVxx32_8(X86_MOVSX, regA, reg1);
+	asmMOVxx32_8(X86_MOVSX, regB, RL2RH(reg1));
 
 	if (gJITC.hostCPUCaps.cmov) {
 		asmALU32(X86_TEST, reg2, 0x10);
-		asmCMOV32(X86_Z, NativeReg(regT), regA, &gCPU.vr[vrA].b[16]);
-		asmCMOV32(X86_NZ, NativeReg(regT), regA, &gCPU.vr[vrB].b[16]);
+		asmCMOV32(X86_Z, NativeReg(regT), regA, uint32(&gCPU.vr[vrA].b[16]));
+		asmCMOV32(X86_NZ, NativeReg(regT), regA, uint32(&gCPU.vr[vrB].b[16]));
 
 		vec_setByte(vrD, REG_NO, i, regT);
 
 		asmALU32(X86_TEST, reg2, 0x1000);
-		asmCMOV(X86_Z, NativeReg(regT), regB, &gCPU.vr[vrA].b[16]);
-		asmCMOV(X86_NZ, NativeReg(regT), regB, &gCPU.vr[vrB].b[16]);
+		asmCMOV32(X86_Z, NativeReg(regT), regB, uint32(&gCPU.vr[vrA].b[16]));
+		asmCMOV32(X86_NZ, NativeReg(regT), regB, uint32(&gCPU.vr[vrB].b[16]));
 
 		vec_setByte(vrD, REG_NO, i+1, regT);
 
@@ -537,14 +538,14 @@ static inline void vec_PermuteQuad(NativeReg8 reg1, NativeReg reg2, NativeReg8 r
 		asmMOVxx32_8(X86_MOVSX, regB, RL2RH(reg1));
 
 		asmALU32(X86_TEST, reg2, 0x100000);
-		asmCMOV(X86_Z, NativeReg(regT), regA, &gCPU.vr[vrA].b[16]);
-		asmCMOV(X86_NZ, NativeReg(regT), regA, &gCPU.vr[vrB].b[16]);
+		asmCMOV32(X86_Z, NativeReg(regT), regA, uint32(&gCPU.vr[vrA].b[16]));
+		asmCMOV32(X86_NZ, NativeReg(regT), regA, uint32(&gCPU.vr[vrB].b[16]));
 
 		vec_setByte(vrD, REG_NO, i+2, regT);
 
 		asmALU32(X86_TEST, reg2, 0x10000000);
-		asmCMOV32(X86_Z, NativeReg(regT), regB, &gCPU.vr[vrA].b[16]);
-		asmCMOV32(X86_NZ, NativeReg(regT), regB, &gCPU.vr[vrB].b[16]);
+		asmCMOV32(X86_Z, NativeReg(regT), regB, uint32(&gCPU.vr[vrA].b[16]));
+		asmCMOV32(X86_NZ, NativeReg(regT), regB, uint32(&gCPU.vr[vrB].b[16]));
 
 		vec_setByte(vrD, REG_NO, i+3, regT);
 	} else {
@@ -558,8 +559,8 @@ static inline void vec_PermuteQuad(NativeReg8 reg1, NativeReg reg2, NativeReg8 r
 
 		asmShift32(X86_SHR, NativeReg(reg1), 16);
 
-		asmMOVxx(X86_MOVSX, regA, reg1);
-		asmMOVxx(X86_MOVSX, regB, RL2RH(reg1));
+		asmMOVxx32_8(X86_MOVSX, regA, reg1);
+		asmMOVxx32_8(X86_MOVSX, regB, RL2RH(reg1));
 
 		asmALU32(X86_TEST, reg2, 0x100000);
 		vec_SelectiveLoadByte(X86_NZ, regT, regA, vrA, vrB);
@@ -798,7 +799,7 @@ JITCFlow ppc_opc_gen_vsrb()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU8(X86_AND, CL, 0x7);
-		asmShift32CL(X86_SHR, reg);
+		asmShift8CL(X86_SHR, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -841,7 +842,7 @@ JITCFlow ppc_opc_gen_vsrh()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU8(X86_AND, CL, 0x0f);
-		asmShift32CL(X86_SHR, reg);
+		asmShift16CL(X86_SHR, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -927,7 +928,7 @@ JITCFlow ppc_opc_gen_vsrab()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU8(X86_AND, CL, 0x7);
-		asmShift32CL(X86_SAR, reg);
+		asmShift8CL(X86_SAR, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -970,7 +971,7 @@ JITCFlow ppc_opc_gen_vsrah()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU8(X86_AND, CL, 0x0f);
-		asmShift32CL(X86_SAR, reg);
+		asmShift16CL(X86_SAR, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}
@@ -1055,7 +1056,7 @@ JITCFlow ppc_opc_gen_vslb()
 		vec_getByte(CL, vrB, REG_NO, i);
 
 		asmALU8(X86_AND, CL, 0x7);
-		asmShift32CL(X86_SHL, reg);
+		asmShift8CL(X86_SHL, reg);
 
 		vec_setByte(vrD, REG_NO, i, reg);
 	}
@@ -1098,7 +1099,7 @@ JITCFlow ppc_opc_gen_vslh()
 		vec_getHalf(CX, vrB, i);
 
 		asmALU8(X86_AND, CL, 0x0f);
-		asmShift32CL(X86_SHL, reg);
+		asmShift16CL(X86_SHL, reg);
 
 		vec_setHalf(vrD, i, reg);
 	}

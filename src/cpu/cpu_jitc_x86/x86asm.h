@@ -264,11 +264,13 @@ enum X86BitSearch {
 	void asmSET8(X86FlagTest flags, const void *mem);
 
 	void asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2);
+	void asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, const void *mem);
 	void asmMOVxx32_16(X86MOVxx opc, NativeReg reg1, NativeReg reg2);
+	void asmMOVxx32_16(X86MOVxx opc, NativeReg reg1, const void *mem);
 	void asmShift16(X86ShiftOpc opc, NativeReg reg, uint imm);
 	void asmShift32(X86ShiftOpc opc, NativeReg reg, uint imm);
-	void asmShift64(X86ShiftOpc opc, NativeReg reg, uint imm);
 	void asmShift8CL(X86ShiftOpc opc, NativeReg8 reg);
+	void asmShift16CL(X86ShiftOpc opc, NativeReg16 reg);
 	void asmShift32CL(X86ShiftOpc opc, NativeReg reg);
 	void asmINC32(NativeReg reg);
 	void asmDEC32(NativeReg reg);
