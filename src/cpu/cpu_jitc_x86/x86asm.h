@@ -430,10 +430,10 @@ void FASTCALL asmFISTP_Q(const void *mem);
 void FASTCALL asmFIComp(X86FloatICompOp op, const void *mem);
 void FASTCALL asmFICompP(X86FloatICompOp op, const void *mem);
 void FASTCALL asmFSTP_Single(const void *mem);
+void FASTCALL asmFSTP_Double(const void *mem);
 /*
 void FASTCALL asmFST_Single(modrm_p modrm);
 void FASTCALL asmFST_Double(modrm_p modrm);
-void FASTCALL asmFSTP_Double(modrm_p modrm);
 void FASTCALL asmFISTP_W(modrm_p modrm);
 void FASTCALL asmFSTSW(modrm_p modrm);
 */

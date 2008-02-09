@@ -102,14 +102,14 @@ static inline void FASTCALL jitcUnmapRegister(NativeReg reg)
 
 static inline void FASTCALL jitcLoadRegister(NativeReg nreg, PPC_Register creg)
 {
-	asmMOVRegDMem(nreg, (uint32)&gCPU+creg);
+	asmALU32(X86_MOV, nreg, (byte*)&gCPU+creg);
 	jitcMapRegister(nreg, creg);
 	gJITC.nativeRegState[nreg] = rsMapped;
 }
 
 static inline void FASTCALL jitcStoreRegister(NativeReg nreg, PPC_Register creg)
 {
-	asmMOVDMemReg((uint32)&gCPU+creg, nreg);
+	asmALU32(X86_MOV, (byte*)&gCPU+creg, nreg);
 }
 
 static inline void FASTCALL jitcStoreRegisterUndirty(NativeReg nreg, PPC_Register creg)
@@ -298,9 +298,9 @@ NativeReg FASTCALL jitcMapClientRegisterDirty(PPC_Register creg, int options)
 
 			// ok, restore old mapping
 			if (temp_reg == EAX || want_reg == EAX) {
-				asmALURegReg(X86_XCHG, temp_reg, want_reg);
+				asmALU32(X86_XCHG, temp_reg, want_reg);
 			} else {
-				asmALURegReg(X86_MOV, temp_reg, want_reg);				
+				asmALU32(X86_MOV, temp_reg, want_reg);				
 			}
 			jitcMapRegister(temp_reg, have_mapping);
 		} else {
@@ -352,7 +352,7 @@ NativeReg FASTCALL jitcGetClientRegister(PPC_Register creg, int options)
 				return client_reg_maps_to;
 			}
 			NativeReg want_reg = jitcAllocRegister(NATIVE_REG_8);
-			asmALURegReg(X86_MOV, want_reg, client_reg_maps_to);
+			asmALU32(X86_MOV, want_reg, client_reg_maps_to);
 			jitcUnmapRegister(client_reg_maps_to);
 			jitcMapRegister(want_reg, creg);
 			gJITC.nativeRegState[want_reg] = gJITC.nativeRegState[client_reg_maps_to];
@@ -371,7 +371,7 @@ NativeReg FASTCALL jitcGetClientRegister(PPC_Register creg, int options)
 			} else {
 				// we need to satisfy mapping
 				if (client_reg_maps_to != REG_NO) {
-					asmALURegReg(X86_XCHG, want_reg, client_reg_maps_to);
+					asmALU32(X86_XCHG, want_reg, client_reg_maps_to);
 					RegisterState rs = gJITC.nativeRegState[want_reg];
 					gJITC.nativeRegState[want_reg] = gJITC.nativeRegState[client_reg_maps_to];
 					gJITC.nativeRegState[client_reg_maps_to] = rs;
@@ -389,7 +389,7 @@ NativeReg FASTCALL jitcGetClientRegister(PPC_Register creg, int options)
 			// want_reg is free 
 			jitcTouchRegister(want_reg);
 			if (client_reg_maps_to != REG_NO) {
-				asmALURegReg(X86_MOV, want_reg, client_reg_maps_to);
+				asmALU32(X86_MOV, want_reg, client_reg_maps_to);
 				gJITC.nativeRegState[want_reg] = gJITC.nativeRegState[client_reg_maps_to];
 				jitcUnmapRegister(client_reg_maps_to);
 				jitcDiscardRegister(client_reg_maps_to);
@@ -549,12 +549,10 @@ void FASTCALL jitcGetClientCarry()
 
 #if 0
 		// bt [gCPU.xer], XER_CA
-		byte modrm[6];
-		asmBTxMemImm(X86_BT, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer), 29);
+		asmBTx32(X86_BT, &gCPU.xer, 29);
 #else
 		// bt [gCPU.xer_ca], 0
-		byte modrm[6];
-		asmBTxMemImm(X86_BT, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca), 0);
+		asmBTx32(X86_BT, &gCPU.xer_ca, 0);
 #endif
 		gJITC.nativeCarryState = rsMapped;
 	}
@@ -588,8 +586,7 @@ void FASTCALL jitcMapCarryDirty()
 
 static inline void FASTCALL jitcFlushCarry()
 {
-	byte modrm[6];
-	asmSETMem(X86_C, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.xer_ca));
+	asmSET8(X86_C, &gCPU.xer_ca);
 }
 
 #if 0
@@ -608,38 +605,26 @@ uint8 jitcFlagsMappingCMP_L[257];
 
 static inline void FASTCALL jitcFlushFlags()
 {
-#if 1
-	byte modrm[6];
 	NativeReg r = jitcAllocRegister(NATIVE_REG_8);
-	asmSETReg8(X86_S, (NativeReg8)r);
-	asmSETReg8(X86_Z, (NativeReg8)(r+4));
-	asmMOVxxRegReg16(X86_MOVZX, r, r);
-	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x0f);
-	asmALURegMem8(X86_MOV, (NativeReg8)r, modrm, x86_mem(modrm, r, (uint32)&jitcFlagsMapping));
-	asmALUMemReg8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), (NativeReg8)r);
-#else 
-	byte modrm[6];
-	jitcAllocRegister(NATIVE_REG | EAX);
-	asmSimple(X86_LAHF);
-	asmMOVxxRegReg8(X86_MOVZX, EAX, AH);
-	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), 0x0f);
-	asmALURegMem8(X86_MOV, AL, modrm, x86_mem(modrm, EAX, (uint32)&jitcFlagsMapping2));
-	asmALUMemReg8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+3), AL);
-#endif
+	asmSET8(X86_S, (NativeReg8)r);
+	asmSET8(X86_Z, (NativeReg8)(r+4));
+	asmMOVxx32_16(X86_MOVZX, r, r);
+	asmALU8(X86_AND, (byte*)&gCPU.cr+3, 0x0f);
+	asmALU8(X86_MOV, (NativeReg8)r, r, (uint32)&jitcFlagsMapping);
+	asmALU8(X86_OR, (byte*)&gCPU.cr+3, (NativeReg8)r);
 }
 
 #endif
 
 static inline void jitcFlushFlagsAfterCMP(X86FlagTest t1, X86FlagTest t2, byte mask, int disp, uint32 map)
 {
-	byte modrm[6];
 	NativeReg r = jitcAllocRegister(NATIVE_REG_8);
-	asmSETReg8(t1, (NativeReg8)r);
-	asmSETReg8(t2, (NativeReg8)(r+4));
-	asmMOVxxRegReg16(X86_MOVZX, r, r);
-	asmALUMemImm8(X86_AND, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+disp), mask);
-	asmALURegMem8(X86_MOV, (NativeReg8)r, modrm, x86_mem(modrm, r, map));
-	asmALUMemReg8(X86_OR, modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.cr+disp), (NativeReg8)r);
+	asmSET8(t1, (NativeReg8)r);
+	asmSET8(t2, (NativeReg8)(r+4));
+	asmMOVxx32_16(X86_MOVZX, r, r);
+	asmALU8(X86_AND, (byte*)&gCPU.cr+disp, mask);
+	asmALU8(X86_MOV, (NativeReg8)r, r, map);
+	asmALU8(X86_OR, (byte*)&gCPU.cr+disp, (NativeReg8)r);
 }
 
 void FASTCALL jitcFlushFlagsAfterCMPL_U(int disp)
@@ -801,10 +786,9 @@ void FASTCALL jitcPopFloatStack(JitcFloatReg hint1, JitcFloatReg hint2)
 	int creg = gJITC.nativeFloatRegStack[r];
 	jitcFloatRegisterXCHGToFront(r);
 	if (gJITC.nativeFloatRegState[r] == rsDirty) {
-		byte modrm[6];
-		asmFSTPDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
+		asmFSTP_Double(&gCPU.fpr[creg]);
 	} else {
-		asmFFREEPSTi(Float_ST0);
+		asmFFREEP(Float_ST0);
 	}
 	gJITC.nativeFloatRegState[r] = rsUnused;
 	gJITC.clientFloatReg[creg] = JITC_FLOAT_REG_NONE;
@@ -816,8 +800,7 @@ static JitcFloatReg FASTCALL jitcPushFloatStack(int creg)
 	ASSERT(gJITC.nativeFloatTOP < 8);
 	gJITC.nativeFloatTOP++;
 	int r = gJITC.floatRegPermInverse[gJITC.nativeFloatTOP];
-	byte modrm[6];
-	asmFLDDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
+	asmFLD_Double(&gCPU.fpr[creg]);
 	return r;
 }
 
@@ -832,7 +815,7 @@ JitcFloatReg FASTCALL jitcFloatRegisterDup(JitcFloatReg freg, JitcFloatReg hint)
 		// stack is full
 		jitcPopFloatStack(freg, hint);
 	}
-	asmFLDSTi(jitcFloatRegisterToNative(freg));
+	asmFLD(jitcFloatRegisterToNative(freg));
 	gJITC.nativeFloatTOP++;
 	int r = gJITC.floatRegPermInverse[gJITC.nativeFloatTOP];
 	gJITC.nativeFloatRegState[r] = rsUnused; // not really mapped
@@ -847,14 +830,13 @@ void FASTCALL jitcFloatRegisterClobberAll()
 		JitcFloatReg r = jitcFloatRegisterFromNative(Float_ST0);
 		int creg = gJITC.nativeFloatRegStack[r];
 		switch (gJITC.nativeFloatRegState[r]) {
-		case rsDirty: {
-			byte modrm[6];
-			asmFSTPDoubleMem(modrm, x86_mem(modrm, REG_NO, (uint32)&gCPU.fpr[creg]));
+		case rsDirty: {	
+			asmFSTP_Double(&gCPU.fpr[creg]);
 			gJITC.clientFloatReg[creg] = JITC_FLOAT_REG_NONE;
 			break;
 		}
 		case rsMapped:
-			asmFFREEPSTi(Float_ST0);
+			asmFFREEP(Float_ST0);
 			gJITC.clientFloatReg[creg] = JITC_FLOAT_REG_NONE;
 			break;
 		case rsUnused: {ASSERT(0);}
@@ -864,7 +846,7 @@ void FASTCALL jitcFloatRegisterClobberAll()
 
 void FASTCALL jitcFloatRegisterStoreAndPopTOP(JitcFloatReg r)
 {
-	asmFSTDPSTi(jitcFloatRegisterToNative(r));
+	asmFSTP(jitcFloatRegisterToNative(r));
 	gJITC.nativeFloatTOP--;
 }
 
@@ -945,6 +927,233 @@ void FASTCALL asmNOP(int n)
 	jitcEmit(instr, n);	
 }
 
+static uint mkmodrm(byte *instr, NativeReg r, uint32 disp)
+{
+	if (r == ESP) {
+		if (disp == 0) {
+			instr[0] |= 0x04;
+			instr[1] = 0x24;
+			return 2;
+		} else if (disp < 0x80 || disp >= 0xffffff80) {
+			instr[0] |= 0x44;
+			instr[1] = 0x24;
+			instr[2] = disp;
+			return 3;
+		} else {
+			instr[0] |= 0x84;
+			instr[1] = 0x24;
+			*(uint32 *)(instr+2) = disp;
+			return 6;
+		}
+	} else if (r == EBP) {
+		if (disp < 0x80 || disp >= 0xffffff80) {
+			instr[0] |= 0x45;
+			instr[1] = disp;
+			return 2;
+		} else {
+			instr[0] |= 0x85;
+			*(uint32 *)(instr+1) = disp;
+			return 5;
+		}
+	} else {
+		if (disp == 0) {
+			instr[0] |= r;
+			return 1;
+		} else if (disp < 0x80 || disp >= 0xffffff80) {
+			instr[0] |= 0x40+r;
+			instr[1] = disp;
+			return 2;
+		} else {
+			instr[0] |= 0x80+r;
+			*(uint32 *)(instr+1) = disp;
+			return 5;
+		}
+	}
+}
+
+static uint mksib(byte *instr, NativeReg base, int scale, NativeReg index, uint32 disp)
+{
+	uint mod, ss;
+	if (disp == 0) {
+		mod = 0;
+	} else if (disp < 0x80 || disp >= 0xffffff80) {
+		mod = 1;
+	} else {
+		mod = 2;
+	}
+	if (base == REG_NO && index != REG_NO) {
+		switch (scale) {
+		case 2: case 3: case 5: case 9:
+			scale--;
+			base = index;
+			break;
+		}
+	}
+	if (index == ESP) {
+		/* if (scale > 1) not allowed! */
+		if (scale == 1) {
+			/* if (base == REG_SP) not allowed!; */
+			NativeReg temp = index;
+			index = base;
+			base = temp;
+		}
+	}
+	if (index != REG_NO) {
+		static byte scales[] = {0, 0, 1, 0, 2, 0, 0, 0, 3};
+		ss = scales[scale];
+	} else {
+		ss = 0;
+		index = ESP;
+	}	
+	if (base == REG_NO) {
+		base = EBP;
+		mod = 0;
+	} else {
+		if (base == EBP && mod == 0) {
+			mod = 1;
+		}
+	}
+	base = NativeReg(base & 7);
+	index = NativeReg(index & 7);
+	instr[0] |= (mod << 6) | 4;
+	instr[1] = (ss << 6) | (index << 3) | base;
+	switch (mod) {
+	case 1:
+		instr[2] = disp;
+		return 3;
+	case 2:
+		*((uint32 *)&instr[2]) = disp;
+		return 6;
+	}
+	return 2;
+}
+
+void asmTEST32(NativeReg base, uint32 disp, uint32 imm)
+{
+	byte instr[15];
+	uint32 mask = 0xff;
+	uint len;
+	for (uint i=0; i<4; i++) {
+		// optimize test dword ptr [x], 0xff -> test byte ptr
+		if ((imm & ~mask) == 0) {
+			instr[0] = 0xf6;
+			instr[1] = 0;
+			len = mkmodrm(instr+1, base, disp+i)+1;
+			instr[len] = imm >> (i*8);
+			jitcEmit(instr, len+1);
+			return;
+		}
+		mask <<= 8;
+	}
+	instr[0] = 0xf7;
+	instr[1] = 0;
+	len = mkmodrm(instr+1, base, disp)+1;
+	*((uint32 *)&instr[len]) = imm;
+	jitcEmit(instr, len+4);
+}
+
+void asmOR32(NativeReg base, uint32 disp, uint32 imm)
+{
+	byte instr[15];
+	uint32 mask = 0xff;
+	uint len;
+	for (uint i=0; i<4; i++) {
+		// optimize or dword ptr [x], 0xff -> or byte ptr
+		if ((imm & ~mask) == 0) {
+			instr[0] = 0x80;
+			instr[1] = 0x08;
+			len = mkmodrm(instr+1, base, disp+i)+1;
+			instr[len] = imm >> (i*8);
+			jitcEmit(instr, len+1);
+			return;
+		}
+		mask <<= 8;
+	}
+	instr[0] = 0x81;
+	instr[1] = 0x08;
+	len = mkmodrm(instr+1, base, disp)+1;
+	*((uint32 *)&instr[len]) = imm;
+	jitcEmit(instr, len+4);
+}
+
+void asmAND32(NativeReg base, uint32 disp, uint32 imm)
+{
+	byte instr[15];
+	uint32 mask = 0xff;
+	uint len;
+	for (uint i=0; i<4; i++) {
+		// optimize and dword ptr [x], 0xffffff00 -> and byte ptr
+		if ((imm & ~mask) == ~mask) {
+			instr[0] = 0x80;
+			instr[1] = 0x20;
+			len = mkmodrm(instr+1, base, disp+i)+1;
+			instr[len] = imm >> (i*8);
+			jitcEmit(instr, len+1);
+			return;
+		}
+		mask <<= 8;
+	}
+	instr[0] = 0x81;
+	instr[1] = 0x20;
+	len = mkmodrm(instr+1, base, disp)+1;
+	*((uint32 *)&instr[len]) = imm;
+	jitcEmit(instr, len+4);
+}
+
+static void asmSimpleMODRM32(uint8 opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+static void asmSimpleMODRM8(uint8 opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmALU32(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+{
+	switch (opc) {
+	case X86_MOV: 
+		asmSimpleMODRM32(0x8b, reg1, reg2);
+	        break;
+	case X86_TEST:
+		asmSimpleMODRM32(0x85, reg1, reg2);
+	        break;
+	case X86_XCHG:
+		if (reg1 == EAX) {
+
+			jitcEmit1(0x90+reg2);
+		} else if (reg2 == EAX) {
+			jitcEmit1(0x90+reg1);
+		} else {
+			asmSimpleMODRM32(0x87, reg1, reg2);
+		}
+	        break;
+	default:
+		asmSimpleMODRM32(0x03+(opc<<3), reg1, reg2);
+	}	
+}
+
+void asmALU8(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+{
+	switch (opc) {
+	case X86_MOV: 
+		asmSimpleMODRM8(0x8a, reg1, reg2);
+	        break;
+	case X86_TEST:
+		asmSimpleMODRM8(0x84, reg1, reg2);
+	        break;
+	case X86_XCHG:
+		asmSimpleMODRM8(0x86, reg1, reg2);
+	        break;
+	default:
+		asmSimpleMODRM8(0x02+(opc<<3), reg1, reg2);
+	}	
+}
+
+#if 0
 static void FASTCALL asmSimpleMODRM(uint8 opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
@@ -3391,3 +3600,4 @@ void asmPSHUFD(NativeVectorReg reg1, modrm_p modrm, int order)
 
 	jitcEmit(instr, len+4);
 }
+#endif
