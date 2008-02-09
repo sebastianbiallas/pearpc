@@ -1123,7 +1123,6 @@ void asmALU32(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 	        break;
 	case X86_XCHG:
 		if (reg1 == EAX) {
-
 			jitcEmit1(0x90+reg2);
 		} else if (reg2 == EAX) {
 			jitcEmit1(0x90+reg1);
@@ -1153,7 +1152,347 @@ void asmALU8(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 	}	
 }
 
+void asmSimpleALU32(X86ALUopc opc, NativeReg reg, uint32 imm)
+{
+	if (imm <= 0x7f || imm >= 0xffffff80) {
+		byte instr[3] = {0x83, 0xc0+(opc<<3)+reg, imm};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		if (reg == EAX) {
+			byte instr[5];
+			instr[0] = 0x05+(opc<<3);
+			*((uint32 *)&instr[1]) = imm;
+			jitcEmit(instr, sizeof(instr));
+		} else {
+			byte instr[6];
+			instr[0] = 0x81;
+			instr[1] = 0xc0+(opc<<3)+reg;
+			*((uint32 *)&instr[2]) = imm;
+			jitcEmit(instr, sizeof(instr));
+		}
+	}
+}
+
+void asmTEST32(NativeReg reg1, uint32 imm)
+{
+	if (reg1 == EAX) {
+		byte instr[5];
+		instr[0] = 0xa9;
+		*((uint32 *)&instr[1]) = imm;
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[6];
+		instr[0] = 0xf7;
+		instr[1] = 0xc0+reg1;
+		*((uint32 *)&instr[2]) = imm;
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
+void asmALU32(X86ALUopc opc, NativeReg reg, uint32 imm)
+{
+	switch (opc) {
+	case X86_MOV:
+		if (imm == 0) {
+			asmALU32(X86_XOR, reg, reg);
+		} else {
+			asmMOV32_NoFlags(reg, imm);
+		}
+		break;
+	case X86_TEST:
+		asmTEST32(reg, imm);
+		break;
+	case X86_XCHG:
+		// internal error
+		break;
+	default:
+		asmSimpleALU32(opc, reg, imm);
+	}
+}
+
+void asmMOV32_NoFlags(NativeReg reg1, uint32 imm)
+{
+	byte instr[5];
+	instr[0] = 0xb8+reg1;
+	*((uint32 *)&instr[1]) = imm;
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmALU32(X86ALUopc1 opc, NativeReg reg)
+{
+	byte instr[2] = {0xf7, opc+reg};
+	jitcEmit(instr, 2);
+}
+
+void asmALU32(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp)
+{	
+	byte instr[15];
+	uint len=0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x8b;
+		break;
+	case X86_LEA:
+		instr[len] = 0x8d;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x87;
+		break;
+	case X86_TEST:
+		instr[len] = 0x85;
+		break;
+	default:
+		instr[len] = 0x03+(opc<<3);
+	}
+	len++;
+	instr[len] = (reg&7)<<3;
+	len += mkmodrm(instr+len, base, disp);
+	jitcEmit(instr, len);
+}
+
+void asmALU8(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp)
+{
+	byte instr[15];
+	uint len=0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x8a;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x86;
+		break;
+	case X86_TEST:
+		instr[len] = 0x84;
+		break;
+	default:
+		instr[len] = 0x02+(opc<<3);
+	}
+	len++;
+	instr[len] = (reg&7)<<3;
+	len += mkmodrm(instr+len, base, disp);
+	jitcEmit(instr, len);
+}
+
+void asmALU32(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg reg)
+{	
+	byte instr[15];
+	uint len=0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x89;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x87;
+		break;
+	case X86_TEST:
+		instr[len] = 0x85;
+		break;
+	default:
+		instr[len] = 0x01+(opc<<3);
+	}
+	len++;
+	instr[len] = reg<<3;
+	len += mkmodrm(instr+len, base, disp);
+	jitcEmit(instr, len);
+}
+
+void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg reg)
+{
+	byte instr[15];
+	uint len=0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x88;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x86;
+		break;
+	case X86_TEST:
+		instr[len] = 0x84;
+		break;
+	default:
+		instr[len] = 0x00+(opc<<3);
+	}
+	len++;
+	instr[len] = reg<<3;
+	len += mkmodrm(instr+len, base, disp);
+	jitcEmit(instr, len);
+}
+
+void asmALU32(X86ALUopc opc, NativeReg reg, NativeReg base, int scale, NativeReg index, uint32 disp)
+{
+	byte instr[15];
+	uint len = 0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x8b;
+		break;
+	case X86_LEA:
+		instr[len] = 0x8d;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x87;
+		break;
+	case X86_TEST:
+		instr[len] = 0x85;
+		break;
+	default:
+		instr[len] = 0x03+(opc<<3);
+	}
+	len++;
+	instr[len] = reg << 3;
+	len += mksib(instr+len, base, scale, index, disp);
+	jitcEmit(instr, len);
+	
+}
+
+void asmALU32(X86ALUopc opc, NativeReg base, int scale, NativeReg index, uint64 disp, NativeReg reg)
+{
+	byte instr[15];
+	uint len = 0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x89;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x87;
+		break;
+	case X86_TEST:
+		instr[len] = 0x85;
+		break;
+	default:
+		instr[len] = 0x01+(opc<<3);
+	}
+	len++;
+	instr[len] = (reg & 7) << 3;
+	len += mksib(instr+len, base, scale, index, disp);
+	jitcEmit(instr, len);
+}
+
+void asmSimpleALU32(X86ALUopc opc, NativeReg base, uint32 disp, uint32 imm)
+{
+	byte instr[15];
+	uint len = 0;
+	if (imm <= 0x7f || imm >= 0xffffff80) {
+		instr[len++] = 0x83;
+		instr[len] = (opc<<3);
+		len += mkmodrm(instr+len, base, disp);
+		instr[len] = imm;
+		jitcEmit(instr, len+1);
+	} else {
+		instr[len++] = 0x81;
+		instr[len] = (opc<<3);
+		len += mkmodrm(instr+len, base, disp);
+		*((uint32 *)&instr[len]) = imm;
+		jitcEmit(instr, len+4);
+	}
+}
+
+void asmALU32(X86ALUopc opc, NativeReg base, uint32 disp, uint32 imm)
+{
+	byte instr[15];
+	uint len = 0;
+	switch (opc) {
+	case X86_MOV: {
+		instr[len++] = 0xc7;
+		instr[len] = 0;
+		len += mkmodrm(instr+len, base, disp);
+		*((uint32 *)&instr[len]) = imm;		
+		jitcEmit(instr, len+4);
+		break;
+	}
+	case X86_XCHG:
+		// internal error
+		break;
+	case X86_TEST:
+		asmTEST32(base, disp, imm);
+		break;
+	default:
+		asmSimpleALU32(opc, base, disp, imm);
+	}
+}
+
+void asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, uint8 imm)
+{
+	byte instr[15];
+	uint len = 0;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0xc6;
+		break;
+	case X86_XCHG:
+		// internal error
+		break;
+	case X86_TEST:
+		instr[len] = 0xf6;
+		break;
+	default:
+		instr[len++] = 0x80;
+		instr[len] = (opc<<3);
+		len += mkmodrm(instr+len, base, disp);
+		instr[len] = imm;
+		jitcEmit(instr, len+1);
+		return;
+	}
+	len++;
+	instr[len] = 0;
+	len += mkmodrm(instr+len, base, disp);
+	instr[len] = imm;
+	jitcEmit(instr, len+1);
+}
+
+void asmMOVxx32_16(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x0f, opc+1, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x0f, opc, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmSET8(X86FlagTest flags, NativeReg reg)
+{
+	byte instr[3] = {0x0f, 0x90+flags, 0xc0+reg};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmSET8(X86FlagTest flags, NativeReg base, uint32 disp)
+{
+	byte instr[15];
+	uint len = 0;
+	instr[len++] = 0x0f;
+	instr[len++] = 0x90+flags;
+	instr[len] = 0;
+	len += mkmodrm(instr+len, base, disp);
+	jitcEmit(instr, len);
+}
+
+void asmCMOV32(X86FlagTest flags, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x0f, 0x40+flags, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmCMOV32(X86FlagTest flags, NativeReg reg, NativeReg base, uint32 disp)
+{
+	byte instr[15];
+	uint len = 0;
+	instr[len++] = 0x0f;
+	instr[len++] = 0x40+flags;
+	instr[len] = 0;
+	len += mkmodrm(instr+len, base, disp);
+	jitcEmit(instr, len);
+}
+
 #if 0
+#############################################################################
+#############################################################################
+#############################################################################
+#############################################################################
+#############################################################################
 static void FASTCALL asmSimpleMODRM(uint8 opc, NativeReg reg1, NativeReg reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
