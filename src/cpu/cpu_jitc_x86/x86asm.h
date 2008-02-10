@@ -289,11 +289,17 @@ enum X86BitSearch {
 	
 	void FASTCALL asmCMOV32(X86FlagTest flags, NativeReg reg1, NativeReg reg2);
 	void FASTCALL asmCMOV32(X86FlagTest flags, NativeReg reg, NativeReg base, uint32 disp);
-	void FASTCALL asmCMOV32(X86FlagTest flags, NativeReg reg1, const void *mem);
+	static inline void asmCMOV32(X86FlagTest flags, NativeReg reg1, const void *mem) 
+	{
+		asmCMOV32(flags, reg1, REG_NO, uint32(mem));
+	}
 
 	void FASTCALL asmSET8(X86FlagTest flags, NativeReg8 regb);
 	void FASTCALL asmSET8(X86FlagTest flags, NativeReg base, uint32 disp);
-	void FASTCALL asmSET8(X86FlagTest flags, const void *mem);
+	static inline void asmSET8(X86FlagTest flags, const void *mem)
+	{
+		asmSET8(flags, REG_NO, uint32(mem));
+	}
 
 	void FASTCALL asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, NativeReg8 reg2);
 	void FASTCALL asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, const void *mem);
@@ -581,8 +587,11 @@ void FASTCALL asmMOVSS(NativeVectorReg reg, const void *disp);
 void FASTCALL asmMOVSS(const void *disp, NativeVectorReg reg);
 
 void FASTCALL asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
-void FASTCALL asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, const void *mem);
 void FASTCALL asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeReg base, uint32 disp);
+static inline void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, const void *mem)
+{
+	asmALUPS(opc, reg1, REG_NO, uint32(mem));
+}
 void FASTCALL asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2);
 void FASTCALL asmPALU(X86PALUopc opc, NativeVectorReg reg1, const void *mem);
 
