@@ -1106,7 +1106,7 @@ static void asmSimpleMODRM32(uint8 opc, NativeReg reg1, NativeReg reg2)
 	jitcEmit(instr, sizeof(instr));
 }
 
-static void asmSimpleMODRM8(uint8 opc, NativeReg reg1, NativeReg reg2)
+static void asmSimpleMODRM8(uint8 opc, NativeReg8 reg1, NativeReg8 reg2)
 {
 	byte instr[2] = {opc, 0xc0+(reg1<<3)+reg2};
 	jitcEmit(instr, sizeof(instr));
@@ -1135,7 +1135,7 @@ void FASTCALL asmALU32(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 	}	
 }
 
-void FASTCALL asmALU8(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
+void FASTCALL asmALU8(X86ALUopc opc, NativeReg8 reg1, NativeReg8 reg2)
 {
 	switch (opc) {
 	case X86_MOV: 
@@ -1329,7 +1329,7 @@ void FASTCALL asmALU32(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp
 	jitcEmit(instr, len);
 }
 
-void FASTCALL asmALU8(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp)
+void FASTCALL asmALU8(X86ALUopc opc, NativeReg8 reg, NativeReg base, uint32 disp)
 {
 	byte instr[15];
 	uint len=0;
@@ -1375,7 +1375,7 @@ void FASTCALL asmALU32(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg reg
 	jitcEmit(instr, len);
 }
 
-void FASTCALL asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg reg)
+void FASTCALL asmALU8(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg8 reg)
 {
 	byte instr[15];
 	uint len=0;
@@ -1608,13 +1608,13 @@ void FASTCALL asmShift32CL(X86ShiftOpc opc, NativeReg reg)
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmShift16CL(X86ShiftOpc opc, NativeReg reg)
+void FASTCALL asmShift16CL(X86ShiftOpc opc, NativeReg16 reg)
 {
 	byte instr[3] = {0x66, 0xd3, 0xc0+opc+reg};
 	jitcEmit(instr, sizeof(instr));
 }
 
-void FASTCALL asmShift8CL(X86ShiftOpc opc, NativeReg reg)
+void FASTCALL asmShift8CL(X86ShiftOpc opc, NativeReg8 reg)
 {
 	byte instr[2] = {0xd2, 0xc0+opc+reg};
 	jitcEmit(instr, sizeof(instr));
@@ -2372,12 +2372,13 @@ void FASTCALL asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg re
 	jitcEmit(instr, sizeof instr);
 }
 
-void FASTCALL asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, const void *mem)
+void FASTCALL asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeReg base, uint32 disp)
 {
-	byte instr[7] = {0x0f, opc, 0x05+(reg1 << 3)};
+	byte instr[15];
+	instr[0] = 0x0f;
+	instr[1] = opc;
 
-	*((uint32*)(&instr[3])) = uint32(mem);
-	jitcEmit(instr, sizeof instr);
+	jitcEmit(instr, mkmodrm(instr+2, base, disp)+2);
 }
 
 void FASTCALL asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
