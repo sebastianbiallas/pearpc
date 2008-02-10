@@ -1487,6 +1487,847 @@ void asmCMOV32(X86FlagTest flags, NativeReg reg, NativeReg base, uint32 disp)
 	jitcEmit(instr, len);
 }
 
+void asmShift32(X86ShiftOpc opc, NativeReg reg, uint imm)
+{
+	if (imm == 1) {
+		byte instr[2] = {0xd1, 0xc0+opc+reg};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[3] = {0xc1, 0xc0+opc+reg, imm};
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
+void asmShift16(X86ShiftOpc opc, NativeReg reg, uint imm)
+{
+	if (imm == 1) {
+		byte instr[3] = {0x66, 0xd1, 0xc0+opc+reg};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[4] = {0x66, 0xc1, 0xc0+opc+reg, imm};
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
+void asmShift32CL(X86ShiftOpc opc, NativeReg reg)
+{
+	byte instr[2] = {0xd3, 0xc0+opc+reg};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmShift16CL(X86ShiftOpc opc, NativeReg reg)
+{
+	byte instr[3] = {0x66, 0xd3, 0xc0+opc+reg};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmShift8CL(X86ShiftOpc opc, NativeReg reg)
+{
+	byte instr[2] = {0xd2, 0xc0+opc+reg};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmIMUL32(NativeReg reg1, NativeReg reg2, uint32 imm)
+{
+	if (imm <= 0x7f || imm >= 0xffffff80) {	
+		byte instr[3] = {0x6b, 0xc0+(reg1<<3)+reg2, imm};
+		jitcEmit(instr, sizeof(instr));
+	} else {
+		byte instr[6] = {0x69, 0xc0+(reg1<<3)+reg2};
+		*((uint32*)(&instr[2])) = imm;
+		jitcEmit(instr, sizeof(instr));
+	}
+}
+
+
+void asmIMUL32(NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x0f, 0xaf, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmINC32(NativeReg reg1)
+{
+	jitcEmit1(0x40+reg1);
+}
+
+void asmDEC32(NativeReg reg1)
+{
+	jitcEmit1(0x48+reg1);
+}
+
+void asmBTx32(X86BitTest opc, NativeReg reg1, int value)
+{
+	byte instr[4] = {0x0f, 0xba, 0xc0+(opc<<3)+reg1, value};
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmBTx32(X86BitTest opc, NativeReg reg1, uint32 disp, int value)
+{
+	byte instr[15];
+	instr[0] = 0x0f;
+	instr[1] = 0xba;
+	instr[2] = opc << 3;
+	uint len = mkmodrm(instr+2, reg1, disp)+2;
+	instr[len] = value;
+	jitcEmit(instr, len+1);
+}
+
+void asmBTx32(X86BitTest opc, const void *mem, int value)
+{
+	byte instr[3+4+1] = {0x0f, 0xba, 0x05+(opc<<3)};
+	*((uint32*)(&instr[3])) = uint32(mem);
+	instr[7] = value;
+	jitcEmit(instr, sizeof instr);	
+}
+
+void asmBSx32(X86BitSearch opc, NativeReg reg1, NativeReg reg2)
+{
+	byte instr[3] = {0x0f, opc, 0xc0+(reg1<<3)+reg2};
+	jitcEmit(instr, sizeof(instr));
+}
+
+void asmBSWAP32(NativeReg reg)
+{
+	byte instr[3];
+	instr[0] = 0x0f;
+	instr[1] = 0xc8+reg;
+	jitcEmit(instr, 2);	
+}
+
+void asmJMP(NativeAddress to)
+{
+	/*
+	 *	We use emitAssure here, since
+	 *	we have to know the exact address of the jump
+	 *	instruction (since it is relative)
+	 */
+restart:
+	byte instr[5];
+	uint32 rel = uint32(to - (gJITC.currentPage->tcp+2));
+	if (rel <= 0x7f || rel >= 0xffffff80) {	
+		if (!jitcEmitAssure(2)) goto restart;
+		instr[0] = 0xeb;
+		instr[1] = rel;
+		jitcEmit(instr, 2);
+	} else {
+		if (!jitcEmitAssure(5)) goto restart;
+		instr[0] = 0xe9;
+		*((uint32 *)&instr[1]) = uint32(to - (gJITC.currentPage->tcp+5));
+		jitcEmit(instr, 5);
+	}
+}
+
+void asmJxx(X86FlagTest flags, NativeAddress to)
+{
+restart:
+	byte instr[6];
+	uint32 rel = uint32(to - (gJITC.currentPage->tcp+2));
+	if (rel <= 0x7f || rel >= 0xffffff80) {
+		if (!jitcEmitAssure(2)) goto restart;
+		instr[0] = 0x70+flags;
+		instr[1] = rel;
+		jitcEmit(instr, 2);
+	} else {
+		if (!jitcEmitAssure(6)) goto restart;
+		instr[0] = 0x0f;
+		instr[1] = 0x80+flags;
+		*((uint32 *)&instr[2]) = uint32(to - (gJITC.currentPage->tcp+6));
+		jitcEmit(instr, 6);
+	}
+}
+
+NativeAddress asmJMPFixup()
+{
+	byte instr[5];
+	instr[0] = 0xe9;
+#ifdef JITC_DEBUG
+	memset(instr+1, 0, 4);
+#endif
+	jitcEmit(instr, 5);
+	return gJITC.currentPage->tcp - 4;
+}
+
+NativeAddress asmJxxFixup(X86FlagTest flags)
+{
+	byte instr[6];
+	instr[0] = 0x0f;
+	instr[1] = 0x80+flags;
+#ifdef JITC_DEBUG
+	memset(instr+2, 0, 4);
+#endif
+	jitcEmit(instr, 6);
+	return gJITC.currentPage->tcp - 4;
+}
+
+void asmCALL(NativeAddress to)
+{
+	jitcEmitAssure(5);
+	byte instr[5];
+	instr[0] = 0xe8;
+	*((uint32 *)&instr[1]) = uint32(to - (gJITC.currentPage->tcp+5));
+	jitcEmit(instr, 5);
+}
+
+void asmSimple(X86SimpleOpc simple)
+{
+	if (simple > 0xff) {
+		jitcEmit((byte*)&simple, 2);
+	} else {
+		jitcEmit1(simple);
+	}
+}
+
+/*
+ *	Maps one client vector register to one native vector register
+ *	Will never emit any code.
+ */
+static inline void FASTCALL jitcMapVectorRegister(NativeVectorReg nreg, JitcVectorReg creg)
+{
+	//printf("*** map: XMM%u (vr%u)\n", nreg, creg);
+	gJITC.n2cVectorReg[nreg] = creg;
+	gJITC.c2nVectorReg[creg] = nreg;
+
+	gJITC.nativeVectorRegState[nreg] = rsMapped;
+}
+
+/*
+ *	Unmaps the native vector register from any client vector register
+ *	Will never emit any code.
+ */
+static inline void FASTCALL jitcUnmapVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	if (nreg != VECTREG_NO && creg != PPC_VECTREG_NO) {
+		//printf("*** unmap: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+
+		gJITC.n2cVectorReg[nreg] = PPC_VECTREG_NO;
+		gJITC.c2nVectorReg[creg] = VECTREG_NO;
+
+		gJITC.nativeVectorRegState[nreg] = rsUnused;
+	}
+}
+
+/*
+ *	Marks the native vector register as dirty.
+ *	Does *not* touch native vector register.
+ *	Will not produce code.
+ */
+void FASTCALL jitcDirtyVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	//printf("*** dirty(%u) with creg = %u\n", nreg, creg);
+
+	if (creg == JITC_VECTOR_NEG1 || creg == PPC_VECTREG_NO) {
+		//printf("*** dirty: %u = %u or %u\n", creg, JITC_VECTOR_NEG1, PPC_REG_NO);
+		return;
+	}
+
+	if (gJITC.nativeVectorRegState[nreg] == rsUnused) {
+		printf("!!! Attemped dirty of an anonymous vector register!\n");
+		return;
+	}
+
+	if (creg == gJITC.nativeVectorReg) {
+		gJITC.nativeVectorReg = VECTREG_NO;
+	}
+
+	gJITC.nativeVectorRegState[nreg] = rsDirty;
+}
+
+/*
+ *	Marks the native vector register as non-dirty.
+ *	Does *not* flush native vector register.
+ *	Will not produce code.
+ */
+static inline void FASTCALL jitcUndirtyVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] > rsMapped) {
+		//printf("*** undirty: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+
+		gJITC.nativeVectorRegState[nreg] = rsMapped;
+	}
+}
+
+/*
+ *	Loads a native vector register with its mapped value.
+ *	Does not alter the native vector register's markings.
+ *	Will always emit an load.
+ */
+static inline void FASTCALL jitcLoadVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	if (creg == JITC_VECTOR_NEG1 && gJITC.hostCPUCaps.sse2) {
+		//printf("*** load neg1: XMM%u\n", nreg);
+
+		/* On a P4, we can load -1 far faster with logic */
+		asmPALU(PALUD(X86_PCMPEQ), nreg, nreg);
+		return;
+	}
+
+	//printf("*** load: XMM%u (vr%u)\n", nreg, creg);
+	asmMOVAPS(nreg, &gCPU.vr[creg]);
+}
+
+/*
+ *	Stores a native vector register to its mapped client vector register.
+ *	Does not alter the native vector register's markings.
+ *	Will always emit a store.
+ */
+static inline void FASTCALL jitcStoreVectorRegister(NativeVectorReg nreg)
+{
+	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
+
+	if (creg == JITC_VECTOR_NEG1 || creg == PPC_VECTREG_NO)
+		return;
+
+	//printf("*** store: XMM%u (vr%u)\n", nreg, creg);
+
+	asmMOVAPS(&gCPU.vr[creg], nreg);
+}
+
+/*
+ *	Returns the native vector register that is mapped to the client
+ *		vector register.
+ *	Will never emit any code.
+ */
+NativeVectorReg FASTCALL jitcGetClientVectorRegisterMapping(JitcVectorReg creg)
+{
+	return gJITC.c2nVectorReg[creg];
+}
+
+/*
+ *	Makes the vector register the least recently used vector register.
+ *	Will never emit any code.
+ */
+static inline void FASTCALL jitcDiscardVectorRegister(NativeVectorReg nreg)
+{
+	NativeVectorReg lreg, mreg;
+
+	mreg = gJITC.MRUvregs[nreg];
+	lreg = gJITC.LRUvregs[nreg];
+
+	// remove from the list
+	gJITC.MRUvregs[lreg] = mreg;
+	gJITC.LRUvregs[mreg] = lreg;
+
+	mreg = gJITC.MRUvregs[XMM_SENTINEL];
+
+	// insert into the list in the LRU spot
+	gJITC.LRUvregs[nreg] = XMM_SENTINEL;
+	gJITC.MRUvregs[nreg] = mreg;
+
+	gJITC.LRUvregs[mreg] = nreg;
+	gJITC.MRUvregs[XMM_SENTINEL] = nreg;
+}
+
+/*
+ *	Makes the vector register the most recently used vector register.
+ *	Will never emit any code.
+ */
+void FASTCALL jitcTouchVectorRegister(NativeVectorReg nreg)
+{
+	NativeVectorReg lreg, mreg;
+
+	mreg = gJITC.MRUvregs[nreg];
+	lreg = gJITC.LRUvregs[nreg];
+
+	// remove from the list
+	gJITC.MRUvregs[lreg] = mreg;
+	gJITC.LRUvregs[mreg] = lreg;
+
+	lreg = gJITC.LRUvregs[XMM_SENTINEL];
+
+	// insert into the list in the LRU spot
+	gJITC.MRUvregs[nreg] = XMM_SENTINEL;
+	gJITC.LRUvregs[nreg] = lreg;
+
+	gJITC.MRUvregs[lreg] = nreg;
+	gJITC.LRUvregs[XMM_SENTINEL] = nreg;
+}
+
+/*
+ *	Unmaps a native vector register, and marks it least recently used.
+ *	Will not emit any code.
+ */
+void FASTCALL jitcDropSingleVectorRegister(NativeVectorReg nreg)
+{
+	jitcDiscardVectorRegister(nreg);
+	jitcUnmapVectorRegister(nreg);
+}
+
+int FASTCALL jitcAssertFlushedVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO && gJITC.nativeVectorRegState[nreg] == rsDirty) {
+		printf("!!! Unflushed vector XMM%u (vr%u)!\n", nreg, creg);
+		return 1;
+	}
+	return 0;
+}
+int FASTCALL jitcAssertFlushedVectorRegisters()
+{
+	int ret = 0;
+
+	for (JitcVectorReg i=0; i<32; i++)
+		ret |= jitcAssertFlushedVectorRegister(i);
+
+	return ret;
+}
+
+void FASTCALL jitcShowVectorRegisterStatus(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		int status = gJITC.nativeVectorRegState[nreg];
+		char *text;
+
+		if (status == rsUnused)
+			text = "unused";
+		else if (status == rsMapped)
+			text = "mapped";
+		else if (status == rsDirty)
+			text = "dirty";
+		else
+			text = "unknown";
+
+		//printf("*** vr%u => XMM%u (%s)\n", creg, nreg, text);
+	} else {
+		//printf("*** vr%u => memory\n", creg);
+	}
+}
+
+/*
+ *	If the native vector register is marked dirty, then it writes that
+ *		value out to the client vector register store.
+ *	Will produce a store, if the native vector register is dirty.
+ */
+static inline void FASTCALL jitcFlushSingleVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] == rsDirty) {
+		//printf("*** flush: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+		jitcStoreVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Flushes the register, frees it, and makes it least recently used.
+ *	Will produce a store, if the native vector register was dirty.
+ */
+static inline void FASTCALL jitcTrashSingleVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] > rsUnused) {
+		//printf("*** trash: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+	}
+
+	jitcFlushSingleVectorRegister(nreg);
+	jitcDropSingleVectorRegister(nreg);
+}
+
+/*
+ *	Flushes the register, frees it, and makes it most recently used.
+ *	Will produce a store, if the native vector register was dirty.
+ */
+static inline void FASTCALL jitcClobberSingleVectorRegister(NativeVectorReg nreg)
+{
+	if (gJITC.nativeVectorRegState[nreg] > rsUnused) {
+		//printf("*** clobber: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
+	}
+
+	jitcFlushSingleVectorRegister(nreg);
+	jitcTouchVectorRegister(nreg);
+	jitcUnmapVectorRegister(nreg);
+}
+
+/*
+ *	Allocates a native vector register.
+ *	If hint is non-zero, then it indicates that the value is unlikely
+ *		to be re-used soon, so to keep it at the end of the LRU.
+ *	To use hints, pass hint == the number of temporary registers
+ *	May produce a store, if no native vector registers are available.
+ */
+NativeVectorReg FASTCALL jitcAllocVectorRegister(int hint)
+{
+	NativeVectorReg nreg = gJITC.MRUvregs[XMM_SENTINEL];
+
+	if (hint >= XMM_SENTINEL) {
+		nreg = gJITC.LRUvregs[nreg];
+
+		jitcTrashSingleVectorRegister(nreg);
+	} else if (hint) {
+		for (int i=1; i<hint; i++) {
+			nreg = gJITC.MRUvregs[nreg];
+		}
+
+		jitcTrashSingleVectorRegister(nreg);
+	} else {
+		jitcClobberSingleVectorRegister(nreg);
+	}
+
+	return nreg;
+}
+
+/*
+ *	Returns native vector register that contains value of client
+ *		register or allocates new vector register which maps to
+ *		the client register.
+ *	Marks the register dirty.
+ *
+ *	May produce a store, if no registers are available.
+ *	Will never produce a load.
+ */
+NativeVectorReg FASTCALL jitcMapClientVectorRegisterDirty(JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg == VECTREG_NO) {
+		nreg = jitcAllocVectorRegister(hint);
+
+		jitcMapVectorRegister(nreg, creg);
+	} else if (hint) {
+		jitcDiscardVectorRegister(nreg);
+	} else {
+		jitcTouchVectorRegister(nreg);
+	}
+
+	jitcDirtyVectorRegister(nreg);
+
+	return nreg;
+}
+
+/*
+ *	Returns native vector register that contains the value of the
+ *		client vector register, or allocates new register, and
+ *		loads this value into it.
+ *
+ *	May produce a store, if no register are available.
+ *	May produce a load, if client vector register isn't mapped.
+ */
+NativeVectorReg FASTCALL jitcGetClientVectorRegister(JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg == VECTREG_NO) {
+		nreg = jitcAllocVectorRegister(hint);
+		jitcMapVectorRegister(nreg, creg);
+
+		jitcLoadVectorRegister(nreg);
+	} else if (hint) {
+		jitcDiscardVectorRegister(nreg);
+	} else {
+		jitcTouchVectorRegister(nreg);
+	}
+
+	return nreg;
+}
+
+/*
+ *	Returns native vector register that contains the value of the
+ *		client vector register, or allocates new register, and
+ *		loads this value into it.
+ *	Will mark the native vector register as dirty.
+ *
+ *	May produce a store, if no register are available.
+ *	May produce a load, if client vector register isn't mapped.
+ */
+NativeVectorReg FASTCALL jitcGetClientVectorRegisterDirty(JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = jitcGetClientVectorRegister(creg, hint);
+
+	jitcDirtyVectorRegister(nreg);
+
+	return nreg;
+}
+
+/*
+ *	Flushes native vector register(s).
+ *	Resets dirty flags.
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcFlushVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcFlushSingleVectorRegister((NativeVectorReg)i);
+			jitcUndirtyVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcFlushSingleVectorRegister(nreg);
+		jitcUndirtyVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Flushes native vector register(s).
+ *	Doesn't reset dirty flags.
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcFlushVectorRegisterDirty(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcFlushSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcFlushSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Clobbers native vector register(s).
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcClobberVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcClobberSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcClobberSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Trashes native vector register(s).
+ *	Will produce stores, if vector registers are dirty.
+ */
+void FASTCALL jitcTrashVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcTrashSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcTrashSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Drops native vector register(s).
+ *	Will not produce any code.
+ */
+void FASTCALL jitcDropVectorRegister(int options)
+{
+	if (options == JITC_VECTOR_REGS_ALL) {
+		for (unsigned int i = XMM0; i <= XMM7; i++) {
+			jitcDropSingleVectorRegister((NativeVectorReg)i);
+		}
+	} else if (options & NATIVE_REG) {
+		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
+
+		jitcDropSingleVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcFlushClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcFlushSingleVectorRegister(nreg);
+		jitcUndirtyVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcTrashClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcTrashSingleVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcClobberClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcClobberSingleVectorRegister(nreg);
+	}
+}
+
+void FASTCALL jitcDropClientVectorRegister(JitcVectorReg creg)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg != VECTREG_NO) {
+		jitcDropSingleVectorRegister(nreg);
+	}
+}
+
+/*
+ *	Renames a native vector register to a different client register.
+ *	Will not emit a load.
+ *	May emit a reg->reg move, if the vector register was in memory.
+ *	May emit a store, if the vector register was dirty
+ */
+NativeVectorReg FASTCALL jitcRenameVectorRegisterDirty(NativeVectorReg reg, JitcVectorReg creg, int hint)
+{
+	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
+
+	if (nreg == reg) {
+		/*	That's weird... it's already mapped...	*/
+	} else if (nreg != VECTREG_NO) {
+		/*	It's already in a register, so rather than losing
+		 *	reg pool depth, just move the value.
+		 */
+		asmALUPS(X86_MOVAPS, nreg, reg);
+	} else {
+		/*	Otherwise, only the source register is in the reg
+		 *	pool, so flush it, then remap it.
+	 	*/
+		JitcVectorReg reg2 = gJITC.n2cVectorReg[reg];
+
+		if (reg2 != VECTREG_NO) {
+			jitcFlushSingleVectorRegister(reg);
+			jitcUnmapVectorRegister(reg);
+		}
+
+		nreg = reg;
+		jitcMapVectorRegister(nreg, creg);
+	}
+
+	if (hint) jitcDiscardVectorRegister(nreg);
+	else      jitcTouchVectorRegister(nreg);
+
+	jitcDirtyVectorRegister(nreg);
+
+	return nreg;
+}
+
+void asmMOVAPS(NativeVectorReg reg, const void *disp)
+{
+	byte instr[7] = {0x0f, 0x28, 0x05 | (reg << 3)};
+
+	*((uint32 *)&instr[3]) = uint32(disp);
+
+	jitcEmit(instr, 7);
+}
+
+void asmMOVAPS(const void *disp, NativeVectorReg reg)
+{
+	byte instr[7] = {0x0f, 0x29, 0x05 | (reg << 3)};
+
+	*((uint32 *)&instr[3]) = uint32(disp);
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmMOVUPS(NativeVectorReg reg, const void *disp)
+{
+	byte instr[7] = {0x0f, 0x10, 0x05 | (reg << 3)};
+
+	*((uint32 *)&instr[3]) = uint32(disp);
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmMOVUPS(const void *disp, NativeVectorReg reg)
+{
+	byte instr[7] = {0x0f, 0x11, 0x05 | (reg << 3)};
+
+	*((uint32 *)&instr[3]) = uint32(disp);
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmMOVSS(NativeVectorReg reg, const void *disp)
+{
+	byte instr[8] = {0xf3, 0x0f, 0x10, 0x05 | (reg << 3)};
+
+	*((uint32 *)&instr[4]) = (uint32)disp;
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmMOVSS(const void *mem, NativeVectorReg reg)
+{
+	byte instr[8] = {0xf3, 0x0f, 0x11, 0x05 | (reg << 3)};
+
+	*((uint32 *)&instr[4]) = uint32(mem);
+ 
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
+{
+	byte instr[3] = {0x0f, opc,  0xc0 + (reg1 << 3) + reg2};
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, const void *mem)
+{
+	byte instr[7] = {0x0f, opc, 0x05+(reg1 << 3)};
+
+	*((uint32*)(&instr[3])) = uint32(mem);
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
+{
+	byte instr[4] = {0x66, 0x0f, opc, 0xc0 + (reg1 << 3) + reg2};
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmPALU(X86PALUopc opc, NativeVectorReg reg1, const void *mem)
+{
+	byte instr[8] = {0x66, 0x0f, opc, 0x05+(reg1 << 3)};
+
+	*((uint32*)(&instr[4])) = uint32(mem);
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmSHUFPS(NativeVectorReg reg1, NativeVectorReg reg2, int order)
+{
+	byte instr[4] = {0x0f, 0xc6, 0xc0+(reg1<<3)+reg2, order};
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmSHUFPS(NativeVectorReg reg1, const void *mem, int order)
+{
+	byte instr[3+4+1] = {0x0f, 0xc6, 0xc0+(reg1<<3)};
+
+	*((uint32*)(&instr[3])) = uint32(mem);
+	instr[7] = order;
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmPSHUFD(NativeVectorReg reg1, NativeVectorReg reg2, int order)
+{
+	byte instr[5] = {0x66, 0x0f, 0x70, 0xc0+(reg1<<3)+reg2, order};
+
+	jitcEmit(instr, sizeof instr);
+}
+
+void asmPSHUFD(NativeVectorReg reg1, const void *mem, int order)
+{
+	byte instr[4+4+1] = {0x66, 0x0f, 0x70, 0x05+(reg1 << 3)};
+
+	*((uint32*)(&instr[4])) = uint32(mem);
+	instr[8] = order;
+
+	jitcEmit(instr, sizeof instr);
+}
+
 #if 0
 #############################################################################
 #############################################################################
@@ -3266,677 +4107,4 @@ void FASTCALL asmFSTSW_EAX(void)
 	jitcEmit(instr, 2);
 }
 
-/*
- *	Maps one client vector register to one native vector register
- *	Will never emit any code.
- */
-static inline void FASTCALL jitcMapVectorRegister(NativeVectorReg nreg, JitcVectorReg creg)
-{
-	//printf("*** map: XMM%u (vr%u)\n", nreg, creg);
-	gJITC.n2cVectorReg[nreg] = creg;
-	gJITC.c2nVectorReg[creg] = nreg;
-
-	gJITC.nativeVectorRegState[nreg] = rsMapped;
-}
-
-/*
- *	Unmaps the native vector register from any client vector register
- *	Will never emit any code.
- */
-static inline void FASTCALL jitcUnmapVectorRegister(NativeVectorReg nreg)
-{
-	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
-
-	if (nreg != VECTREG_NO && creg != PPC_VECTREG_NO) {
-		//printf("*** unmap: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
-
-		gJITC.n2cVectorReg[nreg] = PPC_VECTREG_NO;
-		gJITC.c2nVectorReg[creg] = VECTREG_NO;
-
-		gJITC.nativeVectorRegState[nreg] = rsUnused;
-	}
-}
-
-/*
- *	Marks the native vector register as dirty.
- *	Does *not* touch native vector register.
- *	Will not produce code.
- */
-void FASTCALL jitcDirtyVectorRegister(NativeVectorReg nreg)
-{
-	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
-
-	//printf("*** dirty(%u) with creg = %u\n", nreg, creg);
-
-	if (creg == JITC_VECTOR_NEG1 || creg == PPC_VECTREG_NO) {
-		//printf("*** dirty: %u = %u or %u\n", creg, JITC_VECTOR_NEG1, PPC_REG_NO);
-		return;
-	}
-
-	if (gJITC.nativeVectorRegState[nreg] == rsUnused) {
-		printf("!!! Attemped dirty of an anonymous vector register!\n");
-		return;
-	}
-
-	if (creg == gJITC.nativeVectorReg) {
-		gJITC.nativeVectorReg = VECTREG_NO;
-	}
-
-	gJITC.nativeVectorRegState[nreg] = rsDirty;
-}
-
-/*
- *	Marks the native vector register as non-dirty.
- *	Does *not* flush native vector register.
- *	Will not produce code.
- */
-static inline void FASTCALL jitcUndirtyVectorRegister(NativeVectorReg nreg)
-{
-	if (gJITC.nativeVectorRegState[nreg] > rsMapped) {
-		//printf("*** undirty: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
-
-		gJITC.nativeVectorRegState[nreg] = rsMapped;
-	}
-}
-
-/*
- *	Loads a native vector register with its mapped value.
- *	Does not alter the native vector register's markings.
- *	Will always emit an load.
- */
-static inline void FASTCALL jitcLoadVectorRegister(NativeVectorReg nreg)
-{
-	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
-
-	if (creg == JITC_VECTOR_NEG1 && gJITC.hostCPUCaps.sse2) {
-		//printf("*** load neg1: XMM%u\n", nreg);
-
-		/* On a P4, we can load -1 far faster with logic */
-		asmPALU(PALUD(X86_PCMPEQ), nreg, nreg);
-		return;
-	}
-
-	//printf("*** load: XMM%u (vr%u)\n", nreg, creg);
-	asmMOVAPS(nreg, &gCPU.vr[creg]);
-}
-
-/*
- *	Stores a native vector register to its mapped client vector register.
- *	Does not alter the native vector register's markings.
- *	Will always emit a store.
- */
-static inline void FASTCALL jitcStoreVectorRegister(NativeVectorReg nreg)
-{
-	JitcVectorReg creg = gJITC.n2cVectorReg[nreg];
-
-	if (creg == JITC_VECTOR_NEG1 || creg == PPC_VECTREG_NO)
-		return;
-
-	//printf("*** store: XMM%u (vr%u)\n", nreg, creg);
-
-	asmMOVAPS(&gCPU.vr[creg], nreg);
-}
-
-/*
- *	Returns the native vector register that is mapped to the client
- *		vector register.
- *	Will never emit any code.
- */
-NativeVectorReg FASTCALL jitcGetClientVectorRegisterMapping(JitcVectorReg creg)
-{
-	return gJITC.c2nVectorReg[creg];
-}
-
-/*
- *	Makes the vector register the least recently used vector register.
- *	Will never emit any code.
- */
-static inline void FASTCALL jitcDiscardVectorRegister(NativeVectorReg nreg)
-{
-	NativeVectorReg lreg, mreg;
-
-	mreg = gJITC.MRUvregs[nreg];
-	lreg = gJITC.LRUvregs[nreg];
-
-	// remove from the list
-	gJITC.MRUvregs[lreg] = mreg;
-	gJITC.LRUvregs[mreg] = lreg;
-
-	mreg = gJITC.MRUvregs[XMM_SENTINEL];
-
-	// insert into the list in the LRU spot
-	gJITC.LRUvregs[nreg] = XMM_SENTINEL;
-	gJITC.MRUvregs[nreg] = mreg;
-
-	gJITC.LRUvregs[mreg] = nreg;
-	gJITC.MRUvregs[XMM_SENTINEL] = nreg;
-}
-
-/*
- *	Makes the vector register the most recently used vector register.
- *	Will never emit any code.
- */
-void FASTCALL jitcTouchVectorRegister(NativeVectorReg nreg)
-{
-	NativeVectorReg lreg, mreg;
-
-	mreg = gJITC.MRUvregs[nreg];
-	lreg = gJITC.LRUvregs[nreg];
-
-	// remove from the list
-	gJITC.MRUvregs[lreg] = mreg;
-	gJITC.LRUvregs[mreg] = lreg;
-
-	lreg = gJITC.LRUvregs[XMM_SENTINEL];
-
-	// insert into the list in the LRU spot
-	gJITC.MRUvregs[nreg] = XMM_SENTINEL;
-	gJITC.LRUvregs[nreg] = lreg;
-
-	gJITC.MRUvregs[lreg] = nreg;
-	gJITC.LRUvregs[XMM_SENTINEL] = nreg;
-}
-
-/*
- *	Unmaps a native vector register, and marks it least recently used.
- *	Will not emit any code.
- */
-void FASTCALL jitcDropSingleVectorRegister(NativeVectorReg nreg)
-{
-	jitcDiscardVectorRegister(nreg);
-	jitcUnmapVectorRegister(nreg);
-}
-
-int FASTCALL jitcAssertFlushedVectorRegister(JitcVectorReg creg)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg != VECTREG_NO && gJITC.nativeVectorRegState[nreg] == rsDirty) {
-		printf("!!! Unflushed vector XMM%u (vr%u)!\n", nreg, creg);
-		return 1;
-	}
-	return 0;
-}
-int FASTCALL jitcAssertFlushedVectorRegisters()
-{
-	int ret = 0;
-
-	for (JitcVectorReg i=0; i<32; i++)
-		ret |= jitcAssertFlushedVectorRegister(i);
-
-	return ret;
-}
-
-void FASTCALL jitcShowVectorRegisterStatus(JitcVectorReg creg)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg != VECTREG_NO) {
-		int status = gJITC.nativeVectorRegState[nreg];
-		char *text;
-
-		if (status == rsUnused)
-			text = "unused";
-		else if (status == rsMapped)
-			text = "mapped";
-		else if (status == rsDirty)
-			text = "dirty";
-		else
-			text = "unknown";
-
-		//printf("*** vr%u => XMM%u (%s)\n", creg, nreg, text);
-	} else {
-		//printf("*** vr%u => memory\n", creg);
-	}
-}
-
-/*
- *	If the native vector register is marked dirty, then it writes that
- *		value out to the client vector register store.
- *	Will produce a store, if the native vector register is dirty.
- */
-static inline void FASTCALL jitcFlushSingleVectorRegister(NativeVectorReg nreg)
-{
-	if (gJITC.nativeVectorRegState[nreg] == rsDirty) {
-		//printf("*** flush: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
-		jitcStoreVectorRegister(nreg);
-	}
-}
-
-/*
- *	Flushes the register, frees it, and makes it least recently used.
- *	Will produce a store, if the native vector register was dirty.
- */
-static inline void FASTCALL jitcTrashSingleVectorRegister(NativeVectorReg nreg)
-{
-	if (gJITC.nativeVectorRegState[nreg] > rsUnused) {
-		//printf("*** trash: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
-	}
-
-	jitcFlushSingleVectorRegister(nreg);
-	jitcDropSingleVectorRegister(nreg);
-}
-
-/*
- *	Flushes the register, frees it, and makes it most recently used.
- *	Will produce a store, if the native vector register was dirty.
- */
-static inline void FASTCALL jitcClobberSingleVectorRegister(NativeVectorReg nreg)
-{
-	if (gJITC.nativeVectorRegState[nreg] > rsUnused) {
-		//printf("*** clobber: XMM%u (vr%u)\n", nreg, gJITC.n2cVectorReg[nreg]);
-	}
-
-	jitcFlushSingleVectorRegister(nreg);
-	jitcTouchVectorRegister(nreg);
-	jitcUnmapVectorRegister(nreg);
-}
-
-/*
- *	Allocates a native vector register.
- *	If hint is non-zero, then it indicates that the value is unlikely
- *		to be re-used soon, so to keep it at the end of the LRU.
- *	To use hints, pass hint == the number of temporary registers
- *	May produce a store, if no native vector registers are available.
- */
-NativeVectorReg FASTCALL jitcAllocVectorRegister(int hint)
-{
-	NativeVectorReg nreg = gJITC.MRUvregs[XMM_SENTINEL];
-
-	if (hint >= XMM_SENTINEL) {
-		nreg = gJITC.LRUvregs[nreg];
-
-		jitcTrashSingleVectorRegister(nreg);
-	} else if (hint) {
-		for (int i=1; i<hint; i++) {
-			nreg = gJITC.MRUvregs[nreg];
-		}
-
-		jitcTrashSingleVectorRegister(nreg);
-	} else {
-		jitcClobberSingleVectorRegister(nreg);
-	}
-
-	return nreg;
-}
-
-/*
- *	Returns native vector register that contains value of client
- *		register or allocates new vector register which maps to
- *		the client register.
- *	Marks the register dirty.
- *
- *	May produce a store, if no registers are available.
- *	Will never produce a load.
- */
-NativeVectorReg FASTCALL jitcMapClientVectorRegisterDirty(JitcVectorReg creg, int hint)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg == VECTREG_NO) {
-		nreg = jitcAllocVectorRegister(hint);
-
-		jitcMapVectorRegister(nreg, creg);
-	} else if (hint) {
-		jitcDiscardVectorRegister(nreg);
-	} else {
-		jitcTouchVectorRegister(nreg);
-	}
-
-	jitcDirtyVectorRegister(nreg);
-
-	return nreg;
-}
-
-/*
- *	Returns native vector register that contains the value of the
- *		client vector register, or allocates new register, and
- *		loads this value into it.
- *
- *	May produce a store, if no register are available.
- *	May produce a load, if client vector register isn't mapped.
- */
-NativeVectorReg FASTCALL jitcGetClientVectorRegister(JitcVectorReg creg, int hint)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg == VECTREG_NO) {
-		nreg = jitcAllocVectorRegister(hint);
-		jitcMapVectorRegister(nreg, creg);
-
-		jitcLoadVectorRegister(nreg);
-	} else if (hint) {
-		jitcDiscardVectorRegister(nreg);
-	} else {
-		jitcTouchVectorRegister(nreg);
-	}
-
-	return nreg;
-}
-
-/*
- *	Returns native vector register that contains the value of the
- *		client vector register, or allocates new register, and
- *		loads this value into it.
- *	Will mark the native vector register as dirty.
- *
- *	May produce a store, if no register are available.
- *	May produce a load, if client vector register isn't mapped.
- */
-NativeVectorReg FASTCALL jitcGetClientVectorRegisterDirty(JitcVectorReg creg, int hint)
-{
-	NativeVectorReg nreg = jitcGetClientVectorRegister(creg, hint);
-
-	jitcDirtyVectorRegister(nreg);
-
-	return nreg;
-}
-
-/*
- *	Flushes native vector register(s).
- *	Resets dirty flags.
- *	Will produce stores, if vector registers are dirty.
- */
-void FASTCALL jitcFlushVectorRegister(int options)
-{
-	if (options == JITC_VECTOR_REGS_ALL) {
-		for (unsigned int i = XMM0; i <= XMM7; i++) {
-			jitcFlushSingleVectorRegister((NativeVectorReg)i);
-			jitcUndirtyVectorRegister((NativeVectorReg)i);
-		}
-	} else if (options & NATIVE_REG) {
-		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
-
-		jitcFlushSingleVectorRegister(nreg);
-		jitcUndirtyVectorRegister(nreg);
-	}
-}
-
-/*
- *	Flushes native vector register(s).
- *	Doesn't reset dirty flags.
- *	Will produce stores, if vector registers are dirty.
- */
-void FASTCALL jitcFlushVectorRegisterDirty(int options)
-{
-	if (options == JITC_VECTOR_REGS_ALL) {
-		for (unsigned int i = XMM0; i <= XMM7; i++) {
-			jitcFlushSingleVectorRegister((NativeVectorReg)i);
-		}
-	} else if (options & NATIVE_REG) {
-		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
-
-		jitcFlushSingleVectorRegister(nreg);
-	}
-}
-
-/*
- *	Clobbers native vector register(s).
- *	Will produce stores, if vector registers are dirty.
- */
-void FASTCALL jitcClobberVectorRegister(int options)
-{
-	if (options == JITC_VECTOR_REGS_ALL) {
-		for (unsigned int i = XMM0; i <= XMM7; i++) {
-			jitcClobberSingleVectorRegister((NativeVectorReg)i);
-		}
-	} else if (options & NATIVE_REG) {
-		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
-
-		jitcClobberSingleVectorRegister(nreg);
-	}
-}
-
-/*
- *	Trashes native vector register(s).
- *	Will produce stores, if vector registers are dirty.
- */
-void FASTCALL jitcTrashVectorRegister(int options)
-{
-	if (options == JITC_VECTOR_REGS_ALL) {
-		for (unsigned int i = XMM0; i <= XMM7; i++) {
-			jitcTrashSingleVectorRegister((NativeVectorReg)i);
-		}
-	} else if (options & NATIVE_REG) {
-		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
-
-		jitcTrashSingleVectorRegister(nreg);
-	}
-}
-
-/*
- *	Drops native vector register(s).
- *	Will not produce any code.
- */
-void FASTCALL jitcDropVectorRegister(int options)
-{
-	if (options == JITC_VECTOR_REGS_ALL) {
-		for (unsigned int i = XMM0; i <= XMM7; i++) {
-			jitcDropSingleVectorRegister((NativeVectorReg)i);
-		}
-	} else if (options & NATIVE_REG) {
-		NativeVectorReg nreg = (NativeVectorReg)(options & 0xf);
-
-		jitcDropSingleVectorRegister(nreg);
-	}
-}
-
-void FASTCALL jitcFlushClientVectorRegister(JitcVectorReg creg)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg != VECTREG_NO) {
-		jitcFlushSingleVectorRegister(nreg);
-		jitcUndirtyVectorRegister(nreg);
-	}
-}
-
-void FASTCALL jitcTrashClientVectorRegister(JitcVectorReg creg)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg != VECTREG_NO) {
-		jitcTrashSingleVectorRegister(nreg);
-	}
-}
-
-void FASTCALL jitcClobberClientVectorRegister(JitcVectorReg creg)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg != VECTREG_NO) {
-		jitcClobberSingleVectorRegister(nreg);
-	}
-}
-
-void FASTCALL jitcDropClientVectorRegister(JitcVectorReg creg)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg != VECTREG_NO) {
-		jitcDropSingleVectorRegister(nreg);
-	}
-}
-
-/*
- *	Renames a native vector register to a different client register.
- *	Will not emit a load.
- *	May emit a reg->reg move, if the vector register was in memory.
- *	May emit a store, if the vector register was dirty
- */
-NativeVectorReg FASTCALL jitcRenameVectorRegisterDirty(NativeVectorReg reg, JitcVectorReg creg, int hint)
-{
-	NativeVectorReg nreg = gJITC.c2nVectorReg[creg];
-
-	if (nreg == reg) {
-		/*	That's weird... it's already mapped...	*/
-	} else if (nreg != VECTREG_NO) {
-		/*	It's already in a register, so rather than losing
-		 *	reg pool depth, just move the value.
-		 */
-		asmALUPS(X86_MOVAPS, nreg, reg);
-	} else {
-		/*	Otherwise, only the source register is in the reg
-		 *	pool, so flush it, then remap it.
-	 	*/
-		JitcVectorReg reg2 = gJITC.n2cVectorReg[reg];
-
-		if (reg2 != VECTREG_NO) {
-			jitcFlushSingleVectorRegister(reg);
-			jitcUnmapVectorRegister(reg);
-		}
-
-		nreg = reg;
-		jitcMapVectorRegister(nreg, creg);
-	}
-
-	if (hint) jitcDiscardVectorRegister(nreg);
-	else      jitcTouchVectorRegister(nreg);
-
-	jitcDirtyVectorRegister(nreg);
-
-	return nreg;
-}
-
-void asmMOVAPS(NativeVectorReg reg, const void *disp)
-{
-	byte instr[8] = { 0x0f, 0x28 };
-
-	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
-
-	jitcEmit(instr, 7);
-}
-
-void asmMOVAPS(const void *disp, NativeVectorReg reg)
-{
-	byte instr[8] = { 0x0f, 0x29 };
-
-	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
-
-	jitcEmit(instr, 7);
-}
-
-void asmMOVUPS(NativeVectorReg reg, const void *disp)
-{
-	byte instr[8] = { 0x0f, 0x10 };
-
-	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
-
-	jitcEmit(instr, 7);
-}
-
-void asmMOVUPS(const void *disp, NativeVectorReg reg)
-{
-	byte instr[8] = { 0x0f, 0x11 };
-
-	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
-
-	jitcEmit(instr, 7);
-}
-
-void asmMOVSS(NativeVectorReg reg, const void *disp)
-{
-	byte instr[10] = { 0xf3, 0x0f, 0x10 };
-
-	instr[3] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[4]) = (uint32)disp;
-
-	jitcEmit(instr, 8);
-}
-
-void asmMOVSS(const void *disp, NativeVectorReg reg)
-{
-	byte instr[10] = { 0xf3, 0x0f, 0x11 };
-
-	instr[3] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[4]) = (uint32)disp;
- 
-	jitcEmit(instr, 8);
-}
-
-void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
-{
-	byte instr[4] = { 0x0f };
-
-	instr[1] = opc;
-	instr[2] = 0xc0 + (reg1 << 3) + reg2;
-
-	jitcEmit(instr, 3);
-}
-
-void asmALUPS(X86ALUPSopc opc, NativeVectorReg reg1, modrm_p modrm)
-{
-	byte instr[16] = { 0x0f };
-	int len = modrm++[0];
-
-	instr[1] = opc;
-	memcpy(&instr[2], modrm, len);
-	instr[2] |= (reg1 << 3);
-
-	jitcEmit(instr, len+2);
-}
-
-void asmPALU(X86PALUopc opc, NativeVectorReg reg1, NativeVectorReg reg2)
-{
-	byte instr[5] = { 0x66, 0x0f };
-
-	instr[2] = opc;
-	instr[3] = 0xc0 + (reg1 << 3) + reg2;
-
-	jitcEmit(instr, 4);
-}
-
-void asmPALU(X86PALUopc opc, NativeVectorReg reg1, modrm_p modrm)
-{
-	byte instr[5] = { 0x66, 0x0f };
-	int len = modrm++[0];
-
-	instr[2] = opc;
-	memcpy(&instr[3], modrm, len);
-	instr[3] |= (reg1 << 3);
-
-	jitcEmit(instr, len+3);
-}
-
-void asmSHUFPS(NativeVectorReg reg1, NativeVectorReg reg2, int order)
-{
-	byte instr[5] = { 0x0f, 0xc6, 0xc0+(reg1<<3)+reg2, order };
-
-	jitcEmit(instr, 4);
-}
-
-void asmSHUFPS(NativeVectorReg reg1, modrm_p modrm, int order)
-{
-	byte instr[16] = { 0x0f, 0xc6 };
-	int len = modrm++[0];
-
-	memcpy(&instr[2], modrm, len);
-	instr[2] |= (reg1 << 3);
-	instr[len+2] = order;
-
-	jitcEmit(instr, len+3);
-}
-
-void asmPSHUFD(NativeVectorReg reg1, NativeVectorReg reg2, int order)
-{
-	byte instr[6] = { 0x66, 0x0f, 0x70, 0xc0+(reg1<<3)+reg2, order };
-
-	jitcEmit(instr, 5);
-}
-
-void asmPSHUFD(NativeVectorReg reg1, modrm_p modrm, int order)
-{
-	byte instr[5] = { 0x66, 0x0f, 0x70 };
-	int len = modrm++[0];
-
-	memcpy(&instr[3], modrm, len);
-	instr[3] |= (reg1 << 3);
-	instr[len+3] = order;
-
-	jitcEmit(instr, len+4);
-}
 #endif

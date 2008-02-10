@@ -285,13 +285,13 @@ enum X86BitSearch {
 
 	void asmBSWAP32(NativeReg reg);
 
-void FASTCALL asmJMP(NativeAddress to);
-void FASTCALL asmJxx(X86FlagTest flags, NativeAddress to);
-NativeAddress FASTCALL asmJMPFixup();
-NativeAddress FASTCALL asmJxxFixup(X86FlagTest flags);
-void FASTCALL asmCALL(NativeAddress to);
+	void FASTCALL asmJMP(NativeAddress to);
+	void FASTCALL asmJxx(X86FlagTest flags, NativeAddress to);
+	NativeAddress FASTCALL asmJMPFixup();
+	NativeAddress FASTCALL asmJxxFixup(X86FlagTest flags);
+	void FASTCALL asmCALL(NativeAddress to);
  
-void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to=0);
+	void FASTCALL asmResolveFixup(NativeAddress at, NativeAddress to=0);
 
 enum NativeFloatReg {
 	Float_ST0=0,
