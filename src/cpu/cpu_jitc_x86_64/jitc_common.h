@@ -104,6 +104,8 @@ STRUCT	#ClientPage
 #define curCPUoffset(frame) %rsp+(8+8*frame)
 
 .macro checkCurCPU
+.endm
+.macro checkCurCPUdebug
 	cmp	%rdi, [gCPU]
 	je	9f
 	call 	jitc_error

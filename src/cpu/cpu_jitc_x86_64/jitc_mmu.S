@@ -162,10 +162,10 @@ ppc_pte_protection:
 	jne	3f;                                                            \
 	                                                                       \
 	bt	dword ptr [curCPU(msr)], 14;                                   \
-	mov	%ebp, 2;                                                       \
-	sbb	%ebp, 0;	        /* BATU_Vp  / BATU_Vs */               \
+	mov	%r12d, 2;                                                       \
+	sbb	%r12d, 0;	        /* BATU_Vp  / BATU_Vs */               \
 	                                                                       \
-	test	[curCPU(di##batu + n*4)], %ebp;                                \
+	test	[curCPU(di##batu + n*4)], %r12d;                               \
 	jz	3f;                                                            \
 	                                                                       \
 	/* FIXME: check access rights */                                       \
@@ -209,7 +209,7 @@ ppc_pte_protection:
 	mov	%eax, %ecx;                                                    \
 	shr	%ecx, 7;                                                       \
 	and	%ecx, 0xffffff; /* VSID */                                     \
-	cmp	%ecx, %ebp;                                                    \
+	cmp	%ecx, %r12d;                                                    \
 	jne	1f;                                                            \
 	                                                                       \
 	and	%eax, 0x3f;     /* API */                                      \
@@ -360,21 +360,21 @@ EXPORT(ppc_effective_to_physical_code):
 	jnz	9f
 	
 	mov	%ebx, %eax
-	mov 	%ebp, %edx
+	mov 	%r12d, %edx
 	shr	%ebx, 12
 	mov	%r8d, %eax
 	and	%ebx, 0xffff
 	shr	%r8d, 22
-	and	%ebp, 0xffffff
+	and	%r12d, 0xffffff
 	and	%r8d, 0x3f
 	
 	# now:
 	# %eax = addr
 	# %ebx = page_index
-	# %ebp = VSID
+	# %r12d = VSID
 	# %r8d = api
 	
-	xor	%ebx, %ebp
+	xor	%ebx, %r12d
 	
 	# %ebx = hash1
 	
@@ -468,21 +468,21 @@ ppc_effective_to_physical_data_read:
 	# test %edx, SR_T --> die
 	
 	mov	%ebx, %eax
-	mov	%ebp, %edx
+	mov	%r12d, %edx
 	shr	%ebx, 12
 	mov	%r8d, %eax
 	and	%ebx, 0xffff
 	shr	%r8d, 22
-	and	%ebp, 0xffffff
+	and	%r12d, 0xffffff
 	and	%r8d, 0x3f
 	
 	# now:
 	# %eax = addr
 	# %ebx = page_index
-	# %ebp = VSID
+	# %r12d = VSID
 	# %r8d = api
 	
-	xor	%ebx, %ebp
+	xor	%ebx, %r12d
 	
 	# %ebx = hash1
 	
@@ -569,20 +569,20 @@ ppc_effective_to_physical_data_write:
 	
 	mov	%eax, %ebx
 	mov	%r8d, %ebx
-	mov	%ebp, %edx
+	mov	%r12d, %edx
 	shr	%ebx, 12
 	and	%ebx, 0xffff
 	shr	%r8d, 22
-	and	%ebp, 0xffffff
+	and	%r12d, 0xffffff
 	and	%r8d, 0x3f
 	
 	# now:
 	# %eax = addr
 	# %ebx = page_index
-	# %ebp = VSID
+	# %r12d = VSID
 	# %r8d = api
 	
-	xor	%ebx, %ebp
+	xor	%ebx, %r12d
 	
 	# %ebx = hash1
 	
@@ -782,10 +782,10 @@ EXPORT(ppc_write_effective_word_asm):
 	call	ppc_effective_to_physical_data_write
 	pop	%rbx
 	pop	%rdx
-	mov	%ebp, %ebx
-	and	%ebp, 0xfff
-	neg	%ebp
-	add	%ebp, 4096
+	mov	%r12d, %ebx
+	and	%r12d, 0xfff
+	neg	%r12d
+	add	%r12d, 4096
 	cmp	%ebx, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rbx, [EXTERN(gMemory)]
@@ -793,12 +793,12 @@ EXPORT(ppc_write_effective_word_asm):
 		rol	%edx, 8
 		mov	[%rbx], %dl
 		inc	%rbx
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	4:
-	mov	%ebp, %eax
+	mov	%r12d, %eax
 	and	%eax, 0xfffff000
-	and	%ebp, 0x00000fff
+	and	%r12d, 0x00000fff
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	3f
 	add	%rax, [EXTERN(gMemory)]
@@ -806,7 +806,7 @@ EXPORT(ppc_write_effective_word_asm):
 		rol	%edx, 8
 		mov	[%rax], %dl
 		inc	%rax
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	ret
 
@@ -821,7 +821,7 @@ EXPORT(ppc_write_effective_word_asm):
 		call	EXTERN(io_mem_write_glue)
 		pop	%rdx
 		inc	%ebx
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	pop	%rax
 	jmp	4b
@@ -837,7 +837,7 @@ EXPORT(ppc_write_effective_word_asm):
 		pop	%rdx
 		pop	%rax
 		inc	%rax
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	ret
 .balign 16
@@ -886,10 +886,10 @@ EXPORT(ppc_write_effective_dword_asm):
 	call	ppc_effective_to_physical_data_write
 	pop	%rbx
 	pop	%rdx
-	mov	%ebp, %ebx
-	and	%ebp, 0xfff
-	neg	%ebp
-	add	%ebp, 4096
+	mov	%r12d, %ebx
+	and	%r12d, 0xfff
+	neg	%r12d
+	add	%r12d, 4096
 	bswap	%rdx
 	cmp	%ebx, [EXTERN(gMemorySize)]
 	jae	3f
@@ -898,12 +898,12 @@ EXPORT(ppc_write_effective_dword_asm):
 		mov	[%rbx], %dl
 		shr	%rdx, 8
 		inc	%rbx
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	4:
-	mov	%ebp, %eax
+	mov	%r12d, %eax
 	and	%eax, 0xfffff000
-	and	%ebp, 0x00000fff
+	and	%r12d, 0x00000fff
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	5f
 	add	%rax, [EXTERN(gMemory)]
@@ -911,7 +911,7 @@ EXPORT(ppc_write_effective_dword_asm):
 		mov	[%rax], %dl
 		shr	%rdx, 8
 		inc	%rax
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	ret
 3:
@@ -924,7 +924,7 @@ EXPORT(ppc_write_effective_dword_asm):
 		_popa
 		shr	%rdx, 8
 		inc	%ebx
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	jmp	4b
 5:
@@ -937,7 +937,7 @@ EXPORT(ppc_write_effective_dword_asm):
 		_popa
 		shr	%rdx, 8
 		inc	%eax
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	ret
 .balign 16
@@ -1323,8 +1323,8 @@ EXPORT(ppc_read_effective_dword_asm):
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
 	pop	%rbx
-	mov	%ebp, 4096
-	sub	%ebp, %ebx
+	mov	%r12d, 4096
+	sub	%r12d, %ebx
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rax, [EXTERN(gMemory)]
@@ -1332,7 +1332,7 @@ EXPORT(ppc_read_effective_dword_asm):
 		shl	%rdx, 8
 		mov	%dl, [%rax]
 		inc	%rax
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	4:
 	pop	%rax
@@ -1369,7 +1369,7 @@ EXPORT(ppc_read_effective_dword_asm):
 		mov	%dl, %al
 		pop	%rax
 		inc	%eax
-		dec	%ebp
+		dec	%r12d
 	jnz	1b
 	pop	%rdi
 	jmp	4b

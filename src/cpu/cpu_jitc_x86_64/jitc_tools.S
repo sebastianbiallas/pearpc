@@ -293,10 +293,10 @@ EXPORT(ppc_set_msr_asm):
 
 2:
 	mov	%ebx, %eax
-	mov	%rbp, %rdi
+	mov	%r12, %rdi
 	call	EXTERN(cpu_doze)
 	mov	%eax, %ebx
-	mov	%rdi, %rbp
+	mov	%rdi, %r12
 	mov	%ecx, [curCPU(msr)]
 	and	%eax, ~(1<<18)
 	jmp	1b
