@@ -31,6 +31,7 @@
 #include "system/systhread.h"
 #include "system/sysexcept.h"
 #include "system/sysvaccel.h"
+#include "system/sysvm.h"
 #include "tools/data.h"
 #include "tools/snprintf.h"
 //#include "configparser.h"
@@ -167,7 +168,7 @@ public:
 		gX11Display = NULL;
 		free(mTitle);
 		free(mouseData);
-		free(gFrameBuffer);
+//		sys_free32(gFrameBuffer, );
 		free(menuData);
 	}
 
@@ -199,8 +200,14 @@ public:
 	 */
 	void reinitChar()
 	{
-		gFrameBuffer = (byte*)realloc(gFrameBuffer, mClientChar.width *
-			mClientChar.height * mClientChar.bytesPerPixel);
+		static size_t gFrameBufferSize;
+		if (gFrameBuffer) {
+			sys_free32(gFrameBuffer, gFrameBufferSize);
+		}
+		gFrameBufferSize = mClientChar.width *
+			mClientChar.height * mClientChar.bytesPerPixel;
+		gFrameBuffer = (byte*)sys_malloc32(gFrameBufferSize);
+		
 		damageFrameBufferAll();
 
 		mHomeMouseX = mClientChar.width / 2;

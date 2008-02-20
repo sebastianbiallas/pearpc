@@ -215,7 +215,7 @@ void FASTCALL gcard_read_16_native(uint32 addr, uint128 *data)
 {
 	addr-= IO_GCARD_FRAMEBUFFER_PA_START;
 
-	memmove(data, gFrameBuffer+addr, 16);
+	memcpy(data, gFrameBuffer+addr, 16);
 }
 
 static bool gVBLon = false;

@@ -36,6 +36,12 @@
 byte *	gFrameBuffer = NULL;
 int 	gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
+extern "C" void damageFrameBufferExt(int addr)
+{
+	damageFrameBuffer(addr);
+	damageFrameBuffer(addr+0xfff);
+}
+
 #define IS_FGTRANS(c) (VC_GET_BASECOLOR(VCP_FOREGROUND((c)))==VC_TRANSPARENT)
 #define IS_BGTRANS(c) (VC_GET_BASECOLOR(VCP_BACKGROUND((c)))==VC_TRANSPARENT)
 

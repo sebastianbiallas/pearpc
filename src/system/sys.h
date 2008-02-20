@@ -42,9 +42,6 @@ bool		sys_native_clipboard_read(void *buf, int bufsize);
 bool		sys_native_clipboard_write(const void *buf, int bufsize);
 int		sys_native_clipboard_get_size();
 
-void *		sys_alloc_read_write_execute(int size);
-void		sys_free_read_write_execute(void *p);
-
 bool initOSAPI();
 void doneOSAPI();
 

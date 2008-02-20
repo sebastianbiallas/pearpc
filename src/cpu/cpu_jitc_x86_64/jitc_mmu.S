@@ -38,7 +38,10 @@
 #	Define this if you want exact handling of the SO bit.
 /* #define EXACT_SO */
 
+#define __FROM_ASM__
+
 #include "jitc_common.h"
+#include "../../io/graphic/gcard.h"
 
 .text
 
@@ -149,6 +152,22 @@ ppc_pte_protection:
 	.byte 1 # r/w
 	.byte 0 # r
 
+damageframebuffer:
+	push	%rax
+	push	%rcx
+	push	%rsi
+	push	%rdi
+	push	%r8
+	mov	%edi, %ebx
+	sub	%edi, IO_GCARD_FRAMEBUFFER_PA_START
+	call	EXTERN(damageFrameBufferExt)
+	pop	%r8
+	pop	%rdi
+	pop	%rsi
+	pop	%rcx
+	pop	%rax
+	ret
+	
 ###############################################################################
 ##		bat_lookup
 #define bat_lookup(di, n, rw, datacode)                                        \
@@ -179,20 +198,29 @@ ppc_pte_protection:
 	and	%edx, %eax;                                                    \
 	and	%ecx, TLB_ENTRIES-1;                                           \
 .if datacode==data;                                                            \
-	cmp	%edx, [gMemorySize];                                           \
+	cmp	%edx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
-	add	%edx, [gMemory];                                               \
+	add	%edx, [EXTERN(gMemory)];                                       \
+6:;                                                                            \
 .endif;                                                                        \
 	sub	%edx, %esi;                                                    \
 	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
 	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*4], %edx;         \
 /*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
 .if datacode==data;                                                            \
-	add	%eax, [gMemory];                                               \
-	clc;\
+	add	%eax, [EXTERN(gMemory)];                                       \
+	clc;                                                                   \
 	ret	8;                                                             \
 4:                                                                             \
-	stc;\
+	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	jb	5f;                                                            \
+	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
+	ja	5f;                                                            \
+	sub	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	add	%edx, [EXTERN(gFrameBuffer)];                                  \
+	jmp	6b;                                                            \
+5:                                                                             \
+	stc;                                                                   \
 .endif;                                                                        \
 	ret	8;                                                             \
 3:
@@ -278,6 +306,7 @@ ppc_pte_protection:
 	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
 	add	%esi, [EXTERN(gMemory)];                                       \
+6:;                                                                            \
 .endif;                                                                        \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_eff) + %rdx*4], %ecx;      \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*4], %esi;     \
@@ -286,10 +315,20 @@ ppc_pte_protection:
 	add	%eax, %esi;                                                    \
 	clc; \
 	ret	8;                                                             \
+.if datacode==data;                                                            \
 4:                                                                             \
-	add	%eax, %esi;                                                    \
-	stc; \
+	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	jb	5f;                                                            \
+	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
+	ja	5f;                                                            \
+	call	damageframebuffer;                                             \
+	add	%esi, [EXTERN(gFrameBuffer)];                                  \
+	sub	%esi, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	jmp	6b;                                                            \
+5:	add	%eax, %esi;                                                    \
+	stc;                                                                   \
 	ret	8;                                                             \
+.endif;                                                                        \
 1:
 
 ##############################################################################################

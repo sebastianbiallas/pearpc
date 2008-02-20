@@ -21,16 +21,17 @@
 #ifndef __IO_GCARD_H__
 #define __IO_GCARD_H__
 
-#include "system/types.h"
-#include "system/display.h"
-#include "debug/tracers.h"
-
 #define IO_GCARD_FRAMEBUFFER_EA 0xd0000000
 #define IO_GCARD_FRAMEBUFFER_PA_START 0x84000000
 #define IO_GCARD_FRAMEBUFFER_PA_END 0x85000000
 //#define IO_GCARD_FRAMEBUFFER_PA_START 0x81000000
 //#define IO_GCARD_FRAMEBUFFER_PA_END 0x82000000
 
+#ifndef __FROM_ASM__
+
+#include "system/types.h"
+#include "system/display.h"
+#include "debug/tracers.h"
 #include "io/pci/pci.h"
 
 class PCI_GCard: public PCI_Device {
@@ -135,5 +136,6 @@ void gcard_add_characteristic(const DisplayCharacteristics &aChar);
 bool gcard_supports_characteristic(const DisplayCharacteristics &aChar);
 bool gcard_finish_characteristic(DisplayCharacteristics &aChar);
 
+#endif
 #endif
 

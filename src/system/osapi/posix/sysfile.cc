@@ -269,16 +269,3 @@ FileOfs	sys_ftell(SYS_FILE *file)
 	return ftello((FILE *)file);
 }
 
-void *sys_alloc_read_write_execute(int size)
-{
-	void *p = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, 
-		MAP_32BIT | MAP_ANON | MAP_PRIVATE, -1, 0);
-
-	if (p == (void*)-1) return NULL;
-	return p;
-}
-
-void sys_free_read_write_execute(void *p)
-{
-	// do nothing :(
-}

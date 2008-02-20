@@ -39,6 +39,8 @@
 extern byte *	gFrameBuffer;
 extern int 	gDamageAreaFirstAddr, gDamageAreaLastAddr;
 
+extern "C" void damageFrameBufferExt(int addr);
+
 inline void damageFrameBuffer(int addr)
 {
 	if (addr < gDamageAreaFirstAddr) {
