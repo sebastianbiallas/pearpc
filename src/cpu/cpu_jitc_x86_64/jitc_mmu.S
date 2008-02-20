@@ -187,9 +187,12 @@ ppc_pte_protection:
 	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
 	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*4], %edx;         \
 /*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
-4:                                                                             \
 .if datacode==data;                                                            \
 	add	%eax, [gMemory];                                               \
+	clc;\
+	ret	8;                                                             \
+4:                                                                             \
+	stc;\
 .endif;                                                                        \
 	ret	8;                                                             \
 3:
@@ -272,16 +275,20 @@ ppc_pte_protection:
 	mov	%ebx, %esi;                                                    \
 	sub	%esi, %ecx;                                                    \
 .if datacode==data;                                                            \
-	add	%esi, [EXTERN(gMemory)];                                       \
 	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
+	add	%esi, [EXTERN(gMemory)];                                       \
 .endif;                                                                        \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_eff) + %rdx*4], %ecx;      \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*4], %esi;     \
 /*	add	qword ptr [curCPU(tlb_## datacode ##_## rw ##_misses)], 1;*/   \
 /***/                                                                          \
+	add	%eax, %esi;                                                    \
+	clc; \
+	ret	8;                                                             \
 4:                                                                             \
 	add	%eax, %esi;                                                    \
+	stc; \
 	ret	8;                                                             \
 1:
 
@@ -326,6 +333,7 @@ protection_fault_8_data:
 	 */                                                                    \
 /*	add	qword ptr [curCPU(tlb_##datacode##_##rw##_hits)], 1;   */      \
 	add	%eax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*4];         \
+	clc;\
 	ret	8;                                                             \
 1:                                                                             \
 
@@ -451,9 +459,12 @@ ppc_effective_to_physical_data_read_ret:
 	ja	4f
 	mov	[curCPU(tlb_data_0_eff) + %rdx*4], %ecx
 	mov	dword ptr [curCPU(tlb_data_0_phys) + %rdx*4], %ebx
-4:	add	%eax, %ebx
+	add	%eax, %ebx
+	clc
 	ret	8
-
+4:	stc
+	ret	8
+	
 .balign 16
 ##############################################################################################
 ##	uint32 FASTCALL ppc_effective_to_physical_data_read(uint32 addr)
@@ -554,7 +565,10 @@ ppc_effective_to_physical_data_write_ret:
 	ja	4f
 	mov	[curCPU(tlb_data_8_eff) + %rdx*4], %ecx
 	mov	dword ptr [curCPU(tlb_data_8_phys) + %rdx*4], %ebx
-4:	add	%eax, %ebx
+	add	%eax, %ebx
+	clc
+	ret	8
+4:	stc
 	ret	8
 
 .balign 16
@@ -662,11 +676,8 @@ EXPORT(ppc_write_effective_byte_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	1f
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 	mov	[%rax], %dl
 	ret
 1:
@@ -695,11 +706,8 @@ EXPORT(ppc_write_effective_half_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
 	mov	[%rax], %dh
 	mov	[%rax+1], %dl
 	ret
@@ -715,41 +723,29 @@ EXPORT(ppc_write_effective_half_asm):
 	push	%rax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	mov	%ebx, %eax
-	mov	%eax, [%rsp]
-	mov	[%rsp], %ebx
+	mov	%edx, [%rsp+8]
+	jc	1f
+	mov	[%rax], %dh
+3:
+	pop	%rax
 	inc	%eax
-	push	24			# roll back 24 bytes in case of exception
+	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	pop	%rbx
 	pop	%rdx
-	cmp	%ebx, [EXTERN(gMemorySize)]
-	jae	1f
-	add	%rbx, [EXTERN(gMemory)]
-	mov	[%rbx], %dh
-	3:
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
 	mov	[%rax], %dl
 	ret
 
 1:
-	push	%rax
-	push	%rdx
 	movzx	%esi, %dh
-	mov	%edi, %ebx
+	mov	%edi, %eax
 	mov	%edx, 1
 	call	EXTERN(io_mem_write_glue)
-	pop	%rdx
-	pop	%rax
 	getCurCPU 1
 	jmp	3b
 2:
-	mov	%edi, %eax
 	movzx	%esi, %dl
+	mov	%edi, %eax
 	mov	%edx, 1
 	jmp	EXTERN(io_mem_write_glue)
 
@@ -775,11 +771,8 @@ EXPORT(ppc_write_effective_word_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
 	mov	[%rax], %edx
 	ret
 
@@ -794,60 +787,61 @@ EXPORT(ppc_write_effective_word_asm):
 	push	%rax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	mov	%ebx, %eax
-	mov	%rax, [%rsp]
-	add	%eax, 4
-	mov	[%rsp], %ebx
-	push	24			# roll back 24 bytes in case of exception
-	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	pop	%rbx
-	pop	%rdx
-	mov	%r12d, %ebx
-	and	%r12d, 0xfff
-	neg	%r12d
-	add	%r12d, 4096
-	cmp	%ebx, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rbx, [EXTERN(gMemory)]
-	1:
-		rol	%edx, 8
-		mov	[%rbx], %dl
-		inc	%rbx
-		dec	%r12d
-	jnz	1b
-	4:
-	mov	%r12d, %eax
-	and	%eax, 0xfffff000
-	and	%r12d, 0x00000fff
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	3f
-	add	%rax, [EXTERN(gMemory)]
+	mov	%edx, [%rsp+8]
+	mov	%ebx, [%rsp]
+	mov	%ecx, 4096
+	jc	2f
+	and	%ebx, 0xfff
+	sub	%ecx, %ebx
 	1:
 		rol	%edx, 8
 		mov	[%rax], %dl
 		inc	%rax
-		dec	%r12d
+		dec	%ecx
+	jnz	1b
+	4:
+	mov	[%rsp+8], %edx
+	mov	%eax, [%rsp]
+	add	%eax, 4
+	push	24			# roll back 24 bytes in case of exception
+	call	ppc_effective_to_physical_data_write
+	pop	%rbx
+	pop	%rdx
+	jc	3f
+	add	%ebx, 4
+	and	%ebx, 0xfff
+	sub	%rax, %rbx
+	1:
+		rol	%edx, 8
+		mov	[%rax], %dl
+		inc	%rax
+		dec	%ebx
 	jnz	1b
 	ret
 
 2:
-	push	%rax
+	and	%ebx, 0xfff
+	sub	%ecx, %ebx
 	1:
 		rol	%edx, 8
+		push	%rax
+		push	%rcx
 		push	%rdx
 		movzx	%esi, %dl
-		mov	%edi, %ebx
+		mov	%edi, %eax
 		mov	%edx, 1
 		call	EXTERN(io_mem_write_glue)
 		pop	%rdx
-		inc	%ebx
-		dec	%r12d
+		pop	%rcx
+		pop	%rax
+		inc	%eax
+		dec	%ecx
 	jnz	1b
-	pop	%rax
 	jmp	4b
 3:
+	add	%ebx, 4
+	and	%ebx, 0xfff
+	sub	%eax, %ebx
 	1:
 		rol	%edx, 8
 		push	%rax
@@ -859,7 +853,7 @@ EXPORT(ppc_write_effective_word_asm):
 		pop	%rdx
 		pop	%rax
 		inc	%rax
-		dec	%r12d
+		dec	%rbx
 	jnz	1b
 	ret
 .balign 16
@@ -884,11 +878,8 @@ EXPORT(ppc_write_effective_dword_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	1f
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 	mov	[%rax], %rdx
 	ret
 1:
@@ -896,75 +887,81 @@ EXPORT(ppc_write_effective_dword_asm):
 	mov	%rsi, %rdx
 	jmp	EXTERN(io_mem_write64_glue)
 
-2:
+1:
 	push	%rdx
 	push	%rax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	mov	%ebx, %eax
-	mov	%rax, [%rsp]
-	add	%eax, 8
-	mov	[%rsp], %rbx
-	push	24			# roll back 24 bytes in case of exception
-	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	pop	%rbx
-	pop	%rdx
-	mov	%r12d, %ebx
-	and	%r12d, 0xfff
-	neg	%r12d
-	add	%r12d, 4096
-	bswap	%rdx
-	cmp	%ebx, [EXTERN(gMemorySize)]
-	jae	3f
-	add	%rbx, [EXTERN(gMemory)]
+	mov	%rdx, [%rsp+8]
+	mov	%ebx, [%rsp]
+	mov	%ecx, 4096
+	jc	2f
+	and	%ebx, 0xfff
+	sub	%ecx, %ebx
 	1:
-		mov	[%rbx], %dl
-		shr	%rdx, 8
-		inc	%rbx
-		dec	%r12d
+		rol	%rdx, 8
+		mov	[%rax], %dl
+		inc	%rax
+		dec	%ecx
 	jnz	1b
 	4:
-	mov	%r12d, %eax
-	and	%eax, 0xfffff000
-	and	%r12d, 0x00000fff
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	5f
-	add	%rax, [EXTERN(gMemory)]
+	mov	[%rsp+8], %rdx
+	mov	%eax, [%rsp]
+	add	%eax, 8
+	push	24			# roll back 16 bytes in case of exception
+	call	ppc_effective_to_physical_data_write
+	pop	%rbx
+	pop	%rdx
+	jc	3f
+	add	%ebx, 8
+	and	%ebx, 0xfff
+	sub	%rax, %rbx
 	1:
+		rol	%rdx, 8
 		mov	[%rax], %dl
-		shr	%rdx, 8
 		inc	%rax
-		dec	%r12d
+		dec	%ebx
 	jnz	1b
 	ret
-3:
+
+2:
+	and	%ebx, 0xfff
+	sub	%ecx, %ebx
 	1:
-		_pusha
-		movzx	%esi, %dl
-		mov	%edi, %ebx
-		mov	%edx, 1
-		call	EXTERN(io_mem_write_glue)
-		_popa
-		shr	%rdx, 8
-		inc	%ebx
-		dec	%r12d
-	jnz	1b
-	jmp	4b
-5:
-	1:
-		_pusha
+		rol	%rdx, 8
+		push	%rax
+		push	%rcx
+		push	%rdx
 		movzx	%esi, %dl
 		mov	%edi, %eax
 		mov	%edx, 1
 		call	EXTERN(io_mem_write_glue)
-		_popa
-		shr	%rdx, 8
+		pop	%rdx
+		pop	%rcx
+		pop	%rax
 		inc	%eax
-		dec	%r12d
+		dec	%ecx
+	jnz	1b
+	jmp	4b
+3:
+	add	%ebx, 4
+	and	%ebx, 0xfff
+	sub	%eax, %ebx
+	1:
+		rol	%rdx, 8
+		push	%rax
+		push	%rdx
+		mov	%edi, %eax
+		movzx	%esi, %dl
+		mov	%edx, 1
+		call	EXTERN(io_mem_write_glue)
+		pop	%rdx
+		pop	%rax
+		inc	%rax
+		dec	%rbx
 	jnz	1b
 	ret
+
 .balign 16
 ##############################################################################################
 ##	uint32 FASTCALL ppc_effective_write_qword()
@@ -982,13 +979,8 @@ EXPORT(ppc_write_effective_qword_asm):
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	1f
-
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 
 	mov	%rbx, [%rdx]
 	mov	%rsi, [%rdx+8]
@@ -1011,13 +1003,8 @@ ppc_write_effective_qword_sse_asm:
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	sub	%eax, [EXTERN(gMemory)]		#new#
-
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	1f
-
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 
 	movaps	[%rax], %xmm0
 	ret
@@ -1043,10 +1030,7 @@ EXPORT(ppc_read_effective_byte_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	1f
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 	movzx	%edx, byte ptr [%rax]
 	ret
 1:
@@ -1076,10 +1060,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]	
+	jc	2f
 	movzx	%edx, word ptr [%rax]
 	rol	%dx, 8
 	ret
@@ -1095,11 +1076,8 @@ EXPORT(ppc_read_effective_half_z_asm):
 	push	%rax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
+	jc	2f
 	xor	%edx, %edx
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
 	mov	%dh, [%rax]
 1:
 	mov	%eax, [%rsp]
@@ -1107,11 +1085,8 @@ EXPORT(ppc_read_effective_half_z_asm):
 	inc	%eax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rdx
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	3f
-	add	%rax, [EXTERN(gMemory)]
+	jc	3f
 	mov	%dl, [%rax]
 	ret
 
@@ -1153,10 +1128,7 @@ EXPORT(ppc_read_effective_half_s_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
 	mov	%cx, [%rax]
 	rol	%cx, 8
 	movsx	%edx, %cx
@@ -1173,10 +1145,8 @@ EXPORT(ppc_read_effective_half_s_asm):
 	push	%rax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
+	xor	%ecx, %ecx
 	mov	%ch, [%rax]
 1:
 	mov	%eax, [%rsp]
@@ -1184,11 +1154,8 @@ EXPORT(ppc_read_effective_half_s_asm):
 	inc	%eax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rcx
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	3f
-	add	%rax, [EXTERN(gMemory)]
+	jc	3f
 	mov	%cl, [%rax]
 	movsx	%edx, %cx
 	ret
@@ -1232,10 +1199,7 @@ EXPORT(ppc_read_effective_word_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
 	mov	%edx, [%rax]
 	bswap	%edx
 	ret
@@ -1251,13 +1215,10 @@ EXPORT(ppc_read_effective_word_asm):
 	push	%rbx
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	mov	%ecx, 4096
+	jc	2f
 	sub	%ecx, %ebx
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
 	1:
 		shl	%edx, 8
 		mov	%dl, [%rax]
@@ -1272,13 +1233,10 @@ EXPORT(ppc_read_effective_word_asm):
 	and	%eax, 0xfffff000
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
+	jc	3f
 	sub	%ebx, 4092
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	3f
-	add	%rax, [EXTERN(gMemory)]
 	1:
 		shl	%edx, 8
 		mov	%dl, [%rax]
@@ -1288,6 +1246,7 @@ EXPORT(ppc_read_effective_word_asm):
 	ret
 
 2:
+	sub	%ecx, %ebx
 	push	%rdi
 	1:
 		shl	%edx, 8
@@ -1307,6 +1266,7 @@ EXPORT(ppc_read_effective_word_asm):
 	pop	%rdi
 	jmp	4b
 3:
+	sub	%ebx, 4092
 	1:
 		shl	%edx, 8
 		push	%rax
@@ -1341,10 +1301,7 @@ EXPORT(ppc_read_effective_dword_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
+	jc	2f
 	mov	%rdx, [%rax]
 	bswap	%rdx
 	ret
@@ -1360,13 +1317,10 @@ EXPORT(ppc_read_effective_dword_asm):
 	push	%rbx
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	mov	%r12d, 4096
+	jc	2f
 	sub	%r12d, %ebx
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	2f
-	add	%rax, [EXTERN(gMemory)]
 	1:
 		shl	%rdx, 8
 		mov	%dl, [%rax]
@@ -1381,13 +1335,10 @@ EXPORT(ppc_read_effective_dword_asm):
 	and	%eax, 0xfffff000
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
+	jc	3f
 	sub	%ebx, 4088
-	cmp	%eax, [EXTERN(gMemorySize)]
-	jae	3f
-	add	%rax, [EXTERN(gMemory)]
 	1:
 		shl	%rdx, 8
 		mov	%dl, [%rax]
@@ -1397,6 +1348,7 @@ EXPORT(ppc_read_effective_dword_asm):
 	ret
 
 2:
+	sub	%r12d, %ebx
 	push	%rdi
 	1:
 		shl	%rdx, 8
@@ -1414,6 +1366,7 @@ EXPORT(ppc_read_effective_dword_asm):
 	pop	%rdi
 	jmp	4b
 3:
+	sub	%ebx, 4088
 	1:
 		shl	%rdx, 8
 		push	%rax
@@ -1446,13 +1399,8 @@ EXPORT(ppc_read_effective_qword_asm):
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	1f
-
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 
 	mov	%rbx, [%rax]
 	mov	%rsi, [%rax+8]
@@ -1475,13 +1423,8 @@ EXPORT(ppc_read_effective_qword_sse_asm):
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
-
-	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
-	jae	1f
-
-	add	%rax, [EXTERN(gMemory)]
+	jc	1f
 
 	movaps	%xmm0, [%rax]
 
@@ -1545,13 +1488,10 @@ EXPORT(ppc_opc_stswi_asm):
 		push	%rdx
 		push	56			# roll back 56 bytes in case of exception
 		call	ppc_effective_to_physical_data_write
-		sub	%eax, [EXTERN(gMemory)]		#new#
-		cmp	%eax, [EXTERN(gMemorySize)]
 		pop	%rdx
 		mov	%ecx, %edx
-		jae	3f
+		jc	3f
 		shr	%ecx, 24
-		add	%rax, [EXTERN(gMemory)]
 		mov	[%rax], %cl
 	4:
 		pop	%rdi
@@ -1606,11 +1546,8 @@ EXPORT(ppc_opc_lswi_asm):
 		push	%rdx
 		push	56			# roll back 56 bytes in case of exception
 		call	ppc_effective_to_physical_data_read
-		sub	%eax, [EXTERN(gMemory)]		#new#
 		pop	%rdx
-		cmp	%eax, [EXTERN(gMemorySize)]
-		jae	3f
-		add	%rax, [EXTERN(gMemory)]
+		jc	3f
 		shl	%edx, 8
 		mov	%dl, byte ptr [%rax]
 	4:
@@ -1656,12 +1593,11 @@ EXPORT(ppc_opc_icbi_asm):
 	push	8			# roll back 8 bytes in case of exception
 	add	%eax, 1			# FIXME: WTF???
 	call	ppc_effective_to_physical_data_read
-	sub	%eax, [EXTERN(gMemory)]		#new#
+	jc	1f
+	sub	%eax, [gMemory]
 	#	%rdi is set to cpu
 	mov	%rdi, [curCPU(jitc)]
-	cmp	%eax, [EXTERN(gMemorySize)]
 	mov	%rcx, [%rdi+clientPages]
-	jae	1f
 	shr	%eax, 12
 	cmp	qword ptr [%rcx+%rax*8], 0
 	jnz	2f
@@ -1673,5 +1609,3 @@ EXPORT(ppc_opc_icbi_asm):
 	jmp	EXTERN(jitcDestroyAndFreeClientPage)
 
 ##############################################################################################
-
-	
