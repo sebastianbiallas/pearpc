@@ -910,7 +910,7 @@ EXPORT(ppc_write_effective_dword_asm):
 	mov	%ebx, %eax
 	and	%ebx, 0xfff
 	cmp	%ebx, 4089
-	jae	2f			# overlap
+	jae	1f			# overlap
 
 	bswap	%rdx
 
@@ -918,10 +918,10 @@ EXPORT(ppc_write_effective_dword_asm):
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
 	pop	%rdx
-	jc	1f
+	jc	2f
 	mov	[%rax], %rdx
 	ret
-1:
+2:
 	mov	%edi, %eax
 	mov	%rsi, %rdx
 	jmp	EXTERN(io_mem_write64_glue)

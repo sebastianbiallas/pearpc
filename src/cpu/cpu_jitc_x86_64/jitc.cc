@@ -477,34 +477,11 @@ extern "C" void jitc_error_msr_unsupported_bits(uint32 a)
 	exit(1);
 }
 
-#if 0
 extern "C" void jitc_error(const char *error)
 {
 	ht_printf("JITC Error: %s\n", error);
 	exit(1);
 }
-#else 
-extern "C" void jitc_error(uint64 e)
-{
-extern PPC_CPU_State *gCPU;
-	printf("dann %lx\n", e);
-	int r=0;
-	for (int i=0; i<8; i++) {
-		for (int j=0; j<4; j++) {
-			ht_printf("r%02d: %08x ", r , gCPU->gpr[r]);
-			r++;
-		}
-		ht_printf("\n");
-	}
-	ht_printf("cr:  %08x xer: %08x lr:  %08x ctr: %08x\n", 
-	gCPU->cr, gCPU->xer, gCPU->lr, gCPU->ctr);
-	exit(1);
-}
-extern "C" void jitc_error2(uint64 e)
-{	
-	printf("erst %lx\n", e);
-}
-#endif
 
 extern "C" void jitc_error_program(uint32 a, uint32 b)
 {

@@ -44,7 +44,52 @@ extern "C" uint32 FASTCALL io_mem_read_glue(uint32 addr, int size)
 extern "C" void FASTCALL io_mem_write_glue(uint32 addr, uint32 data, int size)
 {
 //	gCPU.pc = gCPU.current_code_base + gCPU.pc_ofs;
-	io_mem_write(addr, data, size);
+
+//	io_mem_write(addr, data, size);
+
+	if (addr >= IO_GCARD_FRAMEBUFFER_PA_START && addr < IO_GCARD_FRAMEBUFFER_PA_END) {
+		gcard_write(addr, data, size);
+		return;
+	}
+	if (addr >= IO_PCI_PA_START && addr < IO_PCI_PA_END) {
+		pci_write(addr, data, size);
+		return;
+	}
+	if (addr >= IO_PIC_PA_START && addr < IO_PIC_PA_END) {
+		pic_write(addr, data, size);
+		return;
+	}
+	if (addr >= IO_CUDA_PA_START && addr < IO_CUDA_PA_END) {
+		cuda_write(addr, data, size);
+		return;
+	}
+	if (addr >= IO_NVRAM_PA_START && addr < IO_NVRAM_PA_END) {
+		nvram_write(addr, data, size);
+		return;		
+	}
+	// PCI and ISA must be checked at last
+	if (addr >= IO_PCI_DEVICE_PA_START && addr < IO_PCI_DEVICE_PA_END) {
+		pci_write_device(addr, data, size);
+		return;
+	}
+	if (addr >= IO_ISA_PA_START && addr < IO_ISA_PA_END) {
+		/*
+		 * should raise exception here...
+		 * but linux dont like this
+		 */
+		isa_write(addr, data, size);
+		return;
+		/*if (isa_write(addr, data, size)) {
+			return IO_MEM_ACCESS_OK;
+		} else {
+			ppc_exception(PPC_EXC_MACHINE_CHECK);
+			return IO_MEM_ACCESS_EXC;
+		}*/
+	}
+	IO_CORE_WARN("no one is responsible for address %08x (write: %08x from %08x)\n", addr, data, ppc_cpu_get_pc(0));
+	SINGLESTEP("");
+	ppc_machine_check_exception();	
+
 }
 
 extern "C" uint64 FASTCALL io_mem_read64_glue(uint32 addr)

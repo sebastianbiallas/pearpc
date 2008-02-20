@@ -74,7 +74,7 @@ enum NativeVectorReg {
  *	The size of a fragment
  *	This is the size of portion of translated client code
  */
-#define FRAGMENT_SIZE 256
+#define FRAGMENT_SIZE 512
 
 /*
  *	Used to describe a fragment of translated client code

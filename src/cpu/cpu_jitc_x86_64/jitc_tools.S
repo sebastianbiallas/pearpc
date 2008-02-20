@@ -656,17 +656,6 @@ EXPORT(ppc_heartbeat_ext_rel_asm):
 EXPORT(ppc_heartbeat_ext_asm):
 
 	getCurCPU 1
-#	mov	%r14d, %eax
-#	mov	%r13, %rdi
-#	call	EXTERN(jitc_error)
-#	mov	%rdi, %r13
-#	mov	%eax, %r14d
-#	
-#	mov	%r14d, %eax
-#	mov	%r13, %rdi
-#	call	EXTERN(jitc_error2)
-#	mov	%rdi, %r13
-#	mov	%eax, %r14d
 
 	mov	%edx, %eax
 	and	%edx, 0xfffff000
@@ -721,10 +710,6 @@ EXPORT(ppc_new_pc_rel_asm):
 ##
 ##	does not return, so call this per JMP
 EXPORT(ppc_new_pc_asm):
-#	mov	%r13d, %eax
-#	mov	%edi, %eax
-#call EXTERN(jitc_error2)
-#	mov	%eax, %r13d
 	call	EXTERN(ppc_heartbeat_ext_asm)
 	
 #	now %rdi contains cpuptr
@@ -823,17 +808,6 @@ EXPORT(ppc_start_jitc_asm):
 	mov	%rcx, %rsp
 	mov	[%rsi], %rsp
 	
-	mov	%r15, %rdi
-	mov	%r14, %rdx
-	mov	%r13, %rcx
-	mov	%r12, %rax
-	lea	%rdi, [%rsp-8]
-call EXTERN(jitc_error2)
-	mov	%rdi, %r15
-	mov	%rdx, %r14
-	mov	%rcx, %r13
-	mov	%rax, %r12
-	
 	push	%rdx
 	1:
 		mov	%r8, [%rax]
@@ -842,20 +816,6 @@ call EXTERN(jitc_error2)
 		add	%rcx, 8
 		sub	%edx, 8
 	jnz	1b
-	
-#	mov	%r14, %rsi
-#	mov	%r13, %rdi	
-#	mov	%rdi, %rsp
-#call EXTERN(jitc_error2)
-#	mov	%rdi, %r13
-#	mov	%rsi, %r14
-
-#	mov	%rdi, %rsi
-
-#	mov	%r13, %rdi	
-#	mov	%rdi, %rsp
-#call EXTERN(jitc_error)
-#	mov	%rdi, %r13
 	
 	mov	%ebp, %edi
 
