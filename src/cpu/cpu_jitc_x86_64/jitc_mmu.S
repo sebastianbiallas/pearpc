@@ -100,7 +100,6 @@ EXPORT(ppc_mmu_tlb_invalidate_all_asm):
 	checkCurCPU
 	cld
 	mov	%r8, %rdi
-	mov	%rdi, [curCPU(jitc)]
 	or	%rax, -1
 	mov	%ecx, TLB_ENTRIES*4*3 / 8
 	add	%rdi, tlb_code_0_eff
@@ -112,16 +111,15 @@ EXPORT(ppc_mmu_tlb_invalidate_all_asm):
 ##############################################################################################
 ##
 ##	IN: 	%eax: effective address to invalidate
-##		%rdi: jitc
+##		%rdi: cpu
 ##
 EXPORT(ppc_mmu_tlb_invalidate_entry_asm):
-	mov	%ecx, %eax
-	or	%eax, -1
-	shr	%ecx, 12
-	and	%ecx, TLB_ENTRIES-1
-	mov	[%rdi+tlb_code_0_eff + %rcx*4], %eax
-	mov	[%rdi+tlb_data_0_eff + %rcx*4], %eax
-	mov	[%rdi+tlb_data_8_eff + %rcx*4], %eax
+	or	%ecx, -1
+	shr	%eax, 12
+	and	%eax, TLB_ENTRIES-1
+	mov	[curCPU(tlb_code_0_eff) + %rax*4], %ecx
+	mov	[curCPU(tlb_data_0_eff) + %rax*4], %ecx
+	mov	[curCPU(tlb_data_8_eff) + %rax*4], %ecx
 	ret
 
 .balign 16
@@ -154,15 +152,15 @@ ppc_pte_protection:
 ###############################################################################
 ##		bat_lookup
 #define bat_lookup(di, n, rw, datacode)                                        \
-	mov	%edx, [curCPU(di##bat_bl + n*4)];                                \
-	mov	%ebx, [curCPU(di##bat_bepi + n*4)];                              \
+	mov	%edx, [curCPU(di##bat_bl + n*4)];                              \
+	mov	%ebx, [curCPU(di##bat_bepi + n*4)];                            \
 	                                                                       \
 	and	%edx, %eax;                                                    \
 	cmp	%ebx, %edx;                                                    \
 	jne	3f;                                                            \
 	                                                                       \
 	bt	dword ptr [curCPU(msr)], 14;                                   \
-	mov	%r12d, 2;                                                       \
+	mov	%r12d, 2;                                                      \
 	sbb	%r12d, 0;	        /* BATU_Vp  / BATU_Vs */               \
 	                                                                       \
 	test	[curCPU(di##batu + n*4)], %r12d;                               \
@@ -176,14 +174,19 @@ ppc_pte_protection:
 	or      %eax, [curCPU(di##bat_brpn + n*4)];                            \
                                                                                \
 /** TLB-Code */                                                                \
-	mov	%r8, [curCPU(jitc)];                                           \
 	shr	%ecx, 12;                                                      \
-	and	%esi, %edx;                                                    \
+	and	%esi, %edx;                                              \
+	and	%edx, %eax;                                              \
 	and	%ecx, TLB_ENTRIES-1;                                           \
-	and	%edx, %eax;                                                    \
-	mov	[%r8+tlb_##datacode##_##rw##_eff+%rcx*4], %esi;                \
-	mov	[%r8+tlb_##datacode##_##rw##_phys+%rcx*4], %edx;               \
-/*	add	qword ptr [%r8+tlb_##datatcode##_##rw##_misses], 1;   */       \
+	cmp	%edx, [gMemorySize];                                           \
+	ja	4f;                                                            \
+	sub	%edx, %esi;                                                    \
+	add	%edx, [gMemory];                                               \
+	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
+	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*4], %edx;         \
+/*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
+4:                                                                             \
+	add	%eax, [gMemory];                                               \
 	ret	8;                                                             \
 3:
 
@@ -209,7 +212,7 @@ ppc_pte_protection:
 	mov	%eax, %ecx;                                                    \
 	shr	%ecx, 7;                                                       \
 	and	%ecx, 0xffffff; /* VSID */                                     \
-	cmp	%ecx, %r12d;                                                    \
+	cmp	%ecx, %r12d;                                                   \
 	jne	1f;                                                            \
 	                                                                       \
 	and	%eax, 0x3f;     /* API */                                      \
@@ -219,8 +222,8 @@ ppc_pte_protection:
 	/* page found */                                                       \
 	                                                                       \
 	mov	%rsi, [EXTERN(gMemory)];                                       \
-	mov	%esi, [%rsi + %rbx + 4 + offset];                             \
-	bswap	%esi;                                                         \
+	mov	%esi, [%rsi + %rbx + 4 + offset];                              \
+	bswap	%esi;                                                          \
 	                                                                       \
 	/* # %esi = pte2; */                                                   \
 	                                                                       \
@@ -233,7 +236,7 @@ ppc_pte_protection:
 	setnz	%al;                                                           \
 	movzx	%eax, %al;                                                     \
                                                                                \
-	mov	%ecx, %esi;                                                   \
+	mov	%ecx, %esi;                                                    \
 	and	%ecx, 3;                                                       \
 	                                                                       \
 	cmp	byte ptr [ppc_pte_protection + (rw) + 4*%rax + %rcx], 1;       \
@@ -245,7 +248,7 @@ ppc_pte_protection:
 	jne	protection_fault_##rw##_##datacode;                            \
 	                                                                       \
 	/* 	update R and C bits */                                         \
-	mov	%edx, %esi;                                                   \
+	mov	%edx, %esi;                                                    \
 .if rw==0;                                                                     \
 	or	%edx, (1<<8);		/* PTE2_R */                           \
 .else;                                                                         \
@@ -255,21 +258,24 @@ ppc_pte_protection:
 	add	%rbx, [EXTERN(gMemory)];                                       \
 	mov	[%rbx+4+offset], %edx;                                         \
 	                                                                       \
-	and	%esi, 0xfffff000;                                             \
+	and	%esi, 0xfffff000;                                              \
 /** TLB-Code */                                                                \
-	mov	%r8, [curCPU(jitc)];                                           \
 	mov	%edx, %eax;                                                    \
 	mov	%ecx, %eax;                                                    \
 	shr	%edx, 12;                                                      \
 	and	%ecx, 0xfffff000;                                              \
 	and	%edx, TLB_ENTRIES-1;                                           \
-	mov	[%r8+tlb_## datacode ##_## rw ##_eff + %rdx*4], %ecx;          \
-	mov	[%r8+tlb_## datacode ##_## rw ##_phys + %rdx*4], %esi;         \
-/*	add	qword ptr [%r8+tlb_## datacode ##_## rw ##_misses)], 1;*/      \
+	mov	%ebx, %esi;                                                    \
+	sub	%esi, %ecx;                                                    \
+	add	%esi, [EXTERN(gMemory)];                                       \
+	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
+	ja	4f;                                                            \
+	mov	[curCPU(tlb_## datacode ##_## rw ##_eff) + %rdx*4], %ecx;      \
+	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*4], %esi;     \
+/*	add	qword ptr [curCPU(tlb_## datacode ##_## rw ##_misses)], 1;*/   \
 /***/                                                                          \
-	and	%eax, 0x00000fff;                                              \
-	or	%eax, %esi;                                                    \
-checkCurCPU;\
+4:                                                                             \
+	add	%eax, %esi;                                                    \
 	ret	8;                                                             \
 1:
 
@@ -301,34 +307,35 @@ protection_fault_8_data:
 ##	param1: 0 for read, 8 for write
 ##	param2: data / code
 #define tlb_lookup(rw, datacode)                                               \
-	mov	%rsi, [curCPU(jitc)];                                          \
 	mov	%edx, %eax;                                                    \
 	mov	%ecx, %eax;                                                    \
 	shr	%edx, 12;                                                      \
 	and	%ecx, 0xfffff000;                                              \
 	and	%edx, TLB_ENTRIES-1;                                           \
-	cmp	%ecx, [%rsi+tlb_##datacode##_##rw##_eff + %rdx*4];             \
+	cmp	%ecx, [curCPU(tlb_##datacode##_##rw##_eff) + %rdx*4];          \
 	jne	1f;                                                            \
 	/*                                                                     \
 	 *	if a tlb entry is invalid, its                                 \
 	 *	lower 12 bits are 1, so the cmp is guaranteed to fail.         \
 	 */                                                                    \
-/*	add	qword ptr [%rsi+tlb_##datacode##_##rw##_hits], 1;   */         \
-	and	%eax, 0x00000fff;                                              \
-	or	%eax, [%rsi+tlb_##datacode##_##rw##_phys + %rdx*4];            \
+/*	add	qword ptr [curCPU(tlb_##datacode##_##rw##_hits)], 1;   */      \
+	add	%eax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*4];         \
 	ret	8;                                                             \
 1:                                                                             \
 
 .balign 16
 ppc_effective_to_physical_code_ret:
-	mov	%rbx, [curCPU(jitc)]
 	mov	%edx, %eax
 	mov	%ecx, %eax
 	shr	%edx, 12
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
-	mov	[%rbx+tlb_code_0_eff+%rdx*4], %ecx
-	mov	[%rbx+tlb_code_0_phys+%rdx*4], %ecx
+	cmp	%ecx, [gMemorySize]
+	mov	%ebx, [gMemory]
+	ja	4f
+	mov	[curCPU(tlb_code_0_eff) + %rdx*4], %ecx
+	mov	dword ptr [curCPU(tlb_code_0_phys) + %rdx*4], %ebx
+4:	add	%eax, %ebx
 	ret	8
 
 .balign 16
@@ -432,14 +439,17 @@ EXPORT(ppc_effective_to_physical_code):
 
 .balign 16
 ppc_effective_to_physical_data_read_ret:
-	mov	%rbx, [curCPU(jitc)]
 	mov	%edx, %eax
 	mov	%ecx, %eax
 	shr	%edx, 12
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
-	mov	[%rbx+tlb_data_0_eff+%rdx*4], %ecx
-	mov	[%rbx+tlb_data_0_phys+%rdx*4], %ecx
+	cmp	%ecx, [gMemorySize]
+	mov	%ebx, [gMemory]
+	ja	4f
+	mov	[curCPU(tlb_data_0_eff) + %rdx*4], %ecx
+	mov	dword ptr [curCPU(tlb_data_0_phys) + %rdx*4], %ebx
+4:	add	%eax, %ebx
 	ret	8
 
 .balign 16
@@ -532,14 +542,17 @@ ppc_effective_to_physical_data_read:
 
 .balign 16
 ppc_effective_to_physical_data_write_ret:
-	mov	%rbx, [curCPU(jitc)]
 	mov	%edx, %eax
 	mov	%ecx, %eax
 	shr	%edx, 12
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
-	mov	[%rbx+tlb_data_8_eff+%rdx*4], %ecx
-	mov	[%rbx+tlb_data_8_phys+%rdx*4], %ecx
+	cmp	%ecx, [gMemorySize]
+	mov	%ebx, [gMemory]
+	ja	4f
+	mov	[curCPU(tlb_data_8_eff) + %rdx*4], %ecx
+	mov	dword ptr [curCPU(tlb_data_8_phys) + %rdx*4], %ebx
+4:	add	%eax, %ebx
 	ret	8
 
 .balign 16
@@ -633,7 +646,7 @@ ppc_effective_to_physical_data_write:
 
 .balign 16
 ##############################################################################################
-##	uint32 FASTCALL ppc_effective_write_byte()
+##	uint32 FASTCALL ppc_write_effective_byte()
 ##
 ##	IN	%eax: address to translate
 ##		%esi: current client pc offset
@@ -647,6 +660,7 @@ EXPORT(ppc_write_effective_byte_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
 	jae	1f
@@ -679,6 +693,7 @@ EXPORT(ppc_write_effective_half_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
 	jae	2f
@@ -698,12 +713,14 @@ EXPORT(ppc_write_effective_half_asm):
 	push	%rax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	mov	%ebx, %eax
 	mov	%eax, [%rsp]
 	mov	[%rsp], %ebx
 	inc	%eax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
 	cmp	%ebx, [EXTERN(gMemorySize)]
@@ -756,6 +773,7 @@ EXPORT(ppc_write_effective_word_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
 	jae	2f
@@ -774,12 +792,14 @@ EXPORT(ppc_write_effective_word_asm):
 	push	%rax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	mov	%ebx, %eax
 	mov	%rax, [%rsp]
 	add	%eax, 4
 	mov	[%rsp], %ebx
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
 	mov	%r12d, %ebx
@@ -862,6 +882,7 @@ EXPORT(ppc_write_effective_dword_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
 	jae	1f
@@ -878,12 +899,14 @@ EXPORT(ppc_write_effective_dword_asm):
 	push	%rax
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	mov	%ebx, %eax
 	mov	%rax, [%rsp]
 	add	%eax, 8
 	mov	[%rsp], %rbx
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
 	mov	%r12d, %ebx
@@ -957,6 +980,7 @@ EXPORT(ppc_write_effective_qword_asm):
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
@@ -985,6 +1009,7 @@ ppc_write_effective_qword_sse_asm:
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
+	sub	%eax, [EXTERN(gMemory)]		#new#
 
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
@@ -1016,6 +1041,7 @@ EXPORT(ppc_read_effective_byte_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	1f
 	add	%rax, [EXTERN(gMemory)]
@@ -1048,6 +1074,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rax, [EXTERN(gMemory)]	
@@ -1066,6 +1093,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	push	%rax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	xor	%edx, %edx
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
@@ -1077,6 +1105,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	inc	%eax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rdx
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	3f
@@ -1122,6 +1151,7 @@ EXPORT(ppc_read_effective_half_s_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rax, [EXTERN(gMemory)]
@@ -1141,6 +1171,7 @@ EXPORT(ppc_read_effective_half_s_asm):
 	push	%rax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rax, [EXTERN(gMemory)]
@@ -1151,6 +1182,7 @@ EXPORT(ppc_read_effective_half_s_asm):
 	inc	%eax
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rcx
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	3f
@@ -1198,6 +1230,7 @@ EXPORT(ppc_read_effective_word_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rax, [EXTERN(gMemory)]
@@ -1216,6 +1249,7 @@ EXPORT(ppc_read_effective_word_asm):
 	push	%rbx
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	mov	%ecx, 4096
 	sub	%ecx, %ebx
@@ -1236,6 +1270,7 @@ EXPORT(ppc_read_effective_word_asm):
 	and	%eax, 0xfffff000
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
 	sub	%ebx, 4092
@@ -1304,6 +1339,7 @@ EXPORT(ppc_read_effective_dword_asm):
 
 	push	8			# roll back 8 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	cmp	%eax, [EXTERN(gMemorySize)]
 	jae	2f
 	add	%rax, [EXTERN(gMemory)]
@@ -1322,6 +1358,7 @@ EXPORT(ppc_read_effective_dword_asm):
 	push	%rbx
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	mov	%r12d, 4096
 	sub	%r12d, %ebx
@@ -1342,6 +1379,7 @@ EXPORT(ppc_read_effective_dword_asm):
 	and	%eax, 0xfffff000
 	push	24			# roll back 24 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	pop	%rbx
 	pop	%rdx
 	sub	%ebx, 4088
@@ -1406,6 +1444,7 @@ EXPORT(ppc_read_effective_qword_asm):
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
@@ -1434,6 +1473,7 @@ EXPORT(ppc_read_effective_qword_sse_asm):
 
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 
 	cmp	%eax, [EXTERN(gMemorySize)]
 	pop	%rdx
@@ -1503,6 +1543,7 @@ EXPORT(ppc_opc_stswi_asm):
 		push	%rdx
 		push	56			# roll back 56 bytes in case of exception
 		call	ppc_effective_to_physical_data_write
+		sub	%eax, [EXTERN(gMemory)]		#new#
 		cmp	%eax, [EXTERN(gMemorySize)]
 		pop	%rdx
 		mov	%ecx, %edx
@@ -1563,6 +1604,7 @@ EXPORT(ppc_opc_lswi_asm):
 		push	%rdx
 		push	56			# roll back 56 bytes in case of exception
 		call	ppc_effective_to_physical_data_read
+		sub	%eax, [EXTERN(gMemory)]		#new#
 		pop	%rdx
 		cmp	%eax, [EXTERN(gMemorySize)]
 		jae	3f
@@ -1612,6 +1654,7 @@ EXPORT(ppc_opc_icbi_asm):
 	push	8			# roll back 8 bytes in case of exception
 	add	%eax, 1			# FIXME: WTF???
 	call	ppc_effective_to_physical_data_read
+	sub	%eax, [EXTERN(gMemory)]		#new#
 	#	%rdi is set to cpu
 	mov	%rdi, [curCPU(jitc)]
 	cmp	%eax, [EXTERN(gMemorySize)]

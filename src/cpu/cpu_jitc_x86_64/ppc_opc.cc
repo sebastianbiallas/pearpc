@@ -2021,7 +2021,7 @@ JITCFlow ppc_opc_gen_tlbie(JITC &jitc)
 	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
 	jitc.getClientRegister(PPC_GPR(rB), NATIVE_REG | RAX);
 	jitc.clobberAll();
-	jitc.asmALU64(X86_MOV, RDI, curCPU(jitc));
+	jitc.asmALU64(X86_LEA, RDI, curCPU(all));
 	jitc.asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
 	jitc.asmALU32(X86_MOV, RAX, jitc.pc+4);
 	jitc.asmJMP((NativeAddress)ppc_new_pc_rel_asm);

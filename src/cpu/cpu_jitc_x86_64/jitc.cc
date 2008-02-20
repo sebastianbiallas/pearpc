@@ -636,16 +636,6 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 	 */
 //	memset(&gCPU.vr[JITC_VECTOR_NEG1], 0xff, sizeof gCPU.vr[0]);
 //	FIX64: put this somewhere else
-
-	memset(tlb_code_eff, 0xff, sizeof tlb_code_eff);
-	memset(tlb_data_read_eff, 0xff, sizeof tlb_data_read_eff);
-	memset(tlb_data_write_eff, 0xff, sizeof tlb_data_write_eff);
-	tlb_code_hits = 0;
-	tlb_data_read_hits = 0;
-	tlb_data_write_hits = 0;
-	tlb_code_misses = 0;
-	tlb_data_read_misses = 0;
-	tlb_data_write_misses = 0;
 	return true;
 }
 

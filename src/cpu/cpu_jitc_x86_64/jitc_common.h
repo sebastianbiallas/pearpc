@@ -75,8 +75,6 @@ STRUCT    #PPC_CPU_State
 	MEMBER(pc_ofs, 4)
 	MEMBER(current_code_base, 4)
 
-STRUCT	#JITC
-	MEMBER(clientPages, 8)
 	MEMBER(tlb_code_0_eff, TLB_ENTRIES*4)
 	MEMBER(tlb_data_0_eff, TLB_ENTRIES*4)
 	MEMBER(tlb_data_8_eff, TLB_ENTRIES*4)
@@ -84,12 +82,8 @@ STRUCT	#JITC
 	MEMBER(tlb_data_0_phys, TLB_ENTRIES*4)
 	MEMBER(tlb_data_8_phys, TLB_ENTRIES*4)
 
-	MEMBER(tlb_code_0_hits, 8)
-	MEMBER(tlb_data_0_hits, 8)
-	MEMBER(tlb_data_8_hits, 8)
-	MEMBER(tlb_code_0_misses, 8)
-	MEMBER(tlb_data_0_misses, 8)
-	MEMBER(tlb_data_8_misses, 8)
+STRUCT	#JITC
+	MEMBER(clientPages, 8)
 
 STRUCT	#ClientPage
 	MEMBER(entrypoints, 1024*8)

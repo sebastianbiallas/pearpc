@@ -147,9 +147,6 @@ enum RegisterState {
 	rsDirty = 2,
 };
 
-#define TLB_ENTRIES 32
-
-
 #define NATIVE_REG	(2<<8)	 // used as a bitmask to specify register
 #define NATIVE_REG_PREFER (4<<8) // used as a bitmask to specify register
 
@@ -342,22 +339,6 @@ struct JITC {
 	 *	isn't translated yet.
 	 */
 	ClientPage **clientPages;
-
-	/*
-	 *	These are the TLB-Entries
-	 */
-	uint32 tlb_code_eff[TLB_ENTRIES];
-	uint32 tlb_data_read_eff[TLB_ENTRIES];
-	uint32 tlb_data_write_eff[TLB_ENTRIES];
-	uint32 tlb_code_phys[TLB_ENTRIES];
-	uint32 tlb_data_read_phys[TLB_ENTRIES];
-	uint32 tlb_data_write_phys[TLB_ENTRIES];
-	uint64 tlb_code_hits;
-	uint64 tlb_data_read_hits;
-	uint64 tlb_data_write_hits;
-	uint64 tlb_code_misses;
-	uint64 tlb_data_read_misses;
-	uint64 tlb_data_write_misses;
 
 	/*
 	 *	If nativeReg[i] is set, it indicates to which client
@@ -561,6 +542,7 @@ public:
 	void asmSET8(X86FlagTest flags, NativeReg base, uint32 disp);
 
 	void asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, NativeReg reg2);
+	void asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, NativeReg base, uint32 disp);
 	void asmMOVxx32_16(X86MOVxx opc, NativeReg reg1, NativeReg reg2);
 	void asmShift16(X86ShiftOpc opc, NativeReg reg, uint imm);
 	void asmShift32(X86ShiftOpc opc, NativeReg reg, uint imm);

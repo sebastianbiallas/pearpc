@@ -34,6 +34,8 @@
 #define PPC_BUS_FREQUENCY	(PPC_CLOCK_FREQUENCY/5)
 #define PPC_TIMEBASE_FREQUENCY	(PPC_BUS_FREQUENCY/4)
 
+#define TLB_ENTRIES 32
+
 struct JITC;
 
 struct PPC_CPU_State {
@@ -120,6 +122,22 @@ struct PPC_CPU_State {
 	uint32 x87cw;
 	uint32 pc_ofs;
 	uint32 current_code_base;
+
+	/*
+	 *	These are the TLB-Entries
+	 */
+	uint32 tlb_code_eff[TLB_ENTRIES];
+	uint32 tlb_data_read_eff[TLB_ENTRIES];
+	uint32 tlb_data_write_eff[TLB_ENTRIES];
+	uint32 tlb_code_phys[TLB_ENTRIES];
+	uint32 tlb_data_read_phys[TLB_ENTRIES];
+	uint32 tlb_data_write_phys[TLB_ENTRIES];
+	uint64 tlb_code_hits;
+	uint64 tlb_data_read_hits;
+	uint64 tlb_data_write_hits;
+	uint64 tlb_code_misses;
+	uint64 tlb_data_read_misses;
+	uint64 tlb_data_write_misses;
 
 	// for altivec
 	uint32 vscr;

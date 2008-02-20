@@ -281,7 +281,7 @@ bool ppc_cpu_init()
 //	exit(1);
 	gCPU->jitc = new JITC;
 	gJITC = gCPU->jitc;
-	return gCPU->jitc->init(4096, 32*1024*1024);
+	return gCPU->jitc->init(4096, 64*1024*1024);
 }
 
 void ppc_cpu_init_config()

@@ -1484,6 +1484,21 @@ void JITC::asmMOVxx32_8(X86MOVxx opc, NativeReg reg1, NativeReg reg2)
 	}
 }
 
+void JITC::asmMOVxx32_8(X86MOVxx opc, NativeReg reg, NativeReg base, uint32 disp)
+{
+	byte instr[15];
+	uint len=0;
+	if (reg > 7 || base > 7) {
+		instr[0] = 0x40+((reg>>3)<<2)+(base>>3);
+		len++;
+	}
+	instr[len++] = 0x0f;
+	instr[len++] = opc;
+	instr[len] = (reg & 7) << 3;
+	len += mkmodrm(instr+len, base, disp);
+	emit(instr, len);
+}
+
 void JITC::asmSET8(X86FlagTest flags, NativeReg reg)
 {
 	if (reg > 3) {
