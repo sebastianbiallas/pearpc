@@ -175,18 +175,22 @@ ppc_pte_protection:
                                                                                \
 /** TLB-Code */                                                                \
 	shr	%ecx, 12;                                                      \
-	and	%esi, %edx;                                              \
-	and	%edx, %eax;                                              \
+	and	%esi, %edx;                                                    \
+	and	%edx, %eax;                                                    \
 	and	%ecx, TLB_ENTRIES-1;                                           \
+.if datacode==data;                                                            \
 	cmp	%edx, [gMemorySize];                                           \
 	ja	4f;                                                            \
-	sub	%edx, %esi;                                                    \
 	add	%edx, [gMemory];                                               \
+.endif;                                                                        \
+	sub	%edx, %esi;                                                    \
 	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
 	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*4], %edx;         \
 /*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
 4:                                                                             \
+.if datacode==data;                                                            \
 	add	%eax, [gMemory];                                               \
+.endif;                                                                        \
 	ret	8;                                                             \
 3:
 
@@ -267,9 +271,11 @@ ppc_pte_protection:
 	and	%edx, TLB_ENTRIES-1;                                           \
 	mov	%ebx, %esi;                                                    \
 	sub	%esi, %ecx;                                                    \
+.if datacode==data;                                                            \
 	add	%esi, [EXTERN(gMemory)];                                       \
 	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
+.endif;                                                                        \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_eff) + %rdx*4], %ecx;      \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*4], %esi;     \
 /*	add	qword ptr [curCPU(tlb_## datacode ##_## rw ##_misses)], 1;*/   \
@@ -330,12 +336,8 @@ ppc_effective_to_physical_code_ret:
 	shr	%edx, 12
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
-	cmp	%ecx, [gMemorySize]
-	mov	%ebx, [gMemory]
-	ja	4f
 	mov	[curCPU(tlb_code_0_eff) + %rdx*4], %ecx
-	mov	dword ptr [curCPU(tlb_code_0_phys) + %rdx*4], %ebx
-4:	add	%eax, %ebx
+	mov	dword ptr [curCPU(tlb_code_0_phys) + %rdx*4], 0
 	ret	8
 
 .balign 16

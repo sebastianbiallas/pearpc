@@ -709,7 +709,6 @@ EXPORT(ppc_new_pc_rel_asm):
 	call	EXTERN(ppc_heartbeat_ext_asm)
 	push	0				# bytes to unwind
 	call	EXTERN(ppc_effective_to_physical_code)
-	sub	%eax, [EXTERN(gMemory)] ##new##
 	mov	%rdi, [curCPU(jitc)]
 	mov	%esi, %eax
 	ppc_new_pc_intern
@@ -732,7 +731,6 @@ EXPORT(ppc_new_pc_asm):
 	
 	push	0
 	call	EXTERN(ppc_effective_to_physical_code)
-	sub	%eax, [EXTERN(gMemory)] ##new##
 	mov	%rdi, [curCPU(jitc)]
 	mov	%esi, %eax
 	ppc_new_pc_intern
@@ -751,7 +749,6 @@ EXPORT(ppc_new_pc_this_page_asm):
 	add	%eax, [curCPU(current_code_base)]
 	push	8				# roll back 8 bytes
 	call	EXTERN(ppc_effective_to_physical_code)
-	sub	%eax, [EXTERN(gMemory)] ##new##
 	mov	%rdi, [curCPU(jitc)]
 	mov	%esi, %eax
 	call	EXTERN(jitcNewPC)
