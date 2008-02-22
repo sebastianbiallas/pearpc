@@ -35,10 +35,6 @@
 #include "system/sysvm.h"
 #include "tools/snprintf.h"
 
-#ifndef MAP_32BIT
-#define MAP_32BIT 0
-#endif
-
 void *sys_alloc_read_write_execute(size_t size)
 {
 	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, 
