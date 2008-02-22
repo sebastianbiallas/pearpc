@@ -21,7 +21,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "system/sys.h"
+#include "system/sysvm.h"
 #include "tools/snprintf.h"
 
 #include "jitc.h"
