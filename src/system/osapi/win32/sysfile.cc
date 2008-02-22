@@ -417,7 +417,7 @@ FileOfs	sys_ftell(SYS_FILE *file)
 	return (((FileOfs)b)<<32)+((uint32)a);
 }
 
-void *sys_alloc_read_write_execute(int size)
+void *sys_alloc_read_write_execute(size_t size)
 {
 	return VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 }

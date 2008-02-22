@@ -31,7 +31,7 @@ ppc_start_full_screen = 0
 ## this to your computer speed and personal preference.
 ##
 
-redraw_interval_msec = 40
+redraw_interval_msec = 10
 
 ##
 ## Key codes
