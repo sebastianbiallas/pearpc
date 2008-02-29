@@ -61,7 +61,7 @@ static char *symbol_lookup(CPU_ADDR addr, int *symstrlen, void *context)
 
 inline static void disasmPPC(uint32 code, uint32 ea, char *result)
 {
-	PPCDisassembler dis;
+	PPCDisassembler dis(PPC_MODE_32);
 	CPU_ADDR addr;
 	addr.addr32.offset = ea;
 	addr_sym_func = NULL;
@@ -70,7 +70,7 @@ inline static void disasmPPC(uint32 code, uint32 ea, char *result)
 
 inline static int disasmX86(const byte *code, uint32 ea, char *result)
 {
-	X86Disassembler dis(X86_OPSIZE32, X86_ADDRSIZE32);
+	x86dis dis(X86_OPSIZE32, X86_ADDRSIZE32);
 	CPU_ADDR addr;
 	addr.addr32.offset = ea;
 	addr_sym_func = symbol_lookup;
@@ -148,17 +148,11 @@ void jitcDebugInit()
 		s->assignFormat("ibatu%d", i);
 		symbols->insert(new KeyValue(new UInt((uint)&gCPU.ibatu[i]), s));
 		s = new String();
-		s->assignFormat("ibat_bl17_%d", i);
-		symbols->insert(new KeyValue(new UInt((uint)&gCPU.ibat_bl17[i]), s));
-		s = new String();
 		s->assignFormat("dbatl%d", i);
 		symbols->insert(new KeyValue(new UInt((uint)&gCPU.dbatl[i]), s));
 		s = new String();
 		s->assignFormat("dbatu%d", i);
 		symbols->insert(new KeyValue(new UInt((uint)&gCPU.dbatu[i]), s));
-		s = new String();
-		s->assignFormat("dbat_bl17_%d", i);
-		symbols->insert(new KeyValue(new UInt((uint)&gCPU.dbat_bl17[i]), s));
 	}
 	for (int i=0; i<4; i++) {
 		String *s = new String();
