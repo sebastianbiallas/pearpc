@@ -655,7 +655,7 @@ inline void ppc_fpu_sqrt(ppc_double &D, const ppc_double &B)
 void ppc_fpu_test()
 {
 	double bb = 1.0;
-	uint64 b = *(uint64 *)&bb;
+	uint64 b = *(uint64 *)(byte*)&bb;
 	ppc_double B;
 	ppc_double D;
 	ppc_fpu_unpack_double(B, b);
@@ -663,7 +663,7 @@ void ppc_fpu_test()
 	ppc_fpu_sqrt(D, B);
 	uint64 d;
 	gCPU.fpscr |= ppc_fpu_pack_double(D, d);
-	printf("%f\n", *(double *)&d);
+	printf("%f\n", *(double *)((byte*)&d));
 /*	ppc_double A, B, C, D, E;
 	ppc_fpu_unpack_double(A, 0xc00fafcd6c40e500ULL);
 	ppc_fpu_unpack_double(B, 0xc00fafcd6c40e4beULL);

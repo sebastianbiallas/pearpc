@@ -929,7 +929,11 @@ void FASTCALL asmNOP(int n)
 
 static uint mkmodrm(byte *instr, NativeReg r, uint32 disp)
 {
-	if (r == ESP) {
+	if (r == REG_NO) {
+		instr[0] |= 0x05;
+		*(uint32 *)(instr+1) = disp;
+		return 5;		
+	} else if (r == ESP) {
 		if (disp == 0) {
 			instr[0] |= 0x04;
 			instr[1] = 0x24;

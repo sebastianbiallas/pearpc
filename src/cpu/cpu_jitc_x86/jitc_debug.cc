@@ -25,14 +25,17 @@
 #include "tools/data.h"
 #include "tools/str.h"
 
-#include "debug/x86dis.h"
-#include "debug/ppcdis.h"
-#include "tools/snprintf.h"
-#include "jitc.h"
-#include "jitc_asm.h"
 #include "jitc_debug.h"
 
 #ifdef JITC_DEBUG
+
+#include "debug/x86dis.h"
+#include "debug/ppcdis.h"
+#include "tools/endianess.h"
+#include "tools/snprintf.h"
+#include "jitc.h"
+#include "jitc_asm.h"
+#include "io/prom/promosi.h"
 
 static FILE *gDebugLog;
 static AVLTree *symbols;
@@ -65,7 +68,9 @@ inline static void disasmPPC(uint32 code, uint32 ea, char *result)
 	CPU_ADDR addr;
 	addr.addr32.offset = ea;
 	addr_sym_func = NULL;
-	strcpy(result, dis.str(dis.decode((byte*)&code, 4, addr), 0));
+	byte code_buf[4];
+	createForeignInt(code_buf, code, 4, big_endian);
+	strcpy(result, dis.str(dis.decode(code_buf, 4, addr), 0));
 }
 
 inline static int disasmX86(const byte *code, uint32 ea, char *result)
@@ -211,6 +216,7 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_start_jitc_asm), new String("ppc_start_jitc_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_new_pc_this_page_asm), new String("ppc_new_pc_this_page_asm")));
 	symbols->insert(new KeyValue(new UInt((uint)&ppc_heartbeat_ext_rel_asm), new String("ppc_heartbeat_ext_rel_asm")));
+	symbols->insert(new KeyValue(new UInt((uint)&call_prom_osi), new String("call_prom_osi")));
 }
 
 void jitcDebugDone()
