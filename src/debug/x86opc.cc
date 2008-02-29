@@ -831,7 +831,7 @@ x86opc_insn x86_32_insns_ext[256] = {
 {"movnti", {{Mr}, {Gr}}},
 {"pinsrw", {{Pu}, {Gw}, {Ib}}},
 {"pextrw", {{Gd}, {PRu}, {Ib}}},
-{"&shufps|shufpd", {{Vo}, {Wo}}},
+{"&shufps|shufpd", {{Vo}, {Wo}, {Ib}}},
 {0, {{SPECIAL_TYPE_GROUP, GROUP_EXT_C7}}},
 /* C8 */
 {"bswap", {{__axdq}}},
