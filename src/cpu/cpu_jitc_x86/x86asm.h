@@ -137,12 +137,12 @@ enum X86ALUopc {
 };
 
 enum X86ALUopc1 {
-	X86_NOT,
-	X86_NEG,
-	X86_MUL,
-	X86_IMUL,
-	X86_DIV,
-	X86_IDIV,
+	X86_NOT = 0xd0,
+	X86_NEG = 0xd8,
+	X86_MUL = 0xe0,
+	X86_IMUL = 0xe8,
+	X86_DIV = 0xf0,
+	X86_IDIV = 0xf8,
 };
 enum X86MOVxx {
 	X86_MOVSX = 0xbe,
@@ -267,6 +267,11 @@ enum X86BitSearch {
 	static inline void FASTCALL asmALU8(X86ALUopc opc, NativeReg8 reg1, const void *mem)
 	{
 		asmALU8(opc, reg1, REG_NO, uint32(mem));
+	}
+
+	static inline void FASTCALL asmALU8(X86ALUopc opc, const void *mem, NativeReg8 reg1)
+	{
+		asmALU8(opc, REG_NO, uint32(mem), reg1);
 	}
 
 	void FASTCALL asmAND32(NativeReg base, uint32 disp, uint32 imm);
