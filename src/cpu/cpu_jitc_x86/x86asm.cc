@@ -1009,18 +1009,18 @@ static uint mksib(byte *instr, NativeReg base, int scale, NativeReg index, uint3
 		ss = 0;
 		index = ESP;
 	}
-	uint dmod = mod;
+//	uint dmod = mod;
 	if (base == REG_NO) {
 		base = EBP;
-		dmod = 2;
+		mod = 2;
 	} else {
 		if (base == EBP && mod == 0) {
-			dmod = mod = 1;
+			mod = 1;
 		}
 	}
 	instr[0] |= (mod << 6) | 4;
 	instr[1] = (ss << 6) | (index << 3) | base;
-	switch (dmod) {
+	switch (mod) {
 	case 1:
 		instr[2] = disp;
 		return 3;
