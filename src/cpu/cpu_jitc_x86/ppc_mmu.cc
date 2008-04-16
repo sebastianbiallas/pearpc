@@ -1354,7 +1354,7 @@ JITCFlow ppc_opc_gen_dcbz()
 	getEAX_0_Rsum(PPC_GPR(rA), PPC_GPR(rB));
 	jitcClobberRegister();
 	asmALU32(X86_MOV, ECX, 0u);
-	asmALU32(X86_MOV, EAX, &gCPU.temp);
+	asmALU32(X86_MOV, &gCPU.temp, EAX);
 	asmALU32(X86_MOV, EDX, 0u);
 	asmALU32(X86_MOV, ESI, gJITC.pc);
 	asmCALL((NativeAddress)ppc_write_effective_dword_asm);
