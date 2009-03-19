@@ -365,8 +365,8 @@ void		FASTCALL jitcPopFloatStack(JitcFloatReg hint1, JitcFloatReg hint2);
 void		FASTCALL jitcClobberClientRegisterForFloat(int creg);
 void		FASTCALL jitcInvalidateClientRegisterForFloat(int creg);
 JitcFloatReg	FASTCALL jitcGetClientFloatRegisterMapping(int creg);
-JitcFloatReg	FASTCALL jitcGetClientFloatRegister(int creg, JitcFloatReg hint1=JITC_FLOAT_REG_NONE, JitcFloatReg hint1=JITC_FLOAT_REG_NONE);
-JitcFloatReg	FASTCALL jitcGetClientFloatRegisterUnmapped(int creg, JitcFloatReg hint1=JITC_FLOAT_REG_NONE, JitcFloatReg hint1=JITC_FLOAT_REG_NONE);
+JitcFloatReg	FASTCALL jitcGetClientFloatRegister(int creg, JitcFloatReg hint1=JITC_FLOAT_REG_NONE, JitcFloatReg hint2=JITC_FLOAT_REG_NONE);
+JitcFloatReg	FASTCALL jitcGetClientFloatRegisterUnmapped(int creg, JitcFloatReg hint1=JITC_FLOAT_REG_NONE, JitcFloatReg hint2=JITC_FLOAT_REG_NONE);
 JitcFloatReg	FASTCALL jitcMapClientFloatRegisterDirty(int creg, JitcFloatReg freg=JITC_FLOAT_REG_NONE);
 
 enum X86FloatFlagTest {
