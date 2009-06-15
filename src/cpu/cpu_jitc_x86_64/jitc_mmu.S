@@ -213,7 +213,8 @@ damageframebuffer:
 	ret	8;                                                             \
 4:                                                                             \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
-	jb	5f;                                                            \
+	jmp	5f;                                                            \
+/*	jb	5f;*/                                                            \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
 	ja	5f;                                                            \
 	sub	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
@@ -318,7 +319,8 @@ damageframebuffer:
 .if datacode==data;                                                            \
 4:                                                                             \
 	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
-	jb	5f;                                                            \
+/*	jb	5f;*/                                                            \
+	jmp	5f;                                                            \
 	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
 	ja	5f;                                                            \
 	call	damageframebuffer;                                             \

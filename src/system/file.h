@@ -138,7 +138,7 @@ int		sys_basename(char *result, const char *filename);
 int		sys_dirname(char *result, const char *filename);
 int		sys_relname(char *result, const char *filename, const char *cwd);
 int		sys_common_canonicalize(char *result, const char *in_name, const char *cwd, is_path_delim delim);
-char *		sys_filename_suffix(const char *fn);
+const char *	sys_filename_suffix(const char *fn);
 int		sys_tmpfile_fd();
 
 /* system-dependent (implementation in $MYSYSTEM/ *.cc) */
