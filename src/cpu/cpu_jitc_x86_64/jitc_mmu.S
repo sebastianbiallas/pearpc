@@ -305,11 +305,9 @@ damageframebuffer:
 	and	%ecx, 0xfffff000;                                              \
 	and	%edx, TLB_ENTRIES-1;                                           \
 	mov	%ebx, %esi;                                                    \
-/*	sub	%esi, %ecx;*/                                                    \
 .if datacode==data;                                                            \
 	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
-/*	movsxd  %rsi, %esi;*/                                                    \
 	add	%rsi, [EXTERN(gMemory)];                                       \
 6:;                                                                            \
 .endif;                                                                        \
@@ -317,8 +315,9 @@ damageframebuffer:
 	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*8], %rsi;     \
 /*	add	qword ptr [curCPU(tlb_## datacode ##_## rw ##_misses)], 1;*/   \
 /***/                                                                          \
+	and	%eax, 0xfff;                                                   \
 	add	%rax, %rsi;                                                    \
-	clc; \
+	clc;                                                                   \
 	ret	8;                                                             \
 .if datacode==data;                                                            \
 4:                                                                             \
@@ -331,7 +330,8 @@ damageframebuffer:
 	sub	%esi, IO_GCARD_FRAMEBUFFER_PA_START;                           \
 	add	%rsi, [EXTERN(gFrameBuffer)];                                  \
 	jmp	6b;                                                            \
-5:	add	%rax, %rsi;                                                    \
+5:	and	%eax, 0xfff;                                                    \
+	add	%eax, %esi;                                                    \
 	stc;                                                                   \
 	ret	8;                                                             \
 .endif;                                                                        \
@@ -377,10 +377,9 @@ protection_fault_8_data:
 	 *	lower 12 bits are 1, so the cmp is guaranteed to fail.         \
 	 */                                                                    \
 /*	add	qword ptr [curCPU(tlb_##datacode##_##rw##_hits)], 1;   */      \
-/*	cdqe;*/\
-	add	%rax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*8];         \
-	add	%rax, %rcx
-	clc;\
+	mov	%rax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*8];         \
+	add	%rax, %rcx;                                                    \
+	clc;                                                                   \
 	ret	8;                                                             \
 1:                                                                             \
 
@@ -392,7 +391,7 @@ ppc_effective_to_physical_code_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	mov	[curCPU(tlb_code_0_eff) + %rdx*4], %ecx
-	xor	%ecx, %ecx
+	mov	%rcx, [EXTERN(gMemory)]
 	mov	[curCPU(tlb_code_0_phys) + %rdx*8], %rcx
 	ret	8
 
