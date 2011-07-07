@@ -354,6 +354,7 @@ extern uint64 jitcRunTicksStart;
 
 extern JITC *gJITC;
 
+#define U32(dest) (*(uint32 *)(void *)(dest))
 static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 baseaddr, uint32 ofs)
 {
 /*
@@ -380,7 +381,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 	// now we've setup jitc and can start the real compilation
 
 	byte instr[8] = {0x48, 0x3b, 0x3c, 0x25};
-	*((uint32 *)(&instr[4])) = uint32(uint64(&gJITC));
+	U32(instr + 4) = uint32(uint64(&gJITC));
 	while (1) {
 		jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
 		jitcDebugLogNewInstruction(jitc);

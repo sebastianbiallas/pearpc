@@ -8,7 +8,7 @@ STRUCT    #PPC_CPU_State
 	MEMBER(fpscr, 4)
 	MEMBER(xer, 4)
 	MEMBER(xer_ca, 4)
-	MEMBER(lt, 4)
+	MEMBER(lt_reg, 4)
 	MEMBER(ctr, 4)
 
 	MEMBER(msr, 4)

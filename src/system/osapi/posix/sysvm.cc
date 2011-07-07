@@ -35,6 +35,10 @@
 #include "system/sysvm.h"
 #include "tools/snprintf.h"
 
+#ifndef MAP_32BIT
+#define MAP_32BIT 0
+#endif
+
 void *sys_alloc_read_write_execute(size_t size)
 {
 	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, 
@@ -116,7 +120,7 @@ bool sys_alloc_mapping_area(sys_mapping_area *area, size_t size)
 		if (errno == ENOSYS) {
 			free(a->name);
 			a->name = NULL;
-			a->fd = open("ppc.mem", O_CREAT | O_RDWR);
+			a->fd = open("ppc.mem", O_CREAT | O_RDWR, 0666);
 			if (a->fd == -1) {
 				perror("Can't create ppc.mem");
 				return false;

@@ -189,7 +189,7 @@ bool PCI_Device::writeDeviceIO(uint r, uint32 io, uint32 data, uint size)
 
 void PCI_Device::readConfig(uint reg)
 {
-	gPCI_Data = ppc_word_from_LE(*(uint32*)&(mConfig[reg]));
+	gPCI_Data = ppc_word_from_LE(*(uint32*)(void *)&(mConfig[reg]));
 }
 
 void PCI_Device::writeConfig(uint reg, int offset, int size)
@@ -224,7 +224,7 @@ void PCI_Device::writeConfig(uint reg, int offset, int size)
 			gPCI_Data |= mIORegType[rreg];
 		}
 	}
-	*(uint32*)&(mConfig[reg]) = ppc_word_to_LE(gPCI_Data);
+	*(uint32*)(void *)&(mConfig[reg]) = ppc_word_to_LE(gPCI_Data);
 }
 
 void PCI_Device::setCommand(uint16 command)
@@ -359,7 +359,7 @@ void pci_write(uint32 addr, uint32 data, int size)
 		}
 		if (size == 2) {
 			void *p = &gPCI_Data_LE;
-			*(uint16 *)p = ppc_half_to_LE(data);
+			*(uint16 *)(void *)p = ppc_half_to_LE(data);
 			pci_config_read_write(true, 0, 2);
 			return;
 		}

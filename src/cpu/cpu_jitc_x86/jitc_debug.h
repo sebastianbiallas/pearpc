@@ -21,7 +21,7 @@
 #ifndef __JITC_DEBUG_H__
 #define __JITC_DEBUG_H__
 
-#define JITC_DEBUG
+//#define JITC_DEBUG
 
 static inline UNUSED uint64 jitcDebugGetTicks()
 {

@@ -2,7 +2,7 @@
  *	PearPC
  *	x86asm_64.cc
  *
- *	Copyright (C) 2004-2006 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2004-2010 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as
@@ -27,6 +27,9 @@
 #include "jitc_asm.h"
 #include "jitc_debug.h"
 
+#define U32(dest) (*(uint32 *)(void *)(dest))
+#define U64(dest) (*(uint64 *)(void *)(dest))
+
 void x86GetCaps(X86CPUCaps &caps)
 {
 	memset(&caps, 0, sizeof caps);
@@ -42,9 +45,9 @@ void x86GetCaps(X86CPUCaps &caps)
 		return;
 	}
 
-	*((uint32 *)caps.vendor) = id.b;
-	*((uint32 *)(caps.vendor+4)) = id.d;
-	*((uint32 *)(caps.vendor+8)) = id.c;
+	U32(caps.vendor) = id.b;
+	U32(caps.vendor+4) = id.d;
+	U32(caps.vendor+8) = id.c;
 	caps.vendor[12] = 0;
 	ht_printf("%s\n", caps.vendor);
 	if (id.level == 0) return;
@@ -621,7 +624,7 @@ void JITC::flushFlags()
 void JITC::flushFlagsAfterCMP(X86FlagTest t1, X86FlagTest t2, byte mask, int disp, void *map)
 {
 	NativeReg r = allocRegister(NATIVE_REG | RAX);
-	byte instr2[5] = {0xb8, 0x00, 0x00, 0x00, 0x00};
+//	byte instr2[5] = {0xb8, 0x00, 0x00, 0x00, 0x00};
 //	emit(instr2, sizeof instr2);
 	asmSET8(t1, r);
 	byte instr[3] = {0x0f, 0x90+t2, 0xc0+4};
@@ -864,7 +867,7 @@ void JITC::asmTEST32(NativeReg base, uint32 disp, uint32 imm)
 		instr[1] = 0;
 		len = mkmodrm(instr+1, base, disp)+1;
 	}
-	*((uint32 *)&instr[len]) = imm;
+	U32(instr+len) = imm;
 	emit(instr, len+4);
 }
 
@@ -902,7 +905,7 @@ void JITC::asmOR32(NativeReg base, uint32 disp, uint32 imm)
 		instr[1] = 0x08;
 		len = mkmodrm(instr+1, base, disp)+1;
 	}
-	*((uint32 *)&instr[len]) = imm;
+	U32(instr + len) = imm;
 	emit(instr, len+4);
 }
 
@@ -940,7 +943,7 @@ void JITC::asmAND32(NativeReg base, uint32 disp, uint32 imm)
 		instr[1] = 0x20;
 		len = mkmodrm(instr+1, base, disp)+1;
 	}
-	*((uint32 *)&instr[len]) = imm;
+	U32(instr + len) = imm;
 	emit(instr, len+4);
 }
 
@@ -1035,7 +1038,7 @@ void JITC::asmALU8(X86ALUopc opc, NativeReg reg1, NativeReg reg2)
 void JITC::asmMOVABS(NativeReg reg, uint64 value)
 {
 	byte instr[10] = {0x48+(reg>>3), 0xb8+(reg&7)};
-	*((uint64 *)&instr[2]) = value;
+	U64(instr + 2) = value;
 	emit(instr, sizeof instr);
 }
 
@@ -1053,7 +1056,7 @@ void JITC::asmSimpleALU32(X86ALUopc opc, NativeReg reg, uint32 imm)
 		if (reg == RAX) {
 			byte instr[5];
 			instr[0] = 0x05+(opc<<3);
-			*((uint32 *)&instr[1]) = imm;
+			U32(instr + 1) = imm;
 			emit(instr, sizeof(instr));
 		} else {
 			if (reg > 7) {
@@ -1061,13 +1064,13 @@ void JITC::asmSimpleALU32(X86ALUopc opc, NativeReg reg, uint32 imm)
 				instr[0] = 0x41;
 				instr[1] = 0x81;
 				instr[2] = 0xc0+(opc<<3)+(reg&7);
-				*((uint32 *)&instr[3]) = imm;
+				U32(instr + 3) = imm;
 				emit(instr, sizeof(instr));
 			} else {
 				byte instr[6];
 				instr[0] = 0x81;
 				instr[1] = 0xc0+(opc<<3)+reg;
-				*((uint32 *)&instr[2]) = imm;
+				U32(instr + 2) = imm;
 				emit(instr, sizeof(instr));
 			}
 		}
@@ -1079,7 +1082,7 @@ void JITC::asmTEST32(NativeReg reg1, uint32 imm)
 	if (reg1 == RAX) {
 		byte instr[5];
 		instr[0] = 0xa9;
-		*((uint32 *)&instr[1]) = imm;
+		U32(instr + 1) = imm;
 		emit(instr, sizeof(instr));
 	} else {
 		if (reg1 > 7) { 
@@ -1087,13 +1090,13 @@ void JITC::asmTEST32(NativeReg reg1, uint32 imm)
 			instr[0] = 0x41;
 			instr[1] = 0xf7;
 			instr[2] = 0xc0+(reg1&7);
-			*((uint32 *)&instr[3]) = imm;
+			U32(instr + 3) = imm;
 			emit(instr, sizeof(instr));
 		} else {
 			byte instr[6];
 			instr[0] = 0xf7;
 			instr[1] = 0xc0+reg1;
-			*((uint32 *)&instr[2]) = imm;
+			U32(instr + 2) = imm;
 			emit(instr, sizeof(instr));
 		}
 	}
@@ -1133,12 +1136,12 @@ void JITC::asmMOV32_NoFlags(NativeReg reg1, uint32 imm)
 		byte instr[6];
 		instr[0] = 0x41;
 		instr[1] = 0xb8+(reg1&7);
-		*((uint32 *)&instr[2]) = imm;
+		U32(instr + 2) = imm;
 		emit(instr, sizeof(instr));
 	} else {
 		byte instr[5];
 		instr[0] = 0xb8+reg1;
-		*((uint32 *)&instr[1]) = imm;
+		U32(instr + 1) = imm;
 		emit(instr, sizeof(instr));
 	}
 }
@@ -1394,7 +1397,7 @@ void JITC::asmSimpleALU32(X86ALUopc opc, NativeReg base, uint32 disp, uint32 imm
 		instr[len++] = 0x81;
 		instr[len] = (opc<<3);
 		len += mkmodrm(instr+len, base, disp);
-		*((uint32 *)&instr[len]) = imm;
+		U32(instr + len) = imm;
 		emit(instr, len+4);
 	}
 }
@@ -1412,7 +1415,7 @@ void JITC::asmALU32(X86ALUopc opc, NativeReg base, uint32 disp, uint32 imm)
 		instr[len++] = 0xc7;
 		instr[len] = 0;
 		len += mkmodrm(instr+len, base, disp);
-		*((uint32 *)&instr[len]) = imm;		
+		U32(instr + len) = imm;
 		emit(instr, len+4);
 		break;
 	}
@@ -1629,11 +1632,11 @@ void JITC::asmIMUL32(NativeReg reg1, NativeReg reg2, uint32 imm)
 		if ((reg1 | reg2) > 7) {
 			byte instr[7] = {0x40+(reg2>>3)+((reg1>>3)<<2), 
 			                 0x69, 0xc0+((reg1&7)<<3)+(reg2&7)};
-			*((uint32*)(&instr[3])) = imm;
+			U32(instr + 3) = imm;
 			emit(instr, sizeof(instr));
 		} else {
 			byte instr[6] = {0x69, 0xc0+(reg1<<3)+reg2};
-			*((uint32*)(&instr[2])) = imm;
+			U32(instr + 2) = imm;
 			emit(instr, sizeof(instr));
 		}
 	}
@@ -1753,7 +1756,7 @@ void JITC::asmJMP(NativeAddress to)
 restart:
 	byte instr[5];
 	uint32 rel = uint32(to - (currentPage->tcp+2));
-	if (rel <= 0x7f || rel >= 0xffffff80) {	
+	if (rel <= 0x7f || rel >= 0xffffff80) {
 		if (!emitAssure(2)) goto restart;
 		instr[0] = 0xeb;
 		instr[1] = rel;
@@ -1761,7 +1764,7 @@ restart:
 	} else {
 		if (!emitAssure(5)) goto restart;
 		instr[0] = 0xe9;
-		*((uint32 *)&instr[1]) = uint32(to - (currentPage->tcp+5));
+		U32(instr + 1) = uint32(to - (currentPage->tcp+5));
 		emit(instr, 5);
 	}
 }
@@ -1780,7 +1783,7 @@ restart:
 		if (!emitAssure(6)) goto restart;
 		instr[0] = 0x0f;
 		instr[1] = 0x80+flags;
-		*((uint32 *)&instr[2]) = uint32(to - (currentPage->tcp+6));
+		U32(instr + 2) = uint32(to - (currentPage->tcp+6));
 		emit(instr, 6);
 	}
 }
@@ -1813,7 +1816,7 @@ void JITC::asmCALL(NativeAddress to)
 	emitAssure(5);
 	byte instr[5];
 	instr[0] = 0xe8;
-	*((uint32 *)&instr[1]) = uint32(to - (currentPage->tcp+5));
+	U32(instr + 1) = uint32(to - (currentPage->tcp+5));
 	emit(instr, 5);
 }
 
@@ -2365,7 +2368,7 @@ void asmMOVAPS(NativeVectorReg reg, const void *disp)
 	byte instr[8] = { 0x0f, 0x28 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
+	U32(instr + 3) = uint32(disp);
 
 	emit(instr, 7);
 }
@@ -2375,7 +2378,7 @@ void asmMOVAPS(const void *disp, NativeVectorReg reg)
 	byte instr[8] = { 0x0f, 0x29 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
+	U32(instr + 3) = uint32(disp);
 
 	emit(instr, 7);
 }
@@ -2385,7 +2388,7 @@ void asmMOVUPS(NativeVectorReg reg, const void *disp)
 	byte instr[8] = { 0x0f, 0x10 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
+	U32(instr + 3) = uint32(disp);
 
 	emit(instr, 7);
 }
@@ -2395,7 +2398,7 @@ void asmMOVUPS(const void *disp, NativeVectorReg reg)
 	byte instr[8] = { 0x0f, 0x11 };
 
 	instr[2] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[3]) = (uint32)disp;
+	U32(instr + 3) = uint32(disp);
 
 	emit(instr, 7);
 }
@@ -2405,7 +2408,7 @@ void asmMOVSS(NativeVectorReg reg, const void *disp)
 	byte instr[10] = { 0xf3, 0x0f, 0x10 };
 
 	instr[3] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[4]) = (uint32)disp;
+	U32(instr + 4) = uint32(disp);
 
 	emit(instr, 8);
 }
@@ -2415,7 +2418,7 @@ void asmMOVSS(const void *disp, NativeVectorReg reg)
 	byte instr[10] = { 0xf3, 0x0f, 0x11 };
 
 	instr[3] = 0x05 | (reg << 3);
-	*((uint32 *)&instr[4]) = (uint32)disp;
+	U32(instr + 4) = uint32(disp);
  
 	emit(instr, 8);
 }

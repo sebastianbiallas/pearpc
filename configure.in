@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT(src/system/types.h)
 
 PACKAGE=pearpc
-VERSION=0.5pre
+VERSION=0.5
 
 dnl Check the system.
 AC_CANONICAL_SYSTEM
@@ -66,6 +66,8 @@ linux* | gnu* | k*bsd*-gnu)
 		enable_ui="x11"
 	fi	
 	AC_MSG_RESULT([*** GNU, building POSIX version. we need pthread and rt.])
+	PPC_CFLAGS="$PPC_CFLAGS -pthread"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -pthread"
 	PPC_LDADD="$PPC_LDADD -lpthread -lrt"
 ;;
 freebsd*) 
