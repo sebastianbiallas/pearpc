@@ -100,13 +100,13 @@ struct PPC_CPU_State {
 	bool   ext_exception;
 	bool   stop_exception;
 	bool   singlestep_ignore;
-	byte   align[3];	
+	byte   align[3];
 
 	uint32 pagetable_base;
 	uint32 pagetable_hashmask;
 	uint32 reserve;
 	bool   have_reservation;
-	byte   align2[3];	
+	byte   align2[3];
 	
 	uint32 tlb_last;
 	uint32 tlb_pa[4];
@@ -129,9 +129,9 @@ struct PPC_CPU_State {
 	uint32 tlb_code_eff[TLB_ENTRIES];
 	uint32 tlb_data_read_eff[TLB_ENTRIES];
 	uint32 tlb_data_write_eff[TLB_ENTRIES];
-	uint32 tlb_code_phys[TLB_ENTRIES];
-	uint32 tlb_data_read_phys[TLB_ENTRIES];
-	uint32 tlb_data_write_phys[TLB_ENTRIES];
+	uint64 tlb_code_phys[TLB_ENTRIES];
+	uint64 tlb_data_read_phys[TLB_ENTRIES];
+	uint64 tlb_data_write_phys[TLB_ENTRIES];
 	uint64 tlb_code_hits;
 	uint64 tlb_data_read_hits;
 	uint64 tlb_data_write_hits;

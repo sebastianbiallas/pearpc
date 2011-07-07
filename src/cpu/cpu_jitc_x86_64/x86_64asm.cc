@@ -1184,6 +1184,35 @@ void JITC::asmALU64(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp)
 	emit(instr, len);
 }
 
+void JITC::asmALU64(X86ALUopc opc, NativeReg reg, NativeReg base, int scale, NativeReg index, uint32 disp)
+{
+	byte instr[15];
+	uint len = 0, rex = 0;
+	rex = 0x48 + ((reg & 8) >> 1) + ((base & 8) >> 3) + ((index & 8) >> 2);
+	len++;
+	switch (opc) {
+	case X86_MOV:
+		instr[len] = 0x8b;
+		break;
+	case X86_LEA:
+		instr[len] = 0x8d;
+		break;
+	case X86_XCHG:
+		instr[len] = 0x87;
+		break;
+	case X86_TEST:
+		instr[len] = 0x85;
+		break;
+	default:
+		instr[len] = 0x03+(opc<<3);
+	}
+	len++;
+	instr[len] = (reg&7) << 3;
+	len += mksib(instr+len, base, scale, index, disp, rex);
+	if (rex) instr[0] = rex;
+	emit(instr, len);
+}
+
 void JITC::asmALU32(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp)
 {	
 	byte instr[15];
@@ -1324,7 +1353,7 @@ void JITC::asmALU32(X86ALUopc opc, NativeReg reg, NativeReg base, int scale, Nat
 	byte instr[15];
 	uint len = 0, rex = 0;
 	if ((reg | base | index) & 8) {
-		rex = 0x40 + ((reg & 8) >> 1);
+		rex = 0x40 + ((reg & 8) >> 1) + ((base & 8) >> 3) + ((index & 8) >> 2);
 		len++;
 	}
 	switch (opc) {

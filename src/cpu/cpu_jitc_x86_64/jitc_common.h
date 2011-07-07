@@ -78,9 +78,9 @@ STRUCT    #PPC_CPU_State
 	MEMBER(tlb_code_0_eff, TLB_ENTRIES*4)
 	MEMBER(tlb_data_0_eff, TLB_ENTRIES*4)
 	MEMBER(tlb_data_8_eff, TLB_ENTRIES*4)
-	MEMBER(tlb_code_0_phys, TLB_ENTRIES*4)
-	MEMBER(tlb_data_0_phys, TLB_ENTRIES*4)
-	MEMBER(tlb_data_8_phys, TLB_ENTRIES*4)
+	MEMBER(tlb_code_0_phys, TLB_ENTRIES*8)
+	MEMBER(tlb_data_0_phys, TLB_ENTRIES*8)
+	MEMBER(tlb_data_8_phys, TLB_ENTRIES*8)
 
 STRUCT	#JITC
 	MEMBER(clientPages, 8)

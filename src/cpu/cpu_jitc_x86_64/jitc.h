@@ -514,6 +514,7 @@ public:
 	void asmALU64(X86ALUopc opc, NativeReg reg1, NativeReg reg2);
 	void asmALU64(X86ALUopc opc, NativeReg reg, NativeReg base, uint32 disp);
 	void asmALU64(X86ALUopc opc, NativeReg base, uint32 disp, NativeReg reg);
+	void asmALU64(X86ALUopc opc, NativeReg reg, NativeReg base, int scale, NativeReg index, uint32 disp);
 
 	void asmALU32(X86ALUopc opc, NativeReg reg1, NativeReg reg2);
 	void asmALU32(X86ALUopc opc, NativeReg reg, uint32 imm);

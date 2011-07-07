@@ -200,25 +200,27 @@ damageframebuffer:
 .if datacode==data;                                                            \
 	cmp	%edx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
-	add	%edx, [EXTERN(gMemory)];                                       \
+	add	%rdx, [EXTERN(gMemory)];                                       \
+	add	%rax, [EXTERN(gMemory)];                                       \
 6:;                                                                            \
 .endif;                                                                        \
-	sub	%edx, %esi;                                                    \
+	movsxd  %rsi, %esi;                                                    \
+	sub	%rdx, %rsi;                                                    \
 	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
-	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*4], %edx;         \
+	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*8], %rdx;         \
 /*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
 .if datacode==data;                                                            \
-	add	%eax, [EXTERN(gMemory)];                                       \
 	clc;                                                                   \
 	ret	8;                                                             \
 4:                                                                             \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
 	jmp	5f;                                                            \
-/*	jb	5f;*/                                                            \
+/*	jb	5f;*/                                                          \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
 	ja	5f;                                                            \
 	sub	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
-	add	%edx, [EXTERN(gFrameBuffer)];                                  \
+	add	%rdx, [EXTERN(gFrameBuffer)];                                  \
+	add	%rax, [EXTERN(gFrameBuffer)];                                  \
 	jmp	6b;                                                            \
 5:                                                                             \
 	stc;                                                                   \
@@ -306,28 +308,31 @@ damageframebuffer:
 .if datacode==data;                                                            \
 	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
 	ja	4f;                                                            \
-	add	%esi, [EXTERN(gMemory)];                                       \
+	movsxd  %rsi, %esi;                                                    \
+	add	%rsi, [EXTERN(gMemory)];                                       \
 6:;                                                                            \
 .endif;                                                                        \
 	mov	[curCPU(tlb_## datacode ##_## rw ##_eff) + %rdx*4], %ecx;      \
-	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*4], %esi;     \
+	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*8], %rsi;     \
 /*	add	qword ptr [curCPU(tlb_## datacode ##_## rw ##_misses)], 1;*/   \
 /***/                                                                          \
-	add	%eax, %esi;                                                    \
+	add	%rax, %rsi;                                                    \
 	clc; \
 	ret	8;                                                             \
 .if datacode==data;                                                            \
 4:                                                                             \
 	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
-/*	jb	5f;*/                                                            \
+/*	jb	5f;*/                                                          \
 	jmp	5f;                                                            \
 	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
 	ja	5f;                                                            \
 	call	damageframebuffer;                                             \
-	add	%esi, [EXTERN(gFrameBuffer)];                                  \
-	sub	%esi, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	add	%rsi, [EXTERN(gFrameBuffer)];                                  \
+	mov	%ebx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	movsxd	%rbx, %ebx;                                                    \
+	sub	%rsi, %rbx;                                                    \
 	jmp	6b;                                                            \
-5:	add	%eax, %esi;                                                    \
+5:	add	%rax, %rsi;                                                    \
 	stc;                                                                   \
 	ret	8;                                                             \
 .endif;                                                                        \
@@ -373,7 +378,8 @@ protection_fault_8_data:
 	 *	lower 12 bits are 1, so the cmp is guaranteed to fail.         \
 	 */                                                                    \
 /*	add	qword ptr [curCPU(tlb_##datacode##_##rw##_hits)], 1;   */      \
-	add	%eax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*4];         \
+	cdqe;\
+	add	%rax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*8];         \
 	clc;\
 	ret	8;                                                             \
 1:                                                                             \
@@ -386,7 +392,8 @@ ppc_effective_to_physical_code_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	mov	[curCPU(tlb_code_0_eff) + %rdx*4], %ecx
-	mov	dword ptr [curCPU(tlb_code_0_phys) + %rdx*4], 0
+	xor	%ecx, %ecx
+	mov	[curCPU(tlb_code_0_phys) + %rdx*8], %rcx
 	ret	8
 
 .balign 16
@@ -496,11 +503,11 @@ ppc_effective_to_physical_data_read_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	cmp	%ecx, [gMemorySize]
-	mov	%ebx, [gMemory]
+	mov	%rbx, [gMemory]
 	ja	4f
 	mov	[curCPU(tlb_data_0_eff) + %rdx*4], %ecx
-	mov	dword ptr [curCPU(tlb_data_0_phys) + %rdx*4], %ebx
-	add	%eax, %ebx
+	mov	[curCPU(tlb_data_0_phys) + %rdx*8], %rbx
+	add	%rax, %rbx
 	clc
 	ret	8
 4:	stc
@@ -602,11 +609,11 @@ ppc_effective_to_physical_data_write_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	cmp	%ecx, [gMemorySize]
-	mov	%ebx, [gMemory]
+	mov	%rbx, [gMemory]
 	ja	4f
 	mov	[curCPU(tlb_data_8_eff) + %rdx*4], %ecx
-	mov	dword ptr [curCPU(tlb_data_8_phys) + %rdx*4], %ebx
-	add	%eax, %ebx
+	mov	[curCPU(tlb_data_8_phys) + %rdx*8], %rbx
+	add	%rax, %rbx
 	clc
 	ret	8
 4:	stc
@@ -1519,7 +1526,7 @@ EXPORT(ppc_opc_stswi_asm):
 			mov	%edx, [curCPU(gpr+4*%rbx)]
 			inc	%ebx
 			mov	%r8d, 4
-			and	%ebx, 0x1f	
+			and	%ebx, 0x1f
 		2:
 		push	%rax
 		push	%rcx
@@ -1635,7 +1642,7 @@ EXPORT(ppc_opc_icbi_asm):
 	add	%eax, 1			# FIXME: WTF???
 	call	ppc_effective_to_physical_data_read
 	jc	1f
-	sub	%eax, [gMemory]
+	sub	%rax, [gMemory]
 	#	%rdi is set to cpu
 	mov	%rdi, [curCPU(jitc)]
 	mov	%rcx, [%rdi+clientPages]
