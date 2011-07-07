@@ -391,7 +391,7 @@ ppc_effective_to_physical_code_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	mov	[curCPU(tlb_code_0_eff) + %rdx*4], %ecx
-	mov	%rcx, [EXTERN(gMemory)]
+	xor	%ecx, %ecx
 	mov	[curCPU(tlb_code_0_phys) + %rdx*8], %rcx
 	ret	8
 
