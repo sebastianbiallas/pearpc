@@ -816,20 +816,17 @@ int FASTCALL ppc_write_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 da
 	return r;
 }
 
-#include <unistd.h>
-#include <sys/mman.h>
-
 bool FASTCALL ppc_init_physical_memory(uint size)
 {
 	if (size < 64*1024*1024) {
 		PPC_MMU_ERR("Main memory size must >= 64MB!\n");
 	}
-//	gMemory = (byte*)malloc(size+16);
-	gMemory = (byte*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_32BIT, -1, 0);
+	gMemory = (byte*)malloc(size+16);
+//	gMemory = (byte*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_32BIT, -1, 0);
  
 	printf("&gMemory: %p\n", gMemory);
-	if (gMemory == (byte*)-1) {
-		PPC_MMU_ERR("Cannot allocate memory!\n");		
+	if (gMemory == 0) {
+		PPC_MMU_ERR("Cannot allocate memory!\n");
 	}
 	gMemorySize = size;
 	return gMemory != NULL;

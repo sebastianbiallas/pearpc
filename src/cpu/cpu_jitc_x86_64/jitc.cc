@@ -178,13 +178,13 @@ static ClientPage *jitcTouchClientPage(JITC &jitc, ClientPage *cp)
 /*
  *	Puts fragments into the freeFragmentsList
  */
-#include <valgrind/valgrind.h>
+//#include <valgrind/valgrind.h>
 static void jitcDestroyFragments(JITC &jitc, TranslationCacheFragment *tcf)
 {
 	// FIXME: this could be done in O(1) with an additional
 	// variable in ClientPage
 	while (tcf) {
-		VALGRIND_DISCARD_TRANSLATIONS(tcf->base, FRAGMENT_SIZE);
+		//VALGRIND_DISCARD_TRANSLATIONS(tcf->base, FRAGMENT_SIZE);
 		TranslationCacheFragment *next = tcf->prev;
 		tcf->prev = jitc.freeFragmentsList;
 		jitc.freeFragmentsList = tcf;

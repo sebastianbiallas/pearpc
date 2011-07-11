@@ -34,6 +34,7 @@
 
 #include "system/sysvm.h"
 #include "tools/snprintf.h"
+#include "tools/debug.h"
 
 #ifndef MAP_32BIT
 #define MAP_32BIT 0
@@ -112,8 +113,8 @@ struct posix_mapping_area {
 
 bool sys_alloc_mapping_area(sys_mapping_area *area, size_t size)
 {
-#ifdef __linux__
 	posix_mapping_area *a = new posix_mapping_area;
+#ifdef __linux__
 	ht_asprintf(&a->name, "/ppc.mem");
 	a->fd = shm_open(a->name, O_CREAT | O_RDWR | O_TRUNC, 0666);
 	if (a->fd < 0) {
@@ -156,7 +157,7 @@ bool sys_alloc_mapping_area(sys_mapping_area *area, size_t size)
 		return false;
 	}
 #else
-#error unimplemented
+	ASSERT(false);
 #endif
 	a->size = size;
 	*area = (sys_mapping_area)a;

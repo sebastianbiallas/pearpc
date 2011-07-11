@@ -86,22 +86,12 @@ uint64 ppc_get_cpu_timebase()
 sys_timer gDECtimer;
 sys_semaphore gCPUDozeSem;
 
-#include <time.h>
-#include <signal.h>
-
-bool blbl;
-struct sys_timer_struct
-{
-	struct sigevent event_info;
-	timer_t timer_id;
-};
-
 extern "C" void cpu_doze()
 {
 	if (!gCPU->exception_pending) {
 //		printf("*doze %08x %08x %d\n", gCPU->dec, ppc_cpu_get_pc(0), blbl);
 		sys_lock_semaphore(gCPUDozeSem);
-		sys_wait_semaphore_bounded(gCPUDozeSem, 10);	
+		sys_wait_semaphore_bounded(gCPUDozeSem, 10);
 		sys_unlock_semaphore(gCPUDozeSem);
 //	sys_timer_struct *timer = reinterpret_cast<sys_timer_struct *>(gDECtimer);
 
@@ -111,13 +101,11 @@ extern "C" void cpu_doze()
 
 void ppc_cpu_wakeup()
 {
-	sys_signal_semaphore(gCPUDozeSem);	
+	sys_signal_semaphore(gCPUDozeSem);
 }
 
 static void decTimerCB(sys_timer t)
 {
-	blbl = false;
-//	printf("1\n");
 	ppc_cpu_atomic_raise_dec_exception(*gCPU);
 //	cpu_wakeup();
 }
