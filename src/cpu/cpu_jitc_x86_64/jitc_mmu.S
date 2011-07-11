@@ -209,8 +209,8 @@ damageframebuffer:
 	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
 	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*8], %rdx;         \
 /*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
-.if datacode==data;                                                            \
 	clc;                                                                   \
+.if datacode==data;                                                            \
 	ret	8;                                                             \
 4:                                                                             \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
@@ -607,16 +607,16 @@ ppc_effective_to_physical_data_write_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	cmp	%ecx, [gMemorySize]
-	mov	%rbx, [gMemory]
 	ja	4f
-	and	%rax, 0xfff
+	add	%rax, [gMemory]
 	mov	[curCPU(tlb_data_8_eff) + %rdx*4], %ecx
-	mov	[curCPU(tlb_data_8_phys) + %rdx*8], %rbx
-	add	%rax, %rbx
+	add	%rcx, [gMemory]
+	mov	[curCPU(tlb_data_8_phys) + %rdx*8], %rcx
 	clc
 	ret	8
 4:	stc
 	ret	8
+	
 
 .balign 16
 ##############################################################################################
