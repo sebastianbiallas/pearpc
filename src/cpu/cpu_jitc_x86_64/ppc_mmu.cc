@@ -821,8 +821,11 @@ bool FASTCALL ppc_init_physical_memory(uint size)
 	if (size < 64*1024*1024) {
 		PPC_MMU_ERR("Main memory size must >= 64MB!\n");
 	}
-	gMemory = (byte*)malloc(size+16);
+	gMemory = (byte*)malloc(size+4095);
 //	gMemory = (byte*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_32BIT, -1, 0);
+	if ((uint64)gMemory & 0x0fff) {
+		gMemory += 4096 - ((uint64)gMemory & 0x0fff);
+	}
  
 	printf("&gMemory: %p\n", gMemory);
 	if (gMemory == 0) {

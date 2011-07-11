@@ -204,8 +204,8 @@ damageframebuffer:
 	add	%rax, [EXTERN(gMemory)];                                       \
 6:;                                                                            \
 .endif;                                                                        \
-/*	movsxd  %rsi, %esi;*/                                                    \
-/*	sub	%rdx, %rsi;*/                                                    \
+/*	movsxd  %rsi, %esi;*/                                                  \
+/*	sub	%rdx, %rsi;*/                                                  \
 	mov	[curCPU(tlb_##datacode##_##rw##_eff) + %rcx*4], %esi;          \
 	mov	[curCPU(tlb_##datacode##_##rw##_phys) + %rcx*8], %rdx;         \
 /*	add	qword ptr [curCPU(tlb_##datatcode##_##rw##_misses)], 1;   */   \
@@ -377,8 +377,8 @@ protection_fault_8_data:
 	 *	lower 12 bits are 1, so the cmp is guaranteed to fail.         \
 	 */                                                                    \
 /*	add	qword ptr [curCPU(tlb_##datacode##_##rw##_hits)], 1;   */      \
-	mov	%rax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*8];         \
-	add	%rax, %rcx;                                                    \
+	and	%rax, 0xfff;                                                   \
+	add	%rax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*8];         \
 	clc;                                                                   \
 	ret	8;                                                             \
 1:                                                                             \
@@ -391,7 +391,6 @@ ppc_effective_to_physical_code_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	mov	[curCPU(tlb_code_0_eff) + %rdx*4], %ecx
-	xor	%ecx, %ecx
 	mov	[curCPU(tlb_code_0_phys) + %rdx*8], %rcx
 	ret	8
 
@@ -502,11 +501,11 @@ ppc_effective_to_physical_data_read_ret:
 	and	%ecx, 0xfffff000
 	and	%edx, TLB_ENTRIES-1
 	cmp	%ecx, [gMemorySize]
-	mov	%rbx, [gMemory]
 	ja	4f
+	add	%rax, [gMemory]
 	mov	[curCPU(tlb_data_0_eff) + %rdx*4], %ecx
-	mov	[curCPU(tlb_data_0_phys) + %rdx*8], %rbx
-	add	%rax, %rbx
+	add	%rcx, [gMemory]
+	mov	[curCPU(tlb_data_0_phys) + %rdx*8], %rcx
 	clc
 	ret	8
 4:	stc
@@ -610,6 +609,7 @@ ppc_effective_to_physical_data_write_ret:
 	cmp	%ecx, [gMemorySize]
 	mov	%rbx, [gMemory]
 	ja	4f
+	and	%rax, 0xfff
 	mov	[curCPU(tlb_data_8_eff) + %rdx*4], %ecx
 	mov	[curCPU(tlb_data_8_phys) + %rdx*8], %rbx
 	add	%rax, %rbx

@@ -40,7 +40,6 @@ static void readDEC(PPC_CPU_State &aCPU)
 	aCPU.dec = gDECwriteValue - itb;
 //	PPC_OPC_WARN("read  dec=%08x\n", aCPU.dec);
 }
-extern bool blbl;
 static void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
 {
 //	PPC_OPC_WARN("write dec=%08x\n", newdec);
@@ -62,7 +61,6 @@ static void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
 			PPC_OPC_WARN("write dec > 20 millisec := %08x (%qu)\n", aCPU.dec, q);
 			q = 10 * 1000 * 1000;
 		}
-		blbl=true;
 		sys_set_timer(gDECtimer, 0, q, false);
 //		PPC_OPC_WARN("timer(%qu)\n", q);
 	}

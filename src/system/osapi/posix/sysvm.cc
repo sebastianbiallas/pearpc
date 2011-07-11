@@ -42,8 +42,7 @@
 
 void *sys_alloc_read_write_execute(size_t size)
 {
-	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, 
-		MAP_32BIT | MAP_ANON | MAP_PRIVATE, -1, 0);
+	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_32BIT | MAP_ANON | MAP_PRIVATE, -1, 0);
 
 	return (p == (void *)-1) ? NULL : p;
 }
