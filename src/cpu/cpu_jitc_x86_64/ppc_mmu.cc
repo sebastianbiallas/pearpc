@@ -3667,7 +3667,7 @@ JITCFlow ppc_opc_gen_stw(JITC &jitc)
 	return flowEndBlock;
 #else
 	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
-	return flowContinue;
+	return flowEndBlock;
 #endif
 }
 /*
