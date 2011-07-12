@@ -1579,15 +1579,22 @@ bool prom_load_boot_file()
 				uint32 p;
 				if (partNum.toInt32(p)) gBootPartNum = p;
 			}
-
-			LocalFile f(loadfile);
-//			if (!mapped_load_elf_from_chrp(f, 0)
-			if (!mapped_load_elf(f)
-			&&  !mapped_load_xcoff(f, 0)
-			&&  !mapped_load_chrp(f)) {
-				IO_PROM_WARN("couldn't load '%y'.\n", &loadfile);
-				return false;
+			
+			try {
+				LocalFile f(loadfile);
+//				if (!mapped_load_elf_from_chrp(f, 0)
+				if (!mapped_load_elf(f)
+				 && !mapped_load_xcoff(f, 0)
+				 && !mapped_load_chrp(f)) {
+					IO_PROM_WARN("couldn't load '%y'.\n", &loadfile);
+					return false;
+				}
+			} catch (IOException &e) {
+				String res;
+				e.reason(res);
+				IO_PROM_ERR("couldn't load '%y': %y\n", &loadfile, &res);
 			}
+			
 		} else {
 			IO_PROM_ERR("bootmethod is 'force', but no prom_loadfile defined\n");
 			return false;
