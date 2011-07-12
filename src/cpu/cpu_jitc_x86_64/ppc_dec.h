@@ -24,7 +24,7 @@
 #include "system/types.h"
 #include "jitc_types.h"
 
-void FASTCALL ppc_exec_opc();
+void FASTCALL ppc_exec_opc(PPC_CPU_State &aCPU);
 JITCFlow FASTCALL ppc_gen_opc(JITC &jitc);
 void ppc_dec_init();
 

@@ -126,8 +126,9 @@ static JITCFlow ppc_opc_gen_special(JITC &jitc)
 		jitc.asmALU32(X86_MOV, RAX, curCPU(current_code_base));
 		jitc.asmALU32(X86_ADD, RAX, jitc.pc);
 		jitc.asmALU32(X86_MOV, curCPU(pc), RAX);
-//		ht_printf("***************\{dfklals flkasf\{f*\n");
+		// <<<
 		jitc.asmCALL((NativeAddress)&call_prom_osi);
+		// >>>
 		return flowEndBlock;
 	}
 	return ppc_opc_gen_invalid(jitc);

@@ -377,7 +377,7 @@ protection_fault_8_data:
 	 *	lower 12 bits are 1, so the cmp is guaranteed to fail.         \
 	 */                                                                    \
 /*	add	qword ptr [curCPU(tlb_##datacode##_##rw##_hits)], 1;   */      \
-	and	%rax, 0xfff;                                                   \
+	and	%eax, 0xfff;                                                   \
 	add	%rax, [curCPU(tlb_##datacode##_##rw##_phys) + %rdx*8];         \
 	clc;                                                                   \
 	ret	8;                                                             \
