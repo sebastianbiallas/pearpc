@@ -154,17 +154,24 @@ ppc_pte_protection:
 
 damageframebuffer:
 	push	%rax
+	push	%rbx
 	push	%rcx
+	push	%rdx
 	push	%rsi
 	push	%rdi
 	push	%r8
 	mov	%edi, %ebx
 	sub	%edi, IO_GCARD_FRAMEBUFFER_PA_START
 	call	EXTERN(damageFrameBufferExt)
+	mov	%edi, %ebx
+	sub	%edi, IO_GCARD_FRAMEBUFFER_PA_START-4095
+	call	EXTERN(damageFrameBufferExt)
 	pop	%r8
 	pop	%rdi
 	pop	%rsi
+	pop	%rdx
 	pop	%rcx
+	pop	%rbx
 	pop	%rax
 	ret
 	
@@ -214,10 +221,11 @@ damageframebuffer:
 	ret	8;                                                             \
 4:                                                                             \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
-	jmp	5f;                                                            \
-/*	jb	5f;*/                                                          \
+	jb	5f;                                                            \
 	cmp	%edx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
 	ja	5f;                                                            \
+	mov	%ebx, %edx;                                                    \
+	call	damageframebuffer;                                             \
 	sub	%edx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
 	sub	%eax, IO_GCARD_FRAMEBUFFER_PA_START;                           \
 	add	%rdx, [EXTERN(gFrameBuffer)];                                  \
@@ -236,6 +244,7 @@ damageframebuffer:
 ##	param2: 0 for read, 8 for write
 ##	param3: data / code
 ##	param4: pt offset
+##	r9d     effective address
 #define pg_table_lookup(n, rw, datacode, offset)                               \
 	mov	%rax, [EXTERN(gMemory)];                                       \
 	mov	%eax, [%rax + %rbx + offset];                                  \
@@ -282,8 +291,9 @@ damageframebuffer:
 .if n==0;                                                                      \
 /*	add	%rsp, 8;	/* hash1, no longer needed */                  \
 	pop	%rdx;                                                          \
+.else;                                                                        \
 .endif;                                                                        \
-	pop	%rax;		/* the effective address */                    \
+	mov	%eax, %r9d; /* the effective address */                    \
 	jne	protection_fault_##rw##_##datacode;                            \
 	                                                                       \
 	/* 	update R and C bits */                                         \
@@ -322,8 +332,7 @@ damageframebuffer:
 .if datacode==data;                                                            \
 4:                                                                             \
 	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
-/*	jb	5f;*/                                                          \
-	jmp	5f;                                                            \
+	jb	5f;                                                            \
 	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
 	ja	5f;                                                            \
 	call	damageframebuffer;                                             \
@@ -441,7 +450,7 @@ EXPORT(ppc_effective_to_physical_code):
 	
 	# %ebx = hash1
 	
-	push	%rax
+	mov	%r9d, %eax
 	push	%rbx			# das brauch ich
 	
 	and	%ebx, [curCPU(pagetable_hashmask)]
@@ -477,7 +486,7 @@ EXPORT(ppc_effective_to_physical_code):
 
 	# page lookup failed --> throw exception
 	
-	pop	%rax
+	mov	%eax, %r9d
 	pop	%rdx			# return address is no longer needed
 	pop	%rcx			# bytes to roll back
 	add	%rsp, %rcx
@@ -555,7 +564,7 @@ ppc_effective_to_physical_data_read:
 	
 	# %ebx = hash1
 	
-	push	%rax
+	mov	%r9d, %eax
 	push	%rbx			# das brauch ich
 	
 	and	%ebx, [curCPU(pagetable_hashmask)]
@@ -591,7 +600,7 @@ ppc_effective_to_physical_data_read:
 
 	# page lookup failed --> throw exception
 	
-	pop	%rax
+	mov	%eax, %r9d
 	pop	%rdx			# return address is no longer needed
 	pop	%rcx			# bytes to roll back
 	add	%rsp, %rcx
@@ -662,7 +671,7 @@ ppc_effective_to_physical_data_write:
 	
 	# %ebx = hash1
 	
-	push	%rax
+	mov	%r9d, %eax
 	push	%rbx			# das brauch ich
 	
 	and	%ebx, [curCPU(pagetable_hashmask)]
@@ -699,7 +708,7 @@ ppc_effective_to_physical_data_write:
 
 	# page lookup failed --> throw exception
 	
-	pop	%rax
+	mov	%eax, %r9d
 	pop	%rdx			# return address is no longer needed
 	pop	%rbx			# bytes to roll back
 	add	%rsp, %rbx
@@ -723,7 +732,8 @@ EXPORT(ppc_write_effective_byte_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	pop	%rdx
+	mov	%edx, [%rsp]
+	lea	%rsp, [%rsp+8]
 	jc	1f
 	mov	[%rax], %dl
 	ret
@@ -753,7 +763,8 @@ EXPORT(ppc_write_effective_half_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	pop	%rdx
+	mov	%edx, [%rsp]
+	lea	%rsp, [%rsp+8]
 	jc	2f
 	mov	[%rax], %dh
 	mov	[%rax+1], %dl
@@ -818,7 +829,8 @@ EXPORT(ppc_write_effective_word_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	pop	%rdx
+	mov	%edx, [%rsp]
+	lea	%rsp, [%rsp+8]
 	jc	2f
 	mov	[%rax], %edx
 	ret
@@ -925,7 +937,8 @@ EXPORT(ppc_write_effective_dword_asm):
 	push	%rdx
 	push	16			# roll back 16 bytes in case of exception
 	call	ppc_effective_to_physical_data_write
-	pop	%rdx
+	mov	%rdx, [%rsp]
+	lea	%rsp, [%rsp+8]
 	jc	2f
 	mov	[%rax], %rdx
 	ret

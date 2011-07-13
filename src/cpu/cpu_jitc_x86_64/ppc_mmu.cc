@@ -3066,6 +3066,7 @@ JITCFlow ppc_opc_gen_stfd(JITC &jitc)
 	
 	jitc.asmResolveFixup(fixup2, jitc.asmHERE());
 #else
+	jitc.asmALU32(X86_MOV, RSI, jitc.pc);
 	jitc.asmCALL((NativeAddress)ppc_write_effective_dword_asm);
 #endif
 	return flowEndBlock;

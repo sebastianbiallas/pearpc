@@ -5,7 +5,7 @@ SUBDIRS		= doc src scripts
 
 dist2: distdir
 	-chmod -R a+r $(distdir)
-	BZIP2=$(BZIP2_ENV) $(TAR) chojf $(distdir).tar.bz2 $(distdir)
+	BZIP2=$(BZIP2_ENV) $(AMTAR) chojf $(distdir).tar.bz2 $(distdir)
 	-rm -rf $(distdir)
 
 dist-all2: dist2
