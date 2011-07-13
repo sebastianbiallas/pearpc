@@ -2,7 +2,7 @@
  *	PearPC
  *	jitc_mmu.S
  *
- *	Copyright (C) 2003-2006 Sebastian Biallas (sb@biallas.net)
+ *	Copyright (C) 2003-2011 Sebastian Biallas (sb@biallas.net)
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2 as

@@ -23,7 +23,6 @@
 
 #include "system/types.h"
 
-extern byte *gMemory;
 extern uint32 gMemorySize;
 
 #define PPC_MMU_READ  1
