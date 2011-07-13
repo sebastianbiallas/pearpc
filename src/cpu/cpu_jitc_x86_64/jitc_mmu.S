@@ -245,9 +245,9 @@ damageframebuffer:
 ##	param3: data / code
 ##	param4: pt offset
 ##	r9d     effective address
+##	rbx     page table ptr
 #define pg_table_lookup(n, rw, datacode, offset)                               \
-	mov	%rax, [EXTERN(gMemory)];                                       \
-	mov	%eax, [%rax + %rbx + offset];                                  \
+	mov	%eax, [%rbx + offset];                                  \
 	bswap	%eax;                                                          \
 	                                                                       \
 	/* %ecx = pte1 */                                                      \
@@ -269,8 +269,7 @@ damageframebuffer:
 	                                                                       \
 	/* page found */                                                       \
 	                                                                       \
-	mov	%rsi, [EXTERN(gMemory)];                                       \
-	mov	%esi, [%rsi + %rbx + 4 + offset];                              \
+	mov	%esi, [%rbx + 4 + offset];                              \
 	bswap	%esi;                                                          \
 	                                                                       \
 	/* # %esi = pte2; */                                                   \
@@ -299,7 +298,6 @@ damageframebuffer:
 	or	%edx, (1<<8) | (1<<7);	/* PTE2_R | PTE2_C */                  \
 .endif;                                                                        \
 	bswap	%edx;                                                          \
-	add	%rbx, [EXTERN(gMemory)];                                       \
 	mov	[%rbx+4+offset], %edx;                                         \
 	                                                                       \
 	and	%esi, 0xfffff000;                                              \
@@ -453,6 +451,7 @@ EXPORT(ppc_effective_to_physical_code):
 	or	%ebx, [curCPU(pagetable_base)]
 	
 	# %ebx = pteg_addr
+	add	%rbx, [gMemory]
 	
 	pg_table_lookup(0, 0, code, 0)
 	pg_table_lookup(0, 0, code, 8)
@@ -469,6 +468,7 @@ EXPORT(ppc_effective_to_physical_code):
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
 	or	%ebx, [curCPU(pagetable_base)]
+	add	%rbx, [gMemory]
 
 	pg_table_lookup(1<<6, 0, code, 0)
 	pg_table_lookup(1<<6, 0, code, 8)
@@ -565,6 +565,7 @@ ppc_effective_to_physical_data_read:
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
 	or	%ebx, [curCPU(pagetable_base)]
+	add	%rbx, [gMemory]
 	
 	# %ebx = pteg_addr
 	
@@ -583,6 +584,7 @@ ppc_effective_to_physical_data_read:
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
 	or	%ebx, [curCPU(pagetable_base)]
+	add	%rbx, [gMemory]
 
 	pg_table_lookup(1<<6, 0, data, 0)
 	pg_table_lookup(1<<6, 0, data, 8)
@@ -672,6 +674,7 @@ ppc_effective_to_physical_data_write:
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
 	or	%ebx, [curCPU(pagetable_base)]
+	add	%rbx, [gMemory]
 	
 	# %ebx = pteg_addr
 	
@@ -690,6 +693,7 @@ ppc_effective_to_physical_data_write:
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
 	or	%ebx, [curCPU(pagetable_base)]
+	add	%rbx, [gMemory]
 
 	pg_table_lookup(1<<6, 8, data, 0)
 	pg_table_lookup(1<<6, 8, data, 8)
