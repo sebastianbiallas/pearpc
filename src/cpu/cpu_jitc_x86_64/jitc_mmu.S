@@ -288,11 +288,6 @@ damageframebuffer:
 	and	%ecx, 3;                                                       \
 	                                                                       \
 	cmp	byte ptr [ppc_pte_protection + (rw) + 4*%rax + %rcx], 1;       \
-.if n==0;                                                                      \
-/*	add	%rsp, 8;	/* hash1, no longer needed */                  \
-	pop	%rdx;                                                          \
-.else;                                                                        \
-.endif;                                                                        \
 	mov	%eax, %r9d; /* the effective address */                    \
 	jne	protection_fault_##rw##_##datacode;                            \
 	                                                                       \
@@ -451,7 +446,7 @@ EXPORT(ppc_effective_to_physical_code):
 	# %ebx = hash1
 	
 	mov	%r9d, %eax
-	push	%rbx			# das brauch ich
+	mov	%r10d, %ebx
 	
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
@@ -469,7 +464,7 @@ EXPORT(ppc_effective_to_physical_code):
 	pg_table_lookup(0, 0, code, 56)
 	
 	# hash function number 2
-	pop	%rbx
+	mov	%ebx, %r10d
 	not	%ebx
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
@@ -565,7 +560,7 @@ ppc_effective_to_physical_data_read:
 	# %ebx = hash1
 	
 	mov	%r9d, %eax
-	push	%rbx			# das brauch ich
+	mov	%r10d, %ebx
 	
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
@@ -583,7 +578,7 @@ ppc_effective_to_physical_data_read:
 	pg_table_lookup(0, 0, data, 56)
 	
 	# hash function number 2
-	pop	%rbx
+	mov	%ebx, %r10d
 	not	%ebx
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
@@ -672,7 +667,7 @@ ppc_effective_to_physical_data_write:
 	# %ebx = hash1
 	
 	mov	%r9d, %eax
-	push	%rbx			# das brauch ich
+	mov	%r10d, %ebx
 	
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
@@ -690,8 +685,7 @@ ppc_effective_to_physical_data_write:
 	pg_table_lookup(0, 8, data, 56)
 	
 	# hash function number 2
-	mov	%ebx, [%rsp]
-	add	%rsp, 8
+	mov	%ebx, %r10d
 	not	%ebx
 	and	%ebx, [curCPU(pagetable_hashmask)]
 	shl	%ebx, 6
