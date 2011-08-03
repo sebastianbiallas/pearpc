@@ -67,7 +67,6 @@ int FASTCALL ppc_direct_effective_memory_handle(uint32 addr, byte *&ptr);
 int FASTCALL ppc_direct_effective_memory_handle_code(uint32 addr, byte *&ptr);
 bool FASTCALL ppc_mmu_page_create(uint32 ea, uint32 pa);
 bool FASTCALL ppc_mmu_page_free(uint32 ea);
-bool FASTCALL ppc_init_physical_memory(uint size);
 
 /*
 pte: (page table entry)

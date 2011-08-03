@@ -758,7 +758,7 @@ inline int FASTCALL ppc_write_effective_byte(uint32 addr, uint8 data)
 	return r;
 }
 
-bool FASTCALL ppc_init_physical_memory(uint size)
+bool ppc_init_physical_memory(uint size)
 {
 	if (size < 64*1024*1024) {
 		PPC_MMU_ERR("Main memory size must >= 64MB!\n");
