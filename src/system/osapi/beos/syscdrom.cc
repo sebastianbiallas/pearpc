@@ -22,7 +22,9 @@
 #include <cstring>
 #include <device/scsi.h>
 #include <drivers/Drivers.h>
+#ifdef __BEOS__
 #include <drivers/CAM.h>
+#endif
 #include <unistd.h>
 #include <fcntl.h>
 #include "errno.h"
