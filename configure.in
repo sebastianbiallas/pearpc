@@ -118,6 +118,16 @@ beos*)
 	PPC_CFLAGS="$PPC_CFLAGS -Wno-multichar"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -Wno-multichar"
 ;;
+haiku*)
+	OSAPI_DIR=beos
+	if test "x$enable_ui" = "xno"; then
+		enable_ui="beos"
+	fi
+	AC_MSG_RESULT([*** HAIKU, building native Haiku version])
+        PPC_LDFLAGS="-lbe -lgame"
+	PPC_CFLAGS="$PPC_CFLAGS -Wno-multichar"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS -Wno-multichar"
+;;
 *) 
 	AC_MSG_WARN([configure: warning: $target_os: unknown target OS, assuming POSIX-compatible...])
 	OSAPI_DIR=posix
