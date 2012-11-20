@@ -60,6 +60,7 @@ char *realpath(const char *filename, char *result)
 #endif
 
 #include "system/file.h"
+#include "system/sysvm.h"
 
 #include <dirent.h>
 
@@ -298,7 +299,7 @@ FileOfs	sys_ftell(SYS_FILE *file)
 	return pos;
 }
 
-void *sys_alloc_read_write_execute(int size)
+void *sys_alloc_read_write_execute(size_t size)
 {
 #ifdef USE_AREAS
 	area_id id = -1;
