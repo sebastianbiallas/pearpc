@@ -26,6 +26,10 @@
 #include <OS.h>
 #include "system/systimer.h"
 
+#ifndef __BEOS__
+#define __signal_func_ptr __sighandler_t
+#endif
+
 static void signal_handler(int signo, void *sa_userdata/*, regs*/);
 static const int kTimerSignal = SIGUSR2;//SIGRTMIN;
 
