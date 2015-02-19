@@ -329,7 +329,7 @@ bool prom_mem_init()
 	 *	malloc works now
 	 */
 
-#define DW(w) (w)>>24, (w)>>16, (w)>>8, (w)>>0, 
+#define DW(w) uint8((w)>>24), uint8((w)>>16), uint8((w)>>8), uint8((w)>>0), 
 	uint8 magic_opcode[] = {
 		DW(PROM_MAGIC_OPCODE)
 		DW(0x4e800020)	// blr
