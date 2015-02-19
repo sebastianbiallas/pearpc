@@ -461,7 +461,7 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 	}
 	// look for raw partitions
 	aDevice->seek(0x400);
-	if (aDevice->read(signature, 2) == 2) {
+	if (aDevice->read(signature, 3) == 3) {
 		if (signature[0] == 0x42 && signature[1] == 0x44) {
 			IO_PROM_FS_TRACE("this looks like a single HFS partition to me...\n");
 	
@@ -473,7 +473,7 @@ PartitionMap *partitions_get_map(File *aDevice, uint aDeviceBlocksize)
 				IO_PROM_FS_TRACE("exception probing HFS partition: %y\n", &s);
 			}
 		}
-		if (signature[0] == 0x48 && (signature[1] == 0x2b || signature[2] == 0x58)) {
+		if (signature[0] == 0x48 && (signature[1] == 0x2b || signature[1] == 0x58)) {
 			IO_PROM_FS_TRACE("this looks like a single HFS+ partition to me...\n");
 
 			try {
