@@ -1,5 +1,6 @@
 
-%pure_parser
+%pure-parser
+%parse-param {struct eval_command *resultptr}
 
 %{
 
@@ -8,7 +9,7 @@
 #include "debugtype.h"
 #include "parsehelper.h"
 
-void yyerror (char *s)
+void yyerror (struct eval_command *resultptr, char *s)
 {
 	set_eval_error(s);
 }
