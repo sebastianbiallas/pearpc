@@ -12,3 +12,9 @@ configure
 stamp-h1
 stamp-h
 stamp-h.in
+config.guess
+config.sub
+depcomp
+install-sh
+missing
+ylwrap

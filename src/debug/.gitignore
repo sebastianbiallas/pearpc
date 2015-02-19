@@ -4,3 +4,5 @@ Makefile.in
 debugparse.c
 debugparse.h
 lex.c
+*.o
+*.a
