@@ -960,15 +960,15 @@ void x86dis::str_op(char *opstr, int *opstrlen, x86dis_insn *insn, x86_insn_op *
 		default: {ASSERT(0);}
 		}
 		if (!insn->rexprefix) {
-			sprintf(opstr, x86_regs[j][op->reg]);
+			sprintf(opstr, "%s", x86_regs[j][op->reg]);
 		} else {
-			sprintf(opstr, x86_64regs[j][op->reg]);
+			sprintf(opstr, "%s", x86_64regs[j][op->reg]);
 		}
 		break;
 	}
 	case X86_OPTYPE_SEG:
 		if (x86_segs[op->seg]) {
-			sprintf(opstr, x86_segs[op->seg]);
+			sprintf(opstr, "%s", x86_segs[op->seg]);
 		}
 		break;
 	case X86_OPTYPE_CRX:
