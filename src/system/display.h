@@ -160,7 +160,7 @@ typedef uint32 RGBA;
 #define RGBA_G(rgba) ((rgba>>8) & 0xff)
 #define RGBA_B(rgba) ((rgba>>16) & 0xff)
 #define RGBA_A(rgba) ((rgba>>24) & 0xff)
-#define MK_RGBA(r, g, b, a) ((r) | ((g)<<8) | ((b)<<16) | ((a)<<24))
+#define MK_RGBA(r, g, b, a) (RGB(r) | (RGB(g)<<8) | (RGB(b)<<16) | (RGB(a)<<24))
 #define RGBA_SETA(rgba, a) (((rgba) & 0xffffff) | (a<<24));
 
 #define RGB_R(rgb) (rgb & 0xff)
