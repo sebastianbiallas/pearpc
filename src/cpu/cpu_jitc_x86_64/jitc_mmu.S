@@ -19,7 +19,7 @@
  */
 
 #ifndef PREFIX
-#define PREFIX _
+#define PREFIX
 #endif
 
 #define EXPORT(sym) EXPORT2(PREFIX, sym)
@@ -37,7 +37,7 @@
 #define STRUCT
 #define MEMBER(m, s) .set m, s
 
-.intel_syntax
+.intel_syntax noprefix
 
 #	Define this if you want exact handling of the SO bit.
 /* #define EXACT_SO */
