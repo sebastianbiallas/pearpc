@@ -94,26 +94,26 @@ STRUCT	#ClientPage
 	MEMBER(moreRU, 8)
 	MEMBER(lessRU, 8)
 
-#define curCPU(r) %rdi+r
-#define curCPUoffset(frame) %rsp+(8+8*frame)
+#define curCPU(r) rdi+r
+#define curCPUoffset(frame) rsp+(8+8*frame)
 
 .macro checkCurCPU
 .endm
 .macro checkCurCPUdebug
-	cmp	%rdi, [gCPU]
+	cmp	rdi, [gCPU]
 	je	9f
 	call 	jitc_error
 9:
-	mov	%rdi, [curCPU(jitc)]
-	cmp	%rdi, [gJITC]
+	mov	rdi, [curCPU(jitc)]
+	cmp	rdi, [gJITC]
 	je	9f
-	xor	%eax, %eax
-	mov	[%rax], %rax
+	xor	eax, eax
+	mov	[rax], rax
 9:
-	mov	%rdi, [gCPU]
+	mov	rdi, [gCPU]
 .endm
 
 .macro getCurCPU frame
-	lea	%rdi, [curCPUoffset(\frame)]
+	lea	rdi, [curCPUoffset(\frame)]
 	checkCurCPU
 .endm

@@ -484,6 +484,18 @@ extern "C" void jitc_error(const char *error)
 	exit(1);
 }
 
+extern "C" void FASTCALL jitc_error_singlestep()
+{
+	ht_printf("JITC Error: Singlestep not supported yet\n");
+	exit(1);
+}
+
+extern "C" void FASTCALL jitc_error_unknown_exception()
+{
+        ht_printf("JITC Error: Unknown exception signaled\n");
+        exit(1);
+}
+
 extern "C" void jitc_error_program(uint32 a, uint32 b)
 {
 	if (a != 0x00020000) {	// Filter out trap exceptions, no need to report them
