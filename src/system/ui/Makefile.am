@@ -24,9 +24,13 @@ if USE_UI_X11
 THE_UI_DIR=x11
 endif
 
+if USE_UI_COCOA
+THE_UI_DIR=cocoa
+endif
+
 EXTRA_DIST = gui.h
 
 SUBDIRS = $(THE_UI_DIR)
-EXTRA_SUBDIRS = beos qt gtk win32 sdl x11
+EXTRA_SUBDIRS = beos qt gtk win32 sdl x11 cocoa
 
 INCLUDES = -I ../..

@@ -21,7 +21,7 @@ AC_ARG_ENABLE(debug,
 AC_ARG_ENABLE(cpu,
 	[  --enable-cpu            choose cpu (generic, jitc_x86 or jitc_x86_64) [default=<YOUR-ARCH> or generic]],,enable_cpu="")
 AC_ARG_ENABLE(ui,
-	[  --enable-ui             choose ui (beos, gtk, qt, sdl, win32, or x11) [system-specific defaults]],,enable_ui="no")
+	[  --enable-ui             choose ui (beos, gtk, qt, sdl, win32, cocoa, or x11) [system-specific defaults]],,enable_ui="no")
 
 PPC_CFLAGS="-Wundef -Wall -fsigned-char"
 PPC_CXXFLAGS="-Wundef -Wall -Woverloaded-virtual -fsigned-char"
@@ -55,7 +55,7 @@ else
 fi
 
 AM_INIT_AUTOMAKE($PACKAGE,$VERSION,no-define)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(config.h)
 
 dnl Check OS specifica
 
@@ -101,9 +101,10 @@ mingw32*)
 darwin*)
 	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
-		enable_ui="x11"
+		enable_ui="cocoa"
 	fi
-	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
+	AC_MSG_RESULT([*** Mac OS, building native Cocoa version (Cocoa)])
+	PPC_LDFLAGS="-framework Cocoa"
 	PPC_CCASFLAGS="-DPREFIX=_"
 	PPC_CFLAGS="$PPC_CFLAGS -mdynamic-no-pic"
 	PPC_CXXFLAGS="$PPC_CXXFLAGS -mdynamic-no-pic"
@@ -194,6 +195,7 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_CPP
 AM_PROG_AS
+AC_PROG_OBJC
 
 dnl To ensure backward compatibility, Automake's `AM_PROG_LEX' invokes
 dnl (indirectly) this macro twice, which will cause an annoying but
@@ -355,6 +357,8 @@ dnl	ac_qtdir_errmsg="not found in current PATH. Maybe QT development environment
 ;;
 gtk)
 ;;
+cocoa)
+;;
 beos)
 ;;
 sdl)
@@ -390,6 +394,7 @@ AM_CONDITIONAL(USE_UI_BEOS, test x$UI_DIR = xbeos)
 AM_CONDITIONAL(USE_UI_SDL, test x$UI_DIR = xsdl)
 AM_CONDITIONAL(USE_UI_WIN32, test x$UI_DIR = xwin32)
 AM_CONDITIONAL(USE_UI_X11, test x$UI_DIR = xx11)
+AM_CONDITIONAL(USE_UI_COCOA, test x$UI_DIR = xcocoa)
 
 dnl Checks for some functions.
 AC_CHECK_FUNCS([gettimeofday memset setenv])
@@ -509,6 +514,7 @@ src/system/osapi/posix/Makefile
 src/system/osapi/win32/Makefile
 src/system/ui/Makefile
 src/system/ui/beos/Makefile
+src/system/ui/cocoa/Makefile
 src/system/ui/gtk/Makefile
 src/system/ui/qt/Makefile
 src/system/ui/sdl/Makefile
