@@ -31,10 +31,8 @@
 #define EXTERN2(p, sym) EXTERN3(p, sym)
 #define EXTERN3(p, sym) p##sym
 
-#define STRUCT
-#define MEMBER(m, s) .set m,s
-
 .intel_syntax noprefix
+
 
 #	Define this if you want exact handling of the SO bit.
 /* #define EXACT_SO */
