@@ -240,6 +240,111 @@ damageframebuffer:
 .endif;                                                                        \
 	ret	8;                                                             \
 3:
+.intel_syntax prefix
+
+##############################################################################################
+##	pg_table_lookup
+##
+##	param1: PTE1_H or 0
+##	param2: 0 for read, 8 for write
+##	param3: data / code
+##	param4: pt offset
+##	r9d     effective address
+##	rbx     page table ptr
+#define pg_table_lookup2(n, rw, datacode, offset)                               \
+	mov	%eax, [%rbx + offset];                                  \
+	bswap	%eax;                                                          \
+	                                                                       \
+	/* %ecx = pte1 */                                                      \
+	                                                                       \
+	mov	%ecx, %eax;                                                    \
+	and	%eax, (1<<6) | (1<<31);  	/* (PTE1_V | PTE1_H) */        \
+	cmp	%eax, (n) | (1<<31);                                           \
+	jne	1f;                                                            \
+	                                                                       \
+	mov	%eax, %ecx;                                                    \
+	shr	%ecx, 7;                                                       \
+	and	%ecx, 0xffffff; /* VSID */                                     \
+	cmp	%ecx, %r12d;                                                   \
+	jne	1f;                                                            \
+	                                                                       \
+	and	%eax, 0x3f;     /* API */                                      \
+	cmp	%eax, %r8d;                                                    \
+	jne	1f;                                                            \
+	                                                                       \
+	/* page found */                                                       \
+	                                                                       \
+	mov	%esi, [%rbx + 4 + offset];                              \
+	bswap	%esi;                                                          \
+	                                                                       \
+	/* # %esi = pte2; */                                                   \
+	                                                                       \
+	/* FIXME: use bt trick? */                                             \
+	test	dword ptr [curCPU(msr)], (1<<14); /* MSR_PR */                   \
+	mov	%eax, (1<<29);	/* SR_Kp */                                    \
+	setz	%cl;                                                           \
+	shl	%eax, %cl;	/* SR_Kp <--> SR_Ks */                         \
+	test	%edx, %eax;	/* SR_Kp / SR_Ks */                            \
+	setnz	%al;                                                           \
+	movzx	%eax, %al;                                                     \
+                                                                               \
+	mov	%ecx, %esi;                                                    \
+	and	%ecx, 3;                                                       \
+	                                                                       \
+	cmp	byte ptr [ppc_pte_protection + (rw) + 4*%rax + %rcx], 1;       \
+	mov	%eax, %r9d; /* the effective address */                    \
+	jne	protection_fault_##rw##_##datacode;                            \
+	                                                                       \
+	/* 	update R and C bits */                                         \
+	mov	%edx, %esi;                                                    \
+.if rw==0;                                                                     \
+	or	%edx, (1<<8);		/* PTE2_R */                           \
+.else;                                                                         \
+	or	%edx, (1<<8) | (1<<7);	/* PTE2_R | PTE2_C */                  \
+.endif;                                                                        \
+	bswap	%edx;                                                          \
+	mov	[%rbx+4+offset], %edx;                                         \
+	                                                                       \
+	and	%esi, 0xfffff000;                                              \
+/** TLB-Code */                                                                \
+	mov	%edx, %eax;                                                    \
+	mov	%ecx, %eax;                                                    \
+	shr	%edx, 12;                                                      \
+	and	%ecx, 0xfffff000;                                              \
+	and	%edx, TLB_ENTRIES-1;                                           \
+	mov	%ebx, %esi;                                                    \
+.if datacode==data;                                                            \
+	cmp	%ebx, [EXTERN(gMemorySize)];                                   \
+	ja	4f;                                                            \
+	add	%rsi, [EXTERN(gMemory)];                                       \
+6:;                                                                            \
+.endif;                                                                        \
+	mov	[curCPU(tlb_## datacode ##_## rw ##_eff) + %rdx*4], %ecx;      \
+	mov	[curCPU(tlb_## datacode ##_## rw ##_phys) + %rdx*8], %rsi;     \
+/*	add	qword ptr [curCPU(tlb_## datacode ##_## rw ##_misses)], 1;*/   \
+/***/                                                                          \
+	and	%eax, 0xfff;                                                   \
+	add	%rax, %rsi;                                                    \
+	clc;                                                                   \
+	ret	8;                                                             \
+.if datacode==data;                                                            \
+4:                                                                             \
+	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	jb	5f;                                                            \
+	cmp	%ebx, IO_GCARD_FRAMEBUFFER_PA_END;                             \
+	ja	5f;                                                            \
+	call	damageframebuffer;                                             \
+	sub	%esi, IO_GCARD_FRAMEBUFFER_PA_START;                           \
+	add	%rsi, [EXTERN(gFrameBuffer)];                                  \
+	jmp	6b;                                                            \
+5:	and	%eax, 0xfff;                                                    \
+	add	%eax, %esi;                                                    \
+	stc;                                                                   \
+	ret	8;                                                             \
+.endif;                                                                        \
+1:
+
+.intel_syntax noprefix
 
 ##############################################################################################
 ##	pg_table_lookup
@@ -292,22 +397,20 @@ damageframebuffer:
 	lea	ecx, byte ptr [1 + 4*rax + rcx];                               \
 	cmp     cl, 5;                                                         \
 	mov	eax, r9d; /* the effective address */                          \
-	jne	protection_fault_##rw##_##datacode;                            \
+	je	protection_fault_##rw##_##datacode;                            \
 .else;                                                                         \
-	lea	ecx, byte ptr [1 + 4*rax + rcx];                               \
-	cmp     cl, 3;                                                         \
+	lea	ecx, byte ptr [4*rax + rcx];                                   \
+	mov	eax, 0x47; /* = 01000111b, see ppc_pte_protection mask */       \
+	bt	eax, ecx;                                                       \
 	mov	eax, r9d; /* the effective address */                          \
-	ja	8f;                                                            \
-	cmp     cl, 7;                                                         \
-	jne	protection_fault_##rw##_##datacode;                            \
-8:;                                                                            \
+	jnc	protection_fault_##rw##_##datacode;                            \
 .endif;                                                                        \
 	/* 	update R and C bits */                                         \
 	mov	edx, esi;                                                    \
 .if rw==0;                                                                     \
-	or	edx, (1<<8);		/* PTE2_R */                           \
+	or	edx, (1<<8);            /* PTE2_R */                           \
 .else;                                                                         \
-	or	edx, (1<<8) | (1<<7);	/* PTE2_R | PTE2_C */                  \
+	or	edx, (1<<8) | (1<<7);   /* PTE2_R | PTE2_C */                  \
 .endif;                                                                        \
 	bswap	edx;                                                          \
 	mov	[rbx+4+offset], edx;                                         \

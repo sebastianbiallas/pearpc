@@ -65,7 +65,7 @@
 #define pdec (tlb_va + 4*4)
 #define ptb (pdec + 8)
 
-#define temp (ptb  +8)
+#define temp (ptb + 8)
 #define temp2 (temp + 4)
 #define x87cw (temp2 + 4)
 #define pc_ofs (x87cw + 4)
@@ -83,21 +83,12 @@
 
 //STRUCT(ClientPage)
 #define entrypoints 0
-#define tcf_current (entrypoints+1024*8)
-#define baseaddress (tcf_current+8)
-#define bytesLeft (baseaddress+4)
-#define tcp (bytesLeft+4)
-#define moreRU (tcp+8)
-#define lessRU (moreRU+8)
-
-/*
-	#define tcf_current, 8)
-	#define baseaddress, 4)
-	#define bytesLeft, 4)
-	#define tcp, 8)
-	#define moreRU, 8)
-	#define lessRU, 8)
-*/
+#define tcf_current (entrypoints + 1024*8)
+#define baseaddress (tcf_current + 8)
+#define bytesLeft (baseaddress + 4)
+#define tcp (bytesLeft + 4)
+#define moreRU (tcp + 8)
+#define lessRU (moreRU + 8)
 
 #define curCPU(r) rdi+r
 #define curCPUoffset(frame) rsp+(8+8*frame)
