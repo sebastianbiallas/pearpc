@@ -44,7 +44,7 @@ enum NativeReg {
 	REG_NO = ~8,
 	
 	/*
-	 * ~8 => So you can test whether reg is and extended register (r8-r15)
+	 * ~8 => So you can test whether reg is an extended register (r8-r15)
 	 * by (reg & 8)
 	 */
 };
