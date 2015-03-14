@@ -132,7 +132,7 @@ void drawLogo()
 	gDisplay->fillAllVT(VCP(VC_BLUE, CONSOLE_BG), ' ');
 //	gDisplay->print(textlogo);
 	gDisplay->setAnsiColor(VCP(VC_LIGHT(VC_BLUE), VC_TRANSPARENT));
-	gDisplay->print("\e[H"APPNAME" "APPVERSION" "COPYRIGHT"\n\n");
+	gDisplay->print("\e[H" APPNAME " " APPVERSION " " COPYRIGHT"\n\n");
 }
 
 void tests()
@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
 
 		cuda_pre_init();
 
-		initUI(APPNAME" "APPVERSION, gm, msec, keyConfig, fullscreen);
+		initUI(APPNAME " " APPVERSION, gm, msec, keyConfig, fullscreen);
 
 		io_init();
 
