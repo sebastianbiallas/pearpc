@@ -425,7 +425,7 @@ int initDevice()
 {
 	/* allocate tun device */ 
 	if ((mFD = ::open(DEFAULT_DEVICE, O_RDWR | O_NONBLOCK)) < 0) {
-		throw MsgException("Failed to open "DEFAULT_DEVICE"! Is tunnel.kext loaded?");
+		throw MsgException("Failed to open " DEFAULT_DEVICE "! Is tunnel.kext loaded?");
 	}
 	return 0;
 }

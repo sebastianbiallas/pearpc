@@ -134,13 +134,15 @@ uint CDROMDevice::getBlockCount()
 	return getCapacity();
 }
 
+#define UINT32_STRUCT(a) uint8((a) >> 24), uint8((a) >> 16), uint8((a) >> 8), uint8((a) >> 0)
+#define UINT16_STRUCT(a) uint8((a) >> 8), uint8((a) >> 0)
 int CDROMDevice::getConfig(byte *buf, int aLen, byte RT, int first)
 {
 	// .284
 	byte header[] = {
 		0x00, 0x00, 0x00, 0x00,	// length, filled later
 		0x00, 0x00,		// res
-		curProfile >> 8, curProfile,
+		UINT16_STRUCT(curProfile),
 	};
 	int len = sizeof header - 4;
 	switch (RT) {
@@ -260,9 +262,9 @@ int CDROMDevice::getFeature(byte *buf, int aLen, int feature)
 int CDROMDevice::createFeature(byte *buf, int len, int feature, int version, bool pp, bool cur, byte *add, int size)
 {
 	byte header[] = {
-		feature>>8, feature,
-		version<<2|(pp?0x2:0)|(cur?0x1:0),
-		size,
+		UINT16_STRUCT(feature),
+		uint8(version<<2 | (pp?0x2:0) | (cur?0x1:0)),
+		uint8(size),
 	};
 	int l = put(buf, len, header, sizeof header);	
 	return l+put(buf+l, len-l, add, size);	
@@ -772,18 +774,16 @@ int CDROMDeviceSCSI::readBlock(byte *buf)
 int CDROMDeviceSCSI::readTOC(byte *buf, bool msf, uint8 starttrack, int len, int format)
 {
 	byte params[9] = {
-		msf ? 2 : 0,
+		uint8(msf ? 2 : 0),
 		0,
 		0,
 		0,
 		0,
 		starttrack,
-		len >> 8,
-		len >> 0,
-		format << 6,
+		UINT16_STRUCT(len),
+		uint8(format << 6),
 	};
-	if (SCSI_ExecCmd(SCSI_READ_TOC, SCSI_CMD_DIR_IN,
-	  params, buf, len) == SCSI_STATUS_GOOD) {
+	if (SCSI_ExecCmd(SCSI_READ_TOC, SCSI_CMD_DIR_IN, params, buf, len) == SCSI_STATUS_GOOD) {
 		ht_printf("readtoc: %d\n", (buf[0] << 8) | (buf[1] << 0));
 		return (buf[0] << 8) | (buf[1] << 0);
 	} else {
@@ -809,17 +809,14 @@ int CDROMDeviceSCSI::getConfig(byte *buf, int len, byte RT, int first)
 
 	byte params[9] = {
 		rt[RT],
-		first >> 8,
-		first >> 0,
+		UINT16_STRUCT(first),
 		0,
 		0,
 		0,
-		len >> 8,
-		len >> 0,
+		UINT16_STRUCT(len),
 		0,
 	};
-	if (SCSI_ExecCmd(rt[(4<<4)+13], SCSI_CMD_DIR_IN,
-	  params, buf, len) == SCSI_STATUS_GOOD) {
+	if (SCSI_ExecCmd(rt[(4<<4)+13], SCSI_CMD_DIR_IN, params, buf, len) == SCSI_STATUS_GOOD) {
 		uint32 reslen = (buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]<<0) + 4;
 		return reslen;
 	} else {
@@ -832,19 +829,14 @@ int CDROMDeviceSCSI::readDVDStructure(byte *buf, int len, uint8 subcommand, uint
 {
 	byte params[11] = {
 		subcommand,
-		address >> 24,
-		address >> 16,
-		address >>  8,
-		address >>  0,
+		UINT32_STRUCT(address),
 		layer,
 		format,
-		len >> 8,
-		len >> 0,
-		AGID << 6,
+		UINT16_STRUCT(len),
+		uint8(AGID << 6),
 		control,
 	};
-	if (SCSI_ExecCmd(0xad, SCSI_CMD_DIR_IN,
-	  params, buf, len) == SCSI_STATUS_GOOD) {
+	if (SCSI_ExecCmd(0xad, SCSI_CMD_DIR_IN, params, buf, len) == SCSI_STATUS_GOOD) {
 		uint32 reslen = (buf[0]<<8 | buf[1]<<0) + 2;
 		return reslen;
 	} else {
