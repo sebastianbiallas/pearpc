@@ -24,7 +24,7 @@ AC_ARG_ENABLE(ui,
 	[  --enable-ui             choose ui (beos, gtk, qt, sdl, win32, or x11) [system-specific defaults]],,enable_ui="no")
 
 PPC_CFLAGS="-Wundef -Wall -fsigned-char"
-PPC_CXXFLAGS="-Wundef -Wall -Woverloaded-virtual -fsigned-char"
+PPC_CXXFLAGS="-Wundef -Wall -Woverloaded-virtual -std=c++11 -fsigned-char"
 PPC_LDADD=""
 PPC_LDFLAGS="$LDFLAGS"
 PPC_CCASFLAGS=""
@@ -55,7 +55,7 @@ else
 fi
 
 AM_INIT_AUTOMAKE($PACKAGE,$VERSION,no-define)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(config.h)
 
 dnl Check OS specifica
 
