@@ -269,7 +269,7 @@ EXPORT(ppc_set_msr_asm):
 	mov	ecx, [curCPU(msr)]
 	test	eax, (1<<10)	# MSR_SE
 	jnz	4f
-	test	eax, ~((1<<30)|(1<<27)|(1<<25)|(1<<18)|(1<<15)|(1<<14)|(1<<13)|(1<<12)|(1<<11)|(1<<10)|(1<<8)|(1<<5)|(1<<4)|(1<<1))
+	test	eax, ASM_NEG32((1<<30)|(1<<27)|(1<<25)|(1<<18)|(1<<15)|(1<<14)|(1<<13)|(1<<12)|(1<<11)|(1<<10)|(1<<8)|(1<<5)|(1<<4)|(1<<1))
 	jnz	5f
 	test	eax, (1<<18)	# MSR_POW
 	jnz	2f
@@ -294,7 +294,7 @@ EXPORT(ppc_set_msr_asm):
 	mov	eax, ebx
 	mov	rdi, r12
 	mov	ecx, [curCPU(msr)]
-	and	eax, ~(1<<18)
+	and	eax, ASM_NEG32(1<<18)
 	jmp	1b
 
 4:
