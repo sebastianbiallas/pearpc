@@ -1,3 +1,6 @@
+// as does not have a ~ operator..
+#define ASM_NEG32(a) (0xffffffff-(a))
+
 #define TLB_ENTRIES 32
 
 
