@@ -1,3 +1,25 @@
+- jitc
+- do not map ctr
+00000b90   4200fffc  bdnz      0xb8c
+  10c3af540 448b9424a4010000                mov         r10d, [rsp+1a4]
+  10c3af548 41ffca                          dec         r10d
+  10c3af54b 0f8400000000                    jz          10c3af551
+- flags
+00000b94   70a50003  andi.     r5, r5, 3
+  10c3af571 8b6c2424                        mov         ebp, [rsp+24]
+  10c3af575 83e503                          and         ebp, 3
+00000b98   2c050000  cmpwi     cr0, r5, 0
+  10c3af578 e85388e5f7                      call        ppc_flush_flags_asm
+  10c3af57d 83fd00                          cmp         ebp, 0
+  10c3af580 e88b88e5f7                      call        ppc_flush_flags_signed_0_asm
+- pc
+00000b9c   4d820020  beqlr     cr0
+  10c3af585 f684249301000020                test        byte ptr [rsp+193], 20
+  10c3af58d 8b8424a0010000                  mov         eax, [rsp+1a0]
+  10c3af594 0f8400000000                    jz          10c3af59a
+  10c3af5aa 83e0fc                          and         eax, 0fffffffc   <-- no need for that
+  10c3af5ad e95e8ee5f7                      jmp         ppc_new_pc_asm   
+
 - set_msr0
 EXPORT(ppc_opc_icbi_asm):
 	add	%eax, 1			# FIXME: WTF???

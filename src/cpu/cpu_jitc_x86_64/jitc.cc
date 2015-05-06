@@ -86,7 +86,7 @@ void JITC::emit1(byte b)
 void JITC::emit(byte *instr, uint size)
 {
 	jitcDebugLogEmit(*this, instr, size);
-	if (int(currentPage->bytesLeft - size) < 5) {
+	if (int(currentPage->bytesLeft) - int(size) < 5) {
 		jitcEmitNextFragment(*this);
 	}
 	memcpy(currentPage->tcp, instr, size);
@@ -100,7 +100,7 @@ void JITC::emit(byte *instr, uint size)
  */
 bool JITC::emitAssure(uint size)
 {
-	if (int(currentPage->bytesLeft - size) < 5) {
+	if (int(currentPage->bytesLeft) - int(size) < 5) {
 		jitcEmitNextFragment(*this);
 		return false;
 	}
@@ -503,10 +503,18 @@ extern "C" void jitc_error_program(uint32 a, uint32 b)
 	}
 }
 
+extern "C" void jitc_error_stack_align()
+{
+	ht_printf("JITC Error: Stack is not aligned.\n");
+	exit(1);
+}
+
+#if 0
 extern uint8 jitcFlagsMapping[257];
 extern uint8 jitcFlagsMapping2[256];
 extern uint8 jitcFlagsMappingCMP_U[257];
 extern uint8 jitcFlagsMappingCMP_L[257];
+#endif
 
 bool JITC::init(uint maxClientPages, uint32 tcSize)
 {
@@ -569,7 +577,7 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 	}
 	nr->moreRU = NULL;
 	MRUreg = nr;
-
+#if 0
 	jitcFlagsMapping[0] = 1<<6; // GT
 	jitcFlagsMapping[1] = 1<<7; // LT
 	jitcFlagsMapping[1<<8] = 1<<5; // EQ
@@ -595,6 +603,7 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 			break;
 		}
 	}
+#endif
 
 	for (uint i = XMM0; i<= XMM_SENTINEL; i++) {
 		LRUvregs[i] = (NativeVectorReg)(i-1);
