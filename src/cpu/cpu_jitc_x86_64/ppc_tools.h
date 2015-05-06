@@ -25,7 +25,7 @@
 
 static inline __attribute__((const)) bool ppc_carry_3(uint32 a, uint32 b, uint32 c)
 {
-	register uint8 t;
+	uint8 t;
 	asm (
 		"addl %2, %1\n\t"
 		"setc %0\n\t"

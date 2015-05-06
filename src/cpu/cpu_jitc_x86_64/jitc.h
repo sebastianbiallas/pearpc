@@ -473,11 +473,12 @@ public:
 
 	bool flagsMapped();
 	bool carryMapped();
-
+#if 0
 	void flushFlagsAfterCMPL_L(int disp);
 	void flushFlagsAfterCMPL_U(int disp);
 	void flushFlagsAfterCMP_L(int disp);
 	void flushFlagsAfterCMP_U(int disp);
+#endif
 
 private:
 	void mapRegister(NativeReg nreg, PPC_Register creg);
@@ -583,7 +584,9 @@ private:
 	void asmSimpleALU32(X86ALUopc opc, NativeReg reg1, uint32 imm);
 	void asmTEST32(NativeReg reg1, uint32 imm);
 	void asmSimpleALU32(X86ALUopc opc, NativeReg base, uint32 disp, uint32 imm);
+#if 0
 	void flushFlagsAfterCMP(X86FlagTest t1, X86FlagTest t2, byte mask, int disp, void *map);
+#endif
 
 public:
 	void floatRegisterClobberAll() {}

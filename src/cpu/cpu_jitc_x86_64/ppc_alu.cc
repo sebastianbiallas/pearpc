@@ -724,13 +724,13 @@ JITCFlow ppc_opc_gen_cmp(JITC &jitc)
 	NativeReg a = jitc.getClientRegister(PPC_GPR(rA));
 	NativeReg b = jitc.getClientRegister(PPC_GPR(rB));
 	jitc.asmALU32(X86_CMP, a, b);
-#if 0
+#if 1
 	if (cr == 0) {
-		asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
+		jitc.asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
 	} else {
 		jitc.clobberRegister(RAX | NATIVE_REG);
-		asmMOVRegImm_NoFlags(RAX, (7-cr)/2);
-		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
+		jitc.asmMOV32_NoFlags(RAX, (7-cr)/2);
+		jitc.asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
 	}
 #else
 	if (cr & 1) {
@@ -777,13 +777,13 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
 	jitc.clobberCarryAndFlags();
 	NativeReg a = jitc.getClientRegister(PPC_GPR(rA));
 	jitc.asmALU32(X86_CMP, a, imm);
-#if 0
+#if 1
 	if (cr == 0) {
-		asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
+		jitc.asmCALL((NativeAddress)ppc_flush_flags_signed_0_asm);
 	} else {
 		jitc.clobberRegister(RAX | NATIVE_REG);
-		asmMOVRegImm_NoFlags(RAX, (7-cr)/2);
-		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
+		jitc.asmMOV32_NoFlags(RAX, (7-cr)/2);
+		jitc.asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_signed_odd_asm : (NativeAddress)ppc_flush_flags_signed_even_asm);
 	}
 #else
 	if (cr & 1) {
@@ -829,13 +829,13 @@ JITCFlow ppc_opc_gen_cmpl(JITC &jitc)
 	NativeReg a = jitc.getClientRegister(PPC_GPR(rA));
 	NativeReg b = jitc.getClientRegister(PPC_GPR(rB));
 	jitc.asmALU32(X86_CMP, a, b);
-#if 0
+#if 1
 	if (cr == 0) {
-		asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
+		jitc.asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
 	} else {
 		jitc.clobberRegister(RAX | NATIVE_REG);
-		asmMOVRegImm_NoFlags(RAX, (7-cr)/2);
-		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
+	        jitc.asmMOV32_NoFlags(RAX, (7-cr)/2);
+		jitc.asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
 	}
 #else
 	if (cr & 1) {
@@ -882,13 +882,13 @@ JITCFlow ppc_opc_gen_cmpli(JITC &jitc)
 	jitc.clobberCarryAndFlags();
 	NativeReg a = jitc.getClientRegister(PPC_GPR(rA));
 	jitc.asmALU32(X86_CMP, a, imm);
-#if 0
+#if 1
 	if (cr == 0) {
-		asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
+		jitc.asmCALL((NativeAddress)ppc_flush_flags_unsigned_0_asm);
 	} else {
 		jitc.clobberRegister(RAX | NATIVE_REG);
-		asmMOVRegImm_NoFlags(RAX, (7-cr)/2);
-		asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
+		jitc.asmMOV32_NoFlags(RAX, (7-cr)/2);
+		jitc.asmCALL((cr & 1) ? (NativeAddress)ppc_flush_flags_unsigned_odd_asm : (NativeAddress)ppc_flush_flags_unsigned_even_asm);
 	}
 #else
 	if (cr & 1) {

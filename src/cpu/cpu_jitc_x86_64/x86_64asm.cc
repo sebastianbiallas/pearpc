@@ -575,7 +575,7 @@ void JITC::flushCarry()
 	asmSET8(X86_C, curCPU(xer_ca));
 }
 
-#if 0
+#if 1
 
 void JITC::flushFlags()
 {
@@ -621,6 +621,7 @@ void JITC::flushFlags()
 
 #endif
 
+#if 0
 void JITC::flushFlagsAfterCMP(X86FlagTest t1, X86FlagTest t2, byte mask, int disp, void *map)
 {
 	NativeReg r = allocRegister(NATIVE_REG | RAX);
@@ -660,6 +661,7 @@ void JITC::flushFlagsAfterCMP_L(int disp)
 {
 	flushFlagsAfterCMP(X86_G, X86_L, 0xf0, disp, jitcFlagsMappingCMP_L);
 }
+#endif
 
 void JITC::clobberFlags()
 {
@@ -970,7 +972,7 @@ void JITC::asmSimpleMODRM32(uint8 opc, NativeReg reg1, NativeReg reg2)
 
 void JITC::asmSimpleMODRM8(uint8 opc, NativeReg reg1, NativeReg reg2)
 {
-	if ((reg1 & reg2) > 4) {
+	if ((reg1 | reg2) > 4) {
 		byte instr[3] = {byte(0x40 + ((reg1>>3)<<2) + (reg2>>3)), 
 		                 opc,
 		                 byte(0xc0+ ((reg1&7)<<3) + (reg2&7))};

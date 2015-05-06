@@ -223,6 +223,8 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_start_jitc_asm)), new String("ppc_start_jitc_asm")));
 	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_new_pc_this_page_asm)), new String("ppc_new_pc_this_page_asm")));
 	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_heartbeat_ext_rel_asm)), new String("ppc_heartbeat_ext_rel_asm")));
+	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_flush_flags_signed_0_asm)), new String("ppc_flush_flags_signed_0_asm")));
+	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_flush_flags_unsigned_0_asm)), new String("ppc_flush_flags_unsigned_0_asm")));
 	symbols->insert(new KeyValue(new UInt64(uint64(&call_prom_osi)), new String("call_prom_osi")));
 }
 

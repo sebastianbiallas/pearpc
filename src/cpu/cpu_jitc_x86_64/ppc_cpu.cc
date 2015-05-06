@@ -137,8 +137,7 @@ void ppc_cpu_run()
 		exit(1);
 	}
 	ht_printf("*** &gCPU: %p, &gJITC: %p\n", gCPU, gCPU->jitc);
-	ht_printf("%d\n", int(sizeof *gCPU));
-	ht_printf("%x\n", gCPU->pagetable_hashmask);
+	ht_printf("sizeof cpu: %d\n", int(sizeof(*gCPU)));
 	ppc_start_jitc_asm(gCPU->pc, &gCPU, sizeof *gCPU);
 }
 

@@ -42,56 +42,36 @@
 
 .text
 
-.balign 16
-##############################################################################################
-##
-EXPORT(ppc_flush_carry_and_flags_asm):
-#	getCurCPU 1
-	lea	rdi, [curCPUoffset(1)]
-	jc	1f
-	call	EXTERN(ppc_flush_flags_asm_cpu)
-	and	byte ptr [rdi+xer+3], 0xdf // ~(1<<5)
-1:
-	call	EXTERN(ppc_flush_flags_asm_cpu)
-	or	byte ptr [rdi+xer+3], 0x20 // (1<<5)
-	ret
-
-##############################################################################################
-##
-
 #ifndef EXACT_SO
 #define HANDLE_SO
 #else
-#define HANDLE_SO test byte ptr [rdi+xer+3], 1<<7; jnz 4f
+#define HANDLE_SO test byte ptr [curCPUoffset(1)+xer+3], 1<<7; jnz 4f
 #endif
 
 .balign 16
 ##############################################################################################
 ##
 EXPORT(ppc_flush_flags_asm):
-	lea	rdi, [curCPUoffset(1)]
-#	getCurCPU 1
-EXPORT(ppc_flush_flags_asm_cpu):
 	js	3f
 	jnz	2f
 1:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<5
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<5
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<6
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<6
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<7
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<7
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 4:
-	or	byte ptr [rdi+cr+3], 1<<4
+	or	byte ptr [curCPU(cr+3)], 1<<4
 	ret
 #endif
 
@@ -102,23 +82,23 @@ EXPORT(ppc_flush_flags_signed_0_asm):
 	jl	3f
 	jg	2f
 1:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<5
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<5
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<6
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<6
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<7
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<7
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 4:
-	or	byte ptr [rdi+cr+3], 1<<4
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<4
 	ret
 #endif
 
@@ -129,77 +109,77 @@ EXPORT(ppc_flush_flags_unsigned_0_asm):
 	jb	3f
 	ja	2f
 1:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<5
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<5
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<6
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<6
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+3], 0x0f
-	or	byte ptr [rdi+cr+3], 1<<7
+	and	byte ptr [curCPUoffset(1)+cr+3], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<7
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 .so:
-	or	byte ptr [rdi+cr+3], 1<<4
+	or	byte ptr [curCPUoffset(1)+cr+3], 1<<4
 	ret
 #endif
 
 .balign 16
 ##############################################################################################
 ##	called after "cmp crX, ..", with X even
-ppc_flush_flags_signed_even_asm:
+EXPORT(ppc_flush_flags_signed_even_asm):
 	jl	3f
 	jg	2f
 1:
-	and	byte ptr [rdi+cr+rax], 0x0f
-	or	byte ptr [rdi+cr+rax], 1<<5
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<5
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+rax], 0x0f
-	or	byte ptr [rdi+cr+rax], 1<<6
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<6
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+rax], 0x0f
-	or	byte ptr [rdi+cr+rax], 1<<7
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<7
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 4:
-	or	byte ptr [rdi+cr+rax], 1<<4
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<4
 	ret
 #endif
 
 .balign 16
 ##############################################################################################
 ##	called after "cmpl crX, ..", with X even
-ppc_flush_flags_unsigned_even_asm:
+EXPORT(ppc_flush_flags_unsigned_even_asm):
 	jb	3f
 	ja	2f
 1:
-	and	byte ptr [rdi+cr+rax], 0x0f
-	or	byte ptr [rdi+cr+rax], 1<<5
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<5
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+rax], 0x0f
-	or	byte ptr [rdi+cr+rax], 1<<6
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<6
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+rax], 0x0f
-	or	byte ptr [rdi+cr+rax], 1<<7
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0x0f
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<7
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 4:
-	or	byte ptr [rdi+cr+rax], 1<<4
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<4
 	ret
 #endif
 
@@ -210,23 +190,23 @@ EXPORT(ppc_flush_flags_signed_odd_asm):
 	jl	3f
 	jg	2f
 1:
-	and	byte ptr [rdi+cr+rax], 0xf0
-	or	byte ptr [rdi+cr+rax], 1<<1
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0xf0
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<1
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+rax], 0xf0
-	or	byte ptr [rdi+cr+rax], 1<<2
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0xf0
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<2
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+rax], 0xf0
-	or	byte ptr [rdi+cr+rax], 1<<3
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0xf0
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<3
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 4:
-	or	byte ptr [rdi+cr+rax], 1<<4
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<0
 	ret
 #endif
 
@@ -237,23 +217,23 @@ EXPORT(ppc_flush_flags_unsigned_odd_asm):
 	jb	3f
 	ja	2f
 1:
-	and	byte ptr [rdi+cr+rax], 0xf0
-	or	byte ptr [rdi+cr+rax], 1<<1
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0xf0
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<1
 	HANDLE_SO
 	ret
 2:
-	and	byte ptr [rdi+cr+rax], 0xf0
-	or	byte ptr [rdi+cr+rax], 1<<2
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0xf0
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<2
 	HANDLE_SO
 	ret
 3:
-	and	byte ptr [rdi+cr+rax], 0xf0
-	or	byte ptr [rdi+cr+rax], 1<<3
+	and	byte ptr [curCPUoffset(1)+cr+rax], 0xf0
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<3
 	HANDLE_SO
 	ret
 #ifdef EXACT_SO
 4:
-	or	byte ptr [rdi+cr+rax], 1<<4
+	or	byte ptr [curCPUoffset(1)+cr+rax], 1<<0
 	ret
 #endif
 
@@ -433,7 +413,6 @@ ppc_jitc_new_pc:
 ##
 .macro ppc_new_pc_intern
 	call	EXTERN(jitcNewPC)
-#	call	ppc_jitc_new_pc
 	jmp	rax
 .endm
 
@@ -729,7 +708,9 @@ EXPORT(ppc_new_pc_this_page_asm):
 	call	EXTERN(ppc_effective_to_physical_code)
 	mov	rdi, [curCPU(jitc)]
 	mov	esi, eax
+	sub     rsp, 8                          # align stack
 	call	EXTERN(jitcNewPC)
+	add     rsp, 8                          # undo align
 
 #if 0
 	pop	esi	
@@ -793,8 +774,7 @@ EXPORT(ppc_start_jitc_asm):
 	push	r12
 	push	r13
 	push	r14
-	push	r15
-	
+	push    r15
 
 	mov	rax, [rsi]
 	sub	rsp, rdx
@@ -815,6 +795,11 @@ EXPORT(ppc_start_jitc_asm):
 	getCurCPU 0
 	call	EXTERN(ppc_mmu_tlb_invalidate_all_asm)
 
+        mov     eax, esp
+        test    eax, 0xf
+        jz      1f
+	call	EXTERN(jitc_error_stack_align)
+1:
 	mov	eax, ebp
 	jmp	EXTERN(ppc_new_pc_asm)
 
