@@ -51,7 +51,7 @@
 #include "configparser.h"
 
 //#define DPRINTF(a...)
-#define DPRINTF(a...) ht_printf("[Display/SDL]: "a)
+#define DPRINTF(a...) ht_printf("[Display/SDL]: " a)
 
 #include "syssdl.h"
 
