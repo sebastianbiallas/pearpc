@@ -930,7 +930,13 @@ static void chrpReadWaitForString(File &f, char *buf, uint buflen, char *waitFor
 	char *z = strdup(waitFor);
 	*z = 0;
 	*buf = 0;
-	if (!zlen) return;
+
+	if (!zlen) {
+		if (z != NULL)
+			free(z);
+		return;
+	}
+
 	FileOfs o = f.tell();
 	while (buflen) {
 		f.seek(o);
