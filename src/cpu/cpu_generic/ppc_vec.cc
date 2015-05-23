@@ -2726,7 +2726,7 @@ void ppc_opc_vctsxs()
 
 	for (int i=0; i<4; i++) { //FIXME: This might not comply with Java FP
 		ftmp = gCPU.vr[vrB].f[i] * (float)(1 << uimm);
-		ftmp = truncf(ftmp);
+		ftmp = rintf(ftmp);
 
 		tmp = (sint32)ftmp;
 
@@ -2755,7 +2755,7 @@ void ppc_opc_vctuxs()
 
 	for (int i=0; i<4; i++) { //FIXME: This might not comply with Java FP
 		ftmp = gCPU.vr[vrB].f[i] * (float)(1 << uimm);
-		ftmp = truncf(ftmp);
+		ftmp = rintf(ftmp);
 
 		tmp = (uint32)ftmp;
 

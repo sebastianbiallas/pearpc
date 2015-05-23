@@ -23,6 +23,8 @@
  *
  */
 
+#include <errno.h>
+
 #ifndef APPLE_H
 # include "apple.h"
 #endif
@@ -30,7 +32,6 @@
 # include "hfs.h"
 # include "hfsp.h"
 
-extern int errno;
 /* Last error is eventually found here */
 extern const char *hfsp_error; 
 
