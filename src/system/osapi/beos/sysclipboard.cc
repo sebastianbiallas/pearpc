@@ -22,6 +22,8 @@
 #include <AppDefs.h>
 #include <Clipboard.h>
 
+#include <string.h>
+
 #include "system/sys.h"
 
 bool sys_write_data_to_native_clipboard(const void *data, int size)
