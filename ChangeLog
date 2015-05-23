@@ -4,6 +4,7 @@
 version 0.6pre (not yet released):
 	- [AMD64] TLB for framebuffer
 	- [AMD64] Speed improvements
+	- various bug fixes and modernizations to the source
 
 version 0.5 (released 13. July 2011):
 	- slightly better code for lmw/stmw opcodes
