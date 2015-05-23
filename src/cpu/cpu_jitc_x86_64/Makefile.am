@@ -11,4 +11,4 @@ ppc_vec.h ppc_vec.cc ppc_tools.h jitc.cc jitc.h jitc_debug.cc jitc_debug.h \
 jitc_types.h jitc_mmu.S jitc_tools.S x86_64asm.cc x86_64asm.h jitc_asm.h \
 jitc_common.h
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..
