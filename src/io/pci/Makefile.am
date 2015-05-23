@@ -4,4 +4,4 @@ noinst_LIBRARIES = libpci.a
 
 libpci_a_SOURCES = pci.cc pci.h
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..

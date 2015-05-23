@@ -5,4 +5,4 @@ noinst_LIBRARIES = libide.a
 libide_a_SOURCES = ide.cc ide.h idedevice.cc idedevice.h ata.cc ata.h cd.cc \
 cd.h scsicmds.h
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..

@@ -10,4 +10,4 @@ sysvm.h
 
 SUBDIRS = arch osapi ui
 
-INCLUDES = -I ..
+AM_CPPFLAGS = -I ..

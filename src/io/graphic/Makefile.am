@@ -4,4 +4,4 @@ noinst_LIBRARIES = libgraphic.a
 
 libgraphic_a_SOURCES = gcard.cc gcard.h
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..

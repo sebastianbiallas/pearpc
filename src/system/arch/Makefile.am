@@ -17,4 +17,4 @@ EXTRA_DIST = sysfeatures.h sysendian.h
 SUBDIRS = $(THE_ARCH_DIR)
 EXTRA_SUBDIRS = generic x86 x86_64
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..
