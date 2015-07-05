@@ -139,6 +139,9 @@ haiku*)
 esac
 
 case "$enable_cpu" in
+jitc_x86_64*)
+	CPU_DIR="cpu_jitc_x86_64"
+;;	
 jitc_x86*)
 	CPU_DIR="cpu_jitc_x86"
 ;;	
