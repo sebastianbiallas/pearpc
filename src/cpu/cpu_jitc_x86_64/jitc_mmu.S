@@ -1104,7 +1104,9 @@ EXPORT(ppc_read_effective_byte_asm):
 1:
 	mov	edi, eax
 	mov	esi, 1
+	sub     rsp, 8
 	call	EXTERN(io_mem_read_glue)
+	add     rsp, 8
 	movzx	edx, al
 	ret
 
@@ -1135,7 +1137,9 @@ EXPORT(ppc_read_effective_half_z_asm):
 2:
 	mov	edi, eax
 	mov	esi, 2
+	sub     rsp, 8
 	call	EXTERN(io_mem_read_glue)
+	add     rsp, 8
 	rol	ax, 8
 	movzx	edx, ax
 	ret
@@ -1162,6 +1166,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	push	rdi
 	mov	edi, eax
 	mov	esi, 1
+	# stack already is aligned
 	call	EXTERN(io_mem_read_glue)
 	xor	edx, edx
 	mov	dh, al
@@ -1171,6 +1176,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	push	rdx
 	mov	edi, eax
 	mov	esi, 1
+	# stack already is aligned
 	call	EXTERN(io_mem_read_glue)
 	pop	rdx
 	mov	dl, al
