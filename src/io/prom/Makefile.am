@@ -8,4 +8,4 @@ libprom_a_SOURCES = prom.cc prom.h prommem.cc prommem.h fcode.cc fcode.h forth.c
 forth.h forthtable.h forthtable.cc promboot.cc promboot.h promosi.cc promosi.h \
 promdt.cc promdt.h
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..

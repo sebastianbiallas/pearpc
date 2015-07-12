@@ -243,6 +243,8 @@ EXPORT(ppc_flush_flags_unsigned_odd_asm):
 ##	IN: eax: new msr
 ##	    rdi: cpu
 ##
+##      stack is always unaligned (rsp & 0xf == 8)
+##
 .balign 16
 
 EXPORT(ppc_set_msr_asm):
@@ -270,7 +272,9 @@ EXPORT(ppc_set_msr_asm):
 2:
 	mov	ebx, eax
 	mov	r12, rdi
+	sub     rsp, 8                  # align stack
 	call	EXTERN(cpu_doze)
+	add     rsp, 8
 	mov	eax, ebx
 	mov	rdi, r12
 	mov	ecx, [curCPU(msr)]
@@ -366,50 +370,12 @@ EXPORT(ppc_cpu_atomic_cancel_ext_exception):
 	ppc_atomic_cancel_ext_exception_macro
 	ret
 
-.balign 16
-ppc_jitc_new_pc:
-#
-#	db	0xcc
-#	mov	ecx, [EXTERN(gJITC)+clientPages]
-	mov	ebx, eax
-	shr	eax, 12
-	mov	eax, [ecx+eax*4]
-	test	eax, eax
-	jnz	1f
-
-	mov	eax, ebx
-	and	eax, 0xfffff000
-#	call	EXTERN(jitcCreateClientPage)
-
-1:      # have client page
-#	call	EXTERN(jitcTouchClientPage)
-	cmp	dword ptr [eax+tcf_current], 0
-	je	3f
-	mov	ecx, ebx
-	mov	esi, eax
-	and	ecx, 0x00000ffc
-	mov	eax, [eax + entrypoints + ecx]
-	test	eax, eax
-	jz	2f
-	ret
-
-2:
-	mov	eax, esi
-	mov	edx, ebx
-	and	edx, 0xfffff000
-#	jmp	EXTERN(jitcNewEntrypoint)
-
-3:
-	mov	edx, ebx
-	mov	ecx, ebx
-	and	edx, 0xfffff000
-	and	ecx, 0x00000fff
-#	jmp	EXTERN(jitcStartTranslation)
-	
 ##############################################################################################
 ##
 ##	IN: rdi jitc
 ##	    esi new client pc (physical address)
+##
+##      stack must be aligned when invoking
 ##
 .macro ppc_new_pc_intern
 	call	EXTERN(jitcNewPC)
@@ -418,6 +384,8 @@ ppc_jitc_new_pc:
 
 ##############################################################################################
 ##	    rdi: cpu
+##
+##      stack must be aligned when invoking
 ##
 .macro exception_epilogue entry
 	xor	eax, eax
@@ -438,6 +406,7 @@ ppc_jitc_new_pc:
 ##	    rdi: cpu
 ##
 ##	does not return, so call this per JMP
+##      stack must be aligned when invoking
 EXPORT(ppc_dsi_exception_asm):
 	checkCurCPU
 	mov	[curCPU(dar)], eax
@@ -463,6 +432,7 @@ EXPORT(ppc_dsi_exception_special_asm):
 ##	    rdi: cpu
 ##
 ##	does not return, so call this per JMP
+##      stack must be aligned when invoking
 EXPORT(ppc_isi_exception_asm):
 	checkCurCPU
 	mov	[curCPU(srr0)], eax
@@ -480,6 +450,7 @@ EXPORT(ppc_isi_exception_asm):
 ##	    rdi: cpu
 ##
 ##	this is only called indirectly
+##      stack must be aligned when invoking
 EXPORT(ppc_ext_exception_asm):
 	checkCurCPU
 	mov	[curCPU(srr0)], eax
@@ -496,7 +467,7 @@ EXPORT(ppc_ext_exception_asm):
 ##          esi: pc_ofs
 ##
 ##	does not return, so call this per JMP (Frame 0)
-##
+##      stack must be aligned when invoking
 EXPORT(ppc_program_exception_asm):
 
 	getCurCPU 0
@@ -524,6 +495,7 @@ EXPORT(ppc_program_exception_asm):
 ##          esi: pc_ofs
 ##
 ##	does not return, so call this per JMP (Frame 0)
+##      stack must be aligned when invoking
 EXPORT(ppc_no_fpu_exception_asm):
 	getCurCPU 0
 	
@@ -543,6 +515,7 @@ EXPORT(ppc_no_fpu_exception_asm):
 ##          esi: pc_ofs
 ##
 ##	does not return, so call this per JMP (Frame 0)
+##      stack must be aligned when invoking
 EXPORT(ppc_no_vec_exception_asm):
 	getCurCPU 0
 	mov	edx, esi
@@ -594,6 +567,7 @@ EXPORT(ppc_sc_exception_asm):
 ##	ppc_heartbeat_ext_rel_asm
 ##
 ##	This must always be stack-frame 1
+##      stack is always unaligned (rsp & 0xf == 8)
 ##
 EXPORT(ppc_heartbeat_ext_rel_asm):
 
@@ -625,6 +599,7 @@ EXPORT(ppc_heartbeat_ext_rel_asm):
 ##	eax -- new pc
 ##
 ##	This must always be stack-frame 1
+##      stack is always unaligned (rsp & 0xf == 8)
 ##
 EXPORT(ppc_heartbeat_ext_asm):
 
@@ -642,7 +617,7 @@ EXPORT(ppc_heartbeat_ext_asm):
 	jnz	3f
 	test	byte ptr [curCPU(msr)+1], 1<<7		# MSR_EE
 	jz	2b
-	add	rsp, 8
+	add	rsp, 8                                  # align stack
 	test	byte ptr [curCPU(ext_exception)], 1
 	jnz	EXTERN(ppc_ext_exception_asm)
 	test	byte ptr [curCPU(dec_exception)], 1
@@ -663,6 +638,7 @@ EXPORT(ppc_heartbeat_ext_asm):
 ##	    rdi cpu
 ##
 ##	does not return, so call this per JMP (frame 0)
+##      stack must be aligned in this function
 ##
 EXPORT(ppc_new_pc_rel_asm):
 	getCurCPU 0
@@ -681,6 +657,8 @@ EXPORT(ppc_new_pc_rel_asm):
 ##	IN: eax new client pc (effective address)
 ##
 ##	does not return, so call this per JMP
+##      stack must be aligned in this function
+##
 EXPORT(ppc_new_pc_asm):
 	call	EXTERN(ppc_heartbeat_ext_asm)
 	
@@ -696,11 +674,9 @@ EXPORT(ppc_new_pc_asm):
 ##############################################################################################
 ##	IN: eax new client pc relative
 ##	Frame 1
+##      stack is always unaligned (rsp & 0xf == 8)
 ##
 EXPORT(ppc_new_pc_this_page_asm):
-#	mov	esi, [rsp]
-#	mov	[esi-6], eax			# patch it now, we don''t have the value later
-
 	## FIXME: needed?
 	getCurCPU 1
 	add	eax, [curCPU(current_code_base)]
@@ -795,9 +771,12 @@ EXPORT(ppc_start_jitc_asm):
 	getCurCPU 0
 	call	EXTERN(ppc_mmu_tlb_invalidate_all_asm)
 
-        mov     eax, esp
+        mov     rax, rsp
         test    eax, 0xf
         jz      1f
+        sub     rax, 0x10
+        and     rax, 0xfffffffffffffff0
+        mov     rsp, rax
 	call	EXTERN(jitc_error_stack_align)
 1:
 	mov	eax, ebp

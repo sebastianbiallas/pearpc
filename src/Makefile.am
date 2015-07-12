@@ -4,7 +4,7 @@ bin_PROGRAMS	= ppc
 
 SUBDIRS		= cpu debug io system tools
 
-INCLUDES	=
+AM_CPPFLAGS =
 
 if USE_UI_WIN32
 ppc_RES = system/ui/@UI_DIR@/resources.o

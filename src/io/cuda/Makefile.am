@@ -4,4 +4,4 @@ noinst_LIBRARIES = libcuda.a
 
 libcuda_a_SOURCES = cuda.cc cuda.h
 
-INCLUDES = -I ../..
+AM_CPPFLAGS = -I ../..

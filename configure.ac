@@ -1,8 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(src/system/types.h)
-
 PACKAGE=pearpc
 VERSION=0.6pre
+
+AC_INIT(PACKAGE, VERSION)
 
 dnl Check the system.
 AC_CANONICAL_SYSTEM
@@ -54,7 +54,9 @@ else
 	fi
 fi
 
-AM_INIT_AUTOMAKE($PACKAGE,$VERSION,no-define)
+AC_CONFIG_SRCDIR([src/system/types.h])
+AM_INIT_AUTOMAKE(no-define)
+
 AC_CONFIG_HEADER(config.h)
 
 dnl Check OS specifica
@@ -138,6 +140,9 @@ haiku*)
 esac
 
 case "$enable_cpu" in
+jitc_x86_64*)
+	CPU_DIR="cpu_jitc_x86_64"
+;;	
 jitc_x86*)
 	CPU_DIR="cpu_jitc_x86"
 ;;	

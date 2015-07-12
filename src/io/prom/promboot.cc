@@ -926,11 +926,11 @@ static void chrpReadWaitForChar(File &f, char *buf, uint buflen, char waitFor)
 
 static void chrpReadWaitForString(File &f, char *buf, uint buflen, char *waitFor)
 {
+	*buf = 0;
 	uint zlen = strlen(waitFor);
+	if (!zlen) return;
 	char *z = strdup(waitFor);
 	*z = 0;
-	*buf = 0;
-	if (!zlen) return;
 	FileOfs o = f.tell();
 	while (buflen) {
 		f.seek(o);

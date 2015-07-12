@@ -33,6 +33,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/select.h>
 
 #include "system/sysethtun.h"
 #include "tools/snprintf.h"

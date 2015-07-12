@@ -7,5 +7,5 @@ sysmouse.cc syskeyboard.cc sysbeos.h
 
 EXTRA_DIST = pearpc-res.h pearpc-res.rdef
 
-INCLUDES = -I ../../.. 
+AM_CPPFLAGS = -I ../../.. 
 #@BEOS_CFLAGS@
