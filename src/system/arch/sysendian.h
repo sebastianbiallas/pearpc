@@ -21,7 +21,9 @@
 #ifndef __SYSTEM_ARCH_SYSENDIAN_H__
 #define __SYSTEM_ARCH_SYSENDIAN_H__
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #include SYSTEM_ARCH_SPECIFIC_ENDIAN_DIR
 
