@@ -268,7 +268,10 @@ bool ppc_cpu_init()
 //	exit(1);
 	gCPU->jitc = new JITC;
 	gJITC = gCPU->jitc;
-	return gCPU->jitc->init(4096, 64*1024*1024);
+	
+	const size_t maxClientPages = gMemorySize / 4096 / 8;
+	const size_t translationCacheSize = gMemorySize / 4;
+	return gCPU->jitc->init(maxClientPages, translationCacheSize);
 }
 
 void ppc_cpu_init_config()

@@ -36,6 +36,7 @@ void jitcDebugLogAdd(const char *fmt, ...);
 
 void jitcDebugInit();
 void jitcDebugDone();
+void jitcDebugAddJumpTableEntry(NativeAddress to, NativeAddress entry);
 
 #else
 
@@ -54,6 +55,10 @@ static inline UNUSED void jitcDebugInit()
 static inline UNUSED void jitcDebugDone()
 {
 }
+static inline UNUSED void jitcDebugAddJumpTableEntry(NativeAddress to, NativeAddress entry)
+{
+}
+
 #endif
 
 #endif
