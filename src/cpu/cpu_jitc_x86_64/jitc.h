@@ -23,6 +23,9 @@
 
 #include "ppc_cpu.h"
 #include "jitc_types.h"
+#include <cstring>
+#include <vector>
+#include <map>
 
 enum NativeReg {
 	RAX = 0,
@@ -40,7 +43,7 @@ enum NativeReg {
 	R12 = 12,
 	R13 = 13,
 	R14 = 14,
-	R15 = 15,
+	R15 = 15,	// reserved for jmp to 64-bit address from jumpTable
 	REG_NO = ~8,
 	
 	/*
@@ -106,10 +109,13 @@ struct ClientPage {
 	 *	into host addresses. Address isn't (yet) an entrypoint 
 	 *	or not yet translated if entrypoints[page_offset] == 0
 	 *
+	 *	Entry points are stored as a 32-bit offset into the
+	 *	translation cache.
+	 *
 	 *	Note that a client page has 4096 bytes, but there are only
 	 *	1024 possible entries per page.
 	 */
-	NativeAddress entrypoints[1024];
+	uint32_t entrypoints[1024];
 
 	/*
 	 *	The fragment which has space left
@@ -127,6 +133,18 @@ struct ClientPage {
 
 	ClientPage *moreRU;	// points to a page which was used more recently
 	ClientPage *lessRU;	// points to a page which was used less recently
+	
+	void destroy() {
+		memset(entrypoints, 0, sizeof(entrypoints));
+		tcf_current = NULL;
+	}
+
+	void* operator new(size_t size) {
+		// Clear memory before construction
+		auto ptr = ::new uint8_t[size];
+		memset(ptr, 0, size);
+		return ptr;
+	}
 };
 
 struct NativeRegType {
@@ -393,12 +411,22 @@ struct JITC {
 	 *	Can be NULL.
 	 */
 	TranslationCacheFragment *freeFragmentsList;
+	
+	/*
+	 *	Contiguous storage of TranslationCacheFragment entries
+	 */
+	std::vector<TranslationCacheFragment> fragmentArray;
 
 	/*
 	 *	These are the unused client pages as a linked list.
 	 *	Can be NULL.
 	 */
 	ClientPage *freeClientPages;
+	
+	/*
+	 *	Contiguous storage of ClientPages
+	 */
+	std::vector <ClientPage> clientPageArray;
 	
 	/*
 	 *
@@ -441,9 +469,32 @@ struct JITC {
 	NativeVectorReg MRUvregs[17];
 	int nativeVectorReg;
 
-
+	/*
+	 * Jump table for jumping from within the translation cache,
+	 * where all addresses are within 32-bit relative jump range,
+	 * to an address anywhere in the 64-bit address space.
+	 */
+	struct JumpTableEntry {
+		NativeAddress jmp;
+	};
 	
-	bool init(uint maxClientPages, uint32 tcSize);
+	/*
+	 * Generate jump table entries on demand into a reserved area
+	 * of the translation cache.
+	 */
+	static const size_t kJumpTableSize = 2048;
+	std::map<NativeAddress, JumpTableEntry> jumpTable;
+	byte *jumpTableStart;
+	byte *jumpTableCurr;
+
+	void *operator new(size_t size) {
+		// Clear memory before construction
+		auto ptr = ::new uint8_t[size];
+		memset(ptr, 0, size);
+		return ptr;
+	}
+
+	bool init(size_t maxClientPages, size_t tcSize);
 	void done();
 
 	NativeReg allocRegister(int options = 0);
@@ -496,6 +547,16 @@ private:
 	void flushSingleRegisterDirty(NativeReg reg);
 	void flushCarry();
 	void flushFlags();
+	
+	/// Emit instructions for a 64-bit jump to specified address
+	size_t emitJMP64(NativeAddress to, byte* instr, size_t size);
+	
+	/// Return a jump table entry to reach the specified destination address.
+	/// If the entry does not exist a new jump table entry will be created.
+	const JumpTableEntry &getJumpTableEntry(NativeAddress to);
+	
+	/// Return number of bytes free in the jump table
+	ptrdiff_t getJumpTableFreeBytes() const { return jumpTableStart + kJumpTableSize - jumpTableCurr; }
 	
 public:
 	void emit1(byte b);

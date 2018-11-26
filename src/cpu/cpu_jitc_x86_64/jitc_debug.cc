@@ -225,12 +225,30 @@ void jitcDebugInit()
 	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_heartbeat_ext_rel_asm)), new String("ppc_heartbeat_ext_rel_asm")));
 	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_flush_flags_signed_0_asm)), new String("ppc_flush_flags_signed_0_asm")));
 	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_flush_flags_unsigned_0_asm)), new String("ppc_flush_flags_unsigned_0_asm")));
+	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_flush_flags_signed_odd_asm)), new String("ppc_flush_flags_signed_odd_asm")));
+	symbols->insert(new KeyValue(new UInt64(uint64(&ppc_flush_flags_signed_even_asm)), new String("ppc_flush_flags_signed_even_asm")));
 	symbols->insert(new KeyValue(new UInt64(uint64(&call_prom_osi)), new String("call_prom_osi")));
 }
 
 void jitcDebugDone()
 {
 	fclose(gDebugLog);
+}
+
+void jitcDebugAddJumpTableEntry(NativeAddress to, NativeAddress entry)
+{
+	CPU_ADDR addr;
+	addr.flat64.addr = (uint64)to;
+
+	String *entryName = new String();
+	
+	if (const char *sym = symbol_lookup(addr, NULL, NULL)) {
+		entryName->assignFormat("jump_table[%s]", sym);
+	} else {
+		entryName->assignFormat("jump_table[%p]", to);
+	}
+	
+	symbols->insert(new KeyValue(new UInt64(uint64(entry)), entryName));
 }
 
 #endif

@@ -20,6 +20,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <cassert>
 
 #include "tools/debug.h"
 #include "tools/snprintf.h"
@@ -714,6 +715,53 @@ void JITC::flushCarryAndFlagsDirty()
 		}
 	}
 }
+
+size_t JITC::emitJMP64(NativeAddress to, byte* instr, size_t size)
+{
+	// 16-byte pad the emitted code
+	const size_t kSize = 16;
+	
+	assert(size >= kSize);
+	
+	// Fill with nop
+	memset(instr, 0x90, kSize);
+	
+	// mov r15, to
+	instr[0] = 0x49;
+	instr[1] = 0xbf;
+	U64(instr + 2) = uint64(to);
+	
+	// jmp r15
+	instr[10] = 0x41;
+	instr[11] = 0xff;
+	instr[12] = 0xe7;
+	
+	return kSize;
+}
+
+const JITC::JumpTableEntry &JITC::getJumpTableEntry(NativeAddress to)
+{
+	auto itr = jumpTable.find(to);
+	
+	if (itr == jumpTable.end()) {
+		byte instr[16];
+		const size_t size = emitJMP64(to, instr, sizeof(instr));
+
+		assert(getJumpTableFreeBytes() >= size);
+		
+		JumpTableEntry entry;
+		entry.jmp = jumpTableCurr;
+		memcpy(jumpTableCurr, instr, size);
+		jumpTableCurr += size;
+		
+		itr = jumpTable.insert(std::pair<NativeAddress, JumpTableEntry>(to, entry)).first;
+		
+		jitcDebugAddJumpTableEntry(to, entry.jmp);
+	}
+	
+	return itr->second;
+}
+
 
 /**
  *		Assembler stuff
@@ -1789,6 +1837,8 @@ void JITC::asmBSWAP32(NativeReg reg)
 
 void JITC::asmJMP(NativeAddress to)
 {
+	to = getJumpTableEntry(to).jmp;
+	
 	/*
 	 *	We use emitAssure here, since
 	 *	we have to know the exact address of the jump
@@ -1812,6 +1862,8 @@ restart:
 
 void JITC::asmJxx(X86FlagTest flags, NativeAddress to)
 {
+	to = getJumpTableEntry(to).jmp;
+
 restart:
 	byte instr[6];
 	uint32 rel = uint32(to - (currentPage->tcp+2));
@@ -1854,6 +1906,8 @@ NativeAddress JITC::asmJxxFixup(X86FlagTest flags)
 
 void JITC::asmCALL(NativeAddress to)
 {
+	to = getJumpTableEntry(to).jmp;
+
 	emitAssure(5);
 	byte instr[5];
 	instr[0] = 0xe8;
