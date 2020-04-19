@@ -32,8 +32,8 @@
 #include "debug/tracers.h"
 #include "io/ide/cd.h"
 
-#define IO_NCD_TRACE(msg...) IO_IDE_TRACE("[CDROM/BEOS] "msg)
-#define IO_NCD_WARN(msg...) IO_IDE_WARN("[CDROM/BEOS] "msg)
+#define IO_NCD_TRACE(msg...) IO_IDE_TRACE("[CDROM/BEOS] ", msg)
+#define IO_NCD_WARN(msg...) IO_IDE_WARN("[CDROM/BEOS] ", msg)
 
 #define SCSI_CMD_DIR_IN 1
 #define SCSI_CMD_DIR_OUT 2
