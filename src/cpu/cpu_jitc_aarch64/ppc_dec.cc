@@ -82,50 +82,42 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
         return flowEndBlock;                                                                                           \
     }
 
-/* ALU - native gen_ in ppc_alu.cc: addi, addis, ori, cmpi, bx */
+/*
+ * ALU - native gen_ in ppc_alu.cc:
+ *   addi, addis, ori, oris, xori, xoris, cmpi, bx
+ *   addx, subfx, andx, orx, xorx, negx, mullwx
+ *   slwx, srwx, rlwinmx
+ */
 GEN_INTERPRET(addic)
 GEN_INTERPRET(addic_)
 GEN_INTERPRET(subfic)
 GEN_INTERPRET(mulli)
-GEN_INTERPRET(oris)
-GEN_INTERPRET(xori)
-GEN_INTERPRET(xoris)
 GEN_INTERPRET(andi_)
 GEN_INTERPRET(andis_)
 GEN_INTERPRET(cmpli)
-GEN_INTERPRET(rlwinmx)
 GEN_INTERPRET(rlwimix)
 GEN_INTERPRET(rlwnmx)
 
-/* Group 2 ALU (opcode 31) */
+/* Group 2 ALU - native: addx, subfx, andx, orx, xorx, negx, mullwx */
 GEN_INTERPRET(cmp)
 GEN_INTERPRET(cmpl)
-GEN_INTERPRET(addx)
 GEN_INTERPRET(addcx)
 GEN_INTERPRET(addex)
 GEN_INTERPRET(addzex)
 GEN_INTERPRET(addmex)
-GEN_INTERPRET(subfx)
 GEN_INTERPRET(subfcx)
 GEN_INTERPRET(subfex)
 GEN_INTERPRET(subfzex)
 GEN_INTERPRET(subfmex)
-GEN_INTERPRET(mullwx)
 GEN_INTERPRET(mulhwx)
 GEN_INTERPRET(mulhwux)
 GEN_INTERPRET(divwx)
 GEN_INTERPRET(divwux)
-GEN_INTERPRET(andx)
 GEN_INTERPRET(andcx)
-GEN_INTERPRET(orx)
 GEN_INTERPRET(orcx)
-GEN_INTERPRET(xorx)
 GEN_INTERPRET(norx)
 GEN_INTERPRET(nandx)
 GEN_INTERPRET(eqvx)
-GEN_INTERPRET(negx)
-GEN_INTERPRET(slwx)
-GEN_INTERPRET(srwx)
 GEN_INTERPRET(srawx)
 GEN_INTERPRET(srawix)
 GEN_INTERPRET(cntlzwx)

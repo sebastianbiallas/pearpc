@@ -200,6 +200,187 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
     return flowEndBlockUnreachable;
 }
 
+/*
+ *  oris rA, rS, UIMM  (opcode 25)
+ */
+JITCFlow ppc_opc_gen_oris(JITC &jitc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    if (imm) {
+        jitc.emitMOV32((NativeReg)17, imm << 16);
+        jitc.emit32(a64_ORRw_reg(16, 16, 17));
+    }
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  xori rA, rS, UIMM  (opcode 26)
+ */
+JITCFlow ppc_opc_gen_xori(JITC &jitc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    if (imm) {
+        jitc.emitMOV32((NativeReg)17, imm);
+        jitc.emit32(a64_EORw_reg(16, 16, 17));
+    }
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  xoris rA, rS, UIMM  (opcode 27)
+ */
+JITCFlow ppc_opc_gen_xoris(JITC &jitc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    if (imm) {
+        jitc.emitMOV32((NativeReg)17, imm << 16);
+        jitc.emit32(a64_EORw_reg(16, 16, 17));
+    }
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  Register-register ALU helpers.
+ *  Pattern: rD = gpr[rA] OP gpr[rB], store to gpr[rD]
+ */
+static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
+    jitc.emit32(op(16, 16, 17));
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    return flowContinue;
+}
+
+/* add rD, rA, rB */
+JITCFlow ppc_opc_gen_addx(JITC &jitc)
+{
+    return gen_alu_reg(jitc, a64_ADDw_reg);
+}
+/* subf rD, rA, rB  (rD = rB - rA) */
+JITCFlow ppc_opc_gen_subfx(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rA));
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rB));
+    jitc.emit32(a64_SUBw_reg(16, 16, 17));
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    return flowContinue;
+}
+/* and rA, rS, rB  (note: rA is destination, rS is first source) */
+JITCFlow ppc_opc_gen_andx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
+    jitc.emit32(a64_ANDw_reg(16, 16, 17));
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+/* or rA, rS, rB */
+JITCFlow ppc_opc_gen_orx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
+    jitc.emit32(a64_ORRw_reg(16, 16, 17));
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+/* xor rA, rS, rB */
+JITCFlow ppc_opc_gen_xorx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
+    jitc.emit32(a64_EORw_reg(16, 16, 17));
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  neg rD, rA
+ */
+JITCFlow ppc_opc_gen_negx(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+    // NEG Wd, Wn = SUB Wd, WZR, Wn
+    jitc.emit32(a64_SUBw_reg(16, 31, 16));
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    return flowContinue;
+}
+
+/*
+ *  slw rA, rS, rB  (shift left word)
+ */
+JITCFlow ppc_opc_gen_slwx(JITC &jitc)
+{
+    int rA, rS, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    // PPC slw: result = (rS << (rB & 0x3F)), zeroed if shift >= 32
+    // Use interpreter for correctness (handles shift >= 32)
+    extern void ppc_opc_slwx(PPC_CPU_State &);
+    ppc_opc_gen_interpret(jitc, ppc_opc_slwx);
+    return flowContinue;
+}
+
+/*
+ *  srw rA, rS, rB  (shift right word)
+ */
+JITCFlow ppc_opc_gen_srwx(JITC &jitc)
+{
+    int rA, rS, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    extern void ppc_opc_srwx(PPC_CPU_State &);
+    ppc_opc_gen_interpret(jitc, ppc_opc_srwx);
+    return flowContinue;
+}
+
+/*
+ *  rlwinm rA, rS, SH, MB, ME  (rotate left word then AND with mask)
+ */
+JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
+{
+    extern void ppc_opc_rlwinmx(PPC_CPU_State &);
+    ppc_opc_gen_interpret(jitc, ppc_opc_rlwinmx);
+    return flowContinue;
+}
+
+/*
+ *  mullw rD, rA, rB
+ */
+JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
+    // MUL Wd, Wn, Wm = MADD Wd, Wn, Wm, WZR
+    jitc.emit32(0x1B107E10 | (17 << 16) | (16 << 5) | 16);
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    return flowContinue;
+}
+
 // Forward declarations for functions defined in ppc_opc.cc
 extern void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr);
 extern void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec);

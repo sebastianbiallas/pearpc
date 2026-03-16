@@ -136,7 +136,42 @@ _start:
     CHECK   42
 
     /*
-     * Test 12: stw / lwz (store and load word)
+     * Test 12: oris (OR immediate shifted)
+     */
+    PRINT   .Ltest12, (.Ltest12_end - .Ltest12)
+    li      3, 0
+    oris    3, 3, 1           /* r3 = 0x00010000 */
+    srwi    3, 3, 16          /* r3 = 1 */
+    CHECK   1
+
+    /*
+     * Test 13: xori
+     */
+    PRINT   .Ltest13, (.Ltest13_end - .Ltest13)
+    li      4, 0x55
+    xori    3, 4, 0x7F        /* 0x55 ^ 0x7F = 0x2A = 42 */
+    CHECK   42
+
+    /*
+     * Test 14: xoris
+     */
+    PRINT   .Ltest14, (.Ltest14_end - .Ltest14)
+    lis     4, 0x0055         /* r4 = 0x00550000 */
+    xoris   3, 4, 0x007F      /* 0x00550000 ^ 0x007F0000 = 0x002A0000 */
+    srwi    3, 3, 16          /* r3 = 0x002A = 42 */
+    CHECK   42
+
+    /*
+     * Test 15: or (register)
+     */
+    PRINT   .Ltest15, (.Ltest15_end - .Ltest15)
+    li      4, 0x22
+    li      5, 0x08
+    or      3, 4, 5           /* 0x22 | 0x08 = 0x2A = 42 */
+    CHECK   42
+
+    /*
+     * Test 16: stw / lwz (store and load word)
      */
     PRINT   .Ltest12, (.Ltest12_end - .Ltest12)
     li      4, 42
@@ -146,7 +181,7 @@ _start:
     CHECK   42
 
     /*
-     * Test 13: stb / lbz (store and load byte)
+     * Test 17: stb / lbz (store and load byte)
      */
     PRINT   .Ltest13, (.Ltest13_end - .Ltest13)
     li      4, 42
@@ -156,7 +191,7 @@ _start:
     CHECK   42
 
     /*
-     * Test 14: sth / lhz (store and load halfword)
+     * Test 18: sth / lhz (store and load halfword)
      */
     PRINT   .Ltest14, (.Ltest14_end - .Ltest14)
     li      4, 4200
@@ -166,7 +201,7 @@ _start:
     CHECK   4200
 
     /*
-     * Test 15: rlwinm (rotate and mask - used for bit extraction)
+     * Test 19: rlwinm (rotate and mask - used for bit extraction)
      */
     PRINT   .Ltest15, (.Ltest15_end - .Ltest15)
     lis     3, 0x002A        /* r3 = 0x002A0000 */
@@ -174,7 +209,7 @@ _start:
     CHECK   42
 
     /*
-     * Test 16: cmp / bgt / blt / beq
+     * Test 20: cmp / bgt / blt / beq
      */
     PRINT   .Ltest16, (.Ltest16_end - .Ltest16)
     li      3, 0
@@ -203,7 +238,7 @@ _start:
 5:
 
     /*
-     * Test 17: mfspr / mtspr (link register)
+     * Test 21: mfspr / mtspr (link register)
      */
     PRINT   .Ltest17, (.Ltest17_end - .Ltest17)
     li      4, 42
@@ -212,7 +247,7 @@ _start:
     CHECK   42
 
     /*
-     * Test 18: mfcr / cmpwi with CR field
+     * Test 22: mfcr / cmpwi with CR field
      */
     PRINT   .Ltest18, (.Ltest18_end - .Ltest18)
     li      4, 5
@@ -287,26 +322,38 @@ _start:
     .ascii  "test 11 mullw:       "
 .Ltest11_end:
 .Ltest12:
-    .ascii  "test 12 stw/lwz:     "
+    .ascii  "test 12 oris:        "
 .Ltest12_end:
 .Ltest13:
-    .ascii  "test 13 stb/lbz:     "
+    .ascii  "test 13 xori:        "
 .Ltest13_end:
 .Ltest14:
-    .ascii  "test 14 sth/lhz:     "
+    .ascii  "test 14 xoris:       "
 .Ltest14_end:
 .Ltest15:
-    .ascii  "test 15 rlwinm:      "
+    .ascii  "test 15 or:          "
 .Ltest15_end:
 .Ltest16:
-    .ascii  "test 16 cmp/branch:  "
+    .ascii  "test 16 stw/lwz:     "
 .Ltest16_end:
 .Ltest17:
-    .ascii  "test 17 mtspr/mfspr: "
+    .ascii  "test 17 stb/lbz:     "
 .Ltest17_end:
 .Ltest18:
-    .ascii  "test 18 mfcr/cmpwi:  "
+    .ascii  "test 18 sth/lhz:     "
 .Ltest18_end:
+.Ltest19:
+    .ascii  "test 19 rlwinm:      "
+.Ltest19_end:
+.Ltest20:
+    .ascii  "test 20 cmp/branch:  "
+.Ltest20_end:
+.Ltest21:
+    .ascii  "test 21 mtspr/mfspr: "
+.Ltest21_end:
+.Ltest22:
+    .ascii  "test 22 mfcr/cmpwi:  "
+.Ltest22_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
