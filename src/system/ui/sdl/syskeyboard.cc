@@ -1,4 +1,4 @@
-/* 
+/*
  *	PearPC
  *	keyboard.cc - keyboardaccess functions for POSIX
  *
@@ -21,7 +21,7 @@
 
 #include <cstdlib>
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "system/display.h"
 #include "system/keyboard.h"
@@ -31,40 +31,16 @@ public:
 	virtual int getKeybLEDs()
 	{
 		int r = 0;
-		SDLMod keyMods = SDL_GetModState();
-		if (keyMods & KMOD_NUM)
+		SDL_Keymod keyMods = SDL_GetModState();
+		if (keyMods & SDL_KMOD_NUM)
 			r |= KEYB_LED_NUM;
-		if (keyMods & KMOD_CAPS)
+		if (keyMods & SDL_KMOD_CAPS)
 			r |= KEYB_LED_CAPS;
-		/*
-		if (keyMods & SDLK_SCROLLOCK)
-			r |= KEYB_LED_SCROLL;*/
 		return r;
 	}
 
 	void setKeybLEDs(int leds)
 	{
-#if 0
-		int r = getKeybLEDs() ^ leds;
-		SDLMod keyMods = SDL_GetModState();
-
-		if (r & KEYB_LED_NUM && leds & KEYB_LED_NUM)
-			(int)keyMods |= KMOD_NUM;
-		else
-			(int)keyMods &= KMOD_NUM;
-
-		if (r & KEYB_LED_CAPS && leds & KEYB_LED_CAPS)
-			(int)keyMods |= KMOD_CAPS;
-		else
-			(int)keyMods &= KMOD_CAPS;
-		/*
-		if (r & KEYB_LED_SCROLL && leds & KEYB_LED_SCROLL)
-			keyMods |= SDLK_SCROLLOCK;
-		else
-			keyMods &= SDLK_SCROLLOCK;
-		*/
-		SDL_SetModState(keyMods);
-#endif
 	}
 
 	virtual bool handleEvent(const SystemEvent &ev)

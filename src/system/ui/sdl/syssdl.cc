@@ -1,4 +1,4 @@
-/* 
+/*
  *	PearPC
  *	syssdl.cc
  *
@@ -20,8 +20,7 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <SDL.h>
-#include <SDL_thread.h>
+#include <SDL3/SDL.h>
 
 #include <csignal>
 #include <cstdlib>
@@ -43,168 +42,23 @@
 
 #include "syssdl.h"
 
-SDL_Surface *	gSDLScreen;
+SDL_Window *	gSDLWindow = NULL;
+SDL_Renderer *	gSDLRenderer = NULL;
+SDL_Texture *	gSDLTexture = NULL;
 static bool	gSDLVideoExposePending = false;
-SDL_TimerID SDL_RedrawTimerID;
+SDL_TimerID SDL_RedrawTimerID = 0;
 
 SDLSystemDisplay *sd;
 
-#if 0
-
-// Argl, this doesn't work, stupid SDL
-
-static uint8 sdl_key_to_adb_key[512];
-
-static struct {
-	SDLKey sdlkey;
-	uint8  adbkey;
-} sdladbkeys[] = {
-	{SDLK_BACKSPACE, KEY_DELETE},
-	{SDLK_TAB, KEY_TAB},
-	{SDLK_RETURN, KEY_RETURN},
-	{SDLK_PAUSE, KEY_PAUSE},
-	{SDLK_ESCAPE, KEY_ESCAPE},
-	{SDLK_SPACE, KEY_SPACE},
-	{SDLK_COMMA, KEY_COMMA},
-	{SDLK_MINUS, KEY_MINUS},
-	{SDLK_PERIOD, KEY_PERIOD},
-	{SDLK_0, KEY_0},
-	{SDLK_1, KEY_1},
-	{SDLK_2, KEY_2},
-	{SDLK_3, KEY_3},
-	{SDLK_4, KEY_4},
-	{SDLK_5, KEY_5},
-	{SDLK_6, KEY_6},
-	{SDLK_7, KEY_7},
-	{SDLK_8, KEY_8},
-	{SDLK_9, KEY_9},
-	{SDLK_SEMICOLON, KEY_SEMICOLON},
-	{SDLK_LEFTBRACKET, KEY_BRACKET_R},
-	{SDLK_BACKSLASH, KEY_BACKSLASH},
-	{SDLK_RIGHTBRACKET, KEY_BRACKET_L},
-	{SDLK_BACKQUOTE, KEY_GRAVE},
-	{SDLK_a, KEY_a},
-	{SDLK_b, KEY_b},
-	{SDLK_c, KEY_c},
-	{SDLK_d, KEY_d},
-	{SDLK_e, KEY_e},
-	{SDLK_f, KEY_f},
-	{SDLK_g, KEY_g},
-	{SDLK_h, KEY_h},
-	{SDLK_i, KEY_i},
-	{SDLK_j, KEY_j},
-	{SDLK_k, KEY_k},
-	{SDLK_l, KEY_l},
-	{SDLK_m, KEY_m},
-	{SDLK_n, KEY_n},
-	{SDLK_o, KEY_o},
-	{SDLK_p, KEY_p},
-	{SDLK_q, KEY_q},
-	{SDLK_r, KEY_r},
-	{SDLK_s, KEY_s},
-	{SDLK_t, KEY_t},
-	{SDLK_u, KEY_u},
-	{SDLK_v, KEY_v},
-	{SDLK_w, KEY_w},
-	{SDLK_x, KEY_x},
-	{SDLK_y, KEY_y},
-	{SDLK_z, KEY_z},
-	{SDLK_DELETE, KEY_REMOVE},
-	{SDLK_KP0, KEY_KP_0},
-	{SDLK_KP1, KEY_KP_1},
-	{SDLK_KP2, KEY_KP_2},
-	{SDLK_KP3, KEY_KP_3},
-	{SDLK_KP4, KEY_KP_4},
-	{SDLK_KP5, KEY_KP_5},
-	{SDLK_KP6, KEY_KP_6},
-	{SDLK_KP7, KEY_KP_7},
-	{SDLK_KP8, KEY_KP_8},
-	{SDLK_KP9, KEY_KP_9},
-	{SDLK_KP_PERIOD, KEY_KP_PERIOD},
-	{SDLK_KP_DIVIDE, KEY_KP_DIVIDE},
-	{SDLK_KP_MULTIPLY, KEY_KP_MULTIPLY},
-	{SDLK_KP_MINUS, KEY_KP_SUBTRACT},
-	{SDLK_KP_PLUS, KEY_KP_ADD},
-	{SDLK_KP_ENTER, KEY_KP_ENTER},
-	{SDLK_UP, KEY_UP},
-	{SDLK_DOWN, KEY_DOWN},
-	{SDLK_RIGHT, KEY_RIGHT},
-	{SDLK_LEFT, KEY_LEFT},
-	{SDLK_INSERT, KEY_INSERT},
-	{SDLK_HOME, KEY_HOME},
-	{SDLK_END, KEY_END},
-	{SDLK_PAGEUP, KEY_PRIOR},
-	{SDLK_PAGEDOWN, KEY_NEXT},
-	{SDLK_F1, KEY_F1},
-	{SDLK_F2, KEY_F2},
-	{SDLK_F3, KEY_F3},
-	{SDLK_F4, KEY_F4},
-	{SDLK_F5, KEY_F5},
-	{SDLK_F6, KEY_F6},
-	{SDLK_F7, KEY_F7},
-	{SDLK_F8, KEY_F8},
-	{SDLK_F9, KEY_F9},
-	{SDLK_F10, KEY_F10},
-	{SDLK_F11, KEY_F11},
-	{SDLK_F12, KEY_F12},
-	{SDLK_F13, KEY_F13},
-	{SDLK_NUMLOCK, KEY_NUM_LOCK},
-	{SDLK_CAPSLOCK, KEY_CAPS_LOCK},
-	{SDLK_SCROLLOCK, KEY_SCROLL_LOCK},
-	{SDLK_RSHIFT, KEY_SHIFT},
-	{SDLK_LSHIFT, KEY_SHIFT},
-	{SDLK_RCTRL, KEY_CONTROL},
-	{SDLK_LCTRL, KEY_CONTROL},
-	{SDLK_RALT, KEY_ALTGR},
-	{SDLK_LALT, KEY_ALT},
-};
-
-static void createSDLToADBKeytable()
-{
-	memset(sdl_key_to_adb_key, 0xff, sizeof sdl_key_to_adb_key);
-	for (uint i=0; i < (sizeof sdladbkeys / sizeof sdladbkeys[0]); i++) {
-		if (sdladbkeys[i].sdlkey > sizeof sdl_key_to_adb_key) {
-			ht_printf("%d > 256 for key %d\n", sdladbkeys[i].sdlkey, sdladbkeys[i].adbkey);
-		}
-		sdl_key_to_adb_key[sdladbkeys[i].sdlkey] = sdladbkeys[i].adbkey;
-	}
-}
-
-#else
-
-#ifdef __WIN32__
-static byte scancode_to_adb_key[] = {
-//00   01   02   03   04   05   06   07   08   09   0a   0b   0c   0d   0e   0f
- 0xff,0x35,0x12,0x13,0x14,0x15,0x17,0x16,0x1a,0x1c,0x19,0x1d,0x1b,0x18,0x33,0x30,
- 0x0c,0x0d,0x0e,0x0f,0x11,0x10,0x20,0x22,0x1f,0x23,0x21,0x1e,0x24,0x36,0x00,0x01,
- 0x02,0x03,0x05,0x04,0x26,0x28,0x25,0x29,0x27,0xff,0x38,0x2a,0x06,0x07,0x08,0x09, 
- 0x0b,0x2d,0x2e,0x2b,0x2f,0x2c,0x38,0x43,0x37,0x31,0x39,0x7a,0x78,0x63,0x76,0x60,
- 0x61,0x62,0x64,0x65,0x6d,0xff,0xff,0x59,0x5b,0x5c,0x4e,0x56,0x57,0x58,0x45,0x53,
- 0x54,0x55,0x52,0x41,0xff,0xff,0x0a,0x67,0x6f,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x36,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0x4b,0xff,0xff,0x3a,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0x71,0xff,0x73,0x3e,0x74,0xff,0x3b,0xff,0x3c,0xff,0x77,
- 0x3d,0x79,0x72,0x75,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
- 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
-};
-
-#else
-
 static uint8 scancode_to_adb_key[256] = {
 	// 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
-	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x35,0x12,0x13,0x14,0x15,0x17,0x16,
-	0x1a,0x1c,0x19,0x1d,0x1b,0x18,0x33,0x30,0x0c,0x0d,0x0e,0x0f,0x11,0x10,0x20,0x22,
-	0x1f,0x23,0x21,0x1e,0x24,0x36,0x00,0x01,0x02,0x03,0x05,0x04,0x26,0x28,0x25,0x29,
-	0x27,0x32,0x38,0x2a,0x06,0x07,0x08,0x09,0x0b,0x2d,0x2e,0x2b,0x2f,0x2c,0x38,0x43,
-	0x37,0x31,0xff,0x7a,0x78,0x63,0x76,0x60,0x61,0x62,0x64,0x65,0x6d,0x47,0xff,0x59,
-	0x5b,0x5c,0x4e,0x56,0x57,0x58,0x45,0x53,0x54,0x55,0x52,0x41,0xff,0xff,0x0a,0x67,
-	0x6f,0x73,0x3e,0x74,0x3b,0xff,0x3c,0x77,0x3d,0x79,0x72,0x75,0x4c,0x36,0xff,0xff,
-	0x4b,0x3a,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
+	0xff,0xff,0xff,0xff,0x00,0x0b,0x08,0x02,0x0e,0x03,0x05,0x04,0x22,0x26,0x28,0x25,
+	0x2e,0x2d,0x1f,0x23,0x0c,0x0f,0x01,0x11,0x20,0x09,0x0d,0x07,0x10,0x06,0x12,0x13,
+	0x14,0x15,0x17,0x16,0x1a,0x1c,0x19,0x1d,0x24,0x35,0x33,0x30,0x31,0x1b,0x18,0x21,
+	0x1e,0x2a,0x2a,0x27,0x29,0x32,0x2b,0x2f,0x2c,0x39,0x7a,0x78,0x63,0x76,0x60,0x61,
+	0x62,0x64,0x65,0x6d,0x67,0x6f,0xff,0xff,0xff,0x72,0x73,0x7b,0x75,0x77,0x74,0x3c,
+	0x3b,0x3d,0x3e,0x47,0x4b,0x43,0x4e,0x45,0x52,0x53,0x54,0x55,0x56,0x57,0x58,0x59,
+	0x5b,0x5c,0x41,0xff,0x0a,0xff,0xff,0x51,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
@@ -212,12 +66,9 @@ static uint8 scancode_to_adb_key[256] = {
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
+	0x36,0x38,0x3a,0x37,0x36,0x38,0x3a,0x37,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 };
-
-#endif
-
-#endif
 
 static bool handleSDLEvent(const SDL_Event &event)
 {
@@ -226,40 +77,47 @@ static bool handleSDLEvent(const SDL_Event &event)
 
 	SystemEvent ev;
 	switch (event.type) {
-	case SDL_USEREVENT:
+	case SDL_EVENT_USER: {
 		if (event.user.code == 1) {  // helper for changeResolution
-			//ht_printf("got forward event\n");
 			sd->mChangeResRet = sd->changeResolutionREAL(sd->mSDLChartemp);
-			SDL_CondSignal(sd->mWaitcondition); // Signal, that condition is over.
+			SDL_SignalCondition(sd->mWaitcondition);
 		}
 		return true;
-	case SDL_VIDEOEXPOSE:
+	}
+	case SDL_EVENT_WINDOW_EXPOSED:
 		gDisplay->displayShow();
 		gSDLVideoExposePending = false;
 		return true;
-	case SDL_KEYUP:
-		ev.key.keycode = scancode_to_adb_key[event.key.keysym.scancode];
-//		ht_printf("%x %x up  ", event.key.keysym.scancode, ev.key.keycode);
+	case SDL_EVENT_KEY_UP: {
+		int sc = event.key.scancode;
+		if (sc < 0 || sc >= (int)sizeof(scancode_to_adb_key)) break;
+		ev.key.keycode = scancode_to_adb_key[sc];
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = false;
 		gKeyboard->handleEvent(ev);
 		return true;
-	case SDL_KEYDOWN:
-		ev.key.keycode = scancode_to_adb_key[event.key.keysym.scancode];
-//		ht_printf("%x %x %x dn  \n", event.key.keysym.sym, event.key.keysym.scancode, ev.key.keycode);
+	}
+	case SDL_EVENT_KEY_DOWN: {
+		int sc = event.key.scancode;
+		if (sc < 0 || sc >= (int)sizeof(scancode_to_adb_key)) break;
+		ev.key.keycode = scancode_to_adb_key[sc];
 		if ((ev.key.keycode & 0xff) == 0xff) break;
 		ev.type = sysevKey;
 		ev.key.pressed = true;
 		gKeyboard->handleEvent(ev);
 		return true;
-	case SDL_MOUSEBUTTONDOWN:
+	}
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		ev.type = sysevMouse;
 		ev.mouse.type = sme_buttonPressed;
 		memcpy(tmpMouseButton, mouseButton, sizeof (tmpMouseButton));
-		mouseButton[0] = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(1);
-		mouseButton[1] = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(2);
-		mouseButton[2] = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(3);
+		{
+			SDL_MouseButtonFlags buttons = SDL_GetMouseState(NULL, NULL);
+			mouseButton[0] = buttons & SDL_BUTTON_LMASK;
+			mouseButton[1] = buttons & SDL_BUTTON_MMASK;
+			mouseButton[2] = buttons & SDL_BUTTON_RMASK;
+		}
 		ev.mouse.button1 = mouseButton[0];
 		ev.mouse.button2 = mouseButton[1];
 		ev.mouse.button3 = mouseButton[2];
@@ -278,13 +136,16 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.rely = 0;
 		gMouse->handleEvent(ev);
 		return true;
-	case SDL_MOUSEBUTTONUP:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
 		ev.type = sysevMouse;
 		ev.mouse.type = sme_buttonReleased;
 		memcpy(tmpMouseButton, mouseButton, sizeof (tmpMouseButton));
-		mouseButton[0] = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(1);
-		mouseButton[1] = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(2);
-		mouseButton[2] = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(3);
+		{
+			SDL_MouseButtonFlags buttons = SDL_GetMouseState(NULL, NULL);
+			mouseButton[0] = buttons & SDL_BUTTON_LMASK;
+			mouseButton[1] = buttons & SDL_BUTTON_MMASK;
+			mouseButton[2] = buttons & SDL_BUTTON_RMASK;
+		}
 		ev.mouse.button1 = mouseButton[0];
 		ev.mouse.button2 = mouseButton[1];
 		ev.mouse.button3 = mouseButton[2];
@@ -303,78 +164,90 @@ static bool handleSDLEvent(const SDL_Event &event)
 		ev.mouse.rely = 0;
 		gMouse->handleEvent(ev);
 		return true;
-	case SDL_MOUSEMOTION:
+	case SDL_EVENT_MOUSE_MOTION:
 		ev.type = sysevMouse;
 		ev.mouse.type = sme_motionNotify;
 		ev.mouse.button1 = mouseButton[0];
 		ev.mouse.button2 = mouseButton[1];
 		ev.mouse.button3 = mouseButton[2];
 		ev.mouse.dbutton = 0;
-		ev.mouse.x = event.motion.y;
-		ev.mouse.y = event.motion.x;
-		ev.mouse.relx = event.motion.xrel;
-		ev.mouse.rely = event.motion.yrel;
+		ev.mouse.x = (int)event.motion.y;
+		ev.mouse.y = (int)event.motion.x;
+		ev.mouse.relx = (int)event.motion.xrel;
+		ev.mouse.rely = (int)event.motion.yrel;
 		gMouse->handleEvent(ev);
 		return true;
-	case SDL_ACTIVEEVENT:
-		if (event.active.state & SDL_APPACTIVE) {
-			gDisplay->setExposed(event.active.gain);
-		}
-		if (event.active.state & SDL_APPINPUTFOCUS) {
-			if (!event.active.gain) {
-				gDisplay->setMouseGrab(false);			
-			}
-		}
+	case SDL_EVENT_WINDOW_SHOWN:
+	case SDL_EVENT_WINDOW_RESTORED:
+		gDisplay->setExposed(true);
 		return true;
-	case SDL_QUIT:		
+	case SDL_EVENT_WINDOW_HIDDEN:
+	case SDL_EVENT_WINDOW_MINIMIZED:
+		gDisplay->setExposed(false);
+		return true;
+	case SDL_EVENT_WINDOW_FOCUS_LOST:
+		gDisplay->setMouseGrab(false);
+		return true;
+	case SDL_EVENT_QUIT:
 		gDisplay->setFullscreenMode(false);
 		return false;
 	}
 	return true;
 }
 
-static Uint32 SDL_redrawCallback(Uint32 interval, void *param)
+static Uint32 SDL_redrawCallback(void *param, SDL_TimerID timerID, Uint32 interval)
 {
 	SDL_Event event;
 
 	if (!gSDLVideoExposePending) {
-		event.type = SDL_VIDEOEXPOSE;
-		// according to the docs, "You may always call SDL_PushEvent" in an SDL
-		// timer callback function
+		SDL_zero(event);
+		event.type = SDL_EVENT_WINDOW_EXPOSED;
+		if (gSDLWindow) {
+			event.window.windowID = SDL_GetWindowID(gSDLWindow);
+		}
 		SDL_PushEvent(&event);
 		gSDLVideoExposePending = true;
 	}
 	return interval;
 }
 
-sys_timer gSDLRedrawTimer;
-static bool eventThreadAlive;
+SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
+SystemKeyboard *allocSystemKeyboard();
+SystemMouse *allocSystemMouse();
 
-static void *SDLeventLoop(void *p)
+void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig, bool fullscreen)
 {
-	eventThreadAlive = true;
-#ifdef __WIN32__
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE) < 0) {
-#else
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTTHREAD | SDL_INIT_NOPARACHUTE) < 0) {
-#endif
+	// SDL must be initialized on the main thread (macOS requirement)
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		ht_printf("SDL: Unable to init: %s\n", SDL_GetError());
 		exit(1);
 	}
 
-	atexit(SDL_Quit); // give SDl a chance to clean up before exit!
+	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
+	gMouse = allocSystemMouse();
+	gKeyboard = allocSystemKeyboard();
+	if (!gKeyboard->setKeyConfig(keyConfig)) {
+		ht_printf("no keyConfig, or is empty");
+		exit(1);
+	}
+
+	gDisplay->mFullscreen = fullscreen;
+
 	sd = (SDLSystemDisplay*)gDisplay;
+	sd->mEventThreadID = SDL_GetCurrentThreadID();
+
+	// Create window and renderer immediately
+	sd->changeResolution(sd->mClientChar);
 
 	sd->initCursor();
-
 	sd->updateTitle();
-	sd->mEventThreadID = SDL_ThreadID();
-
-        SDL_WM_GrabInput(SDL_GRAB_OFF);
-
-	sd->changeResolution(sd->mClientChar);
+	SDL_SetWindowMouseGrab(gSDLWindow, false);
 	sd->setExposed(true);
+}
 
+void runUI()
+{
+	// This runs on the main thread -- the SDL event loop
 	gSDLVideoExposePending = false;
 	SDL_RedrawTimerID = SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
 
@@ -391,47 +264,12 @@ static void *SDLeventLoop(void *p)
 		SDL_RemoveTimer(SDL_RedrawTimerID);
 
 	ppc_cpu_stop();
-
-	eventThreadAlive = false;
-	
-	return NULL;
-}
-
-SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
-SystemKeyboard *allocSystemKeyboard();
-SystemMouse *allocSystemMouse();
-
-void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, int redraw_ms, const KeyboardCharacteristics &keyConfig, bool fullscreen)
-{
-#if 0
-	createSDLToADBKeytable();
-#endif
-
-	sys_thread SDLeventLoopThread;
-
-	gDisplay = allocSystemDisplay(title, aCharacteristics, redraw_ms);
-	gMouse = allocSystemMouse();
-	gKeyboard = allocSystemKeyboard();
-	if (!gKeyboard->setKeyConfig(keyConfig)) {
-		ht_printf("no keyConfig, or is empty");
-		exit(1);
-	}
-
-	gDisplay->mFullscreen = fullscreen;
-
-	if (sys_create_thread(&SDLeventLoopThread, 0, SDLeventLoop, NULL)) {
-		ht_printf("SDL: can't create event thread!\n");
-		exit(1);
-	}
 }
 
 void doneUI()
 {
-	if (eventThreadAlive) {
-		SDL_Event event;
-		event.type = SDL_QUIT;
-		SDL_PushEvent(&event);
-		while (eventThreadAlive) SDL_Delay(10); // FIXME: UGLY!
-	}
+	if (gSDLTexture) SDL_DestroyTexture(gSDLTexture);
+	if (gSDLRenderer) SDL_DestroyRenderer(gSDLRenderer);
+	if (gSDLWindow) SDL_DestroyWindow(gSDLWindow);
 	SDL_Quit();
 }

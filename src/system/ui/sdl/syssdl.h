@@ -21,31 +21,32 @@
 #ifndef __SYSSDL_H__
 #define __SYSSDL_H__
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "system/display.h"
 #include "system/systhread.h"
 
-extern SDL_Surface *	gSDLScreen;
+extern SDL_Window *	gSDLWindow;
+extern SDL_Renderer *	gSDLRenderer;
+extern SDL_Texture *	gSDLTexture;
 
 class SDLSystemDisplay: public SystemDisplay {
 protected:
-	DisplayCharacteristics	mSDLChar;	
+	DisplayCharacteristics	mSDLChar;
 	byte *			mSDLFrameBuffer;
 	bool			mChangingScreen;
-	SDL_Surface *		mSDLClientScreen;
 	sys_mutex		mRedrawMutex;
 	SDL_Cursor *		mVisibleCursor;
 	SDL_Cursor *		mInvisibleCursor;
-	
+
 	uint bitsPerPixelToXBitmapPad(uint bitsPerPixel);
 	void dumpDisplayChar(const DisplayCharacteristics &chr);
 public:
 	char *			mTitle;
 	DisplayCharacteristics  mSDLChartemp;
-	SDL_cond 		*mWaitcondition;
+	SDL_Condition		*mWaitcondition;
 	bool			mChangeResRet;
-	uint32			mEventThreadID;
+	SDL_ThreadID		mEventThreadID;
 
 	SDLSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
 
@@ -55,8 +56,8 @@ public:
 		void toggleFullScreen();
 	virtual	void displayShow();
 	virtual	void convertCharacteristicsToHost(DisplayCharacteristics &aHostChar, const DisplayCharacteristics &aClientChar);
-	virtual	bool changeResolution(const DisplayCharacteristics &aCharacteristics);	
-	virtual	bool changeResolutionREAL(const DisplayCharacteristics &aCharacteristics);	
+	virtual	bool changeResolution(const DisplayCharacteristics &aCharacteristics);
+	virtual	bool changeResolutionREAL(const DisplayCharacteristics &aCharacteristics);
 	virtual	void getHostCharacteristics(Container &modes);
 	virtual void setMouseGrab(bool enable);
 	virtual void initCursor();

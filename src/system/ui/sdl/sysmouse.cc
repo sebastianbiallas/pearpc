@@ -21,6 +21,8 @@
 
 #include <cstdlib>
 
+#include <SDL3/SDL.h>
+
 #include "system/systhread.h"
 #include "syssdl.h"
 
