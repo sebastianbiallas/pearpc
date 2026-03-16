@@ -923,8 +923,8 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 
 static void *cudaEventLoop(void *arg)
 {
-	gKeyboard->attachEventHandler(cudaEventHandler);
-	gMouse->attachEventHandler(cudaEventHandler);
+	if (gKeyboard) gKeyboard->attachEventHandler(cudaEventHandler);
+	if (gMouse) gMouse->attachEventHandler(cudaEventHandler);
 	sys_lock_semaphore(gCUDAEventSem);
 	while (1) {
 //		IO_CUDA_WARN("waiting on semaphore\n");

@@ -123,7 +123,9 @@ void ppc_cpu_run()
     }
     ht_printf("*** &gCPU: %p, &gJITC: %p\n", gCPU, gCPU->jitc);
     ht_printf("sizeof cpu: %d\n", int(sizeof(*gCPU)));
+    PPC_CPU_TRACE("entering JIT at PC=0x%08x\n", gCPU->pc);
     ppc_start_jitc_asm(gCPU->pc, &gCPU, sizeof *gCPU);
+    ht_printf("JIT returned\n");
 }
 
 void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)

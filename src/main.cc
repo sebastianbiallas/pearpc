@@ -359,12 +359,37 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
+		ht_printf("[DBG] cuda_pre_init...\n");
 		cuda_pre_init();
 
 		if (!gHeadless) {
 			initUI(APPNAME " " APPVERSION, gm, msec, keyConfig, fullscreen);
+		} else {
+			/*
+			 * Headless mode: create a minimal stub display so that
+			 * PROM device tree init and gcard can read display params.
+			 * No actual rendering happens.
+			 */
+			class HeadlessDisplay : public SystemDisplay {
+			public:
+				HeadlessDisplay(const DisplayCharacteristics &chr, int redraw_ms)
+					: SystemDisplay(chr, redraw_ms) {}
+				void displayShow() override {}
+				void convertCharacteristicsToHost(DisplayCharacteristics &h, const DisplayCharacteristics &c) override { h = c; }
+				bool changeResolution(const DisplayCharacteristics &) override { return true; }
+				void getHostCharacteristics(Container &) override {}
+				void updateTitle() override {}
+				void setMouseGrab(bool) override {}
+				void finishMenu() override {}
+				int toString(char *buf, int buflen) const override { return snprintf(buf, buflen, "headless"); }
+			};
+			gDisplay = new HeadlessDisplay(gm, msec);
+			// Allocate framebuffer for headless mode (needed by gcard)
+			gFrameBuffer = (byte*)malloc(gm.width * gm.height * gm.bytesPerPixel);
+			memset(gFrameBuffer, 0, gm.width * gm.height * gm.bytesPerPixel);
 		}
 
+		ht_printf("[DBG] io_init...\n");
 		io_init();
 
 		if (!gHeadless) {
@@ -398,6 +423,12 @@ int main(int argc, char *argv[])
 			tests();
 		}
 
+		if (gHeadless) {
+			// Open VT for headless mode too (PROM prints to it)
+			MemMapFile font(ppc_font, sizeof ppc_font);
+			gDisplay->openVT(80, 25, 0, 0, font);
+		}
+
 		ht_printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
 		ht_printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
 
@@ -418,6 +449,7 @@ int main(int argc, char *argv[])
 		}
 
 		// init prom
+		ht_printf("[DBG] prom_init...\n");
 		prom_init();
 		
 		// lock pagetable
@@ -430,6 +462,7 @@ int main(int argc, char *argv[])
 
 		testforth();
 
+		ht_printf("[DBG] prom_load_boot_file...\n");
 		if (!prom_load_boot_file()) {
 			ht_printf("cannot find boot file.\n");
 			return 1;
@@ -444,7 +477,7 @@ int main(int argc, char *argv[])
 			gDisplay->print("now starting client...");
 			gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
 		}
-		ht_printf("now starting client...\n");
+		ht_printf("[DBG] starting client PC=%08x...\n", ppc_cpu_get_pc(0));
 
 		if (gHeadless) {
 			// Headless: run CPU directly on main thread

@@ -55,6 +55,17 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, void (*func)(PPC_CPU_State 
     // Store current opcode to CPU state
     jitc.emitMOV32((NativeReg)16, jitc.current_opc);
     jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_opc));
+
+    // Store pc = current_code_base + pc_ofs (interpreter functions need this)
+    jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
+    jitc.emitMOV32((NativeReg)17, jitc.pc);
+    jitc.emit32(0x0B110210); // ADD W16, W16, W17
+    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+
+    // Store npc = pc + 4
+    jitc.emit32(0x11001210); // ADD W16, W16, #4
+    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+
     // X0 = &CPU state (X20)
     jitc.emit32(0xAA1403E0); // MOV X0, X20
     // Call interpreter function

@@ -44,6 +44,29 @@
 #include "jitc_asm.h"
 #include "ppc_dec.h"
 
+extern PPC_CPU_State *gCPU;
+
+/*
+ *  C wrapper for ppc_effective_to_physical_code.
+ *  Called from jitc_mmu.S assembly.
+ *  Returns the physical address, or aborts on fatal MMU error.
+ */
+extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea)
+{
+    uint32 pa;
+    int r = ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ | PPC_MMU_CODE, pa);
+    if (r == PPC_MMU_OK) {
+        return pa;
+    }
+    if (r == PPC_MMU_EXC) {
+        // ISI exception - for now just return the EA and let it fail
+        PPC_MMU_WARN("ISI exception for EA %08x\n", ea);
+        return ea;
+    }
+    PPC_MMU_ERR("ppc_effective_to_physical_code failed: ea=%08x r=%d\n", ea, r);
+    return ea; // unreachable due to ERR macro exit
+}
+
 byte *gMemory = NULL;
 uint32 gMemorySize;
 

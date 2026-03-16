@@ -13,6 +13,7 @@
 #include "tools/data.h"
 #include "tools/snprintf.h"
 
+#include "debug/tracers.h"
 #include "jitc.h"
 #include "jitc_debug.h"
 #include "jitc_asm.h"
@@ -409,11 +410,15 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     // Enable write mode for code emission (W^X on macOS)
     pthread_jit_write_protect_np(0);
 
+    PPC_CPU_TRACE("[JITC] jitcNewEntrypoint: base=%08x ofs=%08x entry=%p tcp=%p bytesLeft=%d\n",
+                  baseaddr, ofs, entry, cp->tcp, cp->bytesLeft);
+
     while (1) {
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
-        jitcDebugLogNewInstruction(jitc);
+        PPC_CPU_TRACE("[JITC] gen opc %08x at ofs=%x, tcp=%p\n", jitc.current_opc, ofs, cp->tcp);
 
         JITCFlow flow = ppc_gen_opc(jitc);
+        PPC_CPU_TRACE("[JITC] gen returned flow=%d, tcp now=%p\n", flow, cp->tcp);
         if (flow == flowContinue) {
             /* nothing to do */
         } else if (flow == flowEndBlock) {
@@ -472,6 +477,7 @@ extern "C" NativeAddress jitcStartTranslation(JITC &jitc, ClientPage *cp, uint32
  */
 extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 {
+    PPC_CPU_TRACE("[JITC] jitcNewPC: entry=0x%08x\n", entry);
     if (entry > gMemorySize) {
         ht_printf("entry not physical: %08x\n", entry);
         exit(-1);
@@ -492,10 +498,12 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         }
     }
 
+    PPC_CPU_TRACE("[JITC] jitcNewPC returning %p, first insn (before W^X toggle): 0x%08x\n",
+              result, result ? *(uint32 *)result : 0);
+
     /* About to execute: re-enable execute protection and flush icache */
     pthread_jit_write_protect_np(1);
     __builtin___clear_cache((char *)jitc.translationCache, (char *)jitc.translationCache + 64 * 1024 * 1024);
-
     return result;
 }
 

@@ -50,10 +50,14 @@
 //
 .p2align 4
 do_export EXTERN(ppc_effective_to_physical_code)
-    // For now, just return the effective address as-is (identity mapping).
-    // A real implementation would do TLB lookup / page table walk here.
-    // Mask with memory size for safety:
-    //   physical = effective  (assumes 1:1 mapping or real mode)
+    // Call C++ helper: ppc_effective_to_physical_code_c(cpu, effective_addr)
+    // X20 = CPU state pointer, W0 = effective address
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    mov     w1, w0          // w1 = effective address
+    mov     x0, x20         // x0 = &CPU state
+    bl      EXTERN(ppc_effective_to_physical_code_c)
+    ldp     x29, x30, [sp], #16
     ret
 
 
