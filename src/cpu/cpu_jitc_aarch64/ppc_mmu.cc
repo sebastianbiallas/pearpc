@@ -42,7 +42,9 @@
 
 #include "jitc.h"
 #include "jitc_asm.h"
+#include "aarch64asm.h"
 #include "ppc_dec.h"
+#include "ppc_opc.h"
 
 extern PPC_CPU_State *gCPU;
 
@@ -69,6 +71,123 @@ extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea
 
 byte *gMemory = NULL;
 uint32 gMemorySize;
+
+/*
+ *  TLB slow-path helpers for JIT memory access stubs (jitc_mmu.S).
+ *
+ *  Called on TLB miss. Each helper:
+ *  1. Translates EA → PA via ppc_effective_to_physical()
+ *  2. Fills the TLB for the accessed page (RAM only, not IO)
+ *  3. Performs the actual read/write
+ *
+ *  Read helpers return the value (host-endian, already byte-swapped).
+ *  On MMU exception, reads return 0 and writes are silently skipped
+ *  (same behavior as the interpreter path).
+ */
+
+static inline void tlb_fill_data_read(PPC_CPU_State *cpu, uint32 ea, uint32 pa)
+{
+	uint32 pa_page = pa & 0xFFFFF000;
+	if (pa_page + 0x1000 <= gMemorySize) {
+		uint32 idx = (ea >> 12) & (TLB_ENTRIES - 1);
+		cpu->tlb_data_read_eff[idx] = ea & 0xFFFFF000;
+		cpu->tlb_data_read_phys[idx] = (uint64)(gMemory + pa_page);
+	}
+}
+
+static inline void tlb_fill_data_write(PPC_CPU_State *cpu, uint32 ea, uint32 pa)
+{
+	uint32 pa_page = pa & 0xFFFFF000;
+	if (pa_page + 0x1000 <= gMemorySize) {
+		uint32 idx = (ea >> 12) & (TLB_ENTRIES - 1);
+		cpu->tlb_data_write_eff[idx] = ea & 0xFFFFF000;
+		cpu->tlb_data_write_phys[idx] = (uint64)(gMemory + pa_page);
+	}
+}
+
+extern "C" uint32 ppc_read_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
+		tlb_fill_data_read(cpu, ea, pa);
+		uint8 result;
+		ppc_read_physical_byte(pa, result);
+		return result;
+	}
+	return 0;
+}
+
+extern "C" uint32 ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
+		tlb_fill_data_read(cpu, ea, pa);
+		uint16 result;
+		ppc_read_physical_half(pa, result);
+		return result;
+	}
+	return 0;
+}
+
+extern "C" uint32 ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
+		tlb_fill_data_read(cpu, ea, pa);
+		uint32 result;
+		ppc_read_physical_word(pa, result);
+		return result;
+	}
+	return 0;
+}
+
+extern "C" uint64 ppc_read_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
+		tlb_fill_data_read(cpu, ea, pa);
+		uint64 result;
+		ppc_read_physical_dword(pa, result);
+		return result;
+	}
+	return 0;
+}
+
+extern "C" void ppc_write_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
+		tlb_fill_data_write(cpu, ea, pa);
+		ppc_write_physical_byte(pa, data);
+	}
+}
+
+extern "C" void ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
+		tlb_fill_data_write(cpu, ea, pa);
+		ppc_write_physical_half(pa, data);
+	}
+}
+
+extern "C" void ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
+		tlb_fill_data_write(cpu, ea, pa);
+		ppc_write_physical_word(pa, data);
+	}
+}
+
+extern "C" void ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, uint64 data)
+{
+	uint32 pa;
+	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
+		tlb_fill_data_write(cpu, ea, pa);
+		ppc_write_physical_dword(pa, data);
+	}
+}
 
 #undef TLB
 
@@ -640,34 +759,102 @@ void ppc_opc_lhz(PPC_CPU_State &aCPU)
 
 void ppc_opc_lhzu(PPC_CPU_State &aCPU)
 {
-    ppc_opc_lhz(aCPU); /* TODO: update rA */
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+		aCPU.gpr[rD] = r;
+	}
 }
 void ppc_opc_lhzux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+		aCPU.gpr[rD] = r;
+	}
 }
 void ppc_opc_lhzx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rD] = r;
+	}
 }
 void ppc_opc_lha(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+		aCPU.gpr[rD] = (sint32)(sint16)r;
+	}
 }
 void ppc_opc_lhau(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+		aCPU.gpr[rD] = (sint32)(sint16)r;
+	}
 }
 void ppc_opc_lhaux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+		aCPU.gpr[rD] = (sint32)(sint16)r;
+	}
 }
 void ppc_opc_lhax(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rD] = (sint32)(sint16)r;
+	}
 }
 void ppc_opc_lhbrx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint16 r;
+	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rD] = ppc_bswap_half(r);
+	}
 }
 void ppc_opc_lwbrx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint32 r;
+	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rD] = ppc_bswap_word(r);
+	}
 }
 void ppc_opc_lwarx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint32 r;
+	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rD] = r;
+		aCPU.have_reservation = true;
+		aCPU.reserve = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+	}
 }
 void ppc_opc_lmw(PPC_CPU_State &aCPU)
 { /* TODO */
@@ -689,13 +876,26 @@ void ppc_opc_stb(PPC_CPU_State &aCPU)
 
 void ppc_opc_stbu(PPC_CPU_State &aCPU)
 {
-    ppc_opc_stb(aCPU); /* TODO: update rA */
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+	if (ppc_write_effective_byte(aCPU, aCPU.gpr[rA] + imm, (uint8)aCPU.gpr[rS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_stbux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	if (ppc_write_effective_byte(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], (uint8)aCPU.gpr[rS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+	}
 }
 void ppc_opc_stbx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	ppc_write_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint8)aCPU.gpr[rS]);
 }
 
 void ppc_opc_stw(PPC_CPU_State &aCPU)
@@ -708,19 +908,48 @@ void ppc_opc_stw(PPC_CPU_State &aCPU)
 
 void ppc_opc_stwu(PPC_CPU_State &aCPU)
 {
-    ppc_opc_stw(aCPU); /* TODO: update rA */
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + imm, aCPU.gpr[rS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_stwux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], aCPU.gpr[rS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+	}
 }
 void ppc_opc_stwx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.gpr[rS]);
 }
 void ppc_opc_stwbrx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], ppc_bswap_word(aCPU.gpr[rS]));
 }
 void ppc_opc_stwcx_(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	aCPU.cr &= 0x0fffffff;
+	if (aCPU.have_reservation) {
+		aCPU.have_reservation = false;
+		uint32 ea = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+		if (ea == aCPU.reserve) {
+			if (ppc_write_effective_word(aCPU, ea, aCPU.gpr[rS]) == PPC_MMU_OK) {
+				aCPU.cr |= CR_CR0_EQ;
+			}
+		}
+	}
+	if (aCPU.xer & XER_SO) aCPU.cr |= CR_CR0_SO;
 }
 
 void ppc_opc_sth(PPC_CPU_State &aCPU)
@@ -732,17 +961,33 @@ void ppc_opc_sth(PPC_CPU_State &aCPU)
 }
 
 void ppc_opc_sthbrx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], ppc_bswap_half(aCPU.gpr[rS]));
 }
 void ppc_opc_sthu(PPC_CPU_State &aCPU)
 {
-    ppc_opc_sth(aCPU); /* TODO: update rA */
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+	if (ppc_write_effective_half(aCPU, aCPU.gpr[rA] + imm, (uint16)aCPU.gpr[rS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_sthux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	if (ppc_write_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+	}
 }
 void ppc_opc_sthx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]);
 }
 void ppc_opc_stmw(PPC_CPU_State &aCPU)
 { /* TODO */
@@ -852,4 +1097,168 @@ void ppc_opc_dstst(PPC_CPU_State &aCPU)
 }
 void ppc_opc_dss(PPC_CPU_State &aCPU)
 { /* TODO */
+}
+
+/*
+ *  ========================================================
+ *  Native AArch64 code generation for load/store opcodes
+ *  ========================================================
+ *
+ *  These emit code that:
+ *  1. Computes the effective address (rA + SIMM, or rA + rB)
+ *  2. Calls the asm TLB stub (ppc_read/write_effective_*_asm)
+ *     which has an inline TLB fast path
+ *  3. Stores/uses the result
+ *
+ *  Convention:
+ *    X20 = PPC_CPU_State pointer
+ *    W16, W17 = scratch (IP0/IP1)
+ *    W0 = effective address for asm stubs
+ *    W0 = return value from read stubs
+ *    W1 = value for write stubs
+ */
+
+#define GPR_OFS(n) (offsetof(PPC_CPU_State, gpr) + (n) * 4)
+
+/*
+ *  Helper: emit code to compute EA = (rA ? gpr[rA] : 0) + SIMM into W0
+ */
+static void gen_ea_D(JITC &jitc, int rA, sint32 simm)
+{
+	if (rA == 0) {
+		jitc.emitMOV32((NativeReg)0, (uint32)simm);
+	} else {
+		jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rA));
+		if (simm > 0 && simm < 4096) {
+			jitc.emit32(a64_ADDw_imm(0, 0, simm));
+		} else if (simm < 0 && (-simm) < 4096) {
+			jitc.emit32(a64_SUBw_imm(0, 0, -simm));
+		} else if (simm != 0) {
+			jitc.emitMOV32((NativeReg)17, (uint32)simm);
+			jitc.emit32(a64_ADDw_reg(0, 0, 17));
+		}
+	}
+}
+
+/*
+ *  lwz rD, d(rA)
+ *  rD = MEM[EA, 4]  where EA = (rA|0) + d
+ */
+JITCFlow ppc_opc_gen_lwz(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+
+	// Store pc_ofs for exception handling
+	jitc.emitMOV32((NativeReg)16, jitc.pc);
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.emitBLR((NativeAddress)ppc_read_effective_word_asm);
+	// W0 = result
+	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+/*
+ *  stw rS, d(rA)
+ *  MEM[EA, 4] = rS  where EA = (rA|0) + d
+ */
+JITCFlow ppc_opc_gen_stw(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+
+	jitc.emitMOV32((NativeReg)16, jitc.pc);
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+
+	gen_ea_D(jitc, rA, (sint32)imm);
+	// W1 = value to store
+	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
+	jitc.emitBLR((NativeAddress)ppc_write_effective_word_asm);
+	return flowContinue;
+}
+
+/*
+ *  lbz rD, d(rA)
+ *  rD = MEM[EA, 1]  (zero-extended)
+ */
+JITCFlow ppc_opc_gen_lbz(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+
+	jitc.emitMOV32((NativeReg)16, jitc.pc);
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.emitBLR((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+/*
+ *  stb rS, d(rA)
+ *  MEM[EA, 1] = rS[24:31]
+ */
+JITCFlow ppc_opc_gen_stb(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+
+	jitc.emitMOV32((NativeReg)16, jitc.pc);
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
+	jitc.emitBLR((NativeAddress)ppc_write_effective_byte_asm);
+	return flowContinue;
+}
+
+/*
+ *  lhz rD, d(rA)
+ *  rD = MEM[EA, 2]  (zero-extended)
+ */
+JITCFlow ppc_opc_gen_lhz(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+
+	jitc.emitMOV32((NativeReg)16, jitc.pc);
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.emitBLR((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+/*
+ *  sth rS, d(rA)
+ *  MEM[EA, 2] = rS[16:31]
+ */
+JITCFlow ppc_opc_gen_sth(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+
+	jitc.emitMOV32((NativeReg)16, jitc.pc);
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
+	jitc.emitBLR((NativeAddress)ppc_write_effective_half_asm);
+	return flowContinue;
 }

@@ -511,30 +511,16 @@ do_export EXTERN(ppc_set_msr_asm)
 //
 .p2align 4
 do_export EXTERN(ppc_mmu_tlb_invalidate_all_asm)
-    // Zero tlb_code_0_eff (TLB_ENTRIES * 4 bytes = 128 bytes)
-    add x1, x0, #tlb_code_0_eff
-    mov w2, #TLB_ENTRIES
+    // Fill all TLB eff entries with 0xFFFFFFFF (guaranteed TLB miss).
+    // Valid page tags have bits 0-11 clear, so 0xFFFFFFFF never matches.
+    // The three eff arrays (code, data_read, data_write) are contiguous.
+    add     x1, x0, #tlb_code_0_eff
+    mvn     w2, wzr                     // w2 = 0xFFFFFFFF
+    mov     w3, #(TLB_ENTRIES * 3)      // 3 arrays × 32 entries
 1:
-    str wzr, [x1], #4
-    subs    w2, w2, #1
+    str     w2, [x1], #4
+    subs    w3, w3, #1
     b.ne    1b
-
-    // Zero tlb_data_0_eff
-    add x1, x0, #tlb_data_0_eff
-    mov w2, #TLB_ENTRIES
-2:
-    str wzr, [x1], #4
-    subs    w2, w2, #1
-    b.ne    2b
-
-    // Zero tlb_data_8_eff
-    add x1, x0, #tlb_data_8_eff
-    mov w2, #TLB_ENTRIES
-3:
-    str wzr, [x1], #4
-    subs    w2, w2, #1
-    b.ne    3b
-
     ret
 
 
@@ -601,4 +587,15 @@ do_export EXTERN(ppc_cpu_atomic_cancel_ext_exception)
 //
 .p2align 4
 do_export EXTERN(ppc_mmu_tlb_invalidate_entry_asm)
+    // IN: w0 = effective address to invalidate
+    //     x20 = PPC_CPU_State pointer (JIT context)
+    mvn     w1, wzr                         // 0xFFFFFFFF
+    lsr     w2, w0, #12
+    and     w2, w2, #(TLB_ENTRIES - 1)      // TLB index
+    add     x3, x20, #tlb_code_0_eff
+    str     w1, [x3, x2, lsl #2]
+    add     x3, x20, #tlb_data_0_eff
+    str     w1, [x3, x2, lsl #2]
+    add     x3, x20, #tlb_data_8_eff
+    str     w1, [x3, x2, lsl #2]
     ret
