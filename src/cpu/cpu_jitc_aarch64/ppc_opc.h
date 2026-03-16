@@ -39,7 +39,27 @@ static inline void ppc_update_cr0(PPC_CPU_State &aCPU, uint32 r)
         aCPU.cr |= CR_CR0_SO;
 }
 
-/* TODO: implement ppc_opc_gen_interpret for aarch64 */
+/*
+ *  Generate a call to a C++ interpreter function from JIT code.
+ *
+ *  Emits:
+ *    MOV W16, #current_opc       ; store opcode so interpreter can decode it
+ *    STR W16, [X20, #current_opc]
+ *    MOV X0, X20                 ; first arg = pointer to PPC_CPU_State
+ *    MOV X16, #func_addr         ; load function address
+ *    BLR X16                     ; call it
+ */
+static inline void ppc_opc_gen_interpret(JITC &jitc, void (*func)(PPC_CPU_State &))
+{
+    jitc.clobberAll();
+    // Store current opcode to CPU state
+    jitc.emitMOV32((NativeReg)16, jitc.current_opc);
+    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_opc));
+    // X0 = &CPU state (X20)
+    jitc.emit32(0xAA1403E0); // MOV X0, X20
+    // Call interpreter function
+    jitc.emitBLR((NativeAddress)func);
+}
 
 
 void ppc_opc_bx(PPC_CPU_State &aCPU);

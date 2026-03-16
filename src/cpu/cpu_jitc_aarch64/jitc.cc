@@ -127,6 +127,85 @@ bool JITC::emitAssure(uint size)
     return true;
 }
 
+/*
+ *  AArch64 emit helpers
+ */
+
+void JITC::emitNOP()
+{
+    emit32(0xD503201F);
+}
+
+void JITC::emitMOV32(NativeReg rd, uint32 imm)
+{
+    // MOVZ Wd, #lo16
+    emit32(0x52800000 | (((uint32)(imm & 0xFFFF)) << 5) | rd);
+    if (imm >> 16) {
+        // MOVK Wd, #hi16, LSL #16
+        emit32(0x72A00000 | (((uint32)((imm >> 16) & 0xFFFF)) << 5) | rd);
+    }
+}
+
+void JITC::emitMOV64(NativeReg rd, uint64 imm)
+{
+    // MOVZ Xd, #imm[15:0]
+    emit32(0xD2800000 | (((uint32)(imm & 0xFFFF)) << 5) | rd);
+    if (imm >> 16) {
+        emit32(0xF2A00000 | (((uint32)((imm >> 16) & 0xFFFF)) << 5) | rd);
+    }
+    if (imm >> 32) {
+        emit32(0xF2C00000 | (((uint32)((imm >> 32) & 0xFFFF)) << 5) | rd);
+    }
+    if (imm >> 48) {
+        emit32(0xF2E00000 | (((uint32)((imm >> 48) & 0xFFFF)) << 5) | rd);
+    }
+}
+
+void JITC::emitLDR32_cpu(NativeReg rd, uint32 offset)
+{
+    // LDR Wd, [X20, #offset]  (X20 = CPU state pointer)
+    uint32 uoff = (offset / 4) & 0xFFF;
+    emit32(0xB9400000 | (uoff << 10) | (20 << 5) | rd);
+}
+
+void JITC::emitSTR32_cpu(NativeReg rs, uint32 offset)
+{
+    // STR Ws, [X20, #offset]
+    uint32 uoff = (offset / 4) & 0xFFF;
+    emit32(0xB9000000 | (uoff << 10) | (20 << 5) | rs);
+}
+
+void JITC::emitLDR64_cpu(NativeReg rd, uint32 offset)
+{
+    // LDR Xd, [X20, #offset]
+    uint32 uoff = (offset / 8) & 0xFFF;
+    emit32(0xF9400000 | (uoff << 10) | (20 << 5) | rd);
+}
+
+void JITC::emitSTR64_cpu(NativeReg rs, uint32 offset)
+{
+    // STR Xs, [X20, #offset]
+    uint32 uoff = (offset / 8) & 0xFFF;
+    emit32(0xF9000000 | (uoff << 10) | (20 << 5) | rs);
+}
+
+void JITC::emitBLR(NativeAddress to)
+{
+    // Load address into X16 (IP0), then BLR X16
+    emitMOV64((NativeReg)16, (uint64)to);
+    emit32(0xD63F0000 | (16 << 5)); // BLR X16
+}
+
+void JITC::emitBR(NativeReg rn)
+{
+    emit32(0xD61F0000 | (rn << 5));
+}
+
+void JITC::emitRET()
+{
+    emit32(0xD65F03C0); // RET X30
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {

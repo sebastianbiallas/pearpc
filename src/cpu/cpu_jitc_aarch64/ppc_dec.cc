@@ -45,10 +45,250 @@ static void ppc_opc_invalid(PPC_CPU_State &aCPU)
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 {
     jitc.clobberAll();
-    // For now, generate a program exception for invalid opcodes
-    // TODO: implement proper aarch64 code generation
     return flowEndBlockUnreachable;
 }
+
+/*
+ *  Naive gen_ wrappers: emit a call to the C++ interpreter function.
+ *  Non-branch opcodes return flowContinue (execution continues to next insn).
+ *  Branch opcodes return flowEndBlockUnreachable (control flow changes).
+ */
+
+/* Non-branch: call interpreter, continue to next instruction */
+#define GEN_INTERPRET(name)                                                                                            \
+    JITCFlow ppc_opc_gen_##name(JITC &jitc)                                                                            \
+    {                                                                                                                  \
+        ppc_opc_gen_interpret(jitc, ppc_opc_##name);                                                                   \
+        return flowContinue;                                                                                           \
+    }
+
+/* Branch: call interpreter, then jump to new PC via npc */
+#define GEN_INTERPRET_BRANCH(name)                                                                                     \
+    JITCFlow ppc_opc_gen_##name(JITC &jitc)                                                                            \
+    {                                                                                                                  \
+        ppc_opc_gen_interpret(jitc, ppc_opc_##name);                                                                   \
+        /* Load npc from CPU state into W0 */                                                                          \
+        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));                                                \
+        /* Jump to ppc_new_pc_asm */                                                                                   \
+        jitc.emitBLR((NativeAddress)ppc_new_pc_asm);                                                                   \
+        return flowEndBlockUnreachable;                                                                                \
+    }
+
+/* Opcodes that change MSR or other global state: end the block */
+#define GEN_INTERPRET_ENDBLOCK(name)                                                                                   \
+    JITCFlow ppc_opc_gen_##name(JITC &jitc)                                                                            \
+    {                                                                                                                  \
+        ppc_opc_gen_interpret(jitc, ppc_opc_##name);                                                                   \
+        return flowEndBlock;                                                                                           \
+    }
+
+/* ALU */
+GEN_INTERPRET(addi)
+GEN_INTERPRET(addis)
+GEN_INTERPRET(addic)
+GEN_INTERPRET(addic_)
+GEN_INTERPRET(subfic)
+GEN_INTERPRET(mulli)
+GEN_INTERPRET(ori)
+GEN_INTERPRET(oris)
+GEN_INTERPRET(xori)
+GEN_INTERPRET(xoris)
+GEN_INTERPRET(andi_)
+GEN_INTERPRET(andis_)
+GEN_INTERPRET(cmpi)
+GEN_INTERPRET(cmpli)
+GEN_INTERPRET(rlwinmx)
+GEN_INTERPRET(rlwimix)
+GEN_INTERPRET(rlwnmx)
+
+/* Group 2 ALU (opcode 31) */
+GEN_INTERPRET(cmp)
+GEN_INTERPRET(cmpl)
+GEN_INTERPRET(addx)
+GEN_INTERPRET(addcx)
+GEN_INTERPRET(addex)
+GEN_INTERPRET(addzex)
+GEN_INTERPRET(addmex)
+GEN_INTERPRET(subfx)
+GEN_INTERPRET(subfcx)
+GEN_INTERPRET(subfex)
+GEN_INTERPRET(subfzex)
+GEN_INTERPRET(subfmex)
+GEN_INTERPRET(mullwx)
+GEN_INTERPRET(mulhwx)
+GEN_INTERPRET(mulhwux)
+GEN_INTERPRET(divwx)
+GEN_INTERPRET(divwux)
+GEN_INTERPRET(andx)
+GEN_INTERPRET(andcx)
+GEN_INTERPRET(orx)
+GEN_INTERPRET(orcx)
+GEN_INTERPRET(xorx)
+GEN_INTERPRET(norx)
+GEN_INTERPRET(nandx)
+GEN_INTERPRET(eqvx)
+GEN_INTERPRET(negx)
+GEN_INTERPRET(slwx)
+GEN_INTERPRET(srwx)
+GEN_INTERPRET(srawx)
+GEN_INTERPRET(srawix)
+GEN_INTERPRET(cntlzwx)
+GEN_INTERPRET(extsbx)
+GEN_INTERPRET(extshx)
+GEN_INTERPRET(mfcr)
+GEN_INTERPRET(mtcrf)
+GEN_INTERPRET(mcrxr)
+
+/* SPR */
+GEN_INTERPRET(mfspr)
+GEN_INTERPRET(mtspr)
+GEN_INTERPRET(mftb)
+GEN_INTERPRET(mfmsr)
+GEN_INTERPRET_ENDBLOCK(mtmsr)
+
+/* SR */
+GEN_INTERPRET(mfsr)
+GEN_INTERPRET(mtsr)
+GEN_INTERPRET(mfsrin)
+GEN_INTERPRET(mtsrin)
+
+/* Branch */
+GEN_INTERPRET_BRANCH(bx)
+GEN_INTERPRET_BRANCH(bcx)
+GEN_INTERPRET_BRANCH(bclrx)
+GEN_INTERPRET_BRANCH(bcctrx)
+GEN_INTERPRET_BRANCH(rfi)
+GEN_INTERPRET_BRANCH(sc)
+
+/* CR */
+GEN_INTERPRET(mcrf)
+GEN_INTERPRET(crand)
+GEN_INTERPRET(crandc)
+GEN_INTERPRET(creqv)
+GEN_INTERPRET(crnand)
+GEN_INTERPRET(crnor)
+GEN_INTERPRET(cror)
+GEN_INTERPRET(crorc)
+GEN_INTERPRET(crxor)
+
+/* Load/Store */
+GEN_INTERPRET(lwz)
+GEN_INTERPRET(lwzu)
+GEN_INTERPRET(lwzx)
+GEN_INTERPRET(lwzux)
+GEN_INTERPRET(lbz)
+GEN_INTERPRET(lbzu)
+GEN_INTERPRET(lbzx)
+GEN_INTERPRET(lbzux)
+GEN_INTERPRET(lhz)
+GEN_INTERPRET(lhzu)
+GEN_INTERPRET(lhzx)
+GEN_INTERPRET(lhzux)
+GEN_INTERPRET(lha)
+GEN_INTERPRET(lhau)
+GEN_INTERPRET(lhax)
+GEN_INTERPRET(lhaux)
+GEN_INTERPRET(stw)
+GEN_INTERPRET(stwu)
+GEN_INTERPRET(stwx)
+GEN_INTERPRET(stwux)
+GEN_INTERPRET(stb)
+GEN_INTERPRET(stbu)
+GEN_INTERPRET(stbx)
+GEN_INTERPRET(stbux)
+GEN_INTERPRET(sth)
+GEN_INTERPRET(sthu)
+GEN_INTERPRET(sthx)
+GEN_INTERPRET(sthux)
+GEN_INTERPRET(lmw)
+GEN_INTERPRET(stmw)
+GEN_INTERPRET(lwarx)
+GEN_INTERPRET(stwcx_)
+GEN_INTERPRET(lswi)
+GEN_INTERPRET(lswx)
+GEN_INTERPRET(stswi)
+GEN_INTERPRET(stswx)
+GEN_INTERPRET(lwbrx)
+GEN_INTERPRET(lhbrx)
+GEN_INTERPRET(stwbrx)
+GEN_INTERPRET(sthbrx)
+
+/* FPU load/store */
+GEN_INTERPRET(lfs)
+GEN_INTERPRET(lfsu)
+GEN_INTERPRET(lfsx)
+GEN_INTERPRET(lfsux)
+GEN_INTERPRET(lfd)
+GEN_INTERPRET(lfdu)
+GEN_INTERPRET(lfdx)
+GEN_INTERPRET(lfdux)
+GEN_INTERPRET(stfs)
+GEN_INTERPRET(stfsu)
+GEN_INTERPRET(stfsx)
+GEN_INTERPRET(stfsux)
+GEN_INTERPRET(stfd)
+GEN_INTERPRET(stfdu)
+GEN_INTERPRET(stfdx)
+GEN_INTERPRET(stfdux)
+GEN_INTERPRET(stfiwx)
+
+/* FPU arithmetic */
+GEN_INTERPRET(fdivx)
+GEN_INTERPRET(fdivsx)
+GEN_INTERPRET(fsubx)
+GEN_INTERPRET(fsubsx)
+GEN_INTERPRET(faddx)
+GEN_INTERPRET(faddsx)
+GEN_INTERPRET(fsqrtx)
+GEN_INTERPRET(fsqrtsx)
+GEN_INTERPRET(fresx)
+GEN_INTERPRET(fmulx)
+GEN_INTERPRET(fmulsx)
+GEN_INTERPRET(frsqrtex)
+GEN_INTERPRET(fmsubx)
+GEN_INTERPRET(fmsubsx)
+GEN_INTERPRET(fmaddx)
+GEN_INTERPRET(fmaddsx)
+GEN_INTERPRET(fnmsubx)
+GEN_INTERPRET(fnmsubsx)
+GEN_INTERPRET(fnmaddx)
+GEN_INTERPRET(fnmaddsx)
+GEN_INTERPRET(fselx)
+GEN_INTERPRET(fcmpu)
+GEN_INTERPRET(fcmpo)
+GEN_INTERPRET(frspx)
+GEN_INTERPRET(fctiwx)
+GEN_INTERPRET(fctiwzx)
+GEN_INTERPRET(fabsx)
+GEN_INTERPRET(fnabsx)
+GEN_INTERPRET(fnegx)
+GEN_INTERPRET(fmrx)
+GEN_INTERPRET(mffsx)
+GEN_INTERPRET(mcrfs)
+GEN_INTERPRET(mtfsb0x)
+GEN_INTERPRET(mtfsb1x)
+GEN_INTERPRET(mtfsfx)
+GEN_INTERPRET(mtfsfix)
+
+/* Misc */
+GEN_INTERPRET(twi)
+GEN_INTERPRET(tw)
+GEN_INTERPRET(eciwx)
+GEN_INTERPRET(ecowx)
+GEN_INTERPRET(isync)
+GEN_INTERPRET(sync)
+GEN_INTERPRET(eieio)
+GEN_INTERPRET_ENDBLOCK(tlbie)
+GEN_INTERPRET_ENDBLOCK(tlbia)
+GEN_INTERPRET(tlbsync)
+GEN_INTERPRET(icbi)
+GEN_INTERPRET(dcbz)
+GEN_INTERPRET(dcba)
+GEN_INTERPRET(dcbf)
+GEN_INTERPRET(dcbi)
+GEN_INTERPRET(dcbst)
+GEN_INTERPRET(dcbt)
+GEN_INTERPRET(dcbtst)
 
 static void ppc_opc_special(PPC_CPU_State &aCPU)
 {
@@ -155,7 +395,34 @@ static void ppc_opc_group_1(PPC_CPU_State &aCPU)
 
 static JITCFlow ppc_opc_gen_group_1(JITC &aJITC)
 {
-    // TODO: implement aarch64 code generation
+    uint32 ext = PPC_OPC_EXT(aJITC.current_opc);
+    if (ext & 1) {
+        if (ext <= 225) {
+            switch (ext) {
+            case 33: return ppc_opc_gen_crnor(aJITC);
+            case 129: return ppc_opc_gen_crandc(aJITC);
+            case 193: return ppc_opc_gen_crxor(aJITC);
+            case 225: return ppc_opc_gen_crnand(aJITC);
+            }
+        } else {
+            switch (ext) {
+            case 257: return ppc_opc_gen_crand(aJITC);
+            case 289: return ppc_opc_gen_creqv(aJITC);
+            case 417: return ppc_opc_gen_crorc(aJITC);
+            case 449: return ppc_opc_gen_cror(aJITC);
+            }
+        }
+    } else if (ext & (1 << 9)) {
+        if (ext == 528)
+            return ppc_opc_gen_bcctrx(aJITC);
+    } else {
+        switch (ext) {
+        case 16: return ppc_opc_gen_bclrx(aJITC);
+        case 0: return ppc_opc_gen_mcrf(aJITC);
+        case 50: return ppc_opc_gen_rfi(aJITC);
+        case 150: return ppc_opc_gen_isync(aJITC);
+        }
+    }
     return ppc_opc_gen_invalid(aJITC);
 }
 
@@ -264,8 +531,101 @@ static void ppc_opc_init_group2()
     ppc_opc_table_group2[983] = ppc_opc_stfiwx;
     ppc_opc_table_group2[1014] = ppc_opc_dcbz;
 
-    // For now, all gen functions use the invalid handler (stub).
-    // TODO: implement aarch64 code generation for each opcode.
+    // Gen functions: naive interpreter calls
+    ppc_opc_table_gen_group2[0] = ppc_opc_gen_cmp;
+    ppc_opc_table_gen_group2[4] = ppc_opc_gen_tw;
+    ppc_opc_table_gen_group2[8] = ppc_opc_gen_subfcx;
+    ppc_opc_table_gen_group2[10] = ppc_opc_gen_addcx;
+    ppc_opc_table_gen_group2[11] = ppc_opc_gen_mulhwux;
+    ppc_opc_table_gen_group2[19] = ppc_opc_gen_mfcr;
+    ppc_opc_table_gen_group2[20] = ppc_opc_gen_lwarx;
+    ppc_opc_table_gen_group2[23] = ppc_opc_gen_lwzx;
+    ppc_opc_table_gen_group2[24] = ppc_opc_gen_slwx;
+    ppc_opc_table_gen_group2[26] = ppc_opc_gen_cntlzwx;
+    ppc_opc_table_gen_group2[28] = ppc_opc_gen_andx;
+    ppc_opc_table_gen_group2[32] = ppc_opc_gen_cmpl;
+    ppc_opc_table_gen_group2[40] = ppc_opc_gen_subfx;
+    ppc_opc_table_gen_group2[54] = ppc_opc_gen_dcbst;
+    ppc_opc_table_gen_group2[55] = ppc_opc_gen_lwzux;
+    ppc_opc_table_gen_group2[60] = ppc_opc_gen_andcx;
+    ppc_opc_table_gen_group2[75] = ppc_opc_gen_mulhwx;
+    ppc_opc_table_gen_group2[83] = ppc_opc_gen_mfmsr;
+    ppc_opc_table_gen_group2[86] = ppc_opc_gen_dcbf;
+    ppc_opc_table_gen_group2[87] = ppc_opc_gen_lbzx;
+    ppc_opc_table_gen_group2[104] = ppc_opc_gen_negx;
+    ppc_opc_table_gen_group2[119] = ppc_opc_gen_lbzux;
+    ppc_opc_table_gen_group2[124] = ppc_opc_gen_norx;
+    ppc_opc_table_gen_group2[136] = ppc_opc_gen_subfex;
+    ppc_opc_table_gen_group2[138] = ppc_opc_gen_addex;
+    ppc_opc_table_gen_group2[144] = ppc_opc_gen_mtcrf;
+    ppc_opc_table_gen_group2[146] = ppc_opc_gen_mtmsr;
+    ppc_opc_table_gen_group2[150] = ppc_opc_gen_stwcx_;
+    ppc_opc_table_gen_group2[151] = ppc_opc_gen_stwx;
+    ppc_opc_table_gen_group2[183] = ppc_opc_gen_stwux;
+    ppc_opc_table_gen_group2[200] = ppc_opc_gen_subfzex;
+    ppc_opc_table_gen_group2[202] = ppc_opc_gen_addzex;
+    ppc_opc_table_gen_group2[210] = ppc_opc_gen_mtsr;
+    ppc_opc_table_gen_group2[215] = ppc_opc_gen_stbx;
+    ppc_opc_table_gen_group2[232] = ppc_opc_gen_subfmex;
+    ppc_opc_table_gen_group2[234] = ppc_opc_gen_addmex;
+    ppc_opc_table_gen_group2[235] = ppc_opc_gen_mullwx;
+    ppc_opc_table_gen_group2[242] = ppc_opc_gen_mtsrin;
+    ppc_opc_table_gen_group2[246] = ppc_opc_gen_dcbtst;
+    ppc_opc_table_gen_group2[247] = ppc_opc_gen_stbux;
+    ppc_opc_table_gen_group2[266] = ppc_opc_gen_addx;
+    ppc_opc_table_gen_group2[278] = ppc_opc_gen_dcbt;
+    ppc_opc_table_gen_group2[279] = ppc_opc_gen_lhzx;
+    ppc_opc_table_gen_group2[284] = ppc_opc_gen_eqvx;
+    ppc_opc_table_gen_group2[306] = ppc_opc_gen_tlbie;
+    ppc_opc_table_gen_group2[310] = ppc_opc_gen_eciwx;
+    ppc_opc_table_gen_group2[311] = ppc_opc_gen_lhzux;
+    ppc_opc_table_gen_group2[316] = ppc_opc_gen_xorx;
+    ppc_opc_table_gen_group2[339] = ppc_opc_gen_mfspr;
+    ppc_opc_table_gen_group2[343] = ppc_opc_gen_lhax;
+    ppc_opc_table_gen_group2[370] = ppc_opc_gen_tlbia;
+    ppc_opc_table_gen_group2[371] = ppc_opc_gen_mftb;
+    ppc_opc_table_gen_group2[375] = ppc_opc_gen_lhaux;
+    ppc_opc_table_gen_group2[407] = ppc_opc_gen_sthx;
+    ppc_opc_table_gen_group2[412] = ppc_opc_gen_orcx;
+    ppc_opc_table_gen_group2[438] = ppc_opc_gen_ecowx;
+    ppc_opc_table_gen_group2[439] = ppc_opc_gen_sthux;
+    ppc_opc_table_gen_group2[444] = ppc_opc_gen_orx;
+    ppc_opc_table_gen_group2[459] = ppc_opc_gen_divwux;
+    ppc_opc_table_gen_group2[467] = ppc_opc_gen_mtspr;
+    ppc_opc_table_gen_group2[470] = ppc_opc_gen_dcbi;
+    ppc_opc_table_gen_group2[476] = ppc_opc_gen_nandx;
+    ppc_opc_table_gen_group2[491] = ppc_opc_gen_divwx;
+    ppc_opc_table_gen_group2[512] = ppc_opc_gen_mcrxr;
+    ppc_opc_table_gen_group2[533] = ppc_opc_gen_lswx;
+    ppc_opc_table_gen_group2[534] = ppc_opc_gen_lwbrx;
+    ppc_opc_table_gen_group2[535] = ppc_opc_gen_lfsx;
+    ppc_opc_table_gen_group2[536] = ppc_opc_gen_srwx;
+    ppc_opc_table_gen_group2[566] = ppc_opc_gen_tlbsync;
+    ppc_opc_table_gen_group2[567] = ppc_opc_gen_lfsux;
+    ppc_opc_table_gen_group2[595] = ppc_opc_gen_mfsr;
+    ppc_opc_table_gen_group2[597] = ppc_opc_gen_lswi;
+    ppc_opc_table_gen_group2[598] = ppc_opc_gen_sync;
+    ppc_opc_table_gen_group2[599] = ppc_opc_gen_lfdx;
+    ppc_opc_table_gen_group2[631] = ppc_opc_gen_lfdux;
+    ppc_opc_table_gen_group2[659] = ppc_opc_gen_mfsrin;
+    ppc_opc_table_gen_group2[661] = ppc_opc_gen_stswx;
+    ppc_opc_table_gen_group2[662] = ppc_opc_gen_stwbrx;
+    ppc_opc_table_gen_group2[663] = ppc_opc_gen_stfsx;
+    ppc_opc_table_gen_group2[695] = ppc_opc_gen_stfsux;
+    ppc_opc_table_gen_group2[725] = ppc_opc_gen_stswi;
+    ppc_opc_table_gen_group2[727] = ppc_opc_gen_stfdx;
+    ppc_opc_table_gen_group2[758] = ppc_opc_gen_dcba;
+    ppc_opc_table_gen_group2[759] = ppc_opc_gen_stfdux;
+    ppc_opc_table_gen_group2[790] = ppc_opc_gen_lhbrx;
+    ppc_opc_table_gen_group2[792] = ppc_opc_gen_srawx;
+    ppc_opc_table_gen_group2[824] = ppc_opc_gen_srawix;
+    ppc_opc_table_gen_group2[854] = ppc_opc_gen_eieio;
+    ppc_opc_table_gen_group2[918] = ppc_opc_gen_sthbrx;
+    ppc_opc_table_gen_group2[922] = ppc_opc_gen_extshx;
+    ppc_opc_table_gen_group2[954] = ppc_opc_gen_extsbx;
+    ppc_opc_table_gen_group2[982] = ppc_opc_gen_icbi;
+    ppc_opc_table_gen_group2[983] = ppc_opc_gen_stfiwx;
+    ppc_opc_table_gen_group2[1014] = ppc_opc_gen_dcbz;
 }
 
 // main opcode 31
@@ -309,7 +669,19 @@ static void ppc_opc_group_f1(PPC_CPU_State &aCPU)
 }
 static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
 {
-    // TODO: implement aarch64 FPU code generation
+    uint32 ext = PPC_OPC_EXT(aJITC.current_opc);
+    switch (ext & 0x1f) {
+    case 18: return ppc_opc_gen_fdivsx(aJITC);
+    case 20: return ppc_opc_gen_fsubsx(aJITC);
+    case 21: return ppc_opc_gen_faddsx(aJITC);
+    case 22: return ppc_opc_gen_fsqrtsx(aJITC);
+    case 24: return ppc_opc_gen_fresx(aJITC);
+    case 25: return ppc_opc_gen_fmulsx(aJITC);
+    case 28: return ppc_opc_gen_fmsubsx(aJITC);
+    case 29: return ppc_opc_gen_fmaddsx(aJITC);
+    case 30: return ppc_opc_gen_fnmsubsx(aJITC);
+    case 31: return ppc_opc_gen_fnmaddsx(aJITC);
+    }
     return ppc_opc_gen_invalid(aJITC);
 }
 
@@ -357,7 +729,40 @@ static void ppc_opc_group_f2(PPC_CPU_State &aCPU)
 }
 static JITCFlow ppc_opc_gen_group_f2(JITC &aJITC)
 {
-    // TODO: implement aarch64 FPU code generation
+    uint32 ext = PPC_OPC_EXT(aJITC.current_opc);
+    if (ext & 16) {
+        switch (ext & 0x1f) {
+        case 18: return ppc_opc_gen_fdivx(aJITC);
+        case 20: return ppc_opc_gen_fsubx(aJITC);
+        case 21: return ppc_opc_gen_faddx(aJITC);
+        case 22: return ppc_opc_gen_fsqrtx(aJITC);
+        case 23: return ppc_opc_gen_fselx(aJITC);
+        case 25: return ppc_opc_gen_fmulx(aJITC);
+        case 26: return ppc_opc_gen_frsqrtex(aJITC);
+        case 28: return ppc_opc_gen_fmsubx(aJITC);
+        case 29: return ppc_opc_gen_fmaddx(aJITC);
+        case 30: return ppc_opc_gen_fnmsubx(aJITC);
+        case 31: return ppc_opc_gen_fnmaddx(aJITC);
+        }
+    } else {
+        switch (ext) {
+        case 0: return ppc_opc_gen_fcmpu(aJITC);
+        case 12: return ppc_opc_gen_frspx(aJITC);
+        case 14: return ppc_opc_gen_fctiwx(aJITC);
+        case 15: return ppc_opc_gen_fctiwzx(aJITC);
+        case 32: return ppc_opc_gen_fcmpo(aJITC);
+        case 38: return ppc_opc_gen_mtfsb1x(aJITC);
+        case 40: return ppc_opc_gen_fnegx(aJITC);
+        case 64: return ppc_opc_gen_mcrfs(aJITC);
+        case 70: return ppc_opc_gen_mtfsb0x(aJITC);
+        case 72: return ppc_opc_gen_fmrx(aJITC);
+        case 134: return ppc_opc_gen_mtfsfix(aJITC);
+        case 136: return ppc_opc_gen_fnabsx(aJITC);
+        case 264: return ppc_opc_gen_fabsx(aJITC);
+        case 583: return ppc_opc_gen_mffsx(aJITC);
+        case 711: return ppc_opc_gen_mtfsfx(aJITC);
+        }
+    }
     return ppc_opc_gen_invalid(aJITC);
 }
 
@@ -434,59 +839,59 @@ static ppc_opc_gen_function ppc_opc_table_gen_main[64] = {
     &ppc_opc_gen_special,  //  0
     &ppc_opc_gen_invalid,  //  1
     &ppc_opc_gen_invalid,  //  2
-    &ppc_opc_gen_invalid,  //  3  (twi - stub)
+    &ppc_opc_gen_twi,      //  3
     &ppc_opc_gen_invalid,  //  4
     &ppc_opc_gen_invalid,  //  5
     &ppc_opc_gen_invalid,  //  6
-    &ppc_opc_gen_invalid,  //  7  (mulli - stub)
-    &ppc_opc_gen_invalid,  //  8  (subfic - stub)
+    &ppc_opc_gen_mulli,    //  7
+    &ppc_opc_gen_subfic,   //  8
     &ppc_opc_gen_invalid,  //  9
-    &ppc_opc_gen_invalid,  // 10 (cmpli - stub)
-    &ppc_opc_gen_invalid,  // 11 (cmpi - stub)
-    &ppc_opc_gen_invalid,  // 12 (addic - stub)
-    &ppc_opc_gen_invalid,  // 13 (addic_ - stub)
-    &ppc_opc_gen_invalid,  // 14 (addi - stub)
-    &ppc_opc_gen_invalid,  // 15 (addis - stub)
-    &ppc_opc_gen_invalid,  // 16 (bcx - stub)
-    &ppc_opc_gen_invalid,  // 17 (sc - stub)
-    &ppc_opc_gen_invalid,  // 18 (bx - stub)
+    &ppc_opc_gen_cmpli,    // 10
+    &ppc_opc_gen_cmpi,     // 11
+    &ppc_opc_gen_addic,    // 12
+    &ppc_opc_gen_addic_,   // 13
+    &ppc_opc_gen_addi,     // 14
+    &ppc_opc_gen_addis,    // 15
+    &ppc_opc_gen_bcx,      // 16
+    &ppc_opc_gen_sc,       // 17
+    &ppc_opc_gen_bx,       // 18
     &ppc_opc_gen_group_1,  // 19
-    &ppc_opc_gen_invalid,  // 20 (rlwimix - stub)
-    &ppc_opc_gen_invalid,  // 21 (rlwinmx - stub)
+    &ppc_opc_gen_rlwimix,  // 20
+    &ppc_opc_gen_rlwinmx,  // 21
     &ppc_opc_gen_invalid,  // 22
-    &ppc_opc_gen_invalid,  // 23 (rlwnmx - stub)
-    &ppc_opc_gen_invalid,  // 24 (ori - stub)
-    &ppc_opc_gen_invalid,  // 25 (oris - stub)
-    &ppc_opc_gen_invalid,  // 26 (xori - stub)
-    &ppc_opc_gen_invalid,  // 27 (xoris - stub)
-    &ppc_opc_gen_invalid,  // 28 (andi_ - stub)
-    &ppc_opc_gen_invalid,  // 29 (andis_ - stub)
+    &ppc_opc_gen_rlwnmx,   // 23
+    &ppc_opc_gen_ori,      // 24
+    &ppc_opc_gen_oris,     // 25
+    &ppc_opc_gen_xori,     // 26
+    &ppc_opc_gen_xoris,    // 27
+    &ppc_opc_gen_andi_,    // 28
+    &ppc_opc_gen_andis_,   // 29
     &ppc_opc_gen_invalid,  // 30
     &ppc_opc_gen_group_2,  // 31
-    &ppc_opc_gen_invalid,  // 32 (lwz - stub)
-    &ppc_opc_gen_invalid,  // 33 (lwzu - stub)
-    &ppc_opc_gen_invalid,  // 34 (lbz - stub)
-    &ppc_opc_gen_invalid,  // 35 (lbzu - stub)
-    &ppc_opc_gen_invalid,  // 36 (stw - stub)
-    &ppc_opc_gen_invalid,  // 37 (stwu - stub)
-    &ppc_opc_gen_invalid,  // 38 (stb - stub)
-    &ppc_opc_gen_invalid,  // 39 (stbu - stub)
-    &ppc_opc_gen_invalid,  // 40 (lhz - stub)
-    &ppc_opc_gen_invalid,  // 41 (lhzu - stub)
-    &ppc_opc_gen_invalid,  // 42 (lha - stub)
-    &ppc_opc_gen_invalid,  // 43 (lhau - stub)
-    &ppc_opc_gen_invalid,  // 44 (sth - stub)
-    &ppc_opc_gen_invalid,  // 45 (sthu - stub)
-    &ppc_opc_gen_invalid,  // 46 (lmw - stub)
-    &ppc_opc_gen_invalid,  // 47 (stmw - stub)
-    &ppc_opc_gen_invalid,  // 48 (lfs - stub)
-    &ppc_opc_gen_invalid,  // 49 (lfsu - stub)
-    &ppc_opc_gen_invalid,  // 50 (lfd - stub)
-    &ppc_opc_gen_invalid,  // 51 (lfdu - stub)
-    &ppc_opc_gen_invalid,  // 52 (stfs - stub)
-    &ppc_opc_gen_invalid,  // 53 (stfsu - stub)
-    &ppc_opc_gen_invalid,  // 54 (stfd - stub)
-    &ppc_opc_gen_invalid,  // 55 (stfdu - stub)
+    &ppc_opc_gen_lwz,      // 32
+    &ppc_opc_gen_lwzu,     // 33
+    &ppc_opc_gen_lbz,      // 34
+    &ppc_opc_gen_lbzu,     // 35
+    &ppc_opc_gen_stw,      // 36
+    &ppc_opc_gen_stwu,     // 37
+    &ppc_opc_gen_stb,      // 38
+    &ppc_opc_gen_stbu,     // 39
+    &ppc_opc_gen_lhz,      // 40
+    &ppc_opc_gen_lhzu,     // 41
+    &ppc_opc_gen_lha,      // 42
+    &ppc_opc_gen_lhau,     // 43
+    &ppc_opc_gen_sth,      // 44
+    &ppc_opc_gen_sthu,     // 45
+    &ppc_opc_gen_lmw,      // 46
+    &ppc_opc_gen_stmw,     // 47
+    &ppc_opc_gen_lfs,      // 48
+    &ppc_opc_gen_lfsu,     // 49
+    &ppc_opc_gen_lfd,      // 50
+    &ppc_opc_gen_lfdu,     // 51
+    &ppc_opc_gen_stfs,     // 52
+    &ppc_opc_gen_stfsu,    // 53
+    &ppc_opc_gen_stfd,     // 54
+    &ppc_opc_gen_stfdu,    // 55
     &ppc_opc_gen_invalid,  // 56
     &ppc_opc_gen_invalid,  // 57
     &ppc_opc_gen_invalid,  // 58
