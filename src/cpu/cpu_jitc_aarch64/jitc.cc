@@ -55,7 +55,7 @@ static inline void jitcFlushIcache(void *start, size_t size)
  */
 static inline void jitcEmitBranch(NativeAddress from, NativeAddress to)
 {
-    int32 offset = (int32)(to - from);
+    sint32 offset = (sint32)(to - from);
     uint32 instr = 0x14000000 | (((uint32)(offset / 4)) & 0x03FFFFFF);
     *(uint32 *)from = instr;
 }
@@ -449,6 +449,25 @@ extern "C" void jitc_error_program(uint32 a, uint32 b)
     if (a != 0x00020000) {
         ht_printf("JITC Warning: program exception: %08x %08x\n", a, b);
     }
+}
+
+void JITC::clobberAll()
+{
+    for (uint i = 0; i < sizeof nativeReg / sizeof nativeReg[0]; i++) {
+        nativeReg[i] = PPC_REG_NO;
+        nativeRegState[i] = rsUnused;
+    }
+    for (uint i = 0; i < sizeof clientReg / sizeof clientReg[0]; i++) {
+        clientReg[i] = REG_NO;
+    }
+    nativeFlagsState = rsUnused;
+    nativeCarryState = rsUnused;
+}
+
+void JITC::invalidateAll()
+{
+    clobberAll();
+    nativeFlags = PPC_NO_CRx;
 }
 
 extern "C" void jitc_error_stack_align()

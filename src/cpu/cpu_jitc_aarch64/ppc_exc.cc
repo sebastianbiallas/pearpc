@@ -37,10 +37,10 @@ extern PPC_CPU_State *gCPU;
 
 void ppc_cpu_raise_ext_exception()
 {
-	ppc_cpu_atomic_raise_ext_exception(*gCPU);
+    ppc_cpu_atomic_raise_ext_exception(*gCPU);
 }
 
 void ppc_cpu_cancel_ext_exception()
 {
-	ppc_cpu_atomic_cancel_ext_exception(*gCPU);
+    ppc_cpu_atomic_cancel_ext_exception(*gCPU);
 }

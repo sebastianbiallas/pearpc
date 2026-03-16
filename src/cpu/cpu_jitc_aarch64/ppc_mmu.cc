@@ -42,6 +42,7 @@
 
 #include "jitc.h"
 #include "jitc_asm.h"
+#include "ppc_dec.h"
 
 byte *gMemory = NULL;
 uint32 gMemorySize;
@@ -49,472 +50,451 @@ uint32 gMemorySize;
 #undef TLB
 
 static int ppc_pte_protection[] = {
-	1, 1, 1, 1, 0, 1, 1, 1,
-	1, 1, 1, 0, 0, 0, 1, 0,
+    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0,
 };
 
 int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int flags, uint32 &result)
 {
-	if (flags & PPC_MMU_CODE) {
-		if (!(aCPU.msr & MSR_IR)) {
-			result = addr;
-			return PPC_MMU_OK;
-		}
-		for (int i=0; i<4; i++) {
-			if ((addr & aCPU.ibat_bl[i]) == aCPU.ibat_bepi[i]) {
-				if (((aCPU.ibatu[i] & BATU_Vs) && !(aCPU.msr & MSR_PR))
-				 || ((aCPU.ibatu[i] & BATU_Vp) &&  (aCPU.msr & MSR_PR))) {
-					addr &= aCPU.ibat_nbl[i];
-					addr |= aCPU.ibat_brpn[i];
-					result = addr;
-					return PPC_MMU_OK;
-				}
-			}
-		}
-	} else {
-		if (!(aCPU.msr & MSR_DR)) {
-			result = addr;
-			return PPC_MMU_OK;
-		}
-		for (int i=0; i<4; i++) {
-			if ((addr & aCPU.dbat_bl[i]) == aCPU.dbat_bepi[i]) {
-				if (((aCPU.dbatu[i] & BATU_Vs) && !(aCPU.msr & MSR_PR))
-				 || ((aCPU.dbatu[i] & BATU_Vp) &&  (aCPU.msr & MSR_PR))) {
-					addr &= aCPU.dbat_nbl[i];
-					addr |= aCPU.dbat_brpn[i];
-					result = addr;
-					return PPC_MMU_OK;
-				}
-			}
-		}
-	}
+    if (flags & PPC_MMU_CODE) {
+        if (!(aCPU.msr & MSR_IR)) {
+            result = addr;
+            return PPC_MMU_OK;
+        }
+        for (int i = 0; i < 4; i++) {
+            if ((addr & aCPU.ibat_bl[i]) == aCPU.ibat_bepi[i]) {
+                if (((aCPU.ibatu[i] & BATU_Vs) && !(aCPU.msr & MSR_PR)) ||
+                    ((aCPU.ibatu[i] & BATU_Vp) && (aCPU.msr & MSR_PR))) {
+                    addr &= aCPU.ibat_nbl[i];
+                    addr |= aCPU.ibat_brpn[i];
+                    result = addr;
+                    return PPC_MMU_OK;
+                }
+            }
+        }
+    } else {
+        if (!(aCPU.msr & MSR_DR)) {
+            result = addr;
+            return PPC_MMU_OK;
+        }
+        for (int i = 0; i < 4; i++) {
+            if ((addr & aCPU.dbat_bl[i]) == aCPU.dbat_bepi[i]) {
+                if (((aCPU.dbatu[i] & BATU_Vs) && !(aCPU.msr & MSR_PR)) ||
+                    ((aCPU.dbatu[i] & BATU_Vp) && (aCPU.msr & MSR_PR))) {
+                    addr &= aCPU.dbat_nbl[i];
+                    addr |= aCPU.dbat_brpn[i];
+                    result = addr;
+                    return PPC_MMU_OK;
+                }
+            }
+        }
+    }
 
-	uint32 sr = aCPU.sr[EA_SR(addr)];
-	if (sr & SR_T) {
-		PPC_MMU_ERR("sr & T\n");
-	} else {
-		if ((flags & PPC_MMU_CODE) && (sr & SR_N)) {
-			return PPC_MMU_FATAL;
-		}
-		uint32 offset = EA_Offset(addr);
-		uint32 page_index = EA_PageIndex(addr);
-		uint32 VSID = SR_VSID(sr);
-		uint32 api = EA_API(addr);
+    uint32 sr = aCPU.sr[EA_SR(addr)];
+    if (sr & SR_T) {
+        PPC_MMU_ERR("sr & T\n");
+    } else {
+        if ((flags & PPC_MMU_CODE) && (sr & SR_N)) {
+            return PPC_MMU_FATAL;
+        }
+        uint32 offset = EA_Offset(addr);
+        uint32 page_index = EA_PageIndex(addr);
+        uint32 VSID = SR_VSID(sr);
+        uint32 api = EA_API(addr);
 
-		uint32 hash1 = (VSID ^ page_index);
-		uint32 pteg_addr = ((hash1 & aCPU.pagetable_hashmask)<<6) | aCPU.pagetable_base;
-		for (int i=0; i<8; i++) {
-			uint32 pte;
-			if (ppc_read_physical_word(pteg_addr, pte)) {
-				if (!(flags & PPC_MMU_NO_EXC)) {
-					return PPC_MMU_EXC;
-				}
-				return PPC_MMU_FATAL;
-			}
-			if ((pte & PTE1_V) && (!(pte & PTE1_H))) {
-				if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
-					if (ppc_read_physical_word(pteg_addr+4, pte)) {
-						return PPC_MMU_FATAL;
-					}
-					int key;
-					if (aCPU.msr & MSR_PR) {
-						key = (sr & SR_Kp) ? 4 : 0;
-					} else {
-						key = (sr & SR_Ks) ? 4 : 0;
-					}
-					if (!ppc_pte_protection[((flags&PPC_MMU_WRITE)?8:0) + key + PTE2_PP(pte)]) {
-						return PPC_MMU_FATAL;
-					}
-					uint32 pap = PTE2_RPN(pte);
-					result = pap | offset;
-					if (flags & PPC_MMU_WRITE) {
-						pte |= PTE2_C | PTE2_R;
-					} else {
-						pte |= PTE2_R;
-					}
-					ppc_write_physical_word(pteg_addr+4, pte);
-					return PPC_MMU_OK;
-				}
-			}
-			pteg_addr+=8;
-		}
+        uint32 hash1 = (VSID ^ page_index);
+        uint32 pteg_addr = ((hash1 & aCPU.pagetable_hashmask) << 6) | aCPU.pagetable_base;
+        for (int i = 0; i < 8; i++) {
+            uint32 pte;
+            if (ppc_read_physical_word(pteg_addr, pte)) {
+                if (!(flags & PPC_MMU_NO_EXC)) {
+                    return PPC_MMU_EXC;
+                }
+                return PPC_MMU_FATAL;
+            }
+            if ((pte & PTE1_V) && (!(pte & PTE1_H))) {
+                if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
+                    if (ppc_read_physical_word(pteg_addr + 4, pte)) {
+                        return PPC_MMU_FATAL;
+                    }
+                    int key;
+                    if (aCPU.msr & MSR_PR) {
+                        key = (sr & SR_Kp) ? 4 : 0;
+                    } else {
+                        key = (sr & SR_Ks) ? 4 : 0;
+                    }
+                    if (!ppc_pte_protection[((flags & PPC_MMU_WRITE) ? 8 : 0) + key + PTE2_PP(pte)]) {
+                        return PPC_MMU_FATAL;
+                    }
+                    uint32 pap = PTE2_RPN(pte);
+                    result = pap | offset;
+                    if (flags & PPC_MMU_WRITE) {
+                        pte |= PTE2_C | PTE2_R;
+                    } else {
+                        pte |= PTE2_R;
+                    }
+                    ppc_write_physical_word(pteg_addr + 4, pte);
+                    return PPC_MMU_OK;
+                }
+            }
+            pteg_addr += 8;
+        }
 
-		hash1 = ~hash1;
-		pteg_addr = ((hash1 & aCPU.pagetable_hashmask)<<6) | aCPU.pagetable_base;
-		for (int i=0; i<8; i++) {
-			uint32 pte;
-			if (ppc_read_physical_word(pteg_addr, pte)) {
-				if (!(flags & PPC_MMU_NO_EXC)) {
-					return PPC_MMU_EXC;
-				}
-				return PPC_MMU_FATAL;
-			}
-			if ((pte & PTE1_V) && (pte & PTE1_H)) {
-				if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
-					if (ppc_read_physical_word(pteg_addr+4, pte)) {
-						return PPC_MMU_FATAL;
-					}
-					int key;
-					if (aCPU.msr & MSR_PR) {
-						key = (sr & SR_Kp) ? 4 : 0;
-					} else {
-						key = (sr & SR_Ks) ? 4 : 0;
-					}
-					if (!ppc_pte_protection[((flags&PPC_MMU_WRITE)?8:0) + key + PTE2_PP(pte)]) {
-						return PPC_MMU_FATAL;
-					}
-					uint32 pap = PTE2_RPN(pte);
-					result = pap | offset;
-					if (flags & PPC_MMU_WRITE) {
-						pte |= PTE2_C | PTE2_R;
-					} else {
-						pte |= PTE2_R;
-					}
-					ppc_write_physical_word(pteg_addr+4, pte);
-					return PPC_MMU_OK;
-				}
-			}
-			pteg_addr+=8;
-		}
-	}
-	return PPC_MMU_FATAL;
+        hash1 = ~hash1;
+        pteg_addr = ((hash1 & aCPU.pagetable_hashmask) << 6) | aCPU.pagetable_base;
+        for (int i = 0; i < 8; i++) {
+            uint32 pte;
+            if (ppc_read_physical_word(pteg_addr, pte)) {
+                if (!(flags & PPC_MMU_NO_EXC)) {
+                    return PPC_MMU_EXC;
+                }
+                return PPC_MMU_FATAL;
+            }
+            if ((pte & PTE1_V) && (pte & PTE1_H)) {
+                if (VSID == PTE1_VSID(pte) && (api == PTE1_API(pte))) {
+                    if (ppc_read_physical_word(pteg_addr + 4, pte)) {
+                        return PPC_MMU_FATAL;
+                    }
+                    int key;
+                    if (aCPU.msr & MSR_PR) {
+                        key = (sr & SR_Kp) ? 4 : 0;
+                    } else {
+                        key = (sr & SR_Ks) ? 4 : 0;
+                    }
+                    if (!ppc_pte_protection[((flags & PPC_MMU_WRITE) ? 8 : 0) + key + PTE2_PP(pte)]) {
+                        return PPC_MMU_FATAL;
+                    }
+                    uint32 pap = PTE2_RPN(pte);
+                    result = pap | offset;
+                    if (flags & PPC_MMU_WRITE) {
+                        pte |= PTE2_C | PTE2_R;
+                    } else {
+                        pte |= PTE2_R;
+                    }
+                    ppc_write_physical_word(pteg_addr + 4, pte);
+                    return PPC_MMU_OK;
+                }
+            }
+            pteg_addr += 8;
+        }
+    }
+    return PPC_MMU_FATAL;
 }
 
 int FASTCALL ppc_effective_to_physical_vm(PPC_CPU_State &aCPU, uint32 addr, int flags, uint32 &result)
 {
-	return ppc_effective_to_physical(aCPU, addr, flags, result);
+    return ppc_effective_to_physical(aCPU, addr, flags, result);
 }
 
-void ppc_mmu_tlb_invalidate(PPC_CPU_State &aCPU)
-{
-}
+void ppc_mmu_tlb_invalidate(PPC_CPU_State &aCPU) {}
 
 bool FASTCALL ppc_mmu_set_sdr1(PPC_CPU_State &aCPU, uint32 newval, bool quiesce)
 {
-	aCPU.sdr1 = newval;
-	aCPU.pagetable_base = newval & 0xffff0000;
-	aCPU.pagetable_hashmask = ((newval & 0x1ff) << 10) | 0x3ff;
-	ppc_mmu_tlb_invalidate(aCPU);
-	return true;
+    aCPU.sdr1 = newval;
+    aCPU.pagetable_base = newval & 0xffff0000;
+    aCPU.pagetable_hashmask = ((newval & 0x1ff) << 10) | 0x3ff;
+    ppc_mmu_tlb_invalidate(aCPU);
+    return true;
 }
 
 int FASTCALL ppc_direct_physical_memory_handle(uint32 addr, byte *&ptr)
 {
-	if (addr < gMemorySize) {
-		ptr = &gMemory[addr];
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        ptr = &gMemory[addr];
+        return PPC_MMU_OK;
+    }
+    return PPC_MMU_FATAL;
 }
 
 int FASTCALL ppc_direct_effective_memory_handle(PPC_CPU_State &aCPU, uint32 addr, byte *&ptr)
 {
-	uint32 ea;
-	int r;
-	if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, ea)))) {
-		return ppc_direct_physical_memory_handle(ea, ptr);
-	}
-	return r;
+    uint32 ea;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, ea)))) {
+        return ppc_direct_physical_memory_handle(ea, ptr);
+    }
+    return r;
 }
 
 int FASTCALL ppc_direct_effective_memory_handle_code(PPC_CPU_State &aCPU, uint32 addr, byte *&ptr)
 {
-	uint32 ea;
-	int r;
-	if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ | PPC_MMU_CODE, ea)))) {
-		return ppc_direct_physical_memory_handle(ea, ptr);
-	}
-	return r;
+    uint32 ea;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ | PPC_MMU_CODE, ea)))) {
+        return ppc_direct_physical_memory_handle(ea, ptr);
+    }
+    return r;
 }
 
 int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
 {
-	if (addr < gMemorySize - 7) {
-		result = ppc_dword_from_BE(*((uint64 *)&gMemory[addr]));
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize - 7) {
+        result = ppc_dword_from_BE(*((uint64 *)&gMemory[addr]));
+        return PPC_MMU_OK;
+    }
+    return PPC_MMU_FATAL;
 }
 
 int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
 {
-	if (addr < gMemorySize - 3) {
-		result = ppc_word_from_BE(*((uint32 *)&gMemory[addr]));
-		return PPC_MMU_OK;
-	}
-	if (addr >= IO_MEM_BASE) {
-		io_mem_read(addr, result, 4);
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        result = ppc_word_from_BE(*((uint32 *)(gMemory + addr)));
+        return PPC_MMU_OK;
+    }
+    int ret = io_mem_read(addr, result, 4);
+    result = ppc_bswap_word(result);
+    return ret;
 }
 
 int FASTCALL ppc_read_physical_half(uint32 addr, uint16 &result)
 {
-	if (addr < gMemorySize - 1) {
-		result = ppc_half_from_BE(*((uint16 *)&gMemory[addr]));
-		return PPC_MMU_OK;
-	}
-	if (addr >= IO_MEM_BASE) {
-		uint32 r;
-		io_mem_read(addr, r, 2);
-		result = r;
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        result = ppc_half_from_BE(*((uint16 *)(gMemory + addr)));
+        return PPC_MMU_OK;
+    }
+    uint32 r;
+    int ret = io_mem_read(addr, r, 2);
+    result = ppc_bswap_half(r);
+    return ret;
 }
 
 int FASTCALL ppc_read_physical_byte(uint32 addr, uint8 &result)
 {
-	if (addr < gMemorySize) {
-		result = gMemory[addr];
-		return PPC_MMU_OK;
-	}
-	if (addr >= IO_MEM_BASE) {
-		uint32 r;
-		io_mem_read(addr, r, 1);
-		result = r;
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        result = gMemory[addr];
+        return PPC_MMU_OK;
+    }
+    uint32 r;
+    int ret = io_mem_read(addr, r, 1);
+    result = r;
+    return ret;
 }
 
 int FASTCALL ppc_read_effective_code(PPC_CPU_State &aCPU, uint32 addr, uint32 &result)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ | PPC_MMU_CODE, p)))) {
-		return ppc_read_physical_word(p, result);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ | PPC_MMU_CODE, p)))) {
+        return ppc_read_physical_word(p, result);
+    }
+    return r;
 }
 
 int FASTCALL ppc_read_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 &result)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
-		return ppc_read_physical_dword(p, result);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        return ppc_read_physical_dword(p, result);
+    }
+    return r;
 }
 
 int FASTCALL ppc_read_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 &result)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
-		return ppc_read_physical_word(p, result);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        return ppc_read_physical_word(p, result);
+    }
+    return r;
 }
 
 int FASTCALL ppc_read_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 &result)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
-		return ppc_read_physical_half(p, result);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        return ppc_read_physical_half(p, result);
+    }
+    return r;
 }
 
 int FASTCALL ppc_read_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 &result)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
-		return ppc_read_physical_byte(p, result);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        return ppc_read_physical_byte(p, result);
+    }
+    return r;
 }
 
 int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 {
-	if (addr < gMemorySize - 7) {
-		*((uint64 *)&gMemory[addr]) = ppc_dword_to_BE(data);
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize - 7) {
+        *((uint64 *)&gMemory[addr]) = ppc_dword_to_BE(data);
+        return PPC_MMU_OK;
+    }
+    return PPC_MMU_FATAL;
 }
 
 int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
 {
-	if (addr < gMemorySize - 3) {
-		*((uint32 *)&gMemory[addr]) = ppc_word_to_BE(data);
-		return PPC_MMU_OK;
-	}
-	if (addr >= IO_MEM_BASE) {
-		io_mem_write(addr, data, 4);
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        *((uint32 *)(gMemory + addr)) = ppc_word_to_BE(data);
+        return PPC_MMU_OK;
+    }
+    return io_mem_write(addr, ppc_bswap_word(data), 4);
 }
 
 int FASTCALL ppc_write_physical_half(uint32 addr, uint16 data)
 {
-	if (addr < gMemorySize - 1) {
-		*((uint16 *)&gMemory[addr]) = ppc_half_to_BE(data);
-		return PPC_MMU_OK;
-	}
-	if (addr >= IO_MEM_BASE) {
-		io_mem_write(addr, data, 2);
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        *((uint16 *)(gMemory + addr)) = ppc_half_to_BE(data);
+        return PPC_MMU_OK;
+    }
+    return io_mem_write(addr, ppc_bswap_half(data), 2);
 }
 
 int FASTCALL ppc_write_physical_byte(uint32 addr, uint8 data)
 {
-	if (addr < gMemorySize) {
-		gMemory[addr] = data;
-		return PPC_MMU_OK;
-	}
-	if (addr >= IO_MEM_BASE) {
-		io_mem_write(addr, data, 1);
-		return PPC_MMU_OK;
-	}
-	return PPC_MMU_FATAL;
+    if (addr < gMemorySize) {
+        gMemory[addr] = data;
+        return PPC_MMU_OK;
+    }
+    return io_mem_write(addr, data, 1);
 }
 
 int FASTCALL ppc_write_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 data)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
-		return ppc_write_physical_dword(p, data);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        return ppc_write_physical_dword(p, data);
+    }
+    return r;
 }
 
 int FASTCALL ppc_write_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 data)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
-		return ppc_write_physical_word(p, data);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        return ppc_write_physical_word(p, data);
+    }
+    return r;
 }
 
 int FASTCALL ppc_write_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 data)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
-		return ppc_write_physical_half(p, data);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        return ppc_write_physical_half(p, data);
+    }
+    return r;
 }
 
 int FASTCALL ppc_write_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 data)
 {
-	uint32 p;
-	int r;
-	if (!((r=ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
-		return ppc_write_physical_byte(p, data);
-	}
-	return r;
+    uint32 p;
+    int r;
+    if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        return ppc_write_physical_byte(p, data);
+    }
+    return r;
 }
 
 bool FASTCALL ppc_init_physical_memory(uint size)
 {
-	if (size < 64*1024*1024) {
-		PPC_MMU_ERR("Main memory size must >= 64MB!\n");
-	}
-	gMemory = (byte*)malloc(size+4095);
-	if ((uint64)gMemory & 0x0fff) {
-		gMemory += 4096 - ((uint64)gMemory & 0x0fff);
-	}
-	printf("&gMemory: %p\n", gMemory);
-	if (gMemory == 0) {
-		PPC_MMU_ERR("Cannot allocate memory!\n");
-	}
-	gMemorySize = size;
-	return gMemory != NULL;
+    if (size < 64 * 1024 * 1024) {
+        PPC_MMU_ERR("Main memory size must >= 64MB!\n");
+    }
+    gMemory = (byte *)malloc(size + 4095);
+    if ((uint64)gMemory & 0x0fff) {
+        gMemory += 4096 - ((uint64)gMemory & 0x0fff);
+    }
+    printf("&gMemory: %p\n", gMemory);
+    if (gMemory == 0) {
+        PPC_MMU_ERR("Cannot allocate memory!\n");
+    }
+    gMemorySize = size;
+    return gMemory != NULL;
 }
 
 uint32 ppc_get_memory_size()
 {
-	return gMemorySize;
+    return gMemorySize;
 }
 
 bool ppc_dma_write(uint32 dest, const void *src, uint32 size)
 {
-	if (dest > gMemorySize || (dest+size) > gMemorySize) return false;
-	byte *ptr;
-	ppc_direct_physical_memory_handle(dest, ptr);
-	memcpy(ptr, src, size);
-	return true;
+    if (dest > gMemorySize || (dest + size) > gMemorySize)
+        return false;
+    byte *ptr;
+    ppc_direct_physical_memory_handle(dest, ptr);
+    memcpy(ptr, src, size);
+    return true;
 }
 
 bool ppc_dma_read(void *dest, uint32 src, uint32 size)
 {
-	if (src > gMemorySize || (src+size) > gMemorySize) return false;
-	byte *ptr;
-	ppc_direct_physical_memory_handle(src, ptr);
-	memcpy(dest, ptr, size);
-	return true;
+    if (src > gMemorySize || (src + size) > gMemorySize)
+        return false;
+    byte *ptr;
+    ppc_direct_physical_memory_handle(src, ptr);
+    memcpy(dest, ptr, size);
+    return true;
 }
 
 bool ppc_dma_set(uint32 dest, int c, uint32 size)
 {
-	if (dest > gMemorySize || (dest+size) > gMemorySize) return false;
-	byte *ptr;
-	ppc_direct_physical_memory_handle(dest, ptr);
-	memset(ptr, c, size);
-	return true;
+    if (dest > gMemorySize || (dest + size) > gMemorySize)
+        return false;
+    byte *ptr;
+    ppc_direct_physical_memory_handle(dest, ptr);
+    memset(ptr, c, size);
+    return true;
 }
 
 extern PPC_CPU_State *gCPU;
 
 bool ppc_prom_set_sdr1(uint32 newval, bool quiesce)
 {
-	return ppc_mmu_set_sdr1(*gCPU, newval, quiesce);
+    return ppc_mmu_set_sdr1(*gCPU, newval, quiesce);
 }
 
 bool ppc_prom_effective_to_physical(uint32 &result, uint32 ea)
 {
-	return ppc_effective_to_physical(*gCPU, ea, PPC_MMU_READ|PPC_MMU_SV|PPC_MMU_NO_EXC, result) == PPC_MMU_OK;
+    return ppc_effective_to_physical(*gCPU, ea, PPC_MMU_READ | PPC_MMU_SV | PPC_MMU_NO_EXC, result) == PPC_MMU_OK;
 }
 
 bool ppc_prom_page_create(uint32 ea, uint32 pa)
 {
-	PPC_CPU_State &aCPU = *gCPU;
-	uint32 sr = aCPU.sr[EA_SR(ea)];
-	uint32 page_index = EA_PageIndex(ea);
-	uint32 VSID = SR_VSID(sr);
-	uint32 api = EA_API(ea);
-	uint32 hash1 = (VSID ^ page_index);
-	uint32 pte, pte2;
-	uint32 h = 0;
-	for (int j=0; j<2; j++) {
-		uint32 pteg_addr = ((hash1 & aCPU.pagetable_hashmask)<<6) | aCPU.pagetable_base;
-		for (int i=0; i<8; i++) {
-			if (ppc_read_physical_word(pteg_addr, pte)) {
-				return false;
-			}
-			if (!(pte & PTE1_V)) {
-				pte = PTE1_V | (VSID << 7) | h | api;
-				pte2 = (PA_RPN(pa) << 12) | 0;
-				if (ppc_write_physical_word(pteg_addr, pte)
-				 || ppc_write_physical_word(pteg_addr+4, pte2)) {
-					return false;
-				} else {
-					return true;
-				}
-			}
-			pteg_addr+=8;
-		}
-		hash1 = ~hash1;
-		h = PTE1_H;
-	}
-	return false;
+    PPC_CPU_State &aCPU = *gCPU;
+    uint32 sr = aCPU.sr[EA_SR(ea)];
+    uint32 page_index = EA_PageIndex(ea);
+    uint32 VSID = SR_VSID(sr);
+    uint32 api = EA_API(ea);
+    uint32 hash1 = (VSID ^ page_index);
+    uint32 pte, pte2;
+    uint32 h = 0;
+    for (int j = 0; j < 2; j++) {
+        uint32 pteg_addr = ((hash1 & aCPU.pagetable_hashmask) << 6) | aCPU.pagetable_base;
+        for (int i = 0; i < 8; i++) {
+            if (ppc_read_physical_word(pteg_addr, pte)) {
+                return false;
+            }
+            if (!(pte & PTE1_V)) {
+                pte = PTE1_V | (VSID << 7) | h | api;
+                pte2 = (PA_RPN(pa) << 12) | 0;
+                if (ppc_write_physical_word(pteg_addr, pte) || ppc_write_physical_word(pteg_addr + 4, pte2)) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+            pteg_addr += 8;
+        }
+        hash1 = ~hash1;
+        h = PTE1_H;
+    }
+    return false;
 }
 
 bool ppc_prom_page_free(uint32 ea)
 {
-	return true;
+    return true;
 }
 
 /*
@@ -538,191 +518,315 @@ void ppc_opc_dcbtst(PPC_CPU_State &aCPU) {}
 
 void ppc_opc_lbz(PPC_CPU_State &aCPU)
 {
-	int rD, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
-	uint8 r;
-	if (ppc_read_effective_byte(aCPU, (rA?aCPU.gpr[rA]:0)+imm, r) == PPC_MMU_OK) {
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+    uint8 r;
+    if (ppc_read_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lbzu(PPC_CPU_State &aCPU)
 {
-	int rD, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
-	uint8 r;
-	if (ppc_read_effective_byte(aCPU, aCPU.gpr[rA]+imm, r) == PPC_MMU_OK) {
-		aCPU.gpr[rA] += imm;
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+    uint8 r;
+    if (ppc_read_effective_byte(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+        aCPU.gpr[rA] += imm;
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lbzux(PPC_CPU_State &aCPU)
 {
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
-	uint8 r;
-	if (ppc_read_effective_byte(aCPU, aCPU.gpr[rA]+aCPU.gpr[rB], r) == PPC_MMU_OK) {
-		aCPU.gpr[rA] += aCPU.gpr[rB];
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+    uint8 r;
+    if (ppc_read_effective_byte(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+        aCPU.gpr[rA] += aCPU.gpr[rB];
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lbzx(PPC_CPU_State &aCPU)
 {
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
-	uint8 r;
-	if (ppc_read_effective_byte(aCPU, (rA?aCPU.gpr[rA]:0)+aCPU.gpr[rB], r) == PPC_MMU_OK) {
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+    uint8 r;
+    if (ppc_read_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lwz(PPC_CPU_State &aCPU)
 {
-	int rD, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
-	uint32 r;
-	if (ppc_read_effective_word(aCPU, (rA?aCPU.gpr[rA]:0)+imm, r) == PPC_MMU_OK) {
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+    uint32 r;
+    if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lwzu(PPC_CPU_State &aCPU)
 {
-	int rD, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
-	uint32 r;
-	if (ppc_read_effective_word(aCPU, aCPU.gpr[rA]+imm, r) == PPC_MMU_OK) {
-		aCPU.gpr[rA] += imm;
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+    uint32 r;
+    if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+        aCPU.gpr[rA] += imm;
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lwzux(PPC_CPU_State &aCPU)
 {
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
-	uint32 r;
-	if (ppc_read_effective_word(aCPU, aCPU.gpr[rA]+aCPU.gpr[rB], r) == PPC_MMU_OK) {
-		aCPU.gpr[rA] += aCPU.gpr[rB];
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+    uint32 r;
+    if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+        aCPU.gpr[rA] += aCPU.gpr[rB];
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lwzx(PPC_CPU_State &aCPU)
 {
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
-	uint32 r;
-	if (ppc_read_effective_word(aCPU, (rA?aCPU.gpr[rA]:0)+aCPU.gpr[rB], r) == PPC_MMU_OK) {
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+    uint32 r;
+    if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+        aCPU.gpr[rD] = r;
+    }
 }
 
 void ppc_opc_lhz(PPC_CPU_State &aCPU)
 {
-	int rD, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
-	uint16 r;
-	if (ppc_read_effective_half(aCPU, (rA?aCPU.gpr[rA]:0)+imm, r) == PPC_MMU_OK) {
-		aCPU.gpr[rD] = r;
-	}
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+    uint16 r;
+    if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+        aCPU.gpr[rD] = r;
+    }
 }
 
-void ppc_opc_lhzu(PPC_CPU_State &aCPU) { ppc_opc_lhz(aCPU); /* TODO: update rA */ }
-void ppc_opc_lhzux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lhzx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lha(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lhau(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lhaux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lhax(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lhbrx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lwbrx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lwarx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lmw(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lswi(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lswx(PPC_CPU_State &aCPU) { /* TODO */ }
+void ppc_opc_lhzu(PPC_CPU_State &aCPU)
+{
+    ppc_opc_lhz(aCPU); /* TODO: update rA */
+}
+void ppc_opc_lhzux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lhzx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lha(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lhau(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lhaux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lhax(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lhbrx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lwbrx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lwarx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lmw(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lswi(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lswx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
 
 void ppc_opc_stb(PPC_CPU_State &aCPU)
 {
-	int rS, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-	ppc_write_effective_byte(aCPU, (rA?aCPU.gpr[rA]:0)+imm, (uint8)aCPU.gpr[rS]);
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+    ppc_write_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, (uint8)aCPU.gpr[rS]);
 }
 
-void ppc_opc_stbu(PPC_CPU_State &aCPU) { ppc_opc_stb(aCPU); /* TODO: update rA */ }
-void ppc_opc_stbux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stbx(PPC_CPU_State &aCPU) { /* TODO */ }
+void ppc_opc_stbu(PPC_CPU_State &aCPU)
+{
+    ppc_opc_stb(aCPU); /* TODO: update rA */
+}
+void ppc_opc_stbux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stbx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
 
 void ppc_opc_stw(PPC_CPU_State &aCPU)
 {
-	int rS, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-	ppc_write_effective_word(aCPU, (rA?aCPU.gpr[rA]:0)+imm, aCPU.gpr[rS]);
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+    ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, aCPU.gpr[rS]);
 }
 
-void ppc_opc_stwu(PPC_CPU_State &aCPU) { ppc_opc_stw(aCPU); /* TODO: update rA */ }
-void ppc_opc_stwux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stwx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stwbrx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stwcx_(PPC_CPU_State &aCPU) { /* TODO */ }
+void ppc_opc_stwu(PPC_CPU_State &aCPU)
+{
+    ppc_opc_stw(aCPU); /* TODO: update rA */
+}
+void ppc_opc_stwux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stwx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stwbrx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stwcx_(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
 
 void ppc_opc_sth(PPC_CPU_State &aCPU)
 {
-	int rS, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-	ppc_write_effective_half(aCPU, (rA?aCPU.gpr[rA]:0)+imm, (uint16)aCPU.gpr[rS]);
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+    ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, (uint16)aCPU.gpr[rS]);
 }
 
-void ppc_opc_sthbrx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_sthu(PPC_CPU_State &aCPU) { ppc_opc_sth(aCPU); /* TODO: update rA */ }
-void ppc_opc_sthux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_sthx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stmw(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stswi(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stswx(PPC_CPU_State &aCPU) { /* TODO */ }
+void ppc_opc_sthbrx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_sthu(PPC_CPU_State &aCPU)
+{
+    ppc_opc_sth(aCPU); /* TODO: update rA */
+}
+void ppc_opc_sthux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_sthx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stmw(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stswi(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stswx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
 
 /* FPU load/store stubs */
-void ppc_opc_lfd(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfdu(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfdux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfdx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfs(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfsu(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfsux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lfsx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfd(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfdu(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfdux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfdx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfiwx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfs(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfsu(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfsux(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stfsx(PPC_CPU_State &aCPU) { /* TODO */ }
+void ppc_opc_lfd(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfdu(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfdux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfdx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfs(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfsu(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfsux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lfsx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfd(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfdu(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfdux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfdx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfiwx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfs(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfsu(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfsux(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stfsx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
 
 /* Altivec load/store stubs */
-void ppc_opc_lvx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lvxl(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lvebx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lvehx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lvewx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lvsl(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_lvsr(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_dst(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stvx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stvxl(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stvebx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stvehx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_stvewx(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_dstst(PPC_CPU_State &aCPU) { /* TODO */ }
-void ppc_opc_dss(PPC_CPU_State &aCPU) { /* TODO */ }
+void ppc_opc_lvx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lvxl(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lvebx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lvehx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lvewx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lvsl(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_lvsr(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_dst(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stvx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stvxl(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stvebx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stvehx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_stvewx(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_dstst(PPC_CPU_State &aCPU)
+{ /* TODO */
+}
+void ppc_opc_dss(PPC_CPU_State &aCPU)
+{ /* TODO */
+}

@@ -268,13 +268,13 @@ A64Instr a64_STRHw(int rt, int rn, int offset)
 /* Load/Store pair (pre-index / post-index) */
 A64Instr a64_STP_pre(int rt1, int rt2, int rn, int offset)
 {
-    int32 simm7 = (offset / 8) & 0x7F;
+    sint32 simm7 = (offset / 8) & 0x7F;
     return 0xA9800000 | (simm7 << 15) | (rt2 << 10) | (rn << 5) | rt1;
 }
 
 A64Instr a64_LDP_post(int rt1, int rt2, int rn, int offset)
 {
-    int32 simm7 = (offset / 8) & 0x7F;
+    sint32 simm7 = (offset / 8) & 0x7F;
     return 0xA8C00000 | (simm7 << 15) | (rt2 << 10) | (rn << 5) | rt1;
 }
 
@@ -283,13 +283,13 @@ A64Instr a64_LDP_post(int rt1, int rt2, int rn, int offset)
  *  B: PC-relative, +/-128MB (26-bit signed offset in instructions)
  *  BL: same but sets LR
  */
-A64Instr a64_B(int32 offset)
+A64Instr a64_B(sint32 offset)
 {
     uint32 imm26 = ((uint32)(offset / 4)) & 0x03FFFFFF;
     return 0x14000000 | imm26;
 }
 
-A64Instr a64_BL(int32 offset)
+A64Instr a64_BL(sint32 offset)
 {
     uint32 imm26 = ((uint32)(offset / 4)) & 0x03FFFFFF;
     return 0x94000000 | imm26;
@@ -311,37 +311,37 @@ A64Instr a64_RET(int rn)
 }
 
 /* Conditional branch */
-A64Instr a64_Bcc(A64Cond cond, int32 offset)
+A64Instr a64_Bcc(A64Cond cond, sint32 offset)
 {
     uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
     return 0x54000000 | (imm19 << 5) | (uint32)cond;
 }
 
-A64Instr a64_CBZ(int rt, int32 offset)
+A64Instr a64_CBZ(int rt, sint32 offset)
 {
     uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
     return 0xB4000000 | (imm19 << 5) | rt;
 }
 
-A64Instr a64_CBNZ(int rt, int32 offset)
+A64Instr a64_CBNZ(int rt, sint32 offset)
 {
     uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
     return 0xB5000000 | (imm19 << 5) | rt;
 }
 
-A64Instr a64_CBZw(int rt, int32 offset)
+A64Instr a64_CBZw(int rt, sint32 offset)
 {
     uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
     return 0x34000000 | (imm19 << 5) | rt;
 }
 
-A64Instr a64_CBNZw(int rt, int32 offset)
+A64Instr a64_CBNZw(int rt, sint32 offset)
 {
     uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
     return 0x35000000 | (imm19 << 5) | rt;
 }
 
-A64Instr a64_TBZ(int rt, int bit, int32 offset)
+A64Instr a64_TBZ(int rt, int bit, sint32 offset)
 {
     uint32 imm14 = ((uint32)(offset / 4)) & 0x3FFF;
     uint32 b5 = (bit >> 5) & 1;
@@ -349,7 +349,7 @@ A64Instr a64_TBZ(int rt, int bit, int32 offset)
     return 0x36000000 | (b5 << 31) | (b40 << 19) | (imm14 << 5) | rt;
 }
 
-A64Instr a64_TBNZ(int rt, int bit, int32 offset)
+A64Instr a64_TBNZ(int rt, int bit, sint32 offset)
 {
     uint32 imm14 = ((uint32)(offset / 4)) & 0x3FFF;
     uint32 b5 = (bit >> 5) & 1;
@@ -376,16 +376,16 @@ A64Instr a64_REVw(int rd, int rn)
 }
 
 /* PC-relative addressing */
-A64Instr a64_ADRP(int rd, int64 offset)
+A64Instr a64_ADRP(int rd, sint64 offset)
 {
     // ADRP Xd, #offset (page-aligned, +/-4GB)
-    int32 imm = (int32)(offset >> 12);
+    sint32 imm = (sint32)(offset >> 12);
     uint32 immlo = imm & 0x3;
     uint32 immhi = (imm >> 2) & 0x7FFFF;
     return 0x90000000 | (immlo << 29) | (immhi << 5) | rd;
 }
 
-A64Instr a64_ADR(int rd, int32 offset)
+A64Instr a64_ADR(int rd, sint32 offset)
 {
     // ADR Xd, #offset (PC-relative, +/-1MB)
     uint32 immlo = offset & 0x3;

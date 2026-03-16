@@ -101,11 +101,11 @@ A64Instr a64_STP_pre(int rt1, int rt2, int rn, int offset);  // STP Xt1, Xt2, [X
 A64Instr a64_LDP_post(int rt1, int rt2, int rn, int offset); // LDP Xt1, Xt2, [Xn], #offset
 
 /* Branches */
-A64Instr a64_B(int32 offset);  // B #offset (PC-relative, +/-128MB)
-A64Instr a64_BL(int32 offset); // BL #offset
-A64Instr a64_BR(int rn);       // BR Xn
-A64Instr a64_BLR(int rn);      // BLR Xn
-A64Instr a64_RET(int rn = 30); // RET {Xn}
+A64Instr a64_B(sint32 offset);  // B #offset (PC-relative, +/-128MB)
+A64Instr a64_BL(sint32 offset); // BL #offset
+A64Instr a64_BR(int rn);        // BR Xn
+A64Instr a64_BLR(int rn);       // BLR Xn
+A64Instr a64_RET(int rn = 30);  // RET {Xn}
 
 /* Conditional branches */
 enum A64Cond {
@@ -126,13 +126,13 @@ enum A64Cond {
     A64_AL = 0xe, // always
 };
 
-A64Instr a64_Bcc(A64Cond cond, int32 offset);     // B.cond #offset (+/-1MB)
-A64Instr a64_CBZ(int rt, int32 offset);           // CBZ Xt, #offset
-A64Instr a64_CBNZ(int rt, int32 offset);          // CBNZ Xt, #offset
-A64Instr a64_CBZw(int rt, int32 offset);          // CBZ Wt, #offset
-A64Instr a64_CBNZw(int rt, int32 offset);         // CBNZ Wt, #offset
-A64Instr a64_TBZ(int rt, int bit, int32 offset);  // TBZ Xt, #bit, #offset
-A64Instr a64_TBNZ(int rt, int bit, int32 offset); // TBNZ Xt, #bit, #offset
+A64Instr a64_Bcc(A64Cond cond, sint32 offset);     // B.cond #offset (+/-1MB)
+A64Instr a64_CBZ(int rt, sint32 offset);           // CBZ Xt, #offset
+A64Instr a64_CBNZ(int rt, sint32 offset);          // CBNZ Xt, #offset
+A64Instr a64_CBZw(int rt, sint32 offset);          // CBZ Wt, #offset
+A64Instr a64_CBNZw(int rt, sint32 offset);         // CBNZ Wt, #offset
+A64Instr a64_TBZ(int rt, int bit, sint32 offset);  // TBZ Xt, #bit, #offset
+A64Instr a64_TBNZ(int rt, int bit, sint32 offset); // TBNZ Xt, #bit, #offset
 
 /* Misc */
 A64Instr a64_NOP();
@@ -140,7 +140,7 @@ A64Instr a64_REV(int rd, int rn);  // byte swap 64-bit
 A64Instr a64_REVw(int rd, int rn); // byte swap 32-bit
 
 /* ADRP + ADD for PC-relative address loading */
-A64Instr a64_ADRP(int rd, int64 offset);
-A64Instr a64_ADR(int rd, int32 offset);
+A64Instr a64_ADRP(int rd, sint64 offset);
+A64Instr a64_ADR(int rd, sint32 offset);
 
 #endif

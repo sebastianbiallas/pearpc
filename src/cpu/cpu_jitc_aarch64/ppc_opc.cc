@@ -94,6 +94,7 @@ void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr)
     aCPU.singlestep_ignore = true;
 #endif
     if (newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS) {
+        extern void jitc_error_msr_unsupported_bits(uint32);
         jitc_error_msr_unsupported_bits(newmsr);
     }
     aCPU.msr = newmsr;
