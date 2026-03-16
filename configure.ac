@@ -103,12 +103,10 @@ mingw32*)
 darwin*)
 	OSAPI_DIR=posix
 	if test "x$enable_ui" = "xno"; then
-		enable_ui="x11"
+		enable_ui="sdl"
 	fi
-	AC_MSG_RESULT([*** DARWIN, building native Darwin version (X11)])
+	AC_MSG_RESULT([*** DARWIN, building native Darwin version (SDL)])
 	PPC_CCASFLAGS="-DPREFIX=_"
-	PPC_CFLAGS="$PPC_CFLAGS -mdynamic-no-pic"
-	PPC_CXXFLAGS="$PPC_CXXFLAGS -mdynamic-no-pic"
 ;;
 beos*)
 	OSAPI_DIR=beos
@@ -166,6 +164,13 @@ x86_64*)
 	ARCH_DIR=x86_64
 	if test -z "$CPU_DIR"; then
 		CPU_DIR="cpu_jitc_x86_64"
+	fi
+;;
+aarch64*|arm64*)
+	AC_MSG_RESULT([*** aarch64 target system (interpreter only)])
+	ARCH_DIR=generic
+	if test -z "$CPU_DIR"; then
+		CPU_DIR="cpu_generic"
 	fi
 ;;
 *)
@@ -363,20 +368,11 @@ gtk)
 beos)
 ;;
 sdl)
-	SDL_VERSION=1.2.0
-
-	AM_PATH_SDL($SDL_VERSION,
-		    :,
-		    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
-	)
-	
-	SDL_CFLAGS=`echo "$SDL_CFLAGS" | sed 's/-Dmain=SDL_main//'`
-	SDL_LIBS=`echo "$SDL_LIBS" | sed 's/-mwindows//' | sed 's/-lmingw32//'`
-	LDFLAGS="$LDFLAGS $SDL_LIBS"
-	PPC_CFLAGS="$PPC_CFLAGS $SDL_CFLAGS"
-	PPC_CXXFLAGS="$PPC_CXXFLAGS $SDL_CFLAGS"
-	PPC_LDADD="$PPC_LDADD $SDL_LIBS"
-	PPC_LDFLAGS="$PPC_LDFLAGS $SDL_LIBS"
+	PKG_CHECK_MODULES([SDL3], [sdl3 >= 3.0.0], [],
+		[AC_MSG_ERROR([*** SDL3 >= 3.0.0 not found! Install SDL3 development libraries.])])
+	PPC_CFLAGS="$PPC_CFLAGS $SDL3_CFLAGS"
+	PPC_CXXFLAGS="$PPC_CXXFLAGS $SDL3_CFLAGS"
+	PPC_LDADD="$PPC_LDADD $SDL3_LIBS"
 ;;
 win32)
 ;;
@@ -446,7 +442,7 @@ beos*)
 	AC_CHECK_LIB(socket, socket, [PPC_LDFLAGS="$PPC_LDFLAGS -lsocket"])
 ;;
 darwin*)
-        AC_CHECK_HEADERS(mach/clock.h, AC_DEFINE(HAVE_MACH_CLOCK_H, 1, [Have mach/clock.h]))
+dnl Modern macOS (10.12+) supports clock_gettime, no need for mach/clock.h
 ;;
 esac
 
