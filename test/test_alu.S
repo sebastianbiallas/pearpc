@@ -173,7 +173,7 @@ _start:
     /*
      * Test 16: stw / lwz (store and load word)
      */
-    PRINT   .Ltest12, (.Ltest12_end - .Ltest12)
+    PRINT   .Ltest16, (.Ltest16_end - .Ltest16)
     li      4, 42
     stw     4, -16(1)        /* store 42 to stack */
     li      3, 0             /* clear r3 */
@@ -183,7 +183,7 @@ _start:
     /*
      * Test 17: stb / lbz (store and load byte)
      */
-    PRINT   .Ltest13, (.Ltest13_end - .Ltest13)
+    PRINT   .Ltest17, (.Ltest17_end - .Ltest17)
     li      4, 42
     stb     4, -20(1)
     li      3, 0
@@ -193,7 +193,7 @@ _start:
     /*
      * Test 18: sth / lhz (store and load halfword)
      */
-    PRINT   .Ltest14, (.Ltest14_end - .Ltest14)
+    PRINT   .Ltest18, (.Ltest18_end - .Ltest18)
     li      4, 4200
     sth     4, -24(1)
     li      3, 0
@@ -203,7 +203,7 @@ _start:
     /*
      * Test 19: rlwinm (rotate and mask - used for bit extraction)
      */
-    PRINT   .Ltest15, (.Ltest15_end - .Ltest15)
+    PRINT   .Ltest19, (.Ltest19_end - .Ltest19)
     lis     3, 0x002A        /* r3 = 0x002A0000 */
     rlwinm  3, 3, 16, 16, 31 /* rotate left 16, mask low 16 bits = 0x002A = 42 */
     CHECK   42
@@ -211,7 +211,7 @@ _start:
     /*
      * Test 20: cmp / bgt / blt / beq
      */
-    PRINT   .Ltest16, (.Ltest16_end - .Ltest16)
+    PRINT   .Ltest20, (.Ltest20_end - .Ltest20)
     li      3, 0
     li      4, 10
     li      5, 20
@@ -240,7 +240,7 @@ _start:
     /*
      * Test 21: mfspr / mtspr (link register)
      */
-    PRINT   .Ltest17, (.Ltest17_end - .Ltest17)
+    PRINT   .Ltest21, (.Ltest21_end - .Ltest21)
     li      4, 42
     mtlr    4
     mflr    3
@@ -249,7 +249,7 @@ _start:
     /*
      * Test 22: mfcr / cmpwi with CR field
      */
-    PRINT   .Ltest18, (.Ltest18_end - .Ltest18)
+    PRINT   .Ltest22, (.Ltest22_end - .Ltest22)
     li      4, 5
     cmpwi   0, 4, 5          /* CR0 = EQ */
     mfcr    3
