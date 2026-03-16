@@ -40,9 +40,19 @@
 #define MAP_32BIT 0
 #endif
 
+#ifndef MAP_JIT
+#define MAP_JIT 0
+#endif
+
 void *sys_alloc_read_write_execute(size_t size)
 {
-	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_32BIT | MAP_ANON | MAP_PRIVATE, -1, 0);
+	int flags = MAP_ANON | MAP_PRIVATE;
+#if defined(__aarch64__) && defined(__APPLE__)
+	flags |= MAP_JIT;
+#else
+	flags |= MAP_32BIT;
+#endif
+	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, flags, -1, 0);
 
 	return (p == (void *)-1) ? NULL : p;
 }

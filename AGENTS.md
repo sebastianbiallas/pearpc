@@ -61,6 +61,30 @@ See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for a detailed description of the
 | `src/debug/` | Debugger, PPC/x86 disassemblers |
 | `src/tools/` | Utility libraries (containers, strings, streams) |
 
+## Code Style
+
+The existing codebase uses tabs for indentation. **New code should use spaces** (4 per indent level). A `.clang-format` file is provided to enforce this.
+
+### Style Summary
+
+- **Indentation**: 4 spaces (no tabs in new code)
+- **Braces**: opening brace on same line for control structures, next line for functions
+- **Pointers**: `Type *name` (star attached to the name)
+- **Line length**: ~120 characters
+- **Includes**: don't reorder (preserve grouping)
+
+### Applying
+
+Format new or changed files only -- do not reformat the entire codebase:
+
+```sh
+clang-format -i src/cpu/cpu_jitc_aarch64/myfile.cc
+```
+
+### What Not to Reformat
+
+Legacy code in `src/cpu/cpu_jitc_x86/`, `src/cpu/cpu_jitc_x86_64/`, `src/cpu/cpu_generic/`, and `src/io/` uses tabs. Leave it as-is unless you're making substantive changes to a file.
+
 ## License
 
 GPLv2. See [COPYING](COPYING).
