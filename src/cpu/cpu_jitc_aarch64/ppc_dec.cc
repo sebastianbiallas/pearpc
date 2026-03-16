@@ -82,20 +82,16 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
         return flowEndBlock;                                                                                           \
     }
 
-/* ALU */
-GEN_INTERPRET(addi)
-GEN_INTERPRET(addis)
+/* ALU - native gen_ in ppc_alu.cc: addi, addis, ori, cmpi, bx */
 GEN_INTERPRET(addic)
 GEN_INTERPRET(addic_)
 GEN_INTERPRET(subfic)
 GEN_INTERPRET(mulli)
-GEN_INTERPRET(ori)
 GEN_INTERPRET(oris)
 GEN_INTERPRET(xori)
 GEN_INTERPRET(xoris)
 GEN_INTERPRET(andi_)
 GEN_INTERPRET(andis_)
-GEN_INTERPRET(cmpi)
 GEN_INTERPRET(cmpli)
 GEN_INTERPRET(rlwinmx)
 GEN_INTERPRET(rlwimix)
@@ -153,7 +149,7 @@ GEN_INTERPRET(mfsrin)
 GEN_INTERPRET(mtsrin)
 
 /* Branch */
-GEN_INTERPRET_BRANCH(bx)
+/* bx - native gen_ in ppc_alu.cc */
 GEN_INTERPRET_BRANCH(bcx)
 GEN_INTERPRET_BRANCH(bclrx)
 GEN_INTERPRET_BRANCH(bcctrx)
@@ -333,10 +329,12 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
         ppc_direct_effective_memory_handle(aCPU, dest, d);
         ppc_direct_effective_memory_handle(aCPU, src, s);
         while (size--) {
-            if (!(dest & 0xfff))
+            if (!(dest & 0xfff)) {
                 ppc_direct_effective_memory_handle(aCPU, dest, d);
-            if (!(src & 0xfff))
+            }
+            if (!(src & 0xfff)) {
                 ppc_direct_effective_memory_handle(aCPU, src, s);
+            }
             *d = *s;
             src++;
             dest++;
@@ -432,8 +430,9 @@ static JITCFlow ppc_opc_gen_group_1(JITC &aJITC)
             }
         }
     } else if (ext & (1 << 9)) {
-        if (ext == 528)
+        if (ext == 528) {
             return ppc_opc_gen_bcctrx(aJITC);
+        }
     } else {
         switch (ext) {
         case 16: return ppc_opc_gen_bclrx(aJITC);

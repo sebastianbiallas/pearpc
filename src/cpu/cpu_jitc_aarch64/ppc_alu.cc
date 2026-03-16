@@ -33,7 +33,172 @@
 
 #include "jitc.h"
 #include "jitc_asm.h"
+#include "aarch64asm.h"
 #include "io/graphic/gcard.h"
+
+/*
+ *  ========================================================
+ *  Native AArch64 code generation for PPC ALU opcodes
+ *  ========================================================
+ *
+ *  These replace the naive GEN_INTERPRET() calls with actual
+ *  AArch64 instructions emitted into the translation cache.
+ *
+ *  Convention:
+ *    X20 = pointer to PPC_CPU_State
+ *    W16, W17 = scratch registers (IP0/IP1)
+ *    PPC GPRs accessed via [X20, #offsetof(gpr[n])]
+ */
+
+#define GPR_OFS(n) (offsetof(PPC_CPU_State, gpr) + (n) * 4)
+
+/*
+ *  addi rD, rA, SIMM  (opcode 14)
+ *  if rA == 0: rD = SIMM
+ *  else:       rD = gpr[rA] + SIMM
+ */
+JITCFlow ppc_opc_gen_addi(JITC &jitc)
+{
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+    sint32 simm = (sint32)imm;
+
+    if (rA == 0) {
+        // rD = SIMM
+        jitc.emitMOV32((NativeReg)16, (uint32)simm);
+        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    } else {
+        // rD = gpr[rA] + SIMM
+        jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+        if (simm >= 0 && simm < 4096) {
+            jitc.emit32(a64_ADDw_imm(16, 16, simm));
+        } else if (simm < 0 && (-simm) < 4096) {
+            jitc.emit32(a64_SUBw_imm(16, 16, -simm));
+        } else {
+            jitc.emitMOV32((NativeReg)17, (uint32)simm);
+            jitc.emit32(a64_ADDw_reg(16, 16, 17));
+        }
+        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    }
+    return flowContinue;
+}
+
+/*
+ *  addis rD, rA, SIMM  (opcode 15)
+ *  if rA == 0: rD = SIMM << 16
+ *  else:       rD = gpr[rA] + (SIMM << 16)
+ */
+JITCFlow ppc_opc_gen_addis(JITC &jitc)
+{
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+    uint32 shifted = imm << 16;
+
+    if (rA == 0) {
+        jitc.emitMOV32((NativeReg)16, shifted);
+        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    } else {
+        jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+        jitc.emitMOV32((NativeReg)17, shifted);
+        jitc.emit32(a64_ADDw_reg(16, 16, 17));
+        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    }
+    return flowContinue;
+}
+
+/*
+ *  ori rA, rS, UIMM  (opcode 24)
+ *  rA = gpr[rS] | UIMM
+ */
+JITCFlow ppc_opc_gen_ori(JITC &jitc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
+
+    if (imm == 0 && rS == rA) {
+        // nop (ori 0,0,0)
+        return flowContinue;
+    }
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    if (imm != 0) {
+        jitc.emitMOV32((NativeReg)17, imm);
+        jitc.emit32(a64_ORRw_reg(16, 16, 17));
+    }
+    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  cmpi crfD, rA, SIMM  (opcode 11)
+ *  Compare rA with sign-extended immediate, set CR field crfD.
+ *
+ *  CR field layout (4 bits): LT GT EQ SO
+ */
+JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
+{
+    int crfD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, crfD, rA, imm);
+    crfD >>= 2; // field number (0-7)
+    sint32 simm = (sint32)imm;
+
+    // Load gpr[rA]
+    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+    // Load SIMM into W17
+    jitc.emitMOV32((NativeReg)17, (uint32)simm);
+
+    // For now, fall back to interpreter for CR update (complex bit packing)
+    // TODO: generate native CR update
+    extern void ppc_opc_cmpi(PPC_CPU_State &);
+    ppc_opc_gen_interpret(jitc, ppc_opc_cmpi);
+    return flowContinue;
+}
+
+/*
+ *  b/bl target  (opcode 18)
+ *  Unconditional branch, optionally sets LR.
+ *  Generate native code that computes target and jumps.
+ */
+JITCFlow ppc_opc_gen_bx(JITC &jitc)
+{
+    uint32 li = jitc.current_opc & 0x03FFFFFC;
+    if (li & 0x02000000) {
+        li |= 0xFC000000; // sign extend
+    }
+    bool lk = jitc.current_opc & 1;
+    bool aa = jitc.current_opc & 2;
+
+    if (lk) {
+        // BL: set LR = current_code_base + pc + 4
+        jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
+        jitc.emitMOV32((NativeReg)17, jitc.pc + 4);
+        jitc.emit32(a64_ADDw_reg(16, 16, 17));
+        jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, lr));
+    }
+
+    uint32 target;
+    if (aa) {
+        target = li;
+    } else {
+        // PC-relative: we need current_code_base + pc + li at runtime
+        // But current_code_base + pc is the current EA
+        // Emit: W0 = current_code_base + pc + li
+        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, current_code_base));
+        jitc.emitMOV32((NativeReg)17, jitc.pc + li);
+        jitc.emit32(a64_ADDw_reg(0, 0, 17));
+        // Jump to ppc_new_pc_asm (W0 = new effective PC)
+        jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+        return flowEndBlockUnreachable;
+    }
+
+    // Absolute address
+    jitc.emitMOV32((NativeReg)0, target);
+    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    return flowEndBlockUnreachable;
+}
 
 // Forward declarations for functions defined in ppc_opc.cc
 extern void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr);
@@ -382,8 +547,9 @@ void ppc_opc_cmp(PPC_CPU_State &aCPU)
     } else {
         c = 2;
     }
-    if (aCPU.xer & XER_SO)
+    if (aCPU.xer & XER_SO) {
         c |= 1;
+    }
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
@@ -410,8 +576,9 @@ void ppc_opc_cmpi(PPC_CPU_State &aCPU)
     } else {
         c = 2;
     }
-    if (aCPU.xer & XER_SO)
+    if (aCPU.xer & XER_SO) {
         c |= 1;
+    }
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
@@ -437,8 +604,9 @@ void ppc_opc_cmpl(PPC_CPU_State &aCPU)
     } else {
         c = 2;
     }
-    if (aCPU.xer & XER_SO)
+    if (aCPU.xer & XER_SO) {
         c |= 1;
+    }
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
@@ -465,8 +633,9 @@ void ppc_opc_cmpli(PPC_CPU_State &aCPU)
     } else {
         c = 2;
     }
-    if (aCPU.xer & XER_SO)
+    if (aCPU.xer & XER_SO) {
         c |= 1;
+    }
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
@@ -486,8 +655,9 @@ void ppc_opc_cntlzwx(PPC_CPU_State &aCPU)
     uint32 v = aCPU.gpr[rS];
     while (!(v & x)) {
         n++;
-        if (n == 32)
+        if (n == 32) {
             break;
+        }
         x >>= 1;
     }
     aCPU.gpr[rA] = n;
@@ -1015,13 +1185,15 @@ void ppc_opc_srawx(PPC_CPU_State &aCPU)
     if (aCPU.gpr[rA] & 0x80000000) {
         uint32 ca = 0;
         for (uint i = 0; i < SH; i++) {
-            if (aCPU.gpr[rA] & 1)
+            if (aCPU.gpr[rA] & 1) {
                 ca = 1;
+            }
             aCPU.gpr[rA] >>= 1;
             aCPU.gpr[rA] |= 0x80000000;
         }
-        if (ca)
+        if (ca) {
             aCPU.xer_ca = 1;
+        }
     } else {
         if (SH > 31) {
             aCPU.gpr[rA] = 0;
@@ -1048,13 +1220,15 @@ void ppc_opc_srawix(PPC_CPU_State &aCPU)
     if (aCPU.gpr[rA] & 0x80000000) {
         uint32 ca = 0;
         for (uint i = 0; i < SH; i++) {
-            if (aCPU.gpr[rA] & 1)
+            if (aCPU.gpr[rA] & 1) {
                 ca = 1;
+            }
             aCPU.gpr[rA] >>= 1;
             aCPU.gpr[rA] |= 0x80000000;
         }
-        if (ca)
+        if (ca) {
             aCPU.xer_ca = 1;
+        }
     } else {
         aCPU.gpr[rA] >>= SH;
     }
