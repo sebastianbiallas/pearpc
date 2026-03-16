@@ -207,6 +207,26 @@ void JITC::emitRET()
     emit32(0xD65F03C0); // RET X30
 }
 
+NativeAddress JITC::emitBxxFixup()
+{
+    // Emit a placeholder B instruction (unconditional, offset 0).
+    // Returns the address of the instruction so it can be patched later.
+    NativeAddress here = currentPage->tcp;
+    emit32(0x14000000); // B #0 (placeholder, will be patched)
+    return here;
+}
+
+void JITC::resolveFixup(NativeAddress at, NativeAddress to)
+{
+    // Patch the B instruction at 'at' to branch to 'to' (or current tcp if to==0).
+    if (to == 0) to = currentPage->tcp;
+    sint64 offset = (sint64)(to - at);
+    // B instruction: imm26 field, offset in units of 4 bytes
+    sint32 imm26 = (sint32)(offset / 4);
+    uint32 insn = 0x14000000 | (imm26 & 0x03FFFFFF);
+    *(uint32 *)at = insn;
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {
@@ -386,10 +406,23 @@ static inline NativeAddress jitcGetEntrypoint(ClientPage *cp, uint32 ofs)
 }
 
 extern JITC *gJITC;
+static FILE *gTraceLog = NULL;
+static uint64 gTraceCount = 0;
+
+static void traceInit()
+{
+    if (!gTraceLog) {
+        gTraceLog = fopen("jitc_trace.log", "w");
+        if (gTraceLog) setvbuf(gTraceLog, NULL, _IOFBF, 256 * 1024);
+    }
+}
 
 static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 baseaddr, uint32 ofs)
 {
     jitcDebugLogAdd("=== jitcNewEntrypoint: %08x Beginning jitc ===\n", baseaddr + ofs);
+    if (gTraceLog) {
+        fprintf(gTraceLog, "TRANSLATE %08x\n", baseaddr + ofs);
+    }
     jitc.currentPage = cp;
 
     // Enable write mode for code emission (W^X on macOS)
@@ -412,6 +445,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 
     while (1) {
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
+        jitcDebugLogNewInstruction(jitc);
 
         JITCFlow flow = ppc_gen_opc(jitc);
         if (flow == flowContinue) {
@@ -472,6 +506,20 @@ extern "C" NativeAddress jitcStartTranslation(JITC &jitc, ClientPage *cp, uint32
  */
 extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 {
+    traceInit();
+    if (gTraceLog) {
+        gTraceCount++;
+        // Log every dispatch: count, physical entry, key CPU state
+        PPC_CPU_State *cpu = (PPC_CPU_State *)((byte *)&jitc - offsetof(PPC_CPU_State, jitc));
+        // Actually jitc pointer is stored differently - use the global
+        extern PPC_CPU_State *gCPU;
+        fprintf(gTraceLog, "%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x r0=%08x r1=%08x r3=%08x r10=%08x r11=%08x\n",
+                gTraceCount, entry,
+                gCPU->msr, gCPU->cr, gCPU->lr, gCPU->ctr,
+                gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[3],
+                gCPU->gpr[10], gCPU->gpr[11]);
+        if (gTraceCount % 10000 == 0) fflush(gTraceLog);
+    }
     if (entry > gMemorySize) {
         ht_printf("entry not physical: %08x\n", entry);
         exit(-1);
@@ -482,19 +530,22 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 
     NativeAddress result;
     if (!cp->tcf_current) {
+        /* jitcStartTranslation toggles W^X internally */
         result = jitcStartTranslation(jitc, cp, baseaddr, entry & 0xfff);
     } else {
         NativeAddress ofs = jitcGetEntrypoint(cp, entry & 0xfff);
         if (ofs) {
             result = ofs;
         } else {
+            /* Need write access to emit new code */
+            pthread_jit_write_protect_np(0);
             result = jitcNewEntrypoint(jitc, cp, baseaddr, entry & 0xfff);
         }
     }
 
-    /* About to execute: re-enable execute protection and flush icache */
-    pthread_jit_write_protect_np(1);
+    /* Flush icache and ensure execute mode before returning */
     __builtin___clear_cache((char *)jitc.translationCache, (char *)jitc.translationCache + 64 * 1024 * 1024);
+    pthread_jit_write_protect_np(1);
     return result;
 }
 

@@ -142,7 +142,7 @@ GEN_INTERPRET(mtsrin)
 
 /* Branch */
 /* bx - native gen_ in ppc_alu.cc */
-GEN_INTERPRET_BRANCH(bcx)
+/* bcx has native gen_ in ppc_alu.cc */
 GEN_INTERPRET_BRANCH(bclrx)
 GEN_INTERPRET_BRANCH(bcctrx)
 GEN_INTERPRET_BRANCH(rfi)

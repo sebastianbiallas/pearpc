@@ -187,51 +187,73 @@ All 200+ PPC opcodes generate AArch64 code that calls the C++ interpreter functi
 
 This validates the entire JIT pipeline (page translation, fragment caching, W^X, branch handling) before optimizing individual opcodes.
 
-Test results: `test_loop.elf` prints "Hello from PPC!" and counts 1-10. `test_alu.elf` passes all 18 ALU/memory/branch tests.
+Test results: `test_loop.elf` prints "Hello from PPC!" and counts 1-10. `test_alu.elf` passes all 22 ALU/memory/branch tests. `test_mem.elf` passes all 18 memory/TLB stress tests.
 
 ### Phase 4: Native Code Generation (IN PROGRESS)
 
 Replace interpreter calls with actual AArch64 instructions. Each native gen_ function loads PPC registers from `[X20, #offset]`, performs the operation with AArch64 instructions, and stores the result back.
 
-**Done:**
+**Done - ALU immediate:**
 - `addi`/`li` - immediate add (handles rA==0 for load immediate)
 - `addis`/`lis` - immediate add shifted
-- `ori` - OR immediate (with nop detection)
-- `b`/`bl` - unconditional branch (computes EA, sets LR, jumps to ppc_new_pc_asm)
+- `ori`, `oris`, `xori`, `xoris` - OR/XOR immediate variants
 - `cmpi` - compare immediate (falls back to interpreter for CR update)
 
-**Next - immediate ALU ops:**
-- `oris`, `xori`, `xoris` - OR/XOR immediate variants
+**Done - ALU register:**
+- `add`, `subf`, `and`, `or`, `xor` - register-register operations
+- `neg`, `mullw` - negate, multiply
+- `slw`, `srw` - shifts
+- `rlwinm` - rotate and mask (interpreter fallback)
+
+**Done - branches:**
+- `b`/`bl` - unconditional branch (computes EA, sets LR, jumps to ppc_new_pc_asm)
+- `bc` - conditional branch: uses interpreter for condition eval, then checks npc to dispatch. For same-page not-taken, continues without dispatch overhead.
+
+**Done - load/store with TLB fast path:**
+- `lwz`, `stw`, `lbz`, `stb`, `lhz`, `sth` - native gen_ functions that call asm TLB stubs
+- All indexed forms (`lwzx`, `stwx`, `lbzx`, `stbx`, `lhzx`, `sthx`) and update forms implemented in interpreter
+
+**Not yet optimized:**
 - `andi.`, `andis.` - AND immediate with CR0 update
 - `subfic`, `addic`, `addic.`, `mulli` - other immediates
-
-**Next - register ALU ops:**
-- `add`, `subf`, `and`, `or`, `xor` - register-register operations
-- `neg`, `mullw`, `divwu`, `divw`
-- `slw`, `srw`, `sraw`, `srawi` - shifts
-- `rlwinm`, `rlwimi`, `rlwnm` - rotate and mask
+- `divwu`, `divw`, `sraw`, `srawi` - divide, arithmetic shift
+- `rlwimi`, `rlwnm` - rotate and mask variants
 - `extsb`, `extsh`, `cntlzw` - extend/count
+- `cmpi`, `cmpli`, `cmp`, `cmpl` - native CR update (currently interpreter)
+- `bclr` (branch to LR), `bcctr` (branch to CTR)
 
-**Next - compare with native CR update:**
-- `cmpi`, `cmpli`, `cmp`, `cmpl` - currently cmpi uses interpreter fallback
-- Need strategy for CR field updates: either update CR in memory after each compare, or cache CR in a native register
+**FPU/AltiVec:** All use interpreter calls. FPU could use AArch64 NEON/FP instructions.
 
-**Next - branches:**
-- `bc` (conditional branch) - check CR bits, conditional jump
-- `bclr` (branch to LR) - load LR, jump
-- `bcctr` (branch to CTR) - load CTR, jump
+### Phase 5: MMU Fast Path (DONE)
 
-**Deferred - load/store (need MMU):**
-- `lwz`, `stw`, `lbz`, `stb`, `lhz`, `sth` - still use interpreter calls
-- Optimization: for direct physical memory access, generate inline load/store
-- Full optimization: TLB fast path in generated code (like x86_64 jitc_mmu.S)
+TLB-based memory access with assembly fast path + C++ slow path.
 
-**Deferred - FPU/AltiVec:**
-- All FPU and AltiVec opcodes use interpreter calls
-- FPU could use AArch64 NEON/FP instructions
-- AltiVec could map to NEON
+**Assembly fast path (jitc_mmu.S):**
+- 10 stubs: read byte/half_z/half_s/word/dword, write byte/half/word/dword
+- Inline TLB lookup: hash EA → 32-entry table, compare page tag (~6 instructions on hit)
+- Byte swap: REV/REV16 for big-endian guest on little-endian host
+- Page-cross detection: falls through to slow path
 
-### Phase 5: Register Caching
+**C++ slow path (ppc_mmu.cc):**
+- On TLB miss: EA→PA translation via `ppc_effective_to_physical()`, fill TLB, access memory
+- Only RAM pages cached in TLB; IO goes through slow path every time
+
+**TLB invalidation:**
+- Invalidate-all stores 0xFFFFFFFF (not 0 — page 0x00000000 was false-hitting)
+- Single-entry invalidation implemented
+
+### Phase 6: Same-Page Branch Optimization (NEEDED)
+
+**Current bottleneck:** Same-page backward branches (tight loops) exit translated code and go through the full `ppc_new_pc_asm` → `jitcNewPC` → 64MB icache flush dispatcher on every iteration. This makes BSS-zeroing loops in yaboot take 5+ minutes instead of milliseconds.
+
+**Needed:** For same-page backward `bc` branches, emit a native AArch64 conditional branch that loops within the translation cache fragment, avoiding the dispatcher entirely. The x86_64 JIT does this with `ppc_new_pc_this_page_asm` + backpatching.
+
+On AArch64 with W^X, backpatching is harder (can't modify executable code without toggling permissions). Options:
+1. Emit forward-looking conditional branch within the fragment during translation
+2. Use indirect branch via a writable jump table
+3. Pre-compute entry points and emit direct branches at translation time
+
+### Phase 7: Register Caching
 
 The x86_64 JIT maps frequently-used PPC GPRs to native registers, avoiding load/store to CPU state on every instruction. With AArch64's 31 GPRs (vs x86_64's 16), we can cache many more PPC registers:
 
@@ -241,16 +263,14 @@ The x86_64 JIT maps frequently-used PPC GPRs to native registers, avoiding load/
 
 This is the biggest performance win after native code generation.
 
-### Phase 6: MMU Fast Path
+### Phase 8: Full Bootstrap
 
-Port the TLB lookup to AArch64 assembly in jitc_mmu.S. Currently calls C++ for EA->PA translation. Need:
-- TLB hit: direct memory access via host pointer (single LDR/STR)
-- TLB miss: call C++ page table walk, update TLB, retry
-- The x86_64 version in `cpu_jitc_x86_64/jitc_mmu.S` has the full implementation (~500 lines)
+**Progress:**
+- Open Firmware PROM: boots, detects Apple Partition Map on Mandrake ISO, loads yaboot ELF
+- Yaboot: starts executing BSS-zeroing loop (currently too slow due to Phase 6 bottleneck)
 
-### Phase 7: Full Bootstrap
-
-- Boot Open Firmware PROM
+**Remaining:**
+- Complete Phase 6 to get past yaboot init
 - Boot Mandrake Linux PPC from CD ISO
 - Profile and optimize hot paths
 

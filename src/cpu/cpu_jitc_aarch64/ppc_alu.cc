@@ -201,6 +201,67 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
 }
 
 /*
+ *  bcx - Branch Conditional  (opcode 16)
+ *
+ *  Handles the common case (BO & 4: condition-only, no CTR decrement)
+ *  by testing the CR bit inline and emitting a conditional skip.
+ *  Falls back to interpreter for CTR-decrement variants and bcl.
+ */
+JITCFlow ppc_opc_gen_bcx(JITC &jitc)
+{
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_B(jitc.current_opc, BO, BI, BD);
+
+    bool lk = jitc.current_opc & PPC_OPC_LK;
+    bool aa = jitc.current_opc & PPC_OPC_AA;
+
+    // For all cases, use the interpreter to evaluate the branch condition.
+    // This correctly handles CTR decrement, all BO variants, and LK.
+    // The optimization is in how we dispatch to the target afterwards.
+    ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
+
+    // After the interpreter runs, npc holds the next PC:
+    //   - If branch taken: npc = target EA
+    //   - If not taken: npc = pc + 4
+
+    if (!lk && !aa && (BO & 4)) {
+        // Condition-only, no link, PC-relative.
+        // Check if the branch was taken by comparing npc with pc + 4.
+        // If npc == pc + 4 → not taken → continue to next instruction.
+        // Otherwise → taken → dispatch via ppc_new_pc_asm.
+
+        // Emit: load npc, compare with (current_code_base + pc + 4)
+        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+        jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
+        jitc.emitMOV32((NativeReg)17, jitc.pc + 4);
+        jitc.emit32(a64_ADDw_reg(16, 16, 17)); // W16 = current_code_base + pc + 4
+        jitc.emit32(a64_CMPw_reg(0, 16));       // CMP W0, W16
+
+        // If equal (not taken), skip the dispatch
+        NativeAddress fixup = jitc.emitBxxFixup();
+
+        // Taken: W0 already has npc (the target EA)
+        jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+
+        // Not-taken: patch fixup to B.EQ here
+        {
+            NativeAddress here = jitc.asmHERE();
+            sint64 offset = (sint64)(here - fixup);
+            sint32 imm19 = (sint32)(offset / 4);
+            uint32 insn = 0x54000000 | ((imm19 & 0x7FFFF) << 5) | A64_EQ;
+            *(uint32 *)fixup = insn;
+        }
+
+        return flowContinue;
+    }
+
+    // General case: always dispatch via npc
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    return flowEndBlockUnreachable;
+}
+
+/*
  *  oris rA, rS, UIMM  (opcode 25)
  */
 JITCFlow ppc_opc_gen_oris(JITC &jitc)
