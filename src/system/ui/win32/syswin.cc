@@ -393,3 +393,8 @@ void doneUI()
 	delete gMouse;
 	delete gKeyboard;
 }
+
+void runUI()
+{
+	// Win32 event loop runs in its own thread, nothing to do here
+}

@@ -340,3 +340,8 @@ void doneUI()
 {
 	XCloseDisplay(gX11Display);
 }
+
+void runUI()
+{
+	// X11 event loop runs in its own thread, nothing to do here
+}

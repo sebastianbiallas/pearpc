@@ -43,6 +43,7 @@
 #include "system/mouse.h"
 #include "system/keyboard.h"
 #include "system/sys.h"
+#include "system/systhread.h"
 #include "configparser.h"
 
 #include "system/gif.h"
@@ -425,7 +426,19 @@ int main(int argc, char *argv[])
 		gDisplay->print("now starting client...");
 		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
 
-		ppc_cpu_run();
+		// Start CPU in a background thread so the main thread
+		// can run the UI event loop (required by macOS/SDL)
+		sys_thread cpuThread;
+		if (sys_create_thread(&cpuThread, 0, [](void *) -> void * {
+			ppc_cpu_run();
+			return NULL;
+		}, NULL)) {
+			ht_printf("can't create CPU thread!\n");
+			exit(1);
+		}
+
+		// Run UI event loop on main thread (blocks until quit)
+		runUI();
 
 		io_done();
 

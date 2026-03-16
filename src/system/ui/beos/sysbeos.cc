@@ -360,3 +360,8 @@ void doneUI()
 	delete gKeyboard;
 	delete gMouse;
 }
+
+void runUI()
+{
+	// BeOS event loop runs in its own thread, nothing to do here
+}
