@@ -152,83 +152,107 @@ Unlike x86 where icache is coherent with dcache, ARM64 requires explicit cache m
 
 ### Phase 1: Infrastructure (DONE)
 
-All files created, compiles and links.
+All files created, compiles and links on macOS ARM64.
 
-### Phase 2: Test with ELF Loading
+### Phase 2: Test with ELF Loading (DONE)
 
-PearPC already has ELF loading built in via the config file:
+PearPC's built-in ELF loader (`mapped_load_elf()` in `src/io/prom/promboot.cc`) loads PPC ELFs via config:
 
 ```
 prom_bootmethod = "force"
-prom_loadfile = "test/my_ppc_program.elf"
+prom_loadfile = "test/test_loop.elf"
 ```
 
-This calls `mapped_load_elf()` in `src/io/prom/promboot.cc` which parses ELF headers, loads segments into emulated memory, and sets the entry point.
-
-To test the JIT, cross-compile a minimal PPC ELF:
-
-```asm
-# test.ppc.S
-    .text
-    .globl _start
-_start:
-    li      r3, 0
-    li      r4, 10
-loop:
-    addi    r3, r3, 1
-    cmpwi   r3, 10
-    blt     loop
-    li      r5, 0x42    # marker
-    sc                  # system call -> trap
-```
-
-Build with a PPC cross-compiler:
+Cross-compile PPC ELFs using Docker:
 ```sh
-powerpc-linux-gnu-gcc -nostdlib -Ttext=0x100000 -o test.elf test.ppc.S
+./test/build_ppc_elf.sh
 ```
 
-Run with PearPC:
+Run headless:
 ```sh
-./src/ppc test.pearpc.cfg
+./src/ppc --headless test/test_loop.cfg
 ```
 
-Where `test.pearpc.cfg` uses `prom_bootmethod = "force"` and points to the ELF.
+Custom opcodes for test I/O (defined in `ppc_dec.cc ppc_opc_special`):
+- `0x00333303` - print string (r3=addr, r4=length)
+- `0x00333304` - exit (r3=exit code)
 
-### Phase 3: Naive Opcode Execution (IN PROGRESS)
+### Phase 3: Naive Opcode Execution (DONE)
 
-All gen_ functions currently return `flowEndBlockUnreachable`, which means the JIT can't generate any code. The first step is to make each gen_ function emit a call to the corresponding C++ interpreter function. This is the "naive" JIT approach:
+All 200+ PPC opcodes generate AArch64 code that calls the C++ interpreter function via `BLR`. The `ppc_opc_gen_interpret()` helper emits:
+1. Store `current_opc`, `pc`, `npc` to CPU state
+2. `MOV X0, X20` (first arg = CPU state pointer)
+3. Load function address into X16
+4. `BLR X16` (call interpreter)
 
-```
-ppc_gen_opc() for addi:
-    1. Emit: store current_opc to CPU state
-    2. Emit: load X0 = &gCPU (from X20)
-    3. Emit: BL ppc_opc_addi   (call interpreter function)
-    4. Return flowContinue
-```
+This validates the entire JIT pipeline (page translation, fragment caching, W^X, branch handling) before optimizing individual opcodes.
 
-This runs every opcode through the interpreter but uses the JIT infrastructure (page translation, fragment caching, branch handling). It validates the entire pipeline before optimizing individual opcodes with native code generation.
+Test results: `test_loop.elf` prints "Hello from PPC!" and counts 1-10. `test_alu.elf` passes all 18 ALU/memory/branch tests.
 
-### Phase 4: Native Code Generation
+### Phase 4: Native Code Generation (IN PROGRESS)
 
-Replace interpreter calls with actual AArch64 instructions, starting with the most common opcodes:
+Replace interpreter calls with actual AArch64 instructions. Each native gen_ function loads PPC registers from `[X20, #offset]`, performs the operation with AArch64 instructions, and stores the result back.
 
-1. **Simple ALU**: `addi`, `addis`, `ori`, `oris`, `andi.`, `xori` -- just load from CPU state, compute, store back
-2. **Register ALU**: `add`, `subf`, `and`, `or`, `xor`, `slw`, `srw`
-3. **Compare**: `cmpwi`, `cmplwi`, `cmp`, `cmpl` -- set CR fields
-4. **Branch**: `b`, `bl`, `bc`, `bclr`, `bcctr` -- emit native branches or calls to ppc_new_pc_asm
-5. **Load/Store**: `lwz`, `stw`, `lbz`, `stb` -- via TLB fast path or call to C++
-6. **SPR**: `mfspr`, `mtspr`, `mfcr`, `mtcrf`
+**Done:**
+- `addi`/`li` - immediate add (handles rA==0 for load immediate)
+- `addis`/`lis` - immediate add shifted
+- `ori` - OR immediate (with nop detection)
+- `b`/`bl` - unconditional branch (computes EA, sets LR, jumps to ppc_new_pc_asm)
+- `cmpi` - compare immediate (falls back to interpreter for CR update)
 
-### Phase 5: MMU Fast Path
+**Next - immediate ALU ops:**
+- `oris`, `xori`, `xoris` - OR/XOR immediate variants
+- `andi.`, `andis.` - AND immediate with CR0 update
+- `subfic`, `addic`, `addic.`, `mulli` - other immediates
 
-Port the TLB lookup to AArch64 assembly in jitc_mmu.S. Currently uses identity mapping (stub). Need:
-- TLB hit: direct memory access via host pointer
+**Next - register ALU ops:**
+- `add`, `subf`, `and`, `or`, `xor` - register-register operations
+- `neg`, `mullw`, `divwu`, `divw`
+- `slw`, `srw`, `sraw`, `srawi` - shifts
+- `rlwinm`, `rlwimi`, `rlwnm` - rotate and mask
+- `extsb`, `extsh`, `cntlzw` - extend/count
+
+**Next - compare with native CR update:**
+- `cmpi`, `cmpli`, `cmp`, `cmpl` - currently cmpi uses interpreter fallback
+- Need strategy for CR field updates: either update CR in memory after each compare, or cache CR in a native register
+
+**Next - branches:**
+- `bc` (conditional branch) - check CR bits, conditional jump
+- `bclr` (branch to LR) - load LR, jump
+- `bcctr` (branch to CTR) - load CTR, jump
+
+**Deferred - load/store (need MMU):**
+- `lwz`, `stw`, `lbz`, `stb`, `lhz`, `sth` - still use interpreter calls
+- Optimization: for direct physical memory access, generate inline load/store
+- Full optimization: TLB fast path in generated code (like x86_64 jitc_mmu.S)
+
+**Deferred - FPU/AltiVec:**
+- All FPU and AltiVec opcodes use interpreter calls
+- FPU could use AArch64 NEON/FP instructions
+- AltiVec could map to NEON
+
+### Phase 5: Register Caching
+
+The x86_64 JIT maps frequently-used PPC GPRs to native registers, avoiding load/store to CPU state on every instruction. With AArch64's 31 GPRs (vs x86_64's 16), we can cache many more PPC registers:
+
+- X21-X28 (8 callee-saved regs) for the 8 most-used PPC GPRs
+- X9-X15 (7 caller-saved regs) for additional caching within blocks
+- LRU-based allocation already implemented in `JITC::allocRegister()`
+
+This is the biggest performance win after native code generation.
+
+### Phase 6: MMU Fast Path
+
+Port the TLB lookup to AArch64 assembly in jitc_mmu.S. Currently calls C++ for EA->PA translation. Need:
+- TLB hit: direct memory access via host pointer (single LDR/STR)
 - TLB miss: call C++ page table walk, update TLB, retry
+- The x86_64 version in `cpu_jitc_x86_64/jitc_mmu.S` has the full implementation (~500 lines)
 
-### Phase 6: Full Bootstrap
+### Phase 7: Full Bootstrap
 
-- Boot Open Firmware
-- Boot Mandrake Linux PPC
+- Boot Open Firmware PROM
+- Boot Mandrake Linux PPC from CD ISO
+- Profile and optimize hot paths
 
 ## Key Files
 
