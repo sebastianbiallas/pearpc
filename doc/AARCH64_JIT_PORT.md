@@ -2,6 +2,22 @@
 
 This document describes the plan for porting PearPC's JIT compiler to AArch64 (ARM64), targeting macOS on Apple Silicon.
 
+## Current Status
+
+The aarch64 JIT backend compiles and links on macOS ARM64 (`aarch64-jit` branch).
+
+**Done:**
+- Build system: `configure --enable-cpu=jitc_aarch64` works
+- Translation cache with W^X support (MAP_JIT + pthread_jit_write_protect_np)
+- AArch64 instruction encoder (aarch64asm.cc/h)
+- Assembly bootstrap (jitc_tools.S): entry, PC lookup, heartbeat, exception handlers
+- MMU stub (jitc_mmu.S): identity mapping, memory access stubs
+- Full opcode dispatch tables (ppc_dec.cc)
+- All 143 PPC interpreter opcode implementations (copied from x86_64, platform-independent C++)
+- All gen_ functions return flowEndBlockUnreachable (no native code generation yet)
+
+**Next:** Get the first PPC instructions executing through the JIT loop.
+
 ## How the x86_64 JIT Works
 
 Understanding the existing JIT is essential before porting.
@@ -76,25 +92,23 @@ The x86_64 JIT maps PPC registers to native registers dynamically:
 | PC-relative | RIP-relative addressing | ADRP+ADD for +-4GB, limited branch range |
 | Branch range | JMP rel32 = +/-2GB | B = +/-128MB, conditional = +/-1MB |
 
-### Register Mapping (Proposed)
+### Register Mapping
 
-AArch64 has 31 GPRs -- much more than x86_64's 16. Proposed allocation:
+AArch64 has 31 GPRs -- much more than x86_64's 16. Current allocation:
 
 ```
 X0-X7    : Scratch / function arguments (caller-saved)
 X8       : Indirect result register
-X9-X15   : Temporary registers (caller-saved) -- use for PPC register cache
-X16-X17  : IP0/IP1 (intra-procedure scratch, linker use) -- avoid
+X9-X15   : Temporary registers (caller-saved) -- PPC register cache
+X16-X17  : IP0/IP1 (intra-procedure scratch, linker use) -- used as temp in asm
 X18      : Platform register (reserved on macOS) -- DO NOT USE
-X19-X28  : Callee-saved -- use for long-lived PPC register mappings
+X19      : JITC pointer (callee-saved, set in ppc_start_jitc_asm)
+X20      : CPU state pointer (callee-saved, set in ppc_start_jitc_asm)
+X21-X28  : PPC register cache (callee-saved)
 X29 (FP) : Frame pointer
 X30 (LR) : Link register
 SP       : Stack pointer (must be 16-byte aligned)
 ```
-
-Key difference: X18 is **reserved on macOS** (platform register). Must not be used.
-
-With 31 GPRs we can keep many more PPC registers resident in native registers, reducing spills significantly compared to x86_64.
 
 ### W^X on macOS ARM64
 
@@ -125,80 +139,118 @@ Unlike x86 where icache is coherent with dcache, ARM64 requires explicit cache m
 - Or use `sys_icache_invalidate(start, size)` on macOS
 - Must be done before toggling to execute mode
 
+### AArch64 Assembly Gotchas (macOS)
+
+- `.globl sym; sym:` on one line via semicolon does NOT work. Must use `.macro do_export` with `.globl` and label on separate lines.
+- Logical immediates (`and`, `orr`, `eor` with #imm) can only encode repeating bit patterns. Constants like `0x87c0ffff` must be loaded into a temp register first.
+- Conditional branches (`b.eq`, `b.ne`) have +/-1MB range and cannot reach external symbols. Use inverted condition + unconditional `b` instead.
+- X18 is reserved on macOS. Using it will corrupt the platform's TLS.
+
 ## Porting Strategy
 
-### Phase 1: Minimal Proof of Concept
+### Phase 1: Infrastructure (DONE)
 
-Goal: Execute a single PPC instruction via AArch64 JIT.
+All files created, compiles and links.
 
-1. Create `src/cpu/cpu_jitc_aarch64/` directory
-2. Implement minimal `aarch64asm.h/cc` -- emit MOV, ADD, LDR, STR, B, BL, RET
-3. Implement `jitc.cc` with simplified translation cache (reuse page structure from x86_64)
-4. Implement `ppc_cpu.cc` with `ppc_cpu_run()` entry point
-5. Implement `jitc_tools.S` with:
-   - `ppc_start_jitc_asm` -- entry from C++
-   - `ppc_new_pc_asm` -- minimal translate-and-jump
-   - `ppc_heartbeat_ext_asm` -- exception check stub
-6. Implement a few PPC opcodes in `ppc_opc.cc`:
-   - `addi` (add immediate) -- simplest ALU op
-   - `b` / `bl` (branch) -- control flow
-   - `sc` (system call) -- to exit cleanly
+### Phase 2: Test with ELF Loading
 
-### Phase 2: Test Harness
+PearPC already has ELF loading built in via the config file:
 
-A minimal PPC ELF (or raw binary) that exercises the JIT:
+```
+prom_bootmethod = "force"
+prom_loadfile = "test/my_ppc_program.elf"
+```
+
+This calls `mapped_load_elf()` in `src/io/prom/promboot.cc` which parses ELF headers, loads segments into emulated memory, and sets the entry point.
+
+To test the JIT, cross-compile a minimal PPC ELF:
 
 ```asm
-# test.ppc.S -- minimal PPC test
+# test.ppc.S
     .text
     .globl _start
 _start:
-    li      r3, 0       # r3 = 0
-    li      r4, 10      # r4 = 10
+    li      r3, 0
+    li      r4, 10
 loop:
-    addi    r3, r3, 1   # r3++
-    cmpw    r3, r4      # compare
-    blt     loop        # loop if r3 < 10
-    # r3 should be 10
-    sc                  # system call (exit)
+    addi    r3, r3, 1
+    cmpwi   r3, 10
+    blt     loop
+    li      r5, 0x42    # marker
+    sc                  # system call -> trap
 ```
 
-Load this directly into PearPC memory at a known address, set PC, and run. No PROM, no devices -- just the CPU loop.
+Build with a PPC cross-compiler:
+```sh
+powerpc-linux-gnu-gcc -nostdlib -Ttext=0x100000 -o test.elf test.ppc.S
+```
 
-### Phase 3: Core ALU/Branch Instructions
+Run with PearPC:
+```sh
+./src/ppc test.pearpc.cfg
+```
 
-Implement enough opcodes to run simple programs:
-- Integer ALU: `add`, `addi`, `sub`, `and`, `or`, `xor`, `slw`, `srw`, `cmp`
-- Branch: `b`, `bl`, `bc`, `bclr`, `bcctr`
-- Load/Store: `lwz`, `stw`, `lbz`, `stb`, `lhz`, `sth`
-- System: `sc`, `mfspr`, `mtspr`, `mfcr`, `mtcrf`
+Where `test.pearpc.cfg` uses `prom_bootmethod = "force"` and points to the ELF.
 
-### Phase 4: MMU and Full Bootstrap
+### Phase 3: Naive Opcode Execution (IN PROGRESS)
 
-- Port TLB fast path to AArch64 assembly
-- Port exception handlers
+All gen_ functions currently return `flowEndBlockUnreachable`, which means the JIT can't generate any code. The first step is to make each gen_ function emit a call to the corresponding C++ interpreter function. This is the "naive" JIT approach:
+
+```
+ppc_gen_opc() for addi:
+    1. Emit: store current_opc to CPU state
+    2. Emit: load X0 = &gCPU (from X20)
+    3. Emit: BL ppc_opc_addi   (call interpreter function)
+    4. Return flowContinue
+```
+
+This runs every opcode through the interpreter but uses the JIT infrastructure (page translation, fragment caching, branch handling). It validates the entire pipeline before optimizing individual opcodes with native code generation.
+
+### Phase 4: Native Code Generation
+
+Replace interpreter calls with actual AArch64 instructions, starting with the most common opcodes:
+
+1. **Simple ALU**: `addi`, `addis`, `ori`, `oris`, `andi.`, `xori` -- just load from CPU state, compute, store back
+2. **Register ALU**: `add`, `subf`, `and`, `or`, `xor`, `slw`, `srw`
+3. **Compare**: `cmpwi`, `cmplwi`, `cmp`, `cmpl` -- set CR fields
+4. **Branch**: `b`, `bl`, `bc`, `bclr`, `bcctr` -- emit native branches or calls to ppc_new_pc_asm
+5. **Load/Store**: `lwz`, `stw`, `lbz`, `stb` -- via TLB fast path or call to C++
+6. **SPR**: `mfspr`, `mtspr`, `mfcr`, `mtcrf`
+
+### Phase 5: MMU Fast Path
+
+Port the TLB lookup to AArch64 assembly in jitc_mmu.S. Currently uses identity mapping (stub). Need:
+- TLB hit: direct memory access via host pointer
+- TLB miss: call C++ page table walk, update TLB, retry
+
+### Phase 6: Full Bootstrap
+
 - Boot Open Firmware
+- Boot Mandrake Linux PPC
 
-## Key Files to Create
+## Key Files
 
 ```
 src/cpu/cpu_jitc_aarch64/
 ├── Makefile.am
-├── aarch64asm.h       # AArch64 instruction encoding + register defs
-├── aarch64asm.cc      # Code emitter implementation
-├── jitc.h             # JITC class (largely shared with x86_64)
-├── jitc.cc            # Translation cache, page management
+├── aarch64asm.h/cc    # AArch64 instruction encoding
+├── jitc.h/cc          # Translation cache, page management, W^X
 ├── jitc_common.h      # CPU state offsets for assembly
+├── jitc_asm.h         # C++ declarations for assembly functions
 ├── jitc_tools.S       # Entry point, branch handling, exceptions
-├── jitc_mmu.S         # TLB fast path
-├── ppc_cpu.cc         # CPU init/run
-├── ppc_opc.cc         # PPC opcode -> AArch64 code generation
-├── ppc_alu.cc         # Integer ALU instruction generation
-├── ppc_fpu.cc         # FPU instruction generation
-├── ppc_vec.cc         # AltiVec instruction generation
-├── ppc_mmu.cc         # MMU instruction generation
-├── ppc_exc.cc         # Exception instruction generation
-└── ppc_dec.cc         # Decrementer
+├── jitc_mmu.S         # TLB fast path (stub), memory access stubs
+├── jitc_debug.h/cc    # Debug logging
+├── jitc_types.h       # Type definitions
+├── ppc_cpu.h/cc       # CPU state struct, init, run
+├── ppc_dec.h/cc       # Opcode dispatch tables, decoder
+├── ppc_alu.h/cc       # ALU interpreter + gen_ stubs
+├── ppc_fpu.h/cc       # FPU interpreter + gen_ stubs
+├── ppc_vec.h/cc       # AltiVec gen_ stubs
+├── ppc_mmu.h/cc       # MMU translation, load/store interpreter
+├── ppc_opc.h/cc       # Branch/SPR/CR/misc interpreter + dispatch
+├── ppc_exc.h/cc       # Exception handling
+├── ppc_esc.h          # Escape opcode declarations
+└── ppc_tools.h        # Portable helpers (carry, rotate)
 ```
 
 ## References
@@ -206,3 +258,4 @@ src/cpu/cpu_jitc_aarch64/
 - [ARM Architecture Reference Manual (ARMv8-A)](https://developer.arm.com/documentation/ddi0487/latest)
 - [Apple ARM64 ABI](https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms)
 - Existing x86_64 JIT in `src/cpu/cpu_jitc_x86_64/`
+- ELF loader in `src/io/prom/promboot.cc` (`mapped_load_elf`)
