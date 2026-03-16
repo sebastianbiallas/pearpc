@@ -49,12 +49,15 @@ IncludeBlocks: Preserve
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
 AllowShortLoopsOnASingleLine: false
 
 # Switch/case
 IndentCaseLabels: false
 IndentCaseBlocks: false
+
+# Braces on control statements (prevent dangling single-line bodies)
+InsertBraces: true
 
 # Misc
 AlignConsecutiveAssignments: false
