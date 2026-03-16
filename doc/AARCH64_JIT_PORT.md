@@ -132,6 +132,8 @@ pthread_jit_write_protect_np(1);   // executable, not writable
 
 The toggle is **per-thread**, so the compilation thread can be in write mode while other threads execute previously generated code. PearPC's architecture (CPU thread separate from UI thread) fits this well.
 
+**Performance:** ~27 ns per toggle (~20 ns W->X, ~34 ns X->W). Apple implements this as a fast MSR instruction flipping APRR permission bits, not a kernel trap. We toggle twice per new page translation (write on, then execute on). Once code is cached, zero toggles until a new page needs translating. Essentially free.
+
 ### Instruction Cache Coherency
 
 Unlike x86 where icache is coherent with dcache, ARM64 requires explicit cache maintenance:

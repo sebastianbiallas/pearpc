@@ -292,7 +292,6 @@ GEN_INTERPRET(dcbtst)
 
 static void ppc_opc_special(PPC_CPU_State &aCPU)
 {
-    PPC_CPU_TRACE("ppc_opc_special: pc=%08x opc=%08x\n", aCPU.pc, aCPU.current_opc);
     if (aCPU.pc == gPromOSIEntry && aCPU.current_opc == PROM_MAGIC_OPCODE) {
         call_prom_osi();
         return;
