@@ -181,9 +181,11 @@ void testforth()
 /*
  *
  */
-void usage() 
+static bool gHeadless = false;
+
+void usage()
 {
-	ht_printf("usage: ppc configfile\n");
+	ht_printf("usage: ppc [--headless] configfile\n");
 	exit(1);
 }
 
@@ -197,12 +199,21 @@ extern "C" int SDL_main(int argc, char *argv[])
 #endif
 
 int main(int argc, char *argv[])
-{	
-	if (argc != 2) {
-		usage();
+{
+	const char *configfile = NULL;
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--headless") == 0) {
+			gHeadless = true;
+		} else if (!configfile) {
+			configfile = argv[i];
+		} else {
+			usage();
+		}
 	}
+	if (!configfile) usage();
+
 	setvbuf(stdout, 0, _IONBF, 0);
-	
+
 	sys_gui_init();
 	
  	if (sizeof(uint8) != 1) {
@@ -246,13 +257,13 @@ int main(int argc, char *argv[])
 
 		try {
 			LocalFile *config;
-			config = new LocalFile(argv[1]);
+			config = new LocalFile(configfile);
 			gConfig->loadConfig(*config);
 			delete config;
 		} catch (const Exception &e) {
 			String res;
 			e.reason(res);
-			ht_printf("%s: %y\n", argv[1], &res);
+			ht_printf("%s: %y\n", configfile, &res);
 			usage();
 			exit(1);
 		}
@@ -272,12 +283,12 @@ int main(int argc, char *argv[])
 
 
 		if (gConfig->getConfigInt("memory_size") < 64*1024*1024) {
-			ht_printf("%s: 'memory_size' must be >= 64MB.", argv[1]);
+			ht_printf("%s: 'memory_size' must be >= 64MB.", configfile);
 			exit(1);
 		}
 		int msec = gConfig->getConfigInt("redraw_interval_msec");
 		if (msec < 10 || msec > 500) {
-			ht_printf("%s: 'redraw_interval_msec' must be between 10 and 500 (inclusive).", argv[1]);
+			ht_printf("%s: 'redraw_interval_msec' must be between 10 and 500 (inclusive).", configfile);
 			exit(1);
 		}
 
@@ -289,15 +300,15 @@ int main(int argc, char *argv[])
 		gConfig->getConfigString("key_toggle_mouse_grab", key_toggle_mouse_grab_string);
 		gConfig->getConfigString("key_toggle_full_screen", key_toggle_full_screen_string);
 		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_compose_dialog, key_compose_dialog_string)) {
-			ht_printf("%s: invalid '%s'\n", argv[1], "key_compose_dialog");
+			ht_printf("%s: invalid '%s'\n", configfile, "key_compose_dialog");
 			exit(1);
 		}
 		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_mouse_grab, key_toggle_mouse_grab_string)) {
-			ht_printf("%s: invalid '%s'\n", argv[1], "key_toggle_mouse_grab");
+			ht_printf("%s: invalid '%s'\n", configfile, "key_toggle_mouse_grab");
 			exit(1);
 		}
 		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_full_screen, key_toggle_full_screen_string)) {
-			ht_printf("%s: invalid '%s'\n", argv[1], "key_toggle_full_screen");
+			ht_printf("%s: invalid '%s'\n", configfile, "key_toggle_full_screen");
 			exit(1);
 		}
 		
@@ -310,7 +321,7 @@ int main(int argc, char *argv[])
 		gConfig->getConfigString("ppc_start_resolution", chr);
 		fullscreen = gConfig->getConfigInt("ppc_start_full_screen");
 		if (!displayCharacteristicsFromString(gm, chr)) {
-			ht_printf("%s: invalid '%s'\n", argv[1], "ppc_start_resolution");
+			ht_printf("%s: invalid '%s'\n", configfile, "ppc_start_resolution");
 			exit(1);
 		}
 		switch (gm.bytesPerPixel) {
@@ -325,11 +336,11 @@ int main(int argc, char *argv[])
 			gm.bytesPerPixel = 4;
 			break;
 		default:
-			ht_printf("%s: invalid depth in '%s'\n", argv[1], "ppc_start_resolution");
+			ht_printf("%s: invalid depth in '%s'\n", configfile, "ppc_start_resolution");
 			exit(1);
 		}
 		if (!gcard_finish_characteristic(gm)) {
-			ht_printf("%s: invalid '%s'\n", argv[1], "ppc_start_resolution");
+			ht_printf("%s: invalid '%s'\n", configfile, "ppc_start_resolution");
 			exit(1);
 		}
 		gcard_add_characteristic(gm);
@@ -350,43 +361,49 @@ int main(int argc, char *argv[])
 
 		cuda_pre_init();
 
-		initUI(APPNAME " " APPVERSION, gm, msec, keyConfig, fullscreen);
+		if (!gHeadless) {
+			initUI(APPNAME " " APPVERSION, gm, msec, keyConfig, fullscreen);
+		}
 
 		io_init();
 
-		gcard_init_host_modes();
-		gcard_set_mode(gm);
+		if (!gHeadless) {
+			gcard_init_host_modes();
+			gcard_set_mode(gm);
 
-		if (fullscreen) gDisplay->setFullscreenMode(true);
+			if (fullscreen) gDisplay->setFullscreenMode(true);
 
-		MemMapFile font(ppc_font, sizeof ppc_font);
-		// FIXME: ..
-		if (gDisplay->mClientChar.height >= 600) {
-			int width = (gDisplay->mClientChar.width-40)/8;
-			int height = (gDisplay->mClientChar.height-170)/15;
-			if (!gDisplay->openVT(width, height, (gDisplay->mClientChar.width-width*8)/2, 150, font)) {
-				ht_printf("Can't open virtual terminal.\n");
-				exit(1);
+			MemMapFile font(ppc_font, sizeof ppc_font);
+			// FIXME: ..
+			if (gDisplay->mClientChar.height >= 600) {
+				int width = (gDisplay->mClientChar.width-40)/8;
+				int height = (gDisplay->mClientChar.height-170)/15;
+				if (!gDisplay->openVT(width, height, (gDisplay->mClientChar.width-width*8)/2, 150, font)) {
+					ht_printf("Can't open virtual terminal.\n");
+					exit(1);
+				}
+			} else {
+				if (!gDisplay->openVT(77, 25, 12, 100, font)) {
+					ht_printf("Can't open virtual terminal.\n");
+					exit(1);
+				}
 			}
-		} else {
-			if (!gDisplay->openVT(77, 25, 12, 100, font)) {
-				ht_printf("Can't open virtual terminal.\n");
-				exit(1);
-			}
+
+			initMenu();
+			drawLogo();
+
+			gDisplay->printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
+			gDisplay->printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
+
+			tests();
 		}
 
-		initMenu();
-		drawLogo();
-
-		// now gDisplay->printf works
-		gDisplay->printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
-		gDisplay->printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
-
-		tests();
+		ht_printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
+		ht_printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
 
 		// initialize initial paging (for prom)
 		uint32 PAGE_TABLE_ADDR = gConfig->getConfigInt("page_table_pa");
-		gDisplay->printf("initializing initial page table at %08x\n", PAGE_TABLE_ADDR);
+		ht_printf("initializing initial page table at %08x\n", PAGE_TABLE_ADDR);
 
  		// 256 Kbytes Pagetable, 2^15 Pages, 2^12 PTEGs
 		if (!ppc_prom_set_sdr1(PAGE_TABLE_ADDR+0x03, false)) {
@@ -423,22 +440,27 @@ int main(int argc, char *argv[])
 
 		ppc_cpu_map_framebuffer(IO_GCARD_FRAMEBUFFER_PA_START, IO_GCARD_FRAMEBUFFER_EA);
 
-		gDisplay->print("now starting client...");
-		gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
-
-		// Start CPU in a background thread so the main thread
-		// can run the UI event loop (required by macOS/SDL)
-		sys_thread cpuThread;
-		if (sys_create_thread(&cpuThread, 0, [](void *) -> void * {
-			ppc_cpu_run();
-			return NULL;
-		}, NULL)) {
-			ht_printf("can't create CPU thread!\n");
-			exit(1);
+		if (!gHeadless) {
+			gDisplay->print("now starting client...");
+			gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
 		}
+		ht_printf("now starting client...\n");
 
-		// Run UI event loop on main thread (blocks until quit)
-		runUI();
+		if (gHeadless) {
+			// Headless: run CPU directly on main thread
+			ppc_cpu_run();
+		} else {
+			// GUI: CPU in background thread, UI event loop on main thread
+			sys_thread cpuThread;
+			if (sys_create_thread(&cpuThread, 0, [](void *) -> void * {
+				ppc_cpu_run();
+				return NULL;
+			}, NULL)) {
+				ht_printf("can't create CPU thread!\n");
+				exit(1);
+			}
+			runUI();
+		}
 
 		io_done();
 
@@ -452,7 +474,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	doneUI();
+	if (!gHeadless) doneUI();
 	doneOSAPI();
 	doneData();
 	doneAtom();
