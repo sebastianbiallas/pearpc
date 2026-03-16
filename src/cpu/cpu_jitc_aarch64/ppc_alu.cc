@@ -224,11 +224,11 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     //   - If branch taken: npc = target EA
     //   - If not taken: npc = pc + 4
 
-    if (!lk && !aa && (BO & 4)) {
-        // Condition-only, no link, PC-relative.
+    if (!lk && !aa) {
+        // No link, PC-relative.
         // Check if the branch was taken by comparing npc with pc + 4.
         // If npc == pc + 4 → not taken → continue to next instruction.
-        // Otherwise → taken → dispatch via ppc_new_pc_asm.
+        // Otherwise → taken → dispatch to target.
 
         // Emit: load npc, compare with (current_code_base + pc + 4)
         jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
@@ -240,8 +240,27 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         // If equal (not taken), skip the dispatch
         NativeAddress fixup = jitc.emitBxxFixup();
 
-        // Taken: W0 already has npc (the target EA)
-        jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+        // Taken path:
+        uint32 target_ofs = (uint32)((sint32)jitc.pc + (sint32)BD);
+        if (target_ofs < 4096 && target_ofs <= jitc.pc) {
+            // Backward same-page branch: target already translated.
+            // Do heartbeat check, then jump directly to native entry point.
+            // This avoids jitcNewPC entirely (no W^X toggle, no icache flush).
+            NativeAddress targetNative = jitc.currentPage->entrypoints[target_ofs >> 2];
+            if (targetNative) {
+                jitc.emitMOV32((NativeReg)0, target_ofs);
+                jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
+                // Direct jump to already-translated native code
+                jitc.emitMOV64((NativeReg)16, (uint64)targetNative);
+                jitc.emit32(a64_BR(16));
+            } else {
+                // Target not yet translated (shouldn't happen for backward branch)
+                jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+            }
+        } else {
+            // Forward or cross-page: full dispatch
+            jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+        }
 
         // Not-taken: patch fixup to B.EQ here
         {
