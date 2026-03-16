@@ -392,6 +392,9 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     jitcDebugLogAdd("=== jitcNewEntrypoint: %08x Beginning jitc ===\n", baseaddr + ofs);
     jitc.currentPage = cp;
 
+    // Enable write mode for code emission (W^X on macOS)
+    pthread_jit_write_protect_np(0);
+
     // Align to 16 bytes (cache line friendly on ARM64)
     jitcEmitAlign(jitc, 16);
 
@@ -406,9 +409,6 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     jitc.checkedPriviledge = false;
     jitc.checkedFloat = false;
     jitc.checkedVector = false;
-
-    // Enable write mode for code emission (W^X on macOS)
-    pthread_jit_write_protect_np(0);
 
     PPC_CPU_TRACE("[JITC] jitcNewEntrypoint: base=%08x ofs=%08x entry=%p tcp=%p bytesLeft=%d\n",
                   baseaddr, ofs, entry, cp->tcp, cp->bytesLeft);

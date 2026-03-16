@@ -292,6 +292,7 @@ GEN_INTERPRET(dcbtst)
 
 static void ppc_opc_special(PPC_CPU_State &aCPU)
 {
+    PPC_CPU_TRACE("ppc_opc_special: pc=%08x opc=%08x\n", aCPU.pc, aCPU.current_opc);
     if (aCPU.pc == gPromOSIEntry && aCPU.current_opc == PROM_MAGIC_OPCODE) {
         call_prom_osi();
         return;
@@ -346,13 +347,32 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
         aCPU.pc = aCPU.npc;
         return;
     }
+    if (aCPU.current_opc == 0x00333303) {
+        // print string: r3 = address, r4 = length
+        uint32 addr = aCPU.gpr[3];
+        uint32 len = aCPU.gpr[4];
+        for (uint32 i = 0; i < len; i++) {
+            uint8 ch;
+            if (ppc_read_effective_byte(aCPU, addr + i, ch) == PPC_MMU_OK) {
+                ht_printf("%c", ch);
+            }
+        }
+        aCPU.pc = aCPU.npc;
+        return;
+    }
+    if (aCPU.current_opc == 0x00333304) {
+        // exit: r3 = exit code
+        ht_printf("[TEST] exit with code %d\n", aCPU.gpr[3]);
+        exit(aCPU.gpr[3]);
+    }
     ppc_opc_invalid(aCPU);
 }
 
 static JITCFlow ppc_opc_gen_special(JITC &jitc)
 {
-    // TODO: implement aarch64 code generation for special opcodes
-    return ppc_opc_gen_invalid(jitc);
+    // Handle custom opcodes and PROM OSI calls via interpreter
+    ppc_opc_gen_interpret(jitc, ppc_opc_special);
+    return flowEndBlock;
 }
 
 // main opcode 19
