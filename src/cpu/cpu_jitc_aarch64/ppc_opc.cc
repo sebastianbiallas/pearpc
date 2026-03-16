@@ -47,7 +47,7 @@ static void readDEC(PPC_CPU_State &aCPU)
     aCPU.dec = gDECwriteValue - itb;
 }
 
-static void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
+void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
 {
     if (!(aCPU.dec & 0x80000000) && (newdec & 0x80000000)) {
         aCPU.dec = newdec;
@@ -70,13 +70,13 @@ static void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
     gDECwriteITB = ppc_get_cpu_ideal_timebase();
 }
 
-static void FASTCALL writeTBL(PPC_CPU_State &aCPU, uint32 newtbl)
+void FASTCALL writeTBL(PPC_CPU_State &aCPU, uint32 newtbl)
 {
     uint64 tbBase = ppc_get_cpu_timebase();
     aCPU.tb = (tbBase & 0xffffffff00000000ULL) | (uint64)newtbl;
 }
 
-static void FASTCALL writeTBU(PPC_CPU_State &aCPU, uint32 newtbu)
+void FASTCALL writeTBU(PPC_CPU_State &aCPU, uint32 newtbu)
 {
     uint64 tbBase = ppc_get_cpu_timebase();
     aCPU.tb = ((uint64)newtbu << 32) | (tbBase & 0xffffffff);
@@ -94,7 +94,6 @@ void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr)
     aCPU.singlestep_ignore = true;
 #endif
     if (newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS) {
-        extern void jitc_error_msr_unsupported_bits(uint32);
         jitc_error_msr_unsupported_bits(newmsr);
     }
     aCPU.msr = newmsr;

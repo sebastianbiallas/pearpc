@@ -67,4 +67,8 @@ extern "C" void ppc_mmu_tlb_invalidate_entry_asm();
 
 extern "C" void FASTCALL ppc_start_jitc_asm(uint32 newpc, PPC_CPU_State **cpu, uint32 size);
 
+extern "C" void jitc_error_msr_unsupported_bits(uint32 a);
+extern "C" void jitc_error(const char *error);
+extern "C" void jitc_error_program(uint32 a, uint32 b);
+
 #endif

@@ -1,22 +1,21 @@
 /*
- *  PearPC
- *  ppc_opc.h
+ *	PearPC
+ *	ppc_opc.h
  *
- *  Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
- *  Copyright (C) 2026 AArch64 port
+ *	Copyright (C) 2003, 2004 Sebastian Biallas (sb@biallas.net)
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License version 2 as
- *  published by the Free Software Foundation.
+ *	This program is free software; you can redistribute it and/or modify
+ *	it under the terms of the GNU General Public License version 2 as
+ *	published by the Free Software Foundation.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ *	This program is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *	GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *	You should have received a copy of the GNU General Public License
+ *	along with this program; if not, write to the Free Software
+ *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #ifndef __PPC_OPC_H__
@@ -40,31 +39,7 @@ static inline void ppc_update_cr0(PPC_CPU_State &aCPU, uint32 r)
         aCPU.cr |= CR_CR0_SO;
 }
 
-/*
- *  Generate a call to the interpreter function for the current opcode.
- *  This is used as a fallback when native code generation isn't available.
- *
- *  On AArch64:
- *    - X20 holds CPU state pointer
- *    - X0 = first argument (CPU state pointer for interpreter call)
- *    - Store current_opc into CPU state
- *    - BLR to interpreter function
- */
-static UNUSED void ppc_opc_gen_interpret(JITC &jitc, ppc_opc_function func)
-{
-    jitc.clobberAll();
-
-    // STR current_opc into CPU state
-    jitc.emitMOV32(X0, jitc.current_opc);
-    jitc.emitSTR32_cpu(X0, offsetof(PPC_CPU_State, current_opc));
-
-    // MOV X0, X20 (CPU state pointer as first arg)
-    jitc.emit32(0xAA1403E0); // MOV X0, X20
-
-    // Load function address and call
-    jitc.emitMOV64(X9, (uint64)func);
-    jitc.emit32(0xD63F0120); // BLR X9
-}
+/* TODO: implement ppc_opc_gen_interpret for aarch64 */
 
 
 void ppc_opc_bx(PPC_CPU_State &aCPU);
