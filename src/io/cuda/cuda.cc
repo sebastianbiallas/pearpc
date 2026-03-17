@@ -532,10 +532,15 @@ static void cuda_start_T1()
 	IO_CUDA_TRACE("T1 restarted, T1 = %08x\n", T1);
 }
 
+static int cuda_op_count = 0;
+
 void cuda_write(uint32 addr, uint32 data, int size)
 {
 	sys_lock_mutex(gCUDAMutex);
 
+	cuda_op_count++;
+	if (cuda_op_count <= 2000)
+		fprintf(stderr, "[CUDA-W] #%d state=%d addr=%08x data=%08x\n", cuda_op_count, gCUDA.state, addr, data);
 	IO_CUDA_TRACE("%d write word @%08x: %08x\n", gCUDA.state, addr, data);
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
@@ -711,6 +716,7 @@ void cuda_write(uint32 addr, uint32 data, int size)
 void cuda_read(uint32 addr, uint32 &data, int size)
 {
 	sys_lock_mutex(gCUDAMutex);
+	cuda_op_count++;
 
 	IO_CUDA_TRACE("%d read word @%08x\n", gCUDA.state, addr);
 	addr -= IO_CUDA_PA_START;
@@ -824,6 +830,8 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		IO_CUDA_ERR("unknown service\n");
 	}
 
+	if (cuda_op_count <= 2000)
+		fprintf(stderr, "[CUDA-R] #%d state=%d addr=%08x data=%08x\n", cuda_op_count, gCUDA.state, addr + IO_CUDA_PA_START, data);
 	sys_unlock_mutex(gCUDAMutex);
 }
 
