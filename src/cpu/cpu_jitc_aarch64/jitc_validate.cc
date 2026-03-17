@@ -122,9 +122,23 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	if (diverged || !refCPU) return;
 	valCount++;
 
-	// Watchpoint: log when r3, r4, r5, r31 change (kernel entry regs)
+	// Memory watchpoint: check if address 0x07deff60 changes
+	{
+		static uint32 lastMemVal = 0;
+		uint32 watchAddr = 0x07deff60;
+		if (watchAddr < gMemorySize) {
+			uint32 curVal = *(uint32 *)(gMemory + watchAddr);
+			if (curVal != lastMemVal) {
+				if (valLog) {
+					fprintf(valLog, "MEM[%08x] CHANGED: %08x -> %08x at pc=%08x (#%llu)\n",
+						watchAddr, lastMemVal, curVal, effectivePC, valCount);
+				}
+				lastMemVal = curVal;
+			}
+		}
+	}
+
 	static uint32 last_r3 = 0, last_r4 = 0, last_r5 = 0, last_r31 = 0;
-	// Only log near the kernel transition (after 15M instructions)
 	if (valCount > 15000000) {
 		if (gCPU->gpr[3] != last_r3 && valLog) {
 			fprintf(valLog, "R3 CHANGED: %08x -> %08x at pc=%08x (#%llu)\n",
@@ -184,27 +198,8 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 		refCPU->msr = gCPU->msr;
 		refCPU->pc = effectivePC;
 
-		// Compare memory at PROM boundary
-		{
-			int diffs = 0;
-			for (uint32 i = 0; i < gMemorySize; i += 4) {
-				uint32 jitVal = *(uint32 *)(gMemory + i);
-				uint32 refVal = *(uint32 *)(refMemory + i);
-				if (jitVal != refVal) {
-					if (diffs < 10 && valLog) {
-						fprintf(valLog, "MEM DIFF at PA %08x: jit=%08x ref=%08x (#%llu)\n",
-							i, jitVal, refVal, valCount);
-					}
-					diffs++;
-				}
-			}
-			if (diffs > 0 && valLog) {
-				fprintf(valLog, "TOTAL MEM DIFFS: %d at PROM resync #%llu\n", diffs, valCount);
-				fflush(valLog);
-			}
-			// Sync: copy JIT memory to reference so they continue with same state
-			memcpy(refMemory, gMemory, gMemorySize);
-		}
+		// Sync memory: PROM writes to gMemory, need to copy to refMemory
+		memcpy(refMemory, gMemory, gMemorySize);
 		return;
 	}
 
@@ -222,11 +217,21 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 			refCPU->ctr = gCPU->ctr;
 			refCPU->xer = gCPU->xer;
 			refCPU->xer_ca = gCPU->xer_ca;
+			// Sync memory: PROM writes to gMemory
+			memcpy(refMemory, gMemory, gMemorySize);
 			needStep = false;
 		} else {
 			if (valLog) {
+				// Log all GPRs for debugging
+				for (int i = 0; i < 32; i++) {
+					if (gCPU->gpr[i] != refCPU->gpr[i]) {
+						fprintf(valLog, "  r%d: jit=%08x ref=%08x\n", i, gCPU->gpr[i], refCPU->gpr[i]);
+					}
+				}
 				fprintf(valLog, "=== VALIDATE #%llu: MISMATCH at pc=%08x (prev pc=%08x) ===\n",
 					valCount, effectivePC, prevPC);
+				// Also dump matching regs for context
+				fprintf(valLog, "  r1(sp)=%08x r9=%08x\n", gCPU->gpr[1], gCPU->gpr[9]);
 			}
 			diverged = true;
 			if (valLog) fflush(valLog);
