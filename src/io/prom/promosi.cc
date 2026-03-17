@@ -639,6 +639,7 @@ prom_service_desc prom_service_table[] = {
 
 void call_prom_osi()
 {
+
 	prom_args pa;
 	memset(&pa, 0, sizeof pa);
 	uint32 pa_s = ppc_cpu_get_gpr(0, 3);

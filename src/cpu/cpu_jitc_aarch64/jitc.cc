@@ -21,6 +21,10 @@
 #include "ppc_dec.h"
 #include "ppc_mmu.h"
 #include "ppc_tools.h"
+#include "aarch64asm.h"
+
+extern bool gValidateMode;
+extern "C" void jitcValidateAtDispatch(uint32 effectivePC);
 
 static TranslationCacheFragment *jitcAllocFragment(JITC &jitc);
 
@@ -447,6 +451,39 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     while (1) {
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
         jitcDebugLogNewInstruction(jitc);
+
+        // Validation: BEFORE each instruction, emit validate call.
+        // Both JIT and reference are at the same PC and should have
+        // identical register state.
+        if (gValidateMode) {
+            // Store current pc to CPU state so validate knows where we are
+            jitc.emitMOV32((NativeReg)16, jitc.pc);
+            jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
+            // Save all caller-saved regs, call validate, restore
+            // STP/LDP pairs for x0-x15, x17 (x16 used by emitBLR)
+            jitc.emit32(a64_STP_pre(0, 1, 31, -16));    // push x0,x1
+            jitc.emit32(a64_STP_pre(2, 3, 31, -16));    // push x2,x3
+            jitc.emit32(a64_STP_pre(4, 5, 31, -16));    // push x4,x5
+            jitc.emit32(a64_STP_pre(6, 7, 31, -16));    // push x6,x7
+            jitc.emit32(a64_STP_pre(8, 9, 31, -16));    // push x8,x9
+            jitc.emit32(a64_STP_pre(10, 11, 31, -16));  // push x10,x11
+            jitc.emit32(a64_STP_pre(12, 13, 31, -16));  // push x12,x13
+            jitc.emit32(a64_STP_pre(14, 15, 31, -16));  // push x14,x15
+            // W0 = effective PC = current_code_base + pc_ofs
+            jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, current_code_base));
+            jitc.emitMOV32((NativeReg)17, jitc.pc);
+            jitc.emit32(a64_ADDw_reg(0, 0, 17));
+            jitc.emitBLR((NativeAddress)jitcValidateAtDispatch);
+            // Restore
+            jitc.emit32(a64_LDP_post(14, 15, 31, 16));
+            jitc.emit32(a64_LDP_post(12, 13, 31, 16));
+            jitc.emit32(a64_LDP_post(10, 11, 31, 16));
+            jitc.emit32(a64_LDP_post(8, 9, 31, 16));
+            jitc.emit32(a64_LDP_post(6, 7, 31, 16));
+            jitc.emit32(a64_LDP_post(4, 5, 31, 16));
+            jitc.emit32(a64_LDP_post(2, 3, 31, 16));
+            jitc.emit32(a64_LDP_post(0, 1, 31, 16));
+        }
 
         JITCFlow flow = ppc_gen_opc(jitc);
         if (flow == flowContinue) {

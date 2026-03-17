@@ -106,6 +106,9 @@ do_export EXTERN(ppc_new_pc_asm)
     // w0 = effective PC on entry and preserved through heartbeat
     bl  EXTERN(ppc_heartbeat_ext_asm)
 
+    // Store effective PC for validation
+    str w0, [x20, #pc]
+
     // Translate effective address to physical
     // w0 = effective address, w1 = 0 (bytes to unwind, not used on aarch64)
     mov w1, #0

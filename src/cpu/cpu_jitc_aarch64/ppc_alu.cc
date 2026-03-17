@@ -259,7 +259,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
                 jitc.emitBLR((NativeAddress)ppc_new_pc_this_page_asm);
             }
         } else {
-            // Cross-page: full dispatch
+            // Cross-page or validate mode: full dispatch
             jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
         }
 
@@ -400,6 +400,26 @@ JITCFlow ppc_opc_gen_xoris(JITC &jitc)
  *  Register-register ALU helpers.
  *  Pattern: rD = gpr[rA] OP gpr[rB], store to gpr[rD]
  */
+/*
+ * Rc check: if the PPC opcode has Rc=1 (bit 0), it must update CR0.
+ * Our native gen_ functions don't handle CR0 update yet, so fall back
+ * to the interpreter when Rc is set.
+ */
+/* Forward declarations for interpreter functions used by RC_FALLBACK */
+void ppc_opc_addx(PPC_CPU_State &);
+void ppc_opc_subfx(PPC_CPU_State &);
+void ppc_opc_andx(PPC_CPU_State &);
+void ppc_opc_orx(PPC_CPU_State &);
+void ppc_opc_xorx(PPC_CPU_State &);
+void ppc_opc_negx(PPC_CPU_State &);
+void ppc_opc_mullwx(PPC_CPU_State &);
+
+#define RC_FALLBACK(interp_func) \
+    if (jitc.current_opc & PPC_OPC_Rc) { \
+        ppc_opc_gen_interpret(jitc, interp_func); \
+        return flowContinue; \
+    }
+
 static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
 {
     int rD, rA, rB;
@@ -414,11 +434,13 @@ static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
 /* add rD, rA, rB */
 JITCFlow ppc_opc_gen_addx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_addx);
     return gen_alu_reg(jitc, a64_ADDw_reg);
 }
 /* subf rD, rA, rB  (rD = rB - rA) */
 JITCFlow ppc_opc_gen_subfx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_subfx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rA));
@@ -427,9 +449,10 @@ JITCFlow ppc_opc_gen_subfx(JITC &jitc)
     jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
     return flowContinue;
 }
-/* and rA, rS, rB  (note: rA is destination, rS is first source) */
+/* and rA, rS, rB */
 JITCFlow ppc_opc_gen_andx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_andx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
@@ -441,6 +464,7 @@ JITCFlow ppc_opc_gen_andx(JITC &jitc)
 /* or rA, rS, rB */
 JITCFlow ppc_opc_gen_orx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_orx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
@@ -452,6 +476,7 @@ JITCFlow ppc_opc_gen_orx(JITC &jitc)
 /* xor rA, rS, rB */
 JITCFlow ppc_opc_gen_xorx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_xorx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
@@ -466,6 +491,7 @@ JITCFlow ppc_opc_gen_xorx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_negx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_negx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
@@ -516,6 +542,7 @@ JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
 {
+    RC_FALLBACK(ppc_opc_mullwx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
