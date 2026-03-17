@@ -534,6 +534,7 @@ int FASTCALL ppc_write_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_dword(p, data);
     }
+    raise_dsi(&aCPU, addr, true);
     return r;
 }
 
@@ -544,6 +545,7 @@ int FASTCALL ppc_write_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 d
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_word(p, data);
     }
+    raise_dsi(&aCPU, addr, true);
     return r;
 }
 
@@ -554,6 +556,7 @@ int FASTCALL ppc_write_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 d
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_half(p, data);
     }
+    raise_dsi(&aCPU, addr, true);
     return r;
 }
 
@@ -564,6 +567,7 @@ int FASTCALL ppc_write_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 da
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_byte(p, data);
     }
+    raise_dsi(&aCPU, addr, true);
     return r;
 }
 
