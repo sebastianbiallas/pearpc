@@ -21,6 +21,7 @@
  */
 
 #include <cstdlib>
+#include <pthread.h>
 
 #include "debug/tracers.h"
 #include "ppc_cpu.h"
@@ -1993,10 +1994,12 @@ void ppc_opc_icbi(PPC_CPU_State &aCPU)
         return;
     }
     if (pa >= gMemorySize) return;
+    if (!aCPU.jitc) return; // reference interpreter has no JITC
     uint32 pageIndex = pa >> 12;
     JITC &jitc = *aCPU.jitc;
-    if (jitc.clientPages[pageIndex]) {
-        jitcDestroyAndFreeClientPage(jitc, jitc.clientPages[pageIndex]);
+    ClientPage *cp = jitc.clientPages[pageIndex];
+    if (cp) {
+        jitcDestroyAndFreeClientPage(jitc, cp);
     }
 }
 

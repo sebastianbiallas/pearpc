@@ -304,6 +304,15 @@ static ClientPage *jitcTouchClientPage(JITC &jitc, ClientPage *cp)
     return cp;
 }
 
+static void jitcFlushClientPage(ClientPage *cp)
+{
+    TranslationCacheFragment *tcf = cp->tcf_current;
+    while (tcf) {
+        __builtin___clear_cache((char *)tcf->base, (char *)(tcf->base + FRAGMENT_SIZE));
+        tcf = tcf->prev;
+    }
+}
+
 static void jitcDestroyFragments(JITC &jitc, TranslationCacheFragment *tcf)
 {
     while (tcf) {
@@ -545,6 +554,14 @@ extern "C" NativeAddress jitcStartTranslation(JITC &jitc, ClientPage *cp, uint32
     cp->tcp = cp->tcf_current->base;
     cp->bytesLeft = FRAGMENT_SIZE;
 
+    // Sanity check: tcp must be within translation cache
+    if ((byte *)cp->tcp < jitc.translationCache ||
+        (byte *)cp->tcp >= jitc.translationCache + 64 * 1024 * 1024) {
+        fprintf(stderr, "[JITC] BUG: fragment base %p outside cache [%p, +64MB)\n",
+            cp->tcp, jitc.translationCache);
+        abort();
+    }
+
     return jitcNewEntrypoint(jitc, cp, baseaddr, ofs);
 }
 
@@ -604,8 +621,8 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         /* First translation for this page */
         jitcNewTranslations++;
         result = jitcStartTranslation(jitc, cp, baseaddr, entry & 0xfff);
-        NativeAddress after = cp->tcp;
-        __builtin___clear_cache((char *)result, (char *)after);
+        // Flush icache for all fragments used by this page
+        jitcFlushClientPage(cp);
         pthread_jit_write_protect_np(1);
     } else {
         NativeAddress ofs = jitcGetEntrypoint(cp, entry & 0xfff);
@@ -619,8 +636,7 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
             pthread_jit_write_protect_np(0);
             NativeAddress before = cp->tcp;
             result = jitcNewEntrypoint(jitc, cp, baseaddr, entry & 0xfff);
-            NativeAddress after = cp->tcp;
-            __builtin___clear_cache((char *)before, (char *)after);
+            jitcFlushClientPage(cp);
             pthread_jit_write_protect_np(1);
         }
     }
