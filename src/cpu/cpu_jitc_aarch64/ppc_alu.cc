@@ -53,6 +53,9 @@
 
 #define GPR_OFS(n) (offsetof(PPC_CPU_State, gpr) + (n) * 4)
 
+// Native ALU gen_ functions - disabled, using GEN_INTERPRET in ppc_dec.cc instead
+#if 0
+
 /*
  *  addi rD, rA, SIMM  (opcode 14)
  *  if rA == 0: rD = SIMM
@@ -158,6 +161,8 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
     return flowContinue;
 }
 
+#endif // native ALU part 1
+
 /*
  *  b/bl target  (opcode 18)
  *  Unconditional branch, optionally sets LR.
@@ -216,7 +221,25 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     bool lk = jitc.current_opc & PPC_OPC_LK;
     bool aa = jitc.current_opc & PPC_OPC_AA;
 
-    // For all cases, use the interpreter to evaluate the branch condition.
+    // Fast path for "bdnz self" (BO=16: decrement CTR, branch if CTR!=0, BD=0: target=self)
+    // This is __delay()'s tight loop. Generate a native CTR countdown instead of
+    // going through the interpreter on every iteration.
+    if (!lk && !aa && BO == 16 && BD == 0) {
+        // LDR W0, [X20, #ctr]
+        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, ctr));
+        // loop: SUBS W0, W0, #1
+        NativeAddress loop = jitc.asmHERE();
+        jitc.emit32(a64_SUBSw_imm(0, 0, 1));
+        // CBNZ W0, loop  (offset = loop - here)
+        NativeAddress cbnz_pos = jitc.asmHERE();
+        sint32 cbnz_off = (sint32)(loop - cbnz_pos);
+        jitc.emit32(a64_CBNZw(0, cbnz_off));
+        // STR W0, [X20, #ctr]  (CTR = 0)
+        jitc.emitSTR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, ctr));
+        return flowContinue;
+    }
+
+    // For all other cases, use the interpreter to evaluate the branch condition.
     // This correctly handles CTR decrement, all BO variants, and LK.
     // The optimization is in how we dispatch to the target afterwards.
     ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
@@ -345,6 +368,8 @@ JITCFlow ppc_opc_gen_bcctrx(JITC &jitc)
     gen_dispatch_npc(jitc);
     return flowEndBlockUnreachable;
 }
+
+#if 0 // native ALU part 2
 
 /*
  *  oris rA, rS, UIMM  (opcode 25)
@@ -553,6 +578,8 @@ JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
     jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
     return flowContinue;
 }
+
+#endif // native ALU part 2
 
 // Forward declarations for functions defined in ppc_opc.cc
 extern void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr);

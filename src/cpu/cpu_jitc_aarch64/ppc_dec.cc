@@ -97,6 +97,25 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
  *   addx, subfx, andx, orx, xorx, negx, mullwx
  *   slwx, srwx, rlwinmx
  */
+
+GEN_INTERPRET(addi)
+GEN_INTERPRET(addis)
+GEN_INTERPRET(ori)
+GEN_INTERPRET(oris)
+GEN_INTERPRET(xori)
+GEN_INTERPRET(xoris)
+GEN_INTERPRET(cmpi)
+GEN_INTERPRET(addx)
+GEN_INTERPRET(subfx)
+GEN_INTERPRET(andx)
+GEN_INTERPRET(orx)
+GEN_INTERPRET(xorx)
+GEN_INTERPRET(negx)
+GEN_INTERPRET(mullwx)
+GEN_INTERPRET(slwx)
+GEN_INTERPRET(srwx)
+GEN_INTERPRET(rlwinmx)
+
 GEN_INTERPRET(addic)
 GEN_INTERPRET(addic_)
 GEN_INTERPRET(subfic)
