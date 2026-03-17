@@ -38,17 +38,29 @@
 #include "jitc.h"
 #include "jitc_asm.h"
 
-static uint64 gDECwriteITB;
-static uint64 gDECwriteValue;
+static uint64 gDECwriteITB = 0;
+static uint64 gDECwriteValue = 0;
+static bool gDECinitialized = false;
 
-static void readDEC(PPC_CPU_State &aCPU)
+void readDEC(PPC_CPU_State &aCPU)
 {
+    if (!gDECinitialized) {
+        gDECwriteITB = ppc_get_cpu_ideal_timebase();
+        gDECinitialized = true;
+    }
     uint64 itb = ppc_get_cpu_ideal_timebase() - gDECwriteITB;
     aCPU.dec = gDECwriteValue - itb;
+    static int rdc = 0; rdc++;
+    if (rdc <= 20)
+        fprintf(stderr, "[RDEC] #%d writeVal=%08x itb=%llx dec=%08x\n",
+            rdc, gDECwriteValue, itb, aCPU.dec);
 }
 
 void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
 {
+    static int wdc = 0; wdc++;
+    if (wdc <= 50 || wdc % 100 == 0)
+        fprintf(stderr, "[WDEC] #%d old=%08x new=%08x\n", wdc, aCPU.dec, newdec);
     if (!(aCPU.dec & 0x80000000) && (newdec & 0x80000000)) {
         aCPU.dec = newdec;
         sys_set_timer(gDECtimer, 0, 0, false);

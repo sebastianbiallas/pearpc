@@ -557,6 +557,7 @@ JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
 // Forward declarations for functions defined in ppc_opc.cc
 extern void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr);
 extern void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec);
+extern void readDEC(PPC_CPU_State &aCPU);
 extern void FASTCALL writeTBL(PPC_CPU_State &aCPU, uint32 val);
 extern void FASTCALL writeTBU(PPC_CPU_State &aCPU, uint32 val);
 
@@ -2130,7 +2131,7 @@ void ppc_opc_mfspr(PPC_CPU_State &aCPU)
         switch (spr1) {
         case 18: aCPU.gpr[rD] = aCPU.dsisr; return;
         case 19: aCPU.gpr[rD] = aCPU.dar; return;
-        case 22: aCPU.gpr[rD] = aCPU.dec; return;
+        case 22: readDEC(aCPU); aCPU.gpr[rD] = aCPU.dec; return;
         case 25: aCPU.gpr[rD] = aCPU.sdr1; return;
         case 26: aCPU.gpr[rD] = aCPU.srr[0]; return;
         case 27: aCPU.gpr[rD] = aCPU.srr[1]; return;

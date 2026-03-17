@@ -319,14 +319,16 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 			}
 		}
 		if (isProm || isIO) {
-			// Resync caller-saved registers.
-			for (int i = 0; i <= 12; i++)
+			// Resync all registers — I/O and volatile SPR reads can
+			// write to any register (including callee-saved like r29).
+			for (int i = 0; i < 32; i++)
 				refCPU->gpr[i] = gCPU->gpr[i];
 			refCPU->cr = gCPU->cr;
 			refCPU->lr = gCPU->lr;
 			refCPU->ctr = gCPU->ctr;
 			refCPU->xer = gCPU->xer;
 			refCPU->xer_ca = gCPU->xer_ca;
+			refCPU->dec = gCPU->dec;
 			needStep = false;
 		} else {
 			if (valLog) {
