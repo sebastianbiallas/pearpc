@@ -153,19 +153,29 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 
 	// PCs match. Compare all registers.
 	static uint32 prevPC = 0;
+	bool needStep = true;
 	if (!compareStates()) {
-		if (valLog) {
-			fprintf(valLog, "=== VALIDATE #%llu: MISMATCH at pc=%08x (prev pc=%08x) ===\n",
-				valCount, effectivePC, prevPC);
+		if (prevPC == gPromOSIEntry || prevPC == gPromOSIEntry + 4) {
+			// Expected mismatch after PROM call — resync silently
+			JITC *savedJitc = refCPU->jitc;
+			memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
+			refCPU->jitc = savedJitc;
+			needStep = false;
+		} else {
+			if (valLog) {
+				fprintf(valLog, "=== VALIDATE #%llu: MISMATCH at pc=%08x (prev pc=%08x) ===\n",
+					valCount, effectivePC, prevPC);
+			}
+			diverged = true;
+			if (valLog) fflush(valLog);
+			fprintf(stderr, "[VALIDATE] MISMATCH #%llu pc=%08x. See validate.log\n", valCount, effectivePC);
+			return;
 		}
-		diverged = true;
-		if (valLog) fflush(valLog);
-		fprintf(stderr, "[VALIDATE] MISMATCH #%llu pc=%08x. See validate.log\n", valCount, effectivePC);
-		return;
 	}
 
-	// Step reference one instruction (so it's ready for the next compare)
-	refStepOne();
+	if (needStep) {
+		refStepOne();
+	}
 
 	prevPC = effectivePC;
 	if (valCount % 10000 == 0) {

@@ -879,11 +879,57 @@ void ppc_opc_lmw(PPC_CPU_State &aCPU)
 }
 void ppc_opc_lswi(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	int rA, rD, NB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, NB);
+	if (NB == 0) NB = 32;
+	uint32 ea = rA ? aCPU.gpr[rA] : 0;
+	uint32 r = 0;
+	int i = 4;
+	uint8 v;
+	while (NB > 0) {
+		if (!i) {
+			i = 4;
+			aCPU.gpr[rD] = r;
+			rD++;
+			rD %= 32;
+			r = 0;
+		}
+		if (ppc_read_effective_byte(aCPU, ea, v)) return;
+		r <<= 8;
+		r |= v;
+		ea++;
+		i--;
+		NB--;
+	}
+	while (i) { r <<= 8; i--; }
+	aCPU.gpr[rD] = r;
 }
 void ppc_opc_lswx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	int rA, rD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	int NB = XER_n(aCPU.xer);
+	uint32 ea = aCPU.gpr[rB] + (rA ? aCPU.gpr[rA] : 0);
+	uint32 r = 0;
+	int i = 4;
+	uint8 v;
+	while (NB > 0) {
+		if (!i) {
+			i = 4;
+			aCPU.gpr[rD] = r;
+			rD++;
+			rD %= 32;
+			r = 0;
+		}
+		if (ppc_read_effective_byte(aCPU, ea, v)) return;
+		r <<= 8;
+		r |= v;
+		ea++;
+		i--;
+		NB--;
+	}
+	while (i) { r <<= 8; i--; }
+	aCPU.gpr[rD] = r;
 }
 
 void ppc_opc_stb(PPC_CPU_State &aCPU)
@@ -1022,11 +1068,47 @@ void ppc_opc_stmw(PPC_CPU_State &aCPU)
 }
 void ppc_opc_stswi(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	int rA, rS, NB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, NB);
+	if (NB == 0) NB = 32;
+	uint32 ea = rA ? aCPU.gpr[rA] : 0;
+	uint32 r = 0;
+	int i = 0;
+	while (NB > 0) {
+		if (!i) {
+			r = aCPU.gpr[rS];
+			rS++;
+			rS %= 32;
+			i = 4;
+		}
+		if (ppc_write_effective_byte(aCPU, ea, (r >> 24))) return;
+		r <<= 8;
+		ea++;
+		i--;
+		NB--;
+	}
 }
 void ppc_opc_stswx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	int rA, rS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
+	int NB = XER_n(aCPU.xer);
+	uint32 ea = aCPU.gpr[rB] + (rA ? aCPU.gpr[rA] : 0);
+	uint32 r = 0;
+	int i = 0;
+	while (NB > 0) {
+		if (!i) {
+			r = aCPU.gpr[rS];
+			rS++;
+			rS %= 32;
+			i = 4;
+		}
+		if (ppc_write_effective_byte(aCPU, ea, (r >> 24))) return;
+		r <<= 8;
+		ea++;
+		i--;
+		NB--;
+	}
 }
 
 /*
