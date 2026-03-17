@@ -302,7 +302,7 @@ The x86_64 JIT maps frequently-used PPC GPRs to native registers, avoiding load/
 
 This is the biggest performance win after native code generation.
 
-### Phase 8: Exception Handling (CRITICAL — IN PROGRESS)
+### Phase 8: Exception Handling (DONE)
 
 PPC exceptions (DSI, ISI) are synchronous — they fire at the faulting instruction and dispatch to exception vectors (DSI=0x300, ISI=0x400). The kernel relies on these for demand paging.
 
@@ -314,54 +314,52 @@ PPC exceptions (DSI, ISI) are synchronous — they fire at the faulting instruct
 **x86_64 JIT:**
 The full BAT/page-table walk is reimplemented in hand-written assembly (`jitc_mmu.S`, ~500 lines). On page fault, the assembly jumps directly to `ppc_dsi_exception_asm`. The C++ `ppc_effective_to_physical` just returns `PPC_MMU_FATAL` (no `ppc_exception` call) — it's only used for the interpreter fallback path.
 
-**Our aarch64 JIT (current state):**
-Two paths, handled differently:
+**Our aarch64 JIT:**
+`ppc_effective_to_physical()` calls `ppc_exception()` on page fault AND protection failure (matching generic CPU). Two dispatch paths:
 
-1. **Asm stub path** (native gen_ lwz/stw/etc.): C++ slow path (`ppc_write_effective_word_slow`) calls `raise_dsi()` which sets `exception_pending`, `dar`, `dsisr`. The asm stub checks `exception_pending` immediately after the slow path returns and jumps to `ppc_dsi_exception_asm`. **This works correctly.**
+1. **Asm stub path** (native gen_ lwz/stw/etc.): TLB fast path in asm → miss → C++ slow path → `ppc_effective_to_physical()` → `ppc_exception()` sets everything up → asm stub checks `exception_pending` → `.Ldsi_from_slow` clears flag, loads `npc`, dispatches via `ppc_new_pc_asm`. The native gen_ functions store `aCPU.pc` (full effective PC = `current_code_base + pc_ofs`) before the BLR so that `ppc_exception()` reads the correct SRR0.
 
-2. **Interpreter path** (GEN_INTERPRET opcodes like lmw/stmw/lwzu/stwu): `ppc_write_effective_word()` (the interpreter version) also calls `raise_dsi()`. But nobody checks `exception_pending` after the interpreter returns — the generated code continues to the next instruction. The stale flag is picked up later by the heartbeat at a block boundary, at the wrong PC and wrong time. **This is broken.**
+2. **Interpreter path** (GEN_INTERPRET opcodes): `ppc_opc_gen_interpret()` emits code that calls the interpreter function, then checks `exception_pending`. If set: clears flag, loads `npc`, dispatches via `ppc_new_pc_asm`. The interpreter wrapper stores `pc` and `npc` before the call.
 
-#### Root cause of the kernel boot failure
+3. **ISI path** (code fetch): `ppc_effective_to_physical_code_c()` → `ppc_exception(ISI)` → returns EA → asm checks `exception_pending` → `.Lnewpc_isi` clears flag, loads `npc` (=0x400), dispatches via `ppc_new_pc_asm`.
 
-The kernel entry code at PA 0x64 does:
-```
-mfmsr r0          ; read MSR
-ori r0, r0, 0x30  ; set IR|DR (enable translation)
-mtsrr1 r0         ; SRR1 = new MSR
-lis r0, 0xc000
-ori r0, r0, 0x3c58 ; r0 = 0xc0003c58 (kernel VA)
-mtsrr0 r0          ; SRR0 = kernel entry
-rfi                 ; jump to kernel with translation ON
-```
+#### Exception flag lifecycle
 
-After `rfi`, the JIT dispatches to EA `0xc0003c58`. `ppc_effective_to_physical` does a page table walk. The walk fails (page not mapped yet). Our code returns `PPC_MMU_FATAL` — but the generic CPU would call `ppc_exception(PPC_EXC_ISI, ...)` which sets `npc = 0x400` (ISI vector). The ISI handler maps the page and retries. Without `ppc_exception`, the JIT's ISI handler returns PA 0 → executes zeroed memory → crash.
+The `exception_pending`, `dec_exception`, `ext_exception` flags must be cleared at the right time:
+- **DSI/ISI**: `ppc_exception()` sets `exception_pending`. The asm handler (`.Ldsi_from_slow`, `.Lnewpc_isi`) or the `ppc_opc_gen_interpret` post-check clears it before dispatching to the vector.
+- **Decrementer/External**: The timer callback or PIC sets `exception_pending` + `dec/ext_exception` atomically. The heartbeat detects them and jumps to `ppc_dec/ext_exception_asm`. These handlers MUST clear both their specific flag AND `exception_pending` before dispatching — otherwise the heartbeat re-triggers the same exception on every check and the kernel never makes progress. (The x86 JIT uses `ppc_atomic_cancel_dec/ext_exception_macro` for this.)
 
-The EA→PA dispatch logging confirmed: every kernel virtual address (c0003c58, c0209d5c, etc.) translates to PA 0x00000000.
+#### icbi (Instruction Cache Block Invalidate)
 
-#### What needs to happen
+The PPC `icbi` instruction tells the CPU that code at a given address has been modified and the instruction cache must be invalidated. In a JIT, this means destroying the translated code for that physical page.
 
-Our `ppc_effective_to_physical` needs to call `ppc_exception()` on failure, like the generic CPU. This handles both the interpreter path (GEN_INTERPRET opcodes) and the code fetch path.
+Implementation: `ppc_opc_icbi()` translates EA→PA (with `PPC_MMU_NO_EXC` to avoid exceptions), looks up `jitc.clientPages[PA >> 12]`, and calls `jitcDestroyAndFreeClientPage()` if present. Uses `GEN_INTERPRET_ENDBLOCK` to end the current basic block after invalidation (prevents executing stale chained branches into the destroyed page).
 
-For the asm stub path (native gen_ load/store), `raise_dsi` + immediate asm check works correctly and should be kept. In the future, when the JIT does its own page walks in assembly (like x86_64), the DSI will be handled entirely in assembly without going through C++.
+Gotchas:
+- Must check `aCPU.jitc != NULL` (the validation reference interpreter has no JITC)
+- Must check `PA < gMemorySize` (I/O addresses have no client pages)
+- `__builtin___clear_cache()` in `jitcNewPC` must flush per-fragment, not a contiguous range from result to tcp — fragments may be non-contiguous in the translation cache
 
 ### Phase 9: Full Bootstrap (IN PROGRESS)
 
 **Progress:**
-- Open Firmware PROM: boots, detects Apple Partition Map on Mandrake ISO, loads yaboot ELF
-- Yaboot: full boot menu displayed, config file read, kernel loading initiated
-- Kernel entry: `rfi` to `c0003c58` dispatches correctly, ISI fires but not handled properly
-- Lock-step validation: 112M+ instructions validated with zero mismatches (GPRs, CR, LR, CTR, XER, MSR, SRR0, SRR1, BATs, segment registers, SDR1)
-- EA→PA logging found root cause: all kernel VAs map to PA 0
+- Open Firmware PROM: boots fully
+- Yaboot: full boot menu displayed, kernel loaded
+- Kernel: boots through prom_init, device tree copy, display init, early init with interrupts
+- Lock-step validation: **5.3 billion instructions** validated with zero mismatches
+- Decrementer and external interrupt delivery working
+
+**Current state:**
+The kernel reaches an I/O polling loop (CUDA IFR register) and stalls. This is a validation limitation: the reference interpreter and JIT both read the same CUDA hardware, causing double I/O side effects (reading IFR clears flags, so the second read consumes the state change meant for the first). Without validation, the kernel should progress past this point.
 
 **Remaining:**
-- Add `ppc_exception` calls to `ppc_effective_to_physical` (matching generic CPU)
-- Remove `raise_dsi` from interpreter `ppc_write/read_effective_*` functions
-- Boot Mandrake Linux PPC kernel
+- Resolve the I/O double-read issue in validation (or disable validation for the I/O-heavy boot phase)
+- Boot Mandrake Linux PPC kernel to completion
 - Profile and optimize hot paths
 
 ## Lessons Learned
 
-1. **Silent no-op stubs are fatal bugs in disguise.** `lmw`/`stmw` being empty stubs meant callee-saved registers were never saved/restored. Symptom: loop counter stuck. Cause: completely unrelated opcode. Every unimplemented opcode must abort with an error message.
+1. **Silent no-op stubs are fatal bugs in disguise.** `lmw`/`stmw` being empty stubs meant callee-saved registers were never saved/restored. `icbi` being a no-op meant the JIT code cache was never invalidated after code was overwritten. Every unimplemented opcode must abort with an error message.
 
 2. **Don't blindly copy x86_64.** The TLB fast path works better as "asm check + C++ slow path" than reimplementing BAT/page-walk in assembly. The bcx works better as "interpreter eval + native dispatch" than fully native condition checking.
 
@@ -371,9 +369,19 @@ For the asm stub path (native gen_ load/store), `raise_dsi` + immediate asm chec
 
 5. **PPC exceptions are core execution semantics, not error handling.** The kernel relies on page faults (DSI/ISI) for demand paging. The generic CPU handles them inline via `ppc_exception()` which modifies `npc`. The JIT must do the same — either inline or via exception_pending + immediate check.
 
-6. **Lock-step validation is essential.** Running a reference interpreter alongside the JIT, comparing registers after every instruction, found the Rc bit bug. Key design: shared memory, compare GPRs + SPRs + BATs + SRs. PROM calls only on JIT side with callee-saved register checking at resync points.
+6. **Lock-step validation is invaluable and fast enough.** Running a reference interpreter alongside the JIT, comparing registers after every instruction, at billions of instructions without issue. Key design: shared memory, compare GPRs + SPRs + BATs + SRs. PROM calls resync caller-saved only (r0-r13, CR, LR, CTR, XER); callee-saved r14-r31 mismatches are real bugs. I/O reads (PA >= gMemorySize) and volatile SPR reads (mftb, mfspr) cause benign mismatches — resync on those. **Do not try to skip the reference step for I/O — this corrupts the reference PC state and causes false mismatches.** The validation overhead is acceptable; the kernel stalls not because validation is slow but because both paths read the same I/O devices.
 
 7. **Understand the three-way architecture.** Generic CPU, x86_64 JIT, and aarch64 JIT handle exceptions differently. Always check all three before implementing. The generic CPU is the reference for correctness; the x86_64 JIT shows how to do it in a JIT context.
+
+8. **One missing line can cause spectacular failures that look like something else entirely.** The root cause of the kernel boot crash was `ibat_nbl[idx] = ~ibat_bl[idx]` missing from `ppc_opc_batu_helper()` for the IBAT case (the DBAT case had it). Without this, `addr &= ibat_nbl[i]` zeroed the entire address during BAT translation, causing every kernel virtual address to map to PA 0. This manifested as "stale JIT code cache" because PA 0 had old translations — but the real bug was the address translation itself. The icbi investigation was a red herring twice: first because the translations at PA 0 were correctly cached (from wrong translations), and second because icbi was working correctly (the page was already evicted when icbi fired).
+
+9. **When a symptom looks like X, verify X before implementing a fix for X.** The symptom "JIT executes old rfi instead of current nop at PA 0" looked like a stale code cache problem. icbi was implemented to fix it. But the real question was: *why does c0003c58 translate to PA 0?* If we had checked the BAT translation output directly instead of assuming code cache staleness, we would have found the ibat_nbl bug immediately. Always verify the full chain: EA → BAT/page-table → PA → code cache lookup. Don't assume the last step is broken when an earlier step might be wrong.
+
+10. **Exception handlers must clean up their trigger flags.** The decrementer and external exception handlers must clear `dec_exception`/`ext_exception` AND `exception_pending` before dispatching to the exception vector. Without this, the heartbeat re-detects the same pending exception on every basic block boundary, causing an infinite loop of exception delivery. The kernel appeared to "stall" but was actually re-entering the same exception handler endlessly. The x86 JIT uses atomic cancel macros for this; our simpler `strb wzr` works because the handler runs with MSR_EE=0 (no re-entrant interrupts).
+
+11. **Shared I/O state is the Achilles' heel of lock-step validation.** The JIT and reference interpreter share the same I/O devices (CUDA, PIC, etc.). I/O registers have side effects on read — reading CUDA IFR can clear interrupt flags, reading the shift register advances the CUDA state machine. With both paths reading the same register, the state advances twice as fast and flags get consumed by the wrong reader. This cannot be fixed by skipping the reference step (breaks PC tracking) or syncing state after (damage already done). The correct fix would be I/O read result caching (return the JIT's result to the reference without a second read) or separate I/O device instances.
+
+12. **Fragment-based icache flush is necessary.** The JIT translation cache uses non-contiguous fragments linked by branch instructions. `__builtin___clear_cache(result, tcp)` crashes if the range spans a gap between fragments. Use `jitcFlushClientPage()` which walks the fragment chain and flushes each fragment individually.
 
 ## Key Files
 
