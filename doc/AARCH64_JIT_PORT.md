@@ -302,15 +302,30 @@ The x86_64 JIT maps frequently-used PPC GPRs to native registers, avoiding load/
 
 This is the biggest performance win after native code generation.
 
-### Phase 8: Full Bootstrap (IN PROGRESS)
+### Phase 8: Exception Handling (CRITICAL — IN PROGRESS)
+
+The x86_64 JIT raises DSI exceptions (vector 0x300) when page table walks fail during data access. The OS kernel relies on this for demand paging — page faults trigger the kernel's page fault handler which maps the page and retries the instruction.
+
+**Current state:** Our C++ slow path (`ppc_write_effective_word_slow`, etc.) silently drops accesses when `ppc_effective_to_physical` fails. The x86_64 `jitc_mmu.S` calls `ppc_dsi_exception_asm` with DAR/DSISR set.
+
+**What needs to happen:**
+- On `PPC_MMU_FATAL` from `ppc_effective_to_physical`: set DAR = faulting EA, DSISR = fault type (page fault / protection), then jump to `ppc_dsi_exception_asm`
+- The exception handler sets SRR0/SRR1, clears MSR, and dispatches to vector 0x300
+- The OS page fault handler maps the page and does `rfi` to retry
+
+**Impact:** Without DSI exceptions, kernel memory initialization fails silently. Stores to unmapped pages are dropped, leaving memory zeroed. This causes r31 (device tree pointer) to be 0 at kernel entry → machine check.
+
+### Phase 9: Full Bootstrap (IN PROGRESS)
 
 **Progress:**
 - Open Firmware PROM: boots, detects Apple Partition Map on Mandrake ISO, loads yaboot ELF
-- Yaboot: BSS clear, palette setup, PROM device discovery (finddevice, getprop for CD)
+- Yaboot: full boot menu displayed, config file read, kernel loading initiated
+- Kernel: starts executing but hits machine check due to missing DSI exceptions
+- Lock-step validation: 20M+ instructions validated, confirms correctness up to kernel entry
 
 **Remaining:**
-- Continue yaboot boot (load kernel from CD)
-- Boot Mandrake Linux PPC from CD ISO
+- Implement DSI exception handling in TLB slow path
+- Boot Mandrake Linux PPC kernel
 - Profile and optimize hot paths
 
 ## Lessons Learned
@@ -322,6 +337,10 @@ This is the biggest performance win after native code generation.
 3. **Tracing is essential for JIT debugging.** `jitc_trace.log` logs every `jitcNewPC` dispatch with CPU state. This found both the BSS loop bottleneck and the r30 register corruption. Flush frequently — buffered output is lost on timeout/crash.
 
 4. **Test ELFs run with MMU on** (MSR=0x2030). The PROM sets up page tables. Addresses outside mapped regions fail with PPC_MMU_FATAL, which looks like a JIT bug but is actually a test bug.
+
+5. **PPC exceptions are core execution semantics, not error handling.** The kernel relies on page faults (DSI) for demand paging. Silently dropping failed memory accesses causes the kernel to see zeroed memory where it stored register values. The Rc bit (CR0 update) is similarly critical — missing it causes wrong branch decisions.
+
+6. **Lock-step validation is essential.** Running a reference interpreter alongside the JIT, comparing registers after every instruction, found the Rc bit bug within seconds. Key design: shared memory, PROM calls only on JIT side with callee-saved register checking at resync points.
 
 ## Key Files
 

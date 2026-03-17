@@ -138,15 +138,28 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 
 	if (refCPU->pc != effectivePC) {
 		// PCs don't match — likely a PROM call that the reference skipped.
-		// Resync reference state from JIT.
-		JITC *savedJitc = refCPU->jitc;
-		memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
-		refCPU->jitc = savedJitc;
-		if (valLog) {
-			fprintf(valLog, "RESYNC at #%llu: ref was %08x, jit at %08x\n",
-				valCount, refCPU->pc, effectivePC);
-			fflush(valLog);
+		// Sync caller-saved state + PC, but keep callee-saved (r14-r31)
+		// so we can detect corruption.
+		for (int i = 0; i <= 12; i++)
+			refCPU->gpr[i] = gCPU->gpr[i];
+		// Check callee-saved before syncing the rest
+		for (int i = 14; i <= 31; i++) {
+			if (refCPU->gpr[i] != gCPU->gpr[i]) {
+				if (valLog) {
+					fprintf(valLog, "r%d CALLEE-SAVED MISMATCH at RESYNC #%llu: jit=%08x ref=%08x (ref pc=%08x jit pc=%08x)\n",
+						i, valCount, gCPU->gpr[i], refCPU->gpr[i], refCPU->pc, effectivePC);
+					fflush(valLog);
+				}
+				fprintf(stderr, "[VALIDATE] r%d CALLEE-SAVED MISMATCH #%llu: jit=%08x ref=%08x\n",
+					i, valCount, gCPU->gpr[i], refCPU->gpr[i]);
+			}
 		}
+		refCPU->cr = gCPU->cr;
+		refCPU->lr = gCPU->lr;
+		refCPU->ctr = gCPU->ctr;
+		refCPU->xer = gCPU->xer;
+		refCPU->xer_ca = gCPU->xer_ca;
+		refCPU->msr = gCPU->msr;
 		refCPU->pc = effectivePC;
 		return;
 	}
@@ -156,10 +169,15 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	bool needStep = true;
 	if (!compareStates()) {
 		if (prevPC == gPromOSIEntry || prevPC == gPromOSIEntry + 4) {
-			// Expected mismatch after PROM call — resync silently
-			JITC *savedJitc = refCPU->jitc;
-			memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
-			refCPU->jitc = savedJitc;
+			// After PROM call: only sync caller-saved registers.
+			// r14-r31 are callee-saved — if they differ, it's a real bug.
+			for (int i = 0; i <= 12; i++)
+				refCPU->gpr[i] = gCPU->gpr[i];
+			refCPU->cr = gCPU->cr;
+			refCPU->lr = gCPU->lr;
+			refCPU->ctr = gCPU->ctr;
+			refCPU->xer = gCPU->xer;
+			refCPU->xer_ca = gCPU->xer_ca;
 			needStep = false;
 		} else {
 			if (valLog) {
