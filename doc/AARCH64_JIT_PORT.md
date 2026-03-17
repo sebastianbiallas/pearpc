@@ -228,7 +228,23 @@ Replace interpreter calls with actual AArch64 instructions. Each native gen_ fun
 - `extsb`, `extsh`, `cntlzw` - extend/count
 - `cmpi`, `cmpli`, `cmp`, `cmpl` - native CR update (currently interpreter)
 
-**FPU/AltiVec:** All use interpreter calls. FPU could use AArch64 NEON/FP instructions.
+**FPU load/store (needed for yaboot):**
+
+Yaboot uses FPU load/store in function prologues to save/restore callee-saved FP registers. No actual FP computation — just memory transfers. The opcodes are:
+
+- `stfd`/`stfdu` - store float double (8 bytes from fpr[] to memory)
+- `lfd`/`lfdu` - load float double (8 bytes from memory to fpr[])
+- `stfs`/`stfsu` - store float single (convert double→single, store 4 bytes)
+- `lfs`/`lfsu` - load float single (load 4 bytes, convert single→double)
+- Indexed variants: `stfdx`, `lfdx`, `stfsx`, `lfsx`, etc.
+
+Implementation: copy from the generic CPU's `ppc_mmu.cc`. The functions are simple — check MSR_FP (raise exception if FPU disabled), compute EA, read/write memory via `ppc_read/write_effective_dword/word`. The double values are stored in the `fpr[32]` array as host `uint64` (raw IEEE 754 bits). All go through `GEN_INTERPRET`.
+
+**FPU arithmetic (not needed for yaboot, needed for kernel):**
+
+All FPU arithmetic opcodes (fadd, fmul, fdiv, fsqrt, fmadd, etc.) are implemented in `ppc_fpu.cc` using host `double` arithmetic. These already exist in the aarch64 port but are only reachable through the interpreter.
+
+**AltiVec:** All use interpreter calls. Not needed for boot.
 
 #### Branch Dispatch Strategy
 
