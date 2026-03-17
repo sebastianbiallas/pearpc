@@ -504,9 +504,17 @@ extern "C" NativeAddress jitcStartTranslation(JITC &jitc, ClientPage *cp, uint32
  *  1. Re-enable execute protection (W^X on macOS)
  *  2. Flush the instruction cache
  */
+static uint64 jitcHits = 0, jitcNewTranslations = 0, jitcNewEntries = 0;
+
 extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 {
     traceInit();
+    static uint64 total = 0;
+    total++;
+    if (total % 100000 == 0) {
+        fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
+                total, jitcHits, jitcNewTranslations, jitcNewEntries);
+    }
     if (gTraceLog) {
         gTraceCount++;
         // Log every dispatch: count, physical entry, key CPU state
@@ -530,19 +538,30 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 
     NativeAddress result;
     if (!cp->tcf_current) {
+        /* First translation for this page */
+        jitcNewTranslations++;
         result = jitcStartTranslation(jitc, cp, baseaddr, entry & 0xfff);
+        NativeAddress after = cp->tcp;
+        __builtin___clear_cache((char *)result, (char *)after);
+        pthread_jit_write_protect_np(1);
     } else {
         NativeAddress ofs = jitcGetEntrypoint(cp, entry & 0xfff);
         if (ofs) {
+            /* Cache hit — already translated, no flush needed */
+            jitcHits++;
             result = ofs;
         } else {
+            /* New entrypoint on existing page */
+            jitcNewEntries++;
             pthread_jit_write_protect_np(0);
+            NativeAddress before = cp->tcp;
             result = jitcNewEntrypoint(jitc, cp, baseaddr, entry & 0xfff);
+            NativeAddress after = cp->tcp;
+            __builtin___clear_cache((char *)before, (char *)after);
+            pthread_jit_write_protect_np(1);
         }
     }
 
-    __builtin___clear_cache((char *)jitc.translationCache, (char *)jitc.translationCache + 64 * 1024 * 1024);
-    pthread_jit_write_protect_np(1);
     return result;
 }
 

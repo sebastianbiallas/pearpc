@@ -405,6 +405,21 @@ void prom_service_write(prom_args *pa)
 	uint32 addr = pa->args[1];
 	uint32 len = pa->args[2];
 	IO_PROM_TRACE("write(%08x, %08x, %08x)\n", ihandle, addr, len);
+	// Dump actual bytes being written
+	{
+		byte buf[64];
+		uint32 dump_len = (len < 64) ? len : 64;
+		uint32 phys;
+		if (ppc_prom_effective_to_physical(phys, addr)) {
+			ppc_dma_read(buf, phys, dump_len);
+			fprintf(stderr, "[WRITE] ih=%08x len=%d data='", ihandle, len);
+			for (uint32 i = 0; i < dump_len; i++) {
+				if (buf[i] >= 32 && buf[i] < 127) fputc(buf[i], stderr);
+				else fprintf(stderr, "\\x%02x", buf[i]);
+			}
+			fprintf(stderr, "'\n");
+		}
+	}
 	PromInstance *pi = handleToInstance(ihandle);
 	pa->args[3] = pi ? pi->write(addr, len) : 0;
 	IO_PROM_TRACE("= %08x\n", pa->args[3]);
