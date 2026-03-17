@@ -37,7 +37,6 @@ void jitcValidateInit()
 	refCPU = (PPC_CPU_State *)malloc(sizeof(PPC_CPU_State));
 	memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
 	refCPU->jitc = NULL;
-	// Shared memory — both read/write the same gMemory
 	refMemory = gMemory;
 	gValidateRefMemory = NULL;
 
@@ -165,22 +164,17 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	// Called BEFORE each PPC instruction executes on the JIT.
 	// The reference should be at the same PC with the same state.
 
-	// First: step the reference to catch up to effectivePC
-	// (needed because some JIT dispatches skip the validate call,
-	// e.g. ppc_new_pc_asm → direct jump)
+	// Step the reference to catch up to effectivePC.
+	// With separate memory, reference writes don't corrupt JIT memory.
 	int steps = 0;
-	while (refCPU->pc != effectivePC && steps < 200) {
+	while (refCPU->pc != effectivePC && steps < 1000) {
 		refStepOne();
 		steps++;
 	}
 
 	if (refCPU->pc != effectivePC) {
-		// PCs don't match — likely a PROM call that the reference skipped.
-		// Sync caller-saved state + PC, but keep callee-saved (r14-r31)
-		// so we can detect corruption.
-		for (int i = 0; i <= 12; i++)
-			refCPU->gpr[i] = gCPU->gpr[i];
-		// Check callee-saved before syncing the rest
+		// PCs don't match after catch-up — PROM call that reference skipped.
+		// Check callee-saved registers before resyncing.
 		for (int i = 14; i <= 31; i++) {
 			if (refCPU->gpr[i] != gCPU->gpr[i]) {
 				if (valLog) {
@@ -192,16 +186,11 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 					i, valCount, gCPU->gpr[i], refCPU->gpr[i]);
 			}
 		}
-		refCPU->cr = gCPU->cr;
-		refCPU->lr = gCPU->lr;
-		refCPU->ctr = gCPU->ctr;
-		refCPU->xer = gCPU->xer;
-		refCPU->xer_ca = gCPU->xer_ca;
-		refCPU->msr = gCPU->msr;
+		// Full resync
+		JITC *savedJitc = refCPU->jitc;
+		memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
+		refCPU->jitc = savedJitc;
 		refCPU->pc = effectivePC;
-
-		// Do NOT sync memory here — let reference keep its own correct memory.
-		// If the JIT has corrupted memory, subsequent loads will show mismatches.
 		return;
 	}
 
