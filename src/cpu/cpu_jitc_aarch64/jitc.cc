@@ -479,7 +479,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
         jitcDebugLogNewInstruction(jitc);
 
         // Validation: emit validate call before each instruction.
-        if (gValidateMode) {
+        if (false && gValidateMode) {
             // Store current pc to CPU state so validate knows where we are
             jitc.emitMOV32((NativeReg)16, jitc.pc);
             jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
