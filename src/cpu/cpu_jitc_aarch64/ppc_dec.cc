@@ -39,10 +39,8 @@
 
 static void ppc_opc_invalid(PPC_CPU_State &aCPU)
 {
-    // Should not normally be reached — unknown opcodes go through
-    // ppc_opc_special (main opcode 0) which handles them silently.
-    // If we get here, something is wrong with the dispatch tables.
-    PPC_OPC_ERR("invalid opcode dispatch: opc=%08x pc=%08x\n", aCPU.current_opc, aCPU.pc);
+    // Match generic CPU behavior: silently ignore unknown opcodes.
+    SINGLESTEP("unknown instruction\n");
 }
 
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
