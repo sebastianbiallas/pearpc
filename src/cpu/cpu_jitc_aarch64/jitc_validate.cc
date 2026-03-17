@@ -113,6 +113,14 @@ static bool compareStates()
 	CMP(xer, "%08x");
 	CMP(xer_ca, "%08x");
 	CMP(msr, "%08x");
+	if (gCPU->srr[0] != refCPU->srr[0]) {
+		if (valLog) fprintf(valLog, "  SRR0 MISMATCH: jit=%08x ref=%08x\n", gCPU->srr[0], refCPU->srr[0]);
+		ok = false;
+	}
+	if (gCPU->srr[1] != refCPU->srr[1]) {
+		if (valLog) fprintf(valLog, "  SRR1 MISMATCH: jit=%08x ref=%08x\n", gCPU->srr[1], refCPU->srr[1]);
+		ok = false;
+	}
 
 #undef CMP
 	return ok;
