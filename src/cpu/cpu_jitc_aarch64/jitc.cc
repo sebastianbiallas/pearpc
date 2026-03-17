@@ -638,9 +638,6 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     }
     if (gTraceLog) {
         gTraceCount++;
-        // Log every dispatch: count, physical entry, key CPU state
-        PPC_CPU_State *cpu = (PPC_CPU_State *)((byte *)&jitc - offsetof(PPC_CPU_State, jitc));
-        // Actually jitc pointer is stored differently - use the global
         extern PPC_CPU_State *gCPU;
         fprintf(gTraceLog, "%llu pc=%08x cr=%08x lr=%08x ctr=%08x r3=%08x r5=%08x r30=%08x r31=%08x\n",
                 gTraceCount, entry,
