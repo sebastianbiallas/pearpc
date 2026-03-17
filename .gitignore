@@ -31,6 +31,23 @@ jitc_trace.log
 *.iso
 *.img
 
+# Clangd cache
+.cache/
+
+# Autotools generated
+aclocal.m4
+config.guess
+config.h.in
+config.sub
+configure
+depcomp
+install-sh
+missing
+ylwrap
+
+# Validation/trace logs
+validate.log
+
 # macOS
 .DS_Store
 
