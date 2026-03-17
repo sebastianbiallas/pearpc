@@ -148,6 +148,16 @@ void ppc_cpu_run()
 
     ppc_start_jitc_asm(gCPU->pc, &gCPU, sizeof *gCPU);
     ht_printf("JIT returned\n");
+
+    // Dump memory on exit for debugging
+    extern byte *gMemory;
+    extern uint32 gMemorySize;
+    FILE *df = fopen("memdump_jit.bin", "wb");
+    if (df) {
+        fwrite(gMemory, 1, gMemorySize, df);
+        fclose(df);
+        ht_printf("[DUMP] wrote memdump_jit.bin (%u bytes) on JIT exit\n", gMemorySize);
+    }
 }
 
 void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)
