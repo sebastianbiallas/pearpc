@@ -24,6 +24,9 @@
 #include "system/types.h"
 #include "jitc_types.h"
 #include "jitc.h"
+#include "jitc_asm.h"
+#include "aarch64asm.h"
+#include "jitc.h"
 
 static inline void ppc_update_cr0(PPC_CPU_State &aCPU, uint32 r)
 {
@@ -70,6 +73,25 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, void (*func)(PPC_CPU_State 
     jitc.emit32(0xAA1403E0); // MOV X0, X20
     // Call interpreter function
     jitc.emitBLR((NativeAddress)func);
+
+    // Check if the interpreter raised an exception (DSI, ISI, etc.)
+    // ppc_exception() sets npc to the exception vector.
+    // If exception_pending is set, dispatch to npc immediately.
+    jitc.emit32(a64_LDRBw(16, 20, offsetof(PPC_CPU_State, exception_pending)));
+    NativeAddress noExc = jitc.emitBxxFixup();
+    // Exception: clear flag, load npc, dispatch
+    jitc.emit32(a64_STRBw(31, 20, offsetof(PPC_CPU_State, exception_pending))); // clear flag (WZR)
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    // Patch the branch: skip to here if no exception
+    {
+        NativeAddress here = jitc.asmHERE();
+        sint64 offset = (sint64)(here - noExc);
+        sint32 imm19 = (sint32)(offset / 4);
+        // CBZ W16, #offset — branch if exception_pending == 0
+        uint32 insn = 0x34000000 | ((imm19 & 0x7FFFF) << 5) | 16; // CBZ W16, offset
+        *(uint32 *)noExc = insn;
+    }
 }
 
 

@@ -131,14 +131,12 @@ do_export EXTERN(ppc_new_pc_asm)
     br  x0
 
 .Lnewpc_isi:
-    // ISI exception — code translation failed.
-    // w21 = faulting effective address (saved before bl)
-    // Clear exception_pending
+    // ISI exception — ppc_exception() already set up SRR0/SRR1,
+    // cleared MSR, invalidated TLB, and set npc = exception vector.
+    // Just clear exception_pending and dispatch to npc.
     strb    wzr, [x20, #exception_pending]
-    // Set up for ppc_isi_exception_asm: w0 = EA, w1 = SRR1 bits
-    mov     w0, w21
-    ldr     w1, [x20, #srr1]    // fault type was stashed here by C++
-    b       EXTERN(ppc_isi_exception_asm)
+    ldr     w0, [x20, #npc]
+    b       EXTERN(ppc_new_pc_asm)
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////

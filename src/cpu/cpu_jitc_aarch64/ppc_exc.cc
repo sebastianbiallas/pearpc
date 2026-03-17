@@ -35,6 +35,64 @@
 
 extern PPC_CPU_State *gCPU;
 
+/*
+ * Raise a PPC exception (copied from generic CPU).
+ * Sets SRR0/SRR1, DAR/DSISR, clears MSR, invalidates TLB,
+ * and sets npc to the exception vector address.
+ *
+ * For the JIT interpreter path (GEN_INTERPRET), this modifies
+ * CPU state inline. The generated code checks exception_pending
+ * after the interpreter returns and dispatches to npc.
+ */
+bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint32 a)
+{
+    // aCPU.pc must be set by the caller before ppc_exception() is
+    // reachable. For the interpreter path, ppc_opc_gen_interpret stores
+    // pc = current_code_base + pc_ofs. For native load/store, the gen_
+    // functions store pc before calling the asm stub. For ISI,
+    // ppc_new_pc_asm stores pc directly.
+
+    fprintf(stderr, "[EXC] ppc_exception type=%03x pc=%08x msr=%08x flags=%08x addr=%08x\n",
+        type, aCPU.pc, aCPU.msr, flags, a);
+
+    switch (type) {
+    case PPC_EXC_DSI:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
+        aCPU.dar = a;
+        aCPU.dsisr = flags;
+        break;
+    case PPC_EXC_ISI:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | flags;
+        break;
+    case PPC_EXC_NO_FPU:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
+        break;
+    case PPC_EXC_PROGRAM:
+        aCPU.srr[0] = (flags & PPC_EXC_PROGRAM_NEXT) ? aCPU.npc : aCPU.pc;
+        aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | (flags & ~PPC_EXC_PROGRAM_NEXT);
+        break;
+    case PPC_EXC_MACHINE_CHECK:
+        if (!(aCPU.msr & MSR_ME)) {
+            PPC_EXC_ERR("machine check exception and MSR[ME]=0.\n");
+        }
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | MSR_RI;
+        break;
+    default:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
+        break;
+    }
+    ppc_mmu_tlb_invalidate(aCPU);
+    aCPU.msr = 0;
+    aCPU.npc = type;
+    aCPU.exception_pending = true; // signal to JIT generated code
+    return true;
+}
+
 void ppc_cpu_raise_ext_exception()
 {
     ppc_cpu_atomic_raise_ext_exception(*gCPU);

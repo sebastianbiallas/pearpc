@@ -67,6 +67,7 @@
  */
 #define PPC_EXC_PROGRAM_NEXT (1 << 16)
 
-//bool FASTCALL ppc_exception(uint32 type=0, uint32 flags=0, uint32 a=0);
+struct PPC_CPU_State;
+bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags = 0, uint32 a = 0);
 
 #endif

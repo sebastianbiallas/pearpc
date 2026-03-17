@@ -61,6 +61,15 @@
 
 #include "jitc_common.h"
 
+// Define to disable TLB fast path (force all accesses through slow path)
+// #define DISABLE_TLB 1
+
+#ifdef DISABLE_TLB
+#define TLB_MISS_BRANCH b
+#else
+#define TLB_MISS_BRANCH b.ne
+#endif
+
 .text
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +109,7 @@ do_export EXTERN(ppc_read_effective_byte_asm)
     add     x4, x20, #tlb_data_0_eff
     ldr     w5, [x4, x2, lsl #2]
     cmp     w3, w5
-    b.ne    .Lread_byte_slow
+    TLB_MISS_BRANCH    .Lread_byte_slow
     // TLB hit
     add     x4, x20, #tlb_data_0_phys
     ldr     x4, [x4, x2, lsl #3]       // host page base
@@ -138,7 +147,7 @@ do_export EXTERN(ppc_read_effective_half_z_asm)
     add     x4, x20, #tlb_data_0_eff
     ldr     w5, [x4, x2, lsl #2]
     cmp     w3, w5
-    b.ne    .Lread_half_z_slow
+    TLB_MISS_BRANCH    .Lread_half_z_slow
     // TLB hit
     add     x4, x20, #tlb_data_0_phys
     ldr     x4, [x4, x2, lsl #3]
@@ -177,7 +186,7 @@ do_export EXTERN(ppc_read_effective_half_s_asm)
     add     x4, x20, #tlb_data_0_eff
     ldr     w5, [x4, x2, lsl #2]
     cmp     w3, w5
-    b.ne    .Lread_half_s_slow
+    TLB_MISS_BRANCH    .Lread_half_s_slow
     // TLB hit
     add     x4, x20, #tlb_data_0_phys
     ldr     x4, [x4, x2, lsl #3]
@@ -218,7 +227,7 @@ do_export EXTERN(ppc_read_effective_word_asm)
     add     x4, x20, #tlb_data_0_eff
     ldr     w5, [x4, x2, lsl #2]
     cmp     w3, w5
-    b.ne    .Lread_word_slow
+    TLB_MISS_BRANCH    .Lread_word_slow
     // TLB hit
     add     x4, x20, #tlb_data_0_phys
     ldr     x4, [x4, x2, lsl #3]
@@ -257,7 +266,7 @@ do_export EXTERN(ppc_read_effective_dword_asm)
     add     x4, x20, #tlb_data_0_eff
     ldr     w5, [x4, x2, lsl #2]
     cmp     w3, w5
-    b.ne    .Lread_dword_slow
+    TLB_MISS_BRANCH    .Lread_dword_slow
     // TLB hit
     add     x4, x20, #tlb_data_0_phys
     ldr     x4, [x4, x2, lsl #3]
@@ -293,7 +302,7 @@ do_export EXTERN(ppc_write_effective_byte_asm)
     add     x5, x20, #tlb_data_8_eff
     ldr     w16, [x5, x3, lsl #2]
     cmp     w4, w16
-    b.ne    .Lwrite_byte_slow
+    TLB_MISS_BRANCH    .Lwrite_byte_slow
     // TLB hit
     add     x5, x20, #tlb_data_8_phys
     ldr     x5, [x5, x3, lsl #3]
@@ -331,7 +340,7 @@ do_export EXTERN(ppc_write_effective_half_asm)
     add     x5, x20, #tlb_data_8_eff
     ldr     w16, [x5, x3, lsl #2]
     cmp     w4, w16
-    b.ne    .Lwrite_half_slow
+    TLB_MISS_BRANCH    .Lwrite_half_slow
     // TLB hit
     add     x5, x20, #tlb_data_8_phys
     ldr     x5, [x5, x3, lsl #3]
@@ -370,7 +379,7 @@ do_export EXTERN(ppc_write_effective_word_asm)
     add     x5, x20, #tlb_data_8_eff
     ldr     w16, [x5, x3, lsl #2]
     cmp     w4, w16
-    b.ne    .Lwrite_word_slow
+    TLB_MISS_BRANCH    .Lwrite_word_slow
     // TLB hit
     add     x5, x20, #tlb_data_8_phys
     ldr     x5, [x5, x3, lsl #3]
@@ -409,7 +418,7 @@ do_export EXTERN(ppc_write_effective_dword_asm)
     add     x5, x20, #tlb_data_8_eff
     ldr     w16, [x5, x3, lsl #2]
     cmp     w4, w16
-    b.ne    .Lwrite_dword_slow
+    TLB_MISS_BRANCH    .Lwrite_dword_slow
     // TLB hit
     add     x5, x20, #tlb_data_8_phys
     ldr     x5, [x5, x3, lsl #3]
@@ -458,11 +467,8 @@ do_export EXTERN(ppc_opc_icbi_asm)
 .Ldsi_from_slow:
     // Clean up the slow-path stack frame (stp x29, x30 was pushed)
     ldp     x29, x30, [sp], #16
-    // Clear exception_pending
+    // ppc_exception() already set up DAR, DSISR, SRR0/SRR1, MSR, npc.
+    // Just clear exception_pending and dispatch to npc (exception vector).
     strb    wzr, [x20, #exception_pending]
-    // Load DAR and DSISR for the handler
-    ldr     w0, [x20, #dar]
-    ldr     w1, [x20, #dsisr]
-    // Clear DSISR so we don't re-trigger
-    str     wzr, [x20, #dsisr]
-    b       EXTERN(ppc_dsi_exception_asm)
+    ldr     w0, [x20, #npc]
+    b       EXTERN(ppc_new_pc_asm)

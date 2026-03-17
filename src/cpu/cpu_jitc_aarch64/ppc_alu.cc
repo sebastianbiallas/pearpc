@@ -1985,7 +1985,19 @@ void ppc_opc_eieio(PPC_CPU_State &aCPU)
  */
 void ppc_opc_icbi(PPC_CPU_State &aCPU)
 {
-    // FIXME: not a NOP with jitc
+    int rA, rD, rB;
+    PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+    uint32 ea = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+    uint32 pa;
+    if (ppc_effective_to_physical(aCPU, ea, PPC_MMU_READ | PPC_MMU_NO_EXC, pa) != PPC_MMU_OK) {
+        return;
+    }
+    if (pa >= gMemorySize) return;
+    uint32 pageIndex = pa >> 12;
+    JITC &jitc = *aCPU.jitc;
+    if (jitc.clientPages[pageIndex]) {
+        jitcDestroyAndFreeClientPage(jitc, jitc.clientPages[pageIndex]);
+    }
 }
 
 /*

@@ -226,6 +226,15 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	// PCs match. Compare all registers.
 	static uint32 prevPC = 0;
 	bool needStep = true;
+	// Log around kernel entry
+	if (effectivePC >= 0xc0003000 && effectivePC <= 0xc0003020 && valLog) {
+		uint32 dbg_pa = 0, dbg_insn = 0;
+		ppc_effective_to_physical(*gCPU, effectivePC, PPC_MMU_READ | PPC_MMU_CODE | 16, dbg_pa);
+		ppc_read_physical_word(dbg_pa, dbg_insn);
+		fprintf(valLog, "KERNEL pc=%08x (pa=%08x insn=%08x) r31: jit=%08x ref=%08x opc: jit=%08x ref=%08x\n",
+			effectivePC, dbg_pa, dbg_insn, gCPU->gpr[31], refCPU->gpr[31],
+			gCPU->current_opc, refCPU->current_opc);
+	}
 	if (!compareStates()) {
 		if (prevPC == gPromOSIEntry || prevPC == gPromOSIEntry + 4) {
 			// After PROM call: only sync caller-saved registers.
@@ -249,8 +258,31 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 				}
 				fprintf(valLog, "=== VALIDATE #%llu: MISMATCH at pc=%08x (prev pc=%08x) ===\n",
 					valCount, effectivePC, prevPC);
-				// Also dump matching regs for context
 				fprintf(valLog, "  r1(sp)=%08x r9=%08x\n", gCPU->gpr[1], gCPU->gpr[9]);
+				fprintf(valLog, "  jit: msr=%08x srr0=%08x srr1=%08x opc=%08x\n",
+					gCPU->msr, gCPU->srr[0], gCPU->srr[1], gCPU->current_opc);
+				fprintf(valLog, "  ref: msr=%08x srr0=%08x srr1=%08x opc=%08x\n",
+					refCPU->msr, refCPU->srr[0], refCPU->srr[1], refCPU->current_opc);
+				uint32 dbg_pa = 0, dbg_insn = 0;
+				if (ppc_effective_to_physical(*gCPU, effectivePC, PPC_MMU_READ | PPC_MMU_CODE | 16, dbg_pa) == 0) {
+					ppc_read_physical_word(dbg_pa, dbg_insn);
+					fprintf(valLog, "  insn@%08x (pa=%08x): %08x\n", effectivePC, dbg_pa, dbg_insn);
+				} else {
+					fprintf(valLog, "  insn@%08x: XLAT FAILED\n", effectivePC);
+				}
+				// Also check prev instruction
+				uint32 dbg_pa2 = 0, dbg_insn2 = 0;
+				if (ppc_effective_to_physical(*gCPU, prevPC, PPC_MMU_READ | PPC_MMU_CODE | 16, dbg_pa2) == 0) {
+					ppc_read_physical_word(dbg_pa2, dbg_insn2);
+					fprintf(valLog, "  insn@%08x (pa=%08x): %08x\n", prevPC, dbg_pa2, dbg_insn2);
+				}
+				// Also check ref's translation of same address
+				uint32 ref_pa = 0;
+				if (ppc_effective_to_physical(*refCPU, effectivePC, PPC_MMU_READ | PPC_MMU_CODE | 16, ref_pa) == 0) {
+					uint32 ref_insn = 0;
+					ppc_read_physical_word(ref_pa, ref_insn);
+					fprintf(valLog, "  ref insn@%08x (pa=%08x): %08x\n", effectivePC, ref_pa, ref_insn);
+				}
 			}
 			diverged = true;
 			if (valLog) fflush(valLog);
