@@ -72,9 +72,9 @@ static inline void ppc_opc_gen_interpret_prologue(JITC &jitc)
     jitc.emit32(0x11001210); // ADD W16, W16, #4
     jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
-    // Trace instruction (logs to jitc_insn.log if enabled)
-    jitc.emit32(0xAA1403E0); // MOV X0, X20
-    jitc.emitBLR((NativeAddress)ppc_opc_trace_insn);
+    // Trace instruction (disabled — enable for debugging)
+    // jitc.emit32(0xAA1403E0); // MOV X0, X20
+    // jitc.emitBLR((NativeAddress)ppc_opc_trace_insn);
 }
 
 static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &))
