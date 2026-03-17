@@ -13,18 +13,13 @@
 #include <cstdlib>
 #include <cstring>
 
-// I/O read cache globals (declared in io/io.h)
-#include "system/types.h"
-bool gIOReadReplay = false;
-uint32 gIOReadCacheAddr = 0;
-uint32 gIOReadCacheData = 0;
-bool gIOReadCacheValid = false;
 
 #include "system/arch/sysendian.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
 #include "ppc_mmu.h"
 #include "io/prom/promosi.h"
+#include "io/io.h"
 
 extern PPC_CPU_State *gCPU;
 extern byte *gMemory;
