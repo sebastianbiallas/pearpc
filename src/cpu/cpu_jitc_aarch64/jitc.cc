@@ -97,6 +97,7 @@ void JITC::emit32(uint32 instr)
     if (currentPage->bytesLeft <= 4) {
         jitcEmitNextFragment(*this);
     }
+    jitcDebugLogEmit(*this, (const byte *)&instr, 4);
     *(uint32 *)(currentPage->tcp) = instr;
     currentPage->tcp += 4;
     currentPage->bytesLeft -= 4;

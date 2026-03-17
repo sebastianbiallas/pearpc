@@ -70,13 +70,11 @@ void jitcDebugLogNewInstruction(JITC &jitc)
 
 void jitcDebugLogEmit(JITC &jitc, const byte *insn, int size)
 {
-    // For AArch64, instructions are always 4 bytes
-    jitcDebugLogAdd("  ");
-    jitcDebugLogAdd("%p ", jitc.currentPage->tcp);
-    for (int i = 0; i < size; i++) {
-        jitcDebugLogAdd("%02x", insn[i]);
+    // Log the address and raw instruction word(s)
+    for (int ofs = 0; ofs < size; ofs += 4) {
+        uint32 word = *(uint32 *)(insn + ofs);
+        jitcDebugLogAdd("  %p  %08x\n", (byte *)jitc.currentPage->tcp + ofs, word);
     }
-    jitcDebugLogAdd("\n");
 }
 
 void jitcDebugInit()
