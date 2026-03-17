@@ -108,28 +108,47 @@ _start:
     isync
 
     /*
-     * Test 1: lwz from unmapped address (should trigger DSI, handler maps it, retries)
+     * Test 1: lwz from unmapped address — verify DSI exception data
      */
     PRINT   .Lt1, (.Lt1e - .Lt1)
 
-    /* First write a known value to PA 0x500000 using physical access.
-     * We'll use the unmapped EA 0x500000 which maps 1:1 to PA 0x500000.
-     * But we can't write there yet because it's unmapped!
-     * Instead, we set up the test value AFTER the DSI handler maps the page.
-     * The DSI handler will map 0x500000 → PA 0x500000.
-     * After mapping, we write a value, then read it back. */
-
-    /* Clear the DSI counter */
+    /* Clear the save area at EA 0xF00 (1:1 mapped by PROM) */
+    li      9, 0
     li      0, 0
-    lis     9, 0x10                 /* r9 = 0x100000 (our code area) */
-    stw     0, 0x100(9)             /* *(0x100100) = 0 — DSI counter */
+    stw     0, 0xF00(9)             /* count = 0 */
+    stw     0, 0xF04(9)             /* DAR = 0 */
+    stw     0, 0xF08(9)             /* DSISR = 0 */
+    stw     0, 0xF0C(9)             /* SRR0 = 0 */
+    stw     0, 0xF10(9)             /* SRR1 = 0 */
 
-    /* Attempt to read from unmapped address 0x500000 — should trigger DSI */
     lis     8, 0x50                 /* r8 = 0x500000 */
-    lwz     3, 0(8)                 /* FAULT HERE → DSI → handler maps it → retry → success */
+.Lt1_fault:
+    lwz     3, 0(8)                 /* FAULT → DSI → handler maps → retry → success */
 
-    /* If we get here, the DSI handler worked and the load succeeded. */
-    PRINT   .Lok, 3
+    /* Verify: DSI count == 1 */
+    li      9, 0
+    lwz     3, 0xF00(9)
+    CHECK   1
+
+    /* Verify: DAR == 0x500000 */
+    PRINT   .Lt1b, (.Lt1be - .Lt1b)
+    li      9, 0
+    lwz     3, 0xF04(9)
+    CHECK32 0x00500000
+
+    /* Verify: DSISR has "page not found" bit (bit 1 = 0x40000000) */
+    PRINT   .Lt1c, (.Lt1ce - .Lt1c)
+    li      9, 0
+    lwz     3, 0xF08(9)
+    lis     11, 0x4000
+    and     3, 3, 11
+    CHECK32 0x40000000
+
+    /* Verify: SRR1 == saved MSR (should be 0x2030 = IR|DR|ME) */
+    PRINT   .Lt1d, (.Lt1de - .Lt1d)
+    li      9, 0
+    lwz     3, 0xF10(9)
+    CHECK32 0x00002030
 
     /*
      * Test 2: stw to the now-mapped address (should NOT trigger DSI)
@@ -168,16 +187,171 @@ _start:
     CHECK   0xAB
 
     /*
-     * Test 5: lwz from second unmapped page (0x501000) — triggers another DSI
+     * Test 5: stw to UNMAPPED page (write DSI) — verify DSISR indicates write
      */
     PRINT   .Lt5, (.Lt5e - .Lt5)
 
-    lis     8, 0x50
-    ori     8, 8, 0x1000            /* r8 = 0x501000 */
-    lwz     3, 0(8)                 /* FAULT → DSI → map → retry */
+    /* Clear save area */
+    li      9, 0
+    li      0, 0
+    stw     0, 0xF00(9)
+    stw     0, 0xF08(9)
 
-    /* If we get here, second DSI handled correctly. */
+    lis     8, 0x50
+    ori     8, 8, 0x2000            /* r8 = 0x502000 */
+    lis     0, 0xDEAD
+    ori     0, 0, 0xC0DE
+    stw     0, 0(8)                 /* WRITE FAULT → DSI → map → retry */
+    lwz     3, 0(8)
+    CHECK32 0xDEADC0DE
+
+    /* Verify: DSISR has page-not-found (0x40000000) + store (0x02000000) */
+    PRINT   .Lt5b, (.Lt5be - .Lt5b)
+    li      9, 0
+    lwz     3, 0xF08(9)
+    lis     11, 0x4200              /* expect 0x42000000: page not found + store */
+    and     3, 3, 11
+    CHECK32 0x42000000
+
+    /*
+     * Test 6: sth to unmapped page (halfword write DSI)
+     */
+    PRINT   .Lt6, (.Lt6e - .Lt6)
+
+    lis     8, 0x50
+    ori     8, 8, 0x3000            /* r8 = 0x503000 */
+    li      0, 0x5678
+    sth     0, 0(8)                 /* WRITE FAULT → DSI → map → retry */
+    li      3, 0
+    lhz     3, 0(8)
+    CHECK   0x5678
+
+    /*
+     * Test 7: stb to unmapped page (byte write DSI)
+     */
+    PRINT   .Lt7, (.Lt7e - .Lt7)
+
+    lis     8, 0x50
+    ori     8, 8, 0x4000            /* r8 = 0x504000 */
+    li      0, 0xAA
+    stb     0, 0(8)                 /* WRITE FAULT → DSI → map → retry */
+    li      3, 0
+    lbz     3, 0(8)
+    CHECK   0xAA
+
+    /*
+     * Test 8: lhz from unmapped page (halfword read DSI)
+     */
+    PRINT   .Lt8, (.Lt8e - .Lt8)
+
+    lis     8, 0x50
+    ori     8, 8, 0x5000            /* r8 = 0x505000 */
+    lhz     3, 0(8)                 /* READ FAULT → DSI → map → retry */
+    /* Value will be 0 (uninitialized memory), just verify no crash */
     PRINT   .Lok, 3
+
+    /*
+     * Test 9: lbz from unmapped page (byte read DSI)
+     */
+    PRINT   .Lt9, (.Lt9e - .Lt9)
+
+    lis     8, 0x50
+    ori     8, 8, 0x6000            /* r8 = 0x506000 */
+    lbz     3, 0(8)                 /* READ FAULT → DSI → map → retry */
+    PRINT   .Lok, 3
+
+    /*
+     * Test 10: lwz from second unmapped page (sequential DSI)
+     */
+    PRINT   .Lt10, (.Lt10e - .Lt10)
+
+    lis     8, 0x50
+    ori     8, 8, 0x7000            /* r8 = 0x507000 */
+    lwz     3, 0(8)                 /* FAULT → DSI → map → retry */
+    PRINT   .Lok, 3
+
+    /*
+     * Test 11: stw then lwz on same DSI-mapped page — verify data survives
+     */
+    PRINT   .Lt11, (.Lt11e - .Lt11)
+
+    lis     8, 0x50
+    ori     8, 8, 0x8000            /* r8 = 0x508000 (unmapped) */
+    lis     0, 0x1234
+    ori     0, 0, 0x5678
+    stw     0, 0(8)                 /* WRITE FAULT → map → retry → store 0x12345678 */
+    li      0, 0
+    stw     0, 4(8)                 /* store 0 at +4 (no fault, already mapped) */
+    lwz     3, 0(8)                 /* load back from +0 */
+    CHECK32 0x12345678
+
+    /*
+     * Test 12: lwarx from unmapped page (atomic read DSI)
+     */
+    PRINT   .Lt12, (.Lt12e - .Lt12)
+
+    lis     8, 0x50
+    ori     8, 8, 0x9000            /* r8 = 0x509000 (unmapped) */
+    lwarx   3, 0, 8                 /* FAULT → DSI → map → retry → reserve */
+    /* Now store a value via stwcx. */
+    lis     0, 0xBEEF
+    ori     0, 0, 0xCAFE
+    stwcx.  0, 0, 8                 /* conditional store (should succeed) */
+    bne     .Lt12_fail
+    lwz     3, 0(8)                 /* verify */
+    CHECK32 0xBEEFCAFE
+    b       .Lt12_done
+.Lt12_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Lt12_done:
+
+    /*
+     * Test 13: stwcx. to unmapped page (atomic write DSI)
+     * lwarx on mapped page, stwcx. on unmapped page.
+     */
+    PRINT   .Lt13, (.Lt13e - .Lt13)
+
+    /* lwarx on an already-mapped page (0x509000 from test 12) */
+    lis     8, 0x50
+    ori     8, 8, 0x9000
+    lwarx   3, 0, 8                 /* reserve on mapped page */
+
+    /* stwcx. re-reads the word to compare with reserve, so it DOES access
+     * memory and CAN trigger DSI even if the reservation won't match.
+     * Test with lwarx + stwcx. both to same unmapped page: */
+    lis     8, 0x50
+    ori     8, 8, 0xA000            /* r8 = 0x50A000 (unmapped) */
+    lwarx   3, 0, 8                 /* FAULT → DSI → map → retry → reserve */
+    lis     0, 0xFACE
+    ori     0, 0, 0xFEED
+    stwcx.  0, 0, 8                 /* conditional store (should succeed, page now mapped) */
+    bne     .Lt13_fail
+    lwz     3, 0(8)
+    CHECK32 0xFACEFEED
+    b       .Lt13_done
+.Lt13_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Lt13_done:
+
+    /*
+     * Test 14: Multiple stores to different offsets on DSI-mapped page
+     */
+    PRINT   .Lt14, (.Lt14e - .Lt14)
+
+    lis     8, 0x50
+    ori     8, 8, 0xB000            /* r8 = 0x50B000 (unmapped) */
+    li      0, 0x11
+    stb     0, 0(8)                 /* WRITE FAULT → map → retry */
+    li      0, 0x22
+    stb     0, 1(8)                 /* no fault (mapped) */
+    li      0, 0x33
+    stb     0, 2(8)
+    li      0, 0x44
+    stb     0, 3(8)
+    lwz     3, 0(8)                 /* read full word: should be 0x11223344 */
+    CHECK32 0x11223344
 
     /*
      * Summary
@@ -219,18 +393,35 @@ _start:
  * ============================================================ */
 .p2align 2
 .Ldsi_handler:
-    /* Save r3 and r4 in SPRG0/SPRG1 */
+    /* Save r0, r3, r4 — we need all three as scratch.
+     * r0 may be part of the faulting instruction (e.g. stw r0, ...).
+     * Use SPRG0 for r3, SPRG1 for r4, and PA 0xF20 for r0. */
+    stw     0, 0xF20(0)             /* save r0 to PA 0xF20 (real mode) */
     mtsprg  0, 3
     mtsprg  1, 4
 
-    /* r3 = faulting address */
-    mfdar   3
+    /* Save exception data to PA 0xF00 for test verification. */
 
-    /* Increment DSI counter at 0x100100 (use r0, which is volatile) */
-    lis     4, 0x10
-    lwz     0, 0x100(4)
+    /* DSI count++ */
+    lwz     0, 0xF00(0)
     addi    0, 0, 1
-    stw     0, 0x100(4)
+    stw     0, 0xF00(0)             /* *(0xF00) = count */
+
+    /* Save DAR */
+    mfdar   3
+    stw     3, 0xF04(0)             /* *(0xF04) = DAR */
+
+    /* Save DSISR */
+    mfspr   0, 18                   /* SPR 18 = DSISR */
+    stw     0, 0xF08(0)             /* *(0xF08) = DSISR */
+
+    /* Save SRR0 */
+    mfsrr0  0
+    stw     0, 0xF0C(0)             /* *(0xF0C) = SRR0 */
+
+    /* Save SRR1 */
+    mfsrr1  0
+    stw     0, 0xF10(0)             /* *(0xF10) = SRR1 */
 
     /* Compute PTE for 1:1 mapping.
      * VSID = 0 (set by PROM), so:
@@ -269,6 +460,7 @@ _start:
     sync
 
     /* Restore registers */
+    lwz     0, 0xF20(0)             /* restore r0 from PA 0xF20 */
     mfsprg  3, 0
     mfsprg  4, 1
 
@@ -283,8 +475,17 @@ _start:
 .Lfail:
     .ascii  "FAIL\n"
 .Lt1:
-    .ascii  "test  1 lwz DSI+remap:  "
+    .ascii  "test 1a lwz DSI count:   "
 .Lt1e:
+.Lt1b:
+    .ascii  "test 1b DAR==0x500000:   "
+.Lt1be:
+.Lt1c:
+    .ascii  "test 1c DSISR page flt:  "
+.Lt1ce:
+.Lt1d:
+    .ascii  "test 1d SRR1==MSR:       "
+.Lt1de:
 .Lt2:
     .ascii  "test  2 stw mapped:     "
 .Lt2e:
@@ -295,8 +496,38 @@ _start:
     .ascii  "test  4 stb/lbz mapped: "
 .Lt4e:
 .Lt5:
-    .ascii  "test  5 lwz DSI page 2: "
+    .ascii  "test 5a stw DSI write:   "
 .Lt5e:
+.Lt5b:
+    .ascii  "test 5b DSISR store bit: "
+.Lt5be:
+.Lt6:
+    .ascii  "test  6 sth DSI write:   "
+.Lt6e:
+.Lt7:
+    .ascii  "test  7 stb DSI write:   "
+.Lt7e:
+.Lt8:
+    .ascii  "test  8 lhz DSI read:    "
+.Lt8e:
+.Lt9:
+    .ascii  "test  9 lbz DSI read:    "
+.Lt9e:
+.Lt10:
+    .ascii  "test 10 lwz DSI seq:     "
+.Lt10e:
+.Lt11:
+    .ascii  "test 11 stw+lwz verify:  "
+.Lt11e:
+.Lt12:
+    .ascii  "test 12 lwarx DSI read:  "
+.Lt12e:
+.Lt13:
+    .ascii  "test 13 lwarx+stwcx DSI: "
+.Lt13e:
+.Lt14:
+    .ascii  "test 14 stb x4 DSI:      "
+.Lt14e:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummarye:
