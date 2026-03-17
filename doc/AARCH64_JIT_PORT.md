@@ -353,9 +353,58 @@ Gotchas:
 The kernel reaches an I/O polling loop (CUDA IFR register) and stalls. This is a validation limitation: the reference interpreter and JIT both read the same CUDA hardware, causing double I/O side effects (reading IFR clears flags, so the second read consumes the state change meant for the first). Without validation, the kernel should progress past this point.
 
 **Remaining:**
-- Resolve the I/O double-read issue in validation (or disable validation for the I/O-heavy boot phase)
+- Investigate MSR 0x2340 (unsupported bits) — generic CPU never hits this, so it's likely a JIT bug causing wrong MSR values. Currently masked with a warning.
+- Investigate DEC/timebase timing mismatch in validation (registers off by 1)
 - Boot Mandrake Linux PPC kernel to completion
 - Profile and optimize hot paths
+
+### Decrementer Timer (sys_set_timer) on macOS
+
+The PPC decrementer (DEC register) generates periodic interrupts. The emulator implements it via a host timer:
+
+1. Kernel writes DEC register → `writeDEC()` → `sys_set_timer()` with one-shot interval
+2. Timer fires → `decTimerCB()` → `ppc_cpu_atomic_raise_dec_exception()` → sets `exception_pending + dec_exception`
+3. Heartbeat detects flags → dispatches to vector 0x900
+4. Kernel's dec handler runs, writes new DEC value → back to step 1
+
+**The three timer backends:**
+
+- **Generic CPU**: No host timer. Decrements `pdec` every instruction inline. When `pdec==0`, sets exception flags directly. Precise but instruction-count-based, not wall-clock.
+- **x86_64 JIT (Linux)**: Uses `timer_create` + `SIGEV_SIGNAL` (POSIX realtime timer). Reliable. Signal delivered to the process, handler fires.
+- **aarch64 JIT (macOS)**: `timer_create` not available. Falls back to `setitimer(ITIMER_REAL)` + `SIGALRM`.
+
+**The macOS setitimer problem:**
+
+`setitimer` + `SIGALRM` is unreliable on macOS with multiple threads. A test program shows:
+- Single-threaded busy loop: 160 fires in 2s at 10ms interval (expected 200) — works
+- Multi-threaded (simulating SDL + JIT): 1 fire in 2s — broken
+- `sleep()` + signal handler re-arm: 1 fire in 2s — broken
+
+The issue: `SIGALRM` delivery on macOS is not guaranteed to reach the intended thread when multiple threads exist. PearPC has the CPU thread + SDL UI thread + CUDA event thread.
+
+**Current fix: `dispatch_source` (GCD timer)**
+
+On macOS, `sys_set_timer` uses `dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER)` instead of `setitimer`. This fires the callback on a dedicated GCD queue thread, independent of signal delivery. Each `writeDEC` cancels the old dispatch_source and creates a new one-shot.
+
+**Memory ordering requirement:**
+
+The GCD timer callback runs on a different thread than the JIT. The callback writes `exception_pending` via `ppc_cpu_atomic_raise_dec_exception` (ldaxr/stlxr with release semantics). The JIT's heartbeat reads it via `ldar` (acquire semantics). Without acquire/release, the JIT thread may never see the flags set by the timer thread (ARM64 weak memory ordering).
+
+**The gCPU swap bug:**
+
+The validation framework's `refStepOne()` temporarily swapped `gCPU` to point to the reference CPU state. If the timer callback fired during this window, it wrote `dec_exception` to the REFERENCE CPU instead of the JIT CPU. The exception was lost. Fix: don't swap `gCPU`, only swap `gMemory`. The interpreter functions already take `aCPU` as a parameter.
+
+**readDEC / writeDEC:**
+
+`readDEC` computes `DEC = gDECwriteValue - (ideal_timebase - gDECwriteITB)`. This is a wall-clock heuristic: DEC counts down at the ideal timebase rate. When the kernel reads DEC shortly after writing it, the value is close to what was written. The x86 JIT uses the identical formula.
+
+The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly without calling `readDEC()`. This returned stale values (usually 0). The x86 JIT's gen_ function calls `readDEC` but we use `GEN_INTERPRET(mfspr)` which goes through the interpreter. Fix: call `readDEC(aCPU)` before returning `aCPU.dec` in the interpreter's mfspr handler.
+
+**Open issues:**
+
+- The DEC interval computed by the kernel (0x26c90 ≈ 10ms at 16MHz) is correct for wall-clock time but much larger than what the generic CPU sees (0x53d), because generic counts instructions not wall-clock. This means the JIT gets ~100 timer interrupts/second while generic gets ~7000/second. This shouldn't prevent booting but makes init slower.
+- `setitimer` fallback on non-macOS POSIX without `timer_create` may have similar multi-thread issues. Not tested.
+- The dispatch_source cancel/recreate cycle on every `writeDEC` is suboptimal. Could use a single persistent timer and just update its fire time.
 
 ## Lessons Learned
 
