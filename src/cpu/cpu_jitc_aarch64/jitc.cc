@@ -407,7 +407,7 @@ static inline NativeAddress jitcGetEntrypoint(ClientPage *cp, uint32 ofs)
 }
 
 extern JITC *gJITC;
-static FILE *gTraceLog = NULL;
+FILE *gTraceLog = NULL;
 static uint64 gTraceCount = 0;
 
 static void traceInit()
@@ -474,9 +474,8 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
             jitc.clobberAll();
             // MOV W0, #4096 = MOVZ W0, #4096
             jitc.emit32(0x52820000); // MOVZ W0, #0x1000
-            // B ppc_new_pc_rel_asm
-            // FIXME: for now, use BR with address loaded
-            // This needs proper long-range branching
+            // Jump to ppc_new_pc_rel_asm to continue on next page
+            jitc.emitBLR((NativeAddress)ppc_new_pc_rel_asm);
             break;
         }
         jitc.pc += 4;

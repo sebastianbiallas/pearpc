@@ -19,7 +19,10 @@
  */
 
 #include <cerrno>
+#include <csignal>
 #include <cstring>
+#include <cstdlib>
+#include <unistd.h>
 
 #include "debug/tracers.h"
 #include "system/sys.h"

@@ -20,7 +20,9 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <csignal>
 #include <exception>
+#include <execinfo.h>
 #include <unistd.h>
 
 #include "info.h"
@@ -198,8 +200,47 @@ extern "C" int SDL_main(int argc, char *argv[])
 }
 #endif
 
+static void crash_handler(int sig, siginfo_t *info, void *ctx)
+{
+	const char *signame = (sig == SIGILL) ? "SIGILL" : (sig == SIGSEGV) ? "SIGSEGV" : (sig == SIGBUS) ? "SIGBUS" : "SIGNAL";
+	fprintf(stderr, "\n*** %s at %p (signal %d) ***\n", signame, info->si_addr, sig);
+
+#ifdef __aarch64__
+	ucontext_t *uc = (ucontext_t *)ctx;
+	fprintf(stderr, "  pc=%p  lr=%p  sp=%p\n",
+		(void *)uc->uc_mcontext->__ss.__pc,
+		(void *)uc->uc_mcontext->__ss.__lr,
+		(void *)uc->uc_mcontext->__ss.__sp);
+	if (sig == SIGILL) {
+		uint32 insn = *(uint32 *)info->si_addr;
+		fprintf(stderr, "  Instruction word: %08x\n", insn);
+	}
+#endif
+
+	// Stack trace
+	void *bt[64];
+	int n = backtrace(bt, 64);
+	fprintf(stderr, "  Backtrace (%d frames):\n", n);
+	backtrace_symbols_fd(bt, n, STDERR_FILENO);
+
+	// Flush trace log
+	extern FILE *gTraceLog;
+	if (gTraceLog) fflush(gTraceLog);
+
+	_exit(128 + sig);
+}
+
 int main(int argc, char *argv[])
 {
+	// Install signal handlers for crash diagnostics
+	struct sigaction sa;
+	sa.sa_sigaction = crash_handler;
+	sa.sa_flags = SA_SIGINFO;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGILL, &sa, NULL);
+	sigaction(SIGSEGV, &sa, NULL);
+	sigaction(SIGBUS, &sa, NULL);
+
 	const char *configfile = NULL;
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--headless") == 0) {
