@@ -129,8 +129,8 @@ void ppc_cpu_run()
     PPC_CPU_TRACE("entering JIT at PC=0x%08x\n", gCPU->pc);
 
     // Lock-step validation
-    extern void jitcValidateInit();
-    jitcValidateInit();
+    // extern void jitcValidateInit();
+    // jitcValidateInit();
 
     ppc_start_jitc_asm(gCPU->pc, &gCPU, sizeof *gCPU);
     ht_printf("JIT returned\n");

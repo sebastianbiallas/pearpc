@@ -74,6 +74,10 @@ static bool jitcEmitNextFragment(JITC &jitc)
     TranslationCacheFragment *tcf_old = jitc.currentPage->tcf_current;
     NativeAddress tcp_old = jitc.currentPage->tcp;
 
+    if (jitc.currentPage->bytesLeft < 0) {
+        PPC_CPU_ERR("jitcEmitNextFragment bytesLeft=%d < 0\n", jitc.currentPage->bytesLeft);
+    }
+
     jitc.currentPage->tcf_current = jitcAllocFragment(jitc);
     jitc.currentPage->tcf_current->prev = tcf_old;
     if (uint64(jitc.currentPage->tcf_current->base - jitc.currentPage->tcp) < 20) {
@@ -84,6 +88,10 @@ static bool jitcEmitNextFragment(JITC &jitc)
         jitc.currentPage->tcp = jitc.currentPage->tcf_current->base;
         jitc.currentPage->bytesLeft = FRAGMENT_SIZE;
         // emit B instruction from old to new fragment
+        if (jitc.currentPage->bytesLeft < 4) {
+            PPC_CPU_ERR("no space for linking branch (bytesLeft was %d)\n",
+                      (int)(tcp_old - tcf_old->base));
+        }
         jitcEmitBranch(tcp_old, jitc.currentPage->tcp);
         return true;
     }
@@ -100,6 +108,15 @@ void JITC::emit32(uint32 instr)
      */
     if (currentPage->bytesLeft <= 4) {
         jitcEmitNextFragment(*this);
+    }
+    if (currentPage->bytesLeft < 4) {
+        PPC_CPU_ERR("emit32 bytesLeft=%d after fragment chain\n", currentPage->bytesLeft);
+    }
+    // Verify tcp is within the translation cache
+    if (currentPage->tcp < translationCache ||
+        currentPage->tcp >= translationCache + 64 * 1024 * 1024) {
+        PPC_CPU_ERR("emit32 tcp=%p outside translation cache [%p, %p)\n",
+                  currentPage->tcp, translationCache, translationCache + 64*1024*1024);
     }
     jitcDebugLogEmit(*this, (const byte *)&instr, 4);
     *(uint32 *)(currentPage->tcp) = instr;
