@@ -601,6 +601,13 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     }
     static uint64 total = 0;
     total++;
+    if (entry >= 0x01400000 && entry < 0x02000000) {
+        extern PPC_CPU_State *gCPU;
+        static int kernelDisp = 0; kernelDisp++;
+        if (kernelDisp <= 20)
+            fprintf(stderr, "[JITC] kernel dispatch #%d: ea=%08x pa=%08x msr=%08x\n",
+                kernelDisp, gCPU->pc, entry, gCPU->msr);
+    }
     if (total % 100000 == 0) {
         fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
                 total, jitcHits, jitcNewTranslations, jitcNewEntries);

@@ -105,6 +105,9 @@ void ppc_cpu_wakeup()
 
 static void decTimerCB(sys_timer t)
 {
+    static int dc = 0; dc++;
+    if (dc <= 10 || dc % 100 == 0)
+        fprintf(stderr, "[DEC] #%d\n", dc);
     ppc_cpu_atomic_raise_dec_exception(*gCPU);
 }
 
