@@ -39,7 +39,8 @@
 
 static void ppc_opc_invalid(PPC_CPU_State &aCPU)
 {
-    // Match generic CPU behavior: silently ignore unknown opcodes.
+    fprintf(stderr, "[INVALID] opc=%08x pc=%08x\n", aCPU.current_opc,
+        aCPU.current_code_base + aCPU.pc_ofs);
     SINGLESTEP("unknown instruction\n");
 }
 
