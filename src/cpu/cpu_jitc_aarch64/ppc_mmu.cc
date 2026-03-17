@@ -1021,74 +1021,212 @@ void ppc_opc_stswx(PPC_CPU_State &aCPU)
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 
-/* FPU load/store stubs */
+/*
+ * FPU load/store opcodes
+ * These just transfer data between fpr[] and memory.
+ * Double: 8 bytes transferred as-is (raw IEEE 754 bits)
+ * Single: 4 bytes with double↔single conversion
+ */
+
+#define FPU_CHECK(cpu) \
+	if (!(cpu.msr & MSR_FP)) { \
+		return; \
+	}
+
 void ppc_opc_lfd(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
+	uint64 r;
+	if (ppc_read_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+		aCPU.fpr[frD] = r;
+	}
 }
 void ppc_opc_lfdu(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
+	uint64 r;
+	if (ppc_read_effective_dword(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+		aCPU.fpr[frD] = r;
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_lfdux(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
+	uint64 r;
+	if (ppc_read_effective_dword(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+		aCPU.fpr[frD] = r;
+	}
 }
 void ppc_opc_lfdx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
+	uint64 r;
+	if (ppc_read_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		aCPU.fpr[frD] = r;
+	}
 }
 void ppc_opc_lfs(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
+	uint32 r;
+	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+		ppc_single s;
+		ppc_double d;
+		ppc_fpu_unpack_single(s, r);
+		ppc_fpu_single_to_double(s, d);
+		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+	}
 }
 void ppc_opc_lfsu(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
+	uint32 r;
+	if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+		ppc_single s;
+		ppc_double d;
+		ppc_fpu_unpack_single(s, r);
+		ppc_fpu_single_to_double(s, d);
+		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_lfsux(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
+	uint32 r;
+	if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		ppc_single s;
+		ppc_double d;
+		ppc_fpu_unpack_single(s, r);
+		ppc_fpu_single_to_double(s, d);
+		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+	}
 }
 void ppc_opc_lfsx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
+	uint32 r;
+	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+		ppc_single s;
+		ppc_double d;
+		ppc_fpu_unpack_single(s, r);
+		ppc_fpu_single_to_double(s, d);
+		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+	}
 }
 void ppc_opc_stfd(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frS, rA, imm);
+	ppc_write_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, aCPU.fpr[frS]);
 }
 void ppc_opc_stfdu(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frS, rA, imm);
+	if (ppc_write_effective_dword(aCPU, aCPU.gpr[rA] + imm, aCPU.fpr[frS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_stfdux(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
+	if (ppc_write_effective_dword(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], aCPU.fpr[frS]) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+	}
 }
 void ppc_opc_stfdx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
+	ppc_write_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.fpr[frS]);
 }
 void ppc_opc_stfiwx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
+	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint32)aCPU.fpr[frS]);
 }
 void ppc_opc_stfs(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frS, rA, imm);
+	ppc_double d;
+	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
+	uint32 s;
+	ppc_fpu_pack_single(aCPU.fpscr, d, s);
+	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, s);
 }
 void ppc_opc_stfsu(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frS, rA, imm);
+	ppc_double d;
+	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
+	uint32 s;
+	ppc_fpu_pack_single(aCPU.fpscr, d, s);
+	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + imm, s) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += imm;
+	}
 }
 void ppc_opc_stfsux(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
+	ppc_double d;
+	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
+	uint32 s;
+	ppc_fpu_pack_single(aCPU.fpscr, d, s);
+	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], s) == PPC_MMU_OK) {
+		aCPU.gpr[rA] += aCPU.gpr[rB];
+	}
 }
 void ppc_opc_stfsx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	FPU_CHECK(aCPU);
+	int rA, frS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
+	ppc_double d;
+	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
+	uint32 s;
+	ppc_fpu_pack_single(aCPU.fpscr, d, s);
+	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], s);
 }
 
 /* Altivec load/store stubs */
