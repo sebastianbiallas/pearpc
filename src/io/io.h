@@ -86,7 +86,32 @@ static inline int io_mem_write(uint32 addr, uint32 data, int size)
 	return IO_MEM_ACCESS_EXC;
 }
 
+// I/O read cache for lock-step validation.
+// When gIOReadReplay is true, io_mem_read returns the cached value
+// instead of reading the device (avoids double I/O side effects).
+extern bool gIOReadReplay;
+extern uint32 gIOReadCacheAddr;
+extern uint32 gIOReadCacheData;
+extern bool gIOReadCacheValid;
+
+static inline int io_mem_read_impl(uint32 addr, uint32 &data, int size);
+
 static inline int io_mem_read(uint32 addr, uint32 &data, int size)
+{
+	if (gIOReadReplay && gIOReadCacheValid && gIOReadCacheAddr == addr) {
+		data = gIOReadCacheData;
+		return IO_MEM_ACCESS_OK;
+	}
+	int r = io_mem_read_impl(addr, data, size);
+	if (r == IO_MEM_ACCESS_OK && !gIOReadReplay) {
+		gIOReadCacheAddr = addr;
+		gIOReadCacheData = data;
+		gIOReadCacheValid = true;
+	}
+	return r;
+}
+
+static inline int io_mem_read_impl(uint32 addr, uint32 &data, int size)
 {
 	if (addr >= IO_GCARD_FRAMEBUFFER_PA_START && addr < IO_GCARD_FRAMEBUFFER_PA_END) {
 		gcard_read(addr, data, size);

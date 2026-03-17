@@ -13,6 +13,13 @@
 #include <cstdlib>
 #include <cstring>
 
+// I/O read cache globals (declared in io/io.h)
+#include "system/types.h"
+bool gIOReadReplay = false;
+uint32 gIOReadCacheAddr = 0;
+uint32 gIOReadCacheData = 0;
+bool gIOReadCacheValid = false;
+
 #include "system/arch/sysendian.h"
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
@@ -51,10 +58,12 @@ static void refStepOne()
 	byte *savedMem = gMemory;
 	gCPU = refCPU;
 	gMemory = refMemory;
+	gIOReadReplay = true;
 
 	uint32 physAddr;
 	int r = ppc_effective_to_physical(*refCPU, refCPU->pc, PPC_MMU_READ | PPC_MMU_CODE, physAddr);
 	if (r != PPC_MMU_OK) {
+		gIOReadReplay = false;
 		gCPU = savedCPU;
 		gMemory = savedMem;
 		return;
@@ -71,6 +80,7 @@ static void refStepOne()
 	// from the JIT when PCs don't match.
 	if (opc == PROM_MAGIC_OPCODE) {
 		refCPU->pc = refCPU->npc;
+		gIOReadReplay = false;
 		gCPU = savedCPU;
 		gMemory = savedMem;
 		return;
@@ -87,6 +97,8 @@ static void refStepOne()
 		refCPU->pdec--;
 	}
 
+	gIOReadReplay = false;
+	gIOReadCacheValid = false;
 	gCPU = savedCPU;
 	gMemory = savedMem;
 }
