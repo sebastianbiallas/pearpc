@@ -533,6 +533,7 @@ static void cuda_start_T1()
 }
 
 static int cuda_op_count = 0;
+static int cuda_ifr_read_count = 0;
 
 void cuda_write(uint32 addr, uint32 data, int size)
 {
@@ -719,6 +720,12 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 	cuda_op_count++;
 
 	IO_CUDA_TRACE("%d read word @%08x\n", gCUDA.state, addr);
+	uint32 reg = addr - IO_CUDA_PA_START;
+	if (reg != 0x1a00 /* IFR */ && cuda_ifr_read_count > 100) {
+		fprintf(stderr, "[CUDA] broke out of IFR loop after %d reads, now reading reg %04x (op #%d)\n",
+			cuda_ifr_read_count, reg, cuda_op_count);
+		cuda_ifr_read_count = 0;
+	}
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
 	case A:
@@ -802,6 +809,7 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		data = gCUDA.rPCR;
 		break;
 	case IFR:
+		cuda_ifr_read_count++;
 		data = gCUDA.rIFR;
 		if (gCUDA.state == cuda_idle) {
 			if (!gCUDA.left /*&& !(gCUDA.rIER & SR_INT)*/) {

@@ -224,10 +224,9 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
     and w1, w0, #0xFFFFF000
     str w1, [x20, #current_code_base]
 
-    // Check exception_pending byte
-    ldrb    w2, [x20, #exception_pending]
-    tst w2, #1
-    b.ne    .Lheartbeat_exception
+    // Check exception_pending word (includes dec/ext/stop exception bytes)
+    ldr     w2, [x20, #exception_pending]
+    cbnz    w2, .Lheartbeat_exception
     ret
 
 .Lheartbeat_exception:
@@ -285,10 +284,9 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
 //
 .p2align 4
 do_export EXTERN(ppc_heartbeat_ext_rel_asm)
-    // Check exception_pending byte
-    ldrb    w2, [x20, #exception_pending]
-    tst w2, #1
-    b.ne    .Lheartbeat_rel_exception
+    // Check exception_pending word (includes dec/ext/stop exception bytes)
+    ldr     w2, [x20, #exception_pending]
+    cbnz    w2, .Lheartbeat_rel_exception
     ret
 
 .Lheartbeat_rel_exception:
@@ -432,9 +430,17 @@ do_export EXTERN(ppc_ext_exception_asm)
     movk    w16, #0x87c0, lsl #16
     and w3, w3, w16
     str w3, [x20, #srr1]
-    // Clear ext_exception and exception_pending
-    strb    wzr, [x20, #ext_exception]
-    strb    wzr, [x20, #exception_pending]
+    // Atomically clear ext_exception and exception_pending.
+    // Preserve dec_exception if it was raised concurrently.
+    add     x1, x20, #exception_pending
+1:
+    ldxr    w2, [x1]
+    tst     w2, #0x00000100     // dec_exception
+    mov     w3, #0
+    cset    w3, ne
+    orr     w3, w3, w3, lsl #8  // if dec: 0x00000101, else 0x00000000
+    stxr    w4, w3, [x1]
+    cbnz    w4, 1b
     exception_epilogue 0x500
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -450,9 +456,20 @@ do_export EXTERN(ppc_dec_exception_asm)
     movk    w16, #0x87c0, lsl #16
     and w3, w3, w16
     str w3, [x20, #srr1]
-    // Clear dec_exception and exception_pending
-    strb    wzr, [x20, #dec_exception]
-    strb    wzr, [x20, #exception_pending]
+    // Atomically clear dec_exception and exception_pending.
+    // Must be atomic — the timer thread can set them between stores.
+    // Use load-exclusive/store-exclusive to clear dec_exception bit
+    // while preserving ext_exception if it was raised concurrently.
+    add     x1, x20, #exception_pending
+1:
+    ldxr    w2, [x1]
+    // Keep ext_exception (bit 16) if set, clear everything else
+    tst     w2, #0x00010000
+    mov     w3, #0
+    cset    w3, ne              // w3 = ext_exception ? 1 : 0
+    orr     w3, w3, w3, lsl #16 // if ext: 0x00010001, else 0x00000000
+    stxr    w4, w3, [x1]
+    cbnz    w4, 1b
     exception_epilogue 0x900
 
 //////////////////////////////////////////////////////////////////////////////////////////////

@@ -233,6 +233,14 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	// PCs match. Compare all registers.
 	static uint32 prevPC = 0;
 	bool needStep = true;
+	static int loopCount = 0;
+	if (effectivePC == 0xc0205128) {
+		loopCount++;
+		if (loopCount == 1 || loopCount % 1000000 == 0)
+			fprintf(stderr, "[LOOP] #%d msr=%08x ee=%d dec=%08x exc_pend=%d dec_exc=%d ext_exc=%d\n",
+				loopCount, gCPU->msr, (gCPU->msr >> 15) & 1, gCPU->dec,
+				gCPU->exception_pending, gCPU->dec_exception, gCPU->ext_exception);
+	}
 	// Log around kernel entry
 	if (effectivePC >= 0xc0003000 && effectivePC <= 0xc0003020 && valLog) {
 		uint32 dbg_pa = 0, dbg_insn = 0;
