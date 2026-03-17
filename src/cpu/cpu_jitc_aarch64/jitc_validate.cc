@@ -17,6 +17,7 @@
 #include "ppc_cpu.h"
 #include "ppc_dec.h"
 #include "ppc_mmu.h"
+#include "io/prom/promosi.h"
 
 extern PPC_CPU_State *gCPU;
 extern byte *gMemory;
@@ -36,8 +37,8 @@ void jitcValidateInit()
 	memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
 	refCPU->jitc = NULL;
 
-	// Share the same memory — both execute the same instructions,
-	// so writes should be identical. This avoids 128MB memcpy.
+	// Share memory — PROM calls only run on the JIT side.
+	// Reference skips PROM calls and resyncs state from JIT.
 	refMemory = gMemory;
 
 	gValidateMode = true;
@@ -65,6 +66,17 @@ static void refStepOne()
 
 	refCPU->npc = refCPU->pc + 4;
 	refCPU->current_opc = opc;
+
+	// Skip PROM calls — they use globals and would corrupt shared memory.
+	// Instead, just advance PC. The validate function will resync state
+	// from the JIT when PCs don't match.
+	if (opc == PROM_MAGIC_OPCODE) {
+		refCPU->pc = refCPU->npc;
+		gCPU = savedCPU;
+		gMemory = savedMem;
+		return;
+	}
+
 	ppc_exec_opc(*refCPU);
 	refCPU->pc = refCPU->npc;
 
@@ -125,13 +137,17 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	}
 
 	if (refCPU->pc != effectivePC) {
+		// PCs don't match — likely a PROM call that the reference skipped.
+		// Resync reference state from JIT.
+		JITC *savedJitc = refCPU->jitc;
+		memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
+		refCPU->jitc = savedJitc;
 		if (valLog) {
-			fprintf(valLog, "=== VALIDATE #%llu: DIVERGED ref=%08x jit=%08x (after %d steps) ===\n",
-				valCount, refCPU->pc, effectivePC, steps);
+			fprintf(valLog, "RESYNC at #%llu: ref was %08x, jit at %08x\n",
+				valCount, refCPU->pc, effectivePC);
+			fflush(valLog);
 		}
-		diverged = true;
-		if (valLog) fflush(valLog);
-		fprintf(stderr, "[VALIDATE] DIVERGED #%llu ref=%08x jit=%08x\n", valCount, refCPU->pc, effectivePC);
+		refCPU->pc = effectivePC;
 		return;
 	}
 

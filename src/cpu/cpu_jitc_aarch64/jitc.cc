@@ -452,9 +452,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
         jitcDebugLogNewInstruction(jitc);
 
-        // Validation: BEFORE each instruction, emit validate call.
-        // Both JIT and reference are at the same PC and should have
-        // identical register state.
+        // Validation: emit validate call before each instruction.
         if (gValidateMode) {
             // Store current pc to CPU state so validate knows where we are
             jitc.emitMOV32((NativeReg)16, jitc.pc);

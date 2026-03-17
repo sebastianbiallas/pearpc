@@ -39,12 +39,22 @@
 
 static void ppc_opc_invalid(PPC_CPU_State &aCPU)
 {
-    SINGLESTEP("unknown instruction\n");
+    // Should not normally be reached — unknown opcodes go through
+    // ppc_opc_special (main opcode 0) which handles them silently.
+    // If we get here, something is wrong with the dispatch tables.
+    PPC_OPC_ERR("invalid opcode dispatch: opc=%08x pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 {
     jitc.clobberAll();
+    // Store pc_ofs for exception handler
+    jitc.emitMOV32((NativeReg)0, jitc.pc);
+    jitc.emitSTR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, pc_ofs));
+    // SRR1 bit 17 = illegal instruction
+    jitc.emitMOV32((NativeReg)1, 0x00080000);
+    // Jump to program exception handler
+    jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
     return flowEndBlockUnreachable;
 }
 
