@@ -561,6 +561,17 @@ static uint64 jitcHits = 0, jitcNewTranslations = 0, jitcNewEntries = 0;
 extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 {
     traceInit();
+    // Log EA→PA mapping for kernel-range addresses
+    {
+        extern PPC_CPU_State *gCPU;
+        uint32 ea = gCPU->pc;
+        if (ea >= 0xc0000000 || entry == 0) {
+            if (gTraceLog) {
+                fprintf(gTraceLog, "DISPATCH ea=%08x pa=%08x msr=%08x\n", ea, entry, gCPU->msr);
+                fflush(gTraceLog);
+            }
+        }
+    }
     static uint64 total = 0;
     total++;
     if (total % 100000 == 0) {
