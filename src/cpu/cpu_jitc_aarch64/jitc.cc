@@ -24,6 +24,7 @@
 #include "aarch64asm.h"
 
 extern bool gValidateMode;
+byte *gTranslationCacheBase = NULL;
 extern "C" void jitcValidateAtDispatch(uint32 effectivePC);
 
 static TranslationCacheFragment *jitcAllocFragment(JITC &jitc);
@@ -214,6 +215,8 @@ void JITC::emitSTR64_cpu(NativeReg rs, uint32 offset)
 
 void JITC::emitBLR(NativeAddress to)
 {
+    // Ensure the entire MOVZ/MOVK/BLR sequence fits in one fragment
+    emitAssure(20); // 3-4 MOV instructions (12-16 bytes) + BLR (4 bytes)
     // Load address into X16 (IP0), then BLR X16
     emitMOV64((NativeReg)16, (uint64)to);
     emit32(0xD63F0000 | (16 << 5)); // BLR X16
@@ -428,6 +431,13 @@ static ClientPage *jitcGetOrCreateClientPage(JITC &jitc, uint32 baseaddr)
 
 static inline void jitcCreateEntrypoint(ClientPage *cp, uint32 ofs)
 {
+    extern byte *gTranslationCacheBase;
+    if (gTranslationCacheBase && ((byte *)cp->tcp < gTranslationCacheBase ||
+        (byte *)cp->tcp >= gTranslationCacheBase + 64 * 1024 * 1024)) {
+        fprintf(stderr, "[JITC] BUG: entrypoint tcp=%p outside cache for ofs=%x\n",
+            cp->tcp, ofs);
+        exit(1);
+    }
     cp->entrypoints[ofs >> 2] = cp->tcp;
 }
 
@@ -640,7 +650,33 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         }
     }
 
+    // Sanity check: result must be in the translation cache
+    if ((byte *)result < jitc.translationCache ||
+        (byte *)result >= jitc.translationCache + 64 * 1024 * 1024) {
+        fprintf(stderr, "[JITC] BUG: jitcNewPC returning %p outside cache [%p, +64MB) for PA %08x\n",
+            result, jitc.translationCache, entry);
+        exit(1);
+    }
+
     return result;
+}
+
+extern "C" void jitc_error_bad_native_address()
+{
+    extern PPC_CPU_State *gCPU;
+    ht_printf("[JITC] BUG: jitcNewPC returned a guest address, not native code!\n");
+    ht_printf("  pc=%08x msr=%08x current_code_base=%08x pc_ofs=%08x\n",
+        gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
+    exit(1);
+}
+
+extern "C" void jitc_error_bad_entrypoint(uint64 addr)
+{
+    extern PPC_CPU_State *gCPU;
+    ht_printf("[JITC] BUG: entrypoint %p is not native code!\n", (void *)addr);
+    ht_printf("  pc=%08x msr=%08x current_code_base=%08x pc_ofs=%08x\n",
+        gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
+    exit(1);
 }
 
 extern "C" void jitc_error_msr_unsupported_bits(uint32 a)
@@ -712,6 +748,8 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
      *  pthread_jit_write_protect_np().
      */
     translationCache = (byte *)sys_alloc_read_write_execute(tcSize);
+    extern byte *gTranslationCacheBase;
+    gTranslationCacheBase = translationCache;
 
     ht_printf("translation cache: %p (aarch64 JIT)\n", translationCache);
 

@@ -127,6 +127,15 @@ do_export EXTERN(ppc_new_pc_asm)
     mov x0, x19
     bl  EXTERN(jitcNewPC)
 
+    // Verify result is in translation cache (not guest memory)
+    // Translation cache is at high addresses (> 0x100000000)
+    lsr     x16, x0, #32
+    cbnz    x16, 1f
+    // x0 is a 32-bit address — this is guest memory, not native code!
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    bl      EXTERN(jitc_error_bad_native_address)
+1:
     // Jump to translated code
     br  x0
 
@@ -196,6 +205,14 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
     ldr     x5, [x3, x4, lsl #3]       // x5 = native entry point
     cbz     x5, .Lthispage_fallback     // not translated? fallback
 
+    // Verify entrypoint is in translation cache
+    lsr     x16, x5, #32
+    cbnz    x16, 2f
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    mov     x0, x5
+    bl      EXTERN(jitc_error_bad_entrypoint)
+2:
     // Direct jump to translated code
     br      x5
 
@@ -204,6 +221,13 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
     mov     w1, w0
     mov     x0, x19
     bl      EXTERN(jitcNewPC)
+    // Verify result
+    lsr     x16, x0, #32
+    cbnz    x16, 3f
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    bl      EXTERN(jitc_error_bad_native_address)
+3:
     br      x0
 
 
