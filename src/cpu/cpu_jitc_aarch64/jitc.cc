@@ -513,12 +513,12 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         PPC_CPU_State *cpu = (PPC_CPU_State *)((byte *)&jitc - offsetof(PPC_CPU_State, jitc));
         // Actually jitc pointer is stored differently - use the global
         extern PPC_CPU_State *gCPU;
-        fprintf(gTraceLog, "%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x r0=%08x r1=%08x r3=%08x r10=%08x r11=%08x\n",
+        fprintf(gTraceLog, "%llu pc=%08x cr=%08x lr=%08x ctr=%08x r3=%08x r5=%08x r30=%08x r31=%08x\n",
                 gTraceCount, entry,
-                gCPU->msr, gCPU->cr, gCPU->lr, gCPU->ctr,
-                gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[3],
-                gCPU->gpr[10], gCPU->gpr[11]);
-        if (gTraceCount % 10000 == 0) fflush(gTraceLog);
+                gCPU->cr, gCPU->lr, gCPU->ctr,
+                gCPU->gpr[3], gCPU->gpr[5],
+                gCPU->gpr[30], gCPU->gpr[31]);
+        if (gTraceCount % 100 == 0) fflush(gTraceLog);
     }
     if (entry > gMemorySize) {
         ht_printf("entry not physical: %08x\n", entry);
@@ -530,20 +530,17 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 
     NativeAddress result;
     if (!cp->tcf_current) {
-        /* jitcStartTranslation toggles W^X internally */
         result = jitcStartTranslation(jitc, cp, baseaddr, entry & 0xfff);
     } else {
         NativeAddress ofs = jitcGetEntrypoint(cp, entry & 0xfff);
         if (ofs) {
             result = ofs;
         } else {
-            /* Need write access to emit new code */
             pthread_jit_write_protect_np(0);
             result = jitcNewEntrypoint(jitc, cp, baseaddr, entry & 0xfff);
         }
     }
 
-    /* Flush icache and ensure execute mode before returning */
     __builtin___clear_cache((char *)jitc.translationCache, (char *)jitc.translationCache + 64 * 1024 * 1024);
     pthread_jit_write_protect_np(1);
     return result;

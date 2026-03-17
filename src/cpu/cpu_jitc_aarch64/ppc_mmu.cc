@@ -857,13 +857,25 @@ void ppc_opc_lwarx(PPC_CPU_State &aCPU)
 	}
 }
 void ppc_opc_lmw(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
+	uint32 ea = (rA ? aCPU.gpr[rA] : 0) + imm;
+	for (int i = rD; i <= 31; i++) {
+		uint32 val;
+		if (ppc_read_effective_word(aCPU, ea, val) != PPC_MMU_OK) return;
+		aCPU.gpr[i] = val;
+		ea += 4;
+	}
 }
 void ppc_opc_lswi(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lswx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 
 void ppc_opc_stb(PPC_CPU_State &aCPU)
@@ -990,113 +1002,155 @@ void ppc_opc_sthx(PPC_CPU_State &aCPU)
 	ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]);
 }
 void ppc_opc_stmw(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
+	uint32 ea = (rA ? aCPU.gpr[rA] : 0) + imm;
+	for (int i = rS; i <= 31; i++) {
+		if (ppc_write_effective_word(aCPU, ea, aCPU.gpr[i]) != PPC_MMU_OK) return;
+		ea += 4;
+	}
 }
 void ppc_opc_stswi(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stswx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 
 /* FPU load/store stubs */
 void ppc_opc_lfd(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfdu(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfdux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfdx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfs(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfsu(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfsux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lfsx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfd(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfdu(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfdux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfdx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfiwx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfs(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfsu(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfsux(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stfsx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 
 /* Altivec load/store stubs */
 void ppc_opc_lvx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lvxl(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lvebx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lvehx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lvewx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lvsl(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_lvsr(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_dst(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stvx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stvxl(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stvebx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stvehx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_stvewx(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_dstst(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 void ppc_opc_dss(PPC_CPU_State &aCPU)
-{ /* TODO */
+{
+	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
 
 /*
