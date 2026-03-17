@@ -276,12 +276,37 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 				}
 			}
 			// Check if loadEA translates to I/O space (PA >= gMemorySize)
-			if (loadEA) {
+			if (loadEA && !isIO) {
 				uint32 loadPA = 0;
 				if (ppc_effective_to_physical(*gCPU, loadEA, PPC_MMU_READ | 16, loadPA) == 0) {
 					if (loadPA >= gMemorySize) {
 						isIO = true;
 					}
+				}
+				// Also try with the reference's EA (rA may have been overwritten by load)
+				if (!isIO) {
+					uint32 refEA = 0;
+					if (opc == 34 || opc == 40 || opc == 42 || opc == 32) {
+						refEA = (rA_field ? refCPU->gpr[rA_field] : 0) + d_field;
+					}
+					if (refEA) {
+						uint32 refPA = 0;
+						if (ppc_effective_to_physical(*gCPU, refEA, PPC_MMU_READ | 16, refPA) == 0) {
+							if (refPA >= gMemorySize) {
+								isIO = true;
+							}
+						}
+					}
+				}
+			}
+			// If the previous instruction was a load and the destination
+			// register has 0 in the reference (our I/O skip returns 0),
+			// treat it as an I/O mismatch.
+			if (!isIO && (opc == 32 || opc == 33 || opc == 34 || opc == 35 ||
+			              opc == 40 || opc == 41 || opc == 42 || opc == 43)) {
+				int rD_field = (prevInsn >> 21) & 0x1f;
+				if (refCPU->gpr[rD_field] == 0 && gCPU->gpr[rD_field] != 0) {
+					isIO = true;
 				}
 			}
 		}
