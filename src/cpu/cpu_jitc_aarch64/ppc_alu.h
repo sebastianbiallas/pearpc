@@ -23,79 +23,79 @@
 
 #include "jitc_types.h"
 
-void ppc_opc_addx(PPC_CPU_State &aCPU);
-void ppc_opc_addcx(PPC_CPU_State &aCPU);
-void ppc_opc_addex(PPC_CPU_State &aCPU);
-void ppc_opc_addi(PPC_CPU_State &aCPU);
-void ppc_opc_addic(PPC_CPU_State &aCPU);
-void ppc_opc_addic_(PPC_CPU_State &aCPU);
-void ppc_opc_addis(PPC_CPU_State &aCPU);
-void ppc_opc_addmex(PPC_CPU_State &aCPU);
-void ppc_opc_addzex(PPC_CPU_State &aCPU);
+int ppc_opc_addx(PPC_CPU_State &aCPU);
+int ppc_opc_addcx(PPC_CPU_State &aCPU);
+int ppc_opc_addex(PPC_CPU_State &aCPU);
+int ppc_opc_addi(PPC_CPU_State &aCPU);
+int ppc_opc_addic(PPC_CPU_State &aCPU);
+int ppc_opc_addic_(PPC_CPU_State &aCPU);
+int ppc_opc_addis(PPC_CPU_State &aCPU);
+int ppc_opc_addmex(PPC_CPU_State &aCPU);
+int ppc_opc_addzex(PPC_CPU_State &aCPU);
 
-void ppc_opc_andx(PPC_CPU_State &aCPU);
-void ppc_opc_andcx(PPC_CPU_State &aCPU);
-void ppc_opc_andi_(PPC_CPU_State &aCPU);
-void ppc_opc_andis_(PPC_CPU_State &aCPU);
+int ppc_opc_andx(PPC_CPU_State &aCPU);
+int ppc_opc_andcx(PPC_CPU_State &aCPU);
+int ppc_opc_andi_(PPC_CPU_State &aCPU);
+int ppc_opc_andis_(PPC_CPU_State &aCPU);
 
-void ppc_opc_cmp(PPC_CPU_State &aCPU);
-void ppc_opc_cmpi(PPC_CPU_State &aCPU);
-void ppc_opc_cmpl(PPC_CPU_State &aCPU);
-void ppc_opc_cmpli(PPC_CPU_State &aCPU);
+int ppc_opc_cmp(PPC_CPU_State &aCPU);
+int ppc_opc_cmpi(PPC_CPU_State &aCPU);
+int ppc_opc_cmpl(PPC_CPU_State &aCPU);
+int ppc_opc_cmpli(PPC_CPU_State &aCPU);
 
-void ppc_opc_cntlzwx(PPC_CPU_State &aCPU);
+int ppc_opc_cntlzwx(PPC_CPU_State &aCPU);
 
-void ppc_opc_crand(PPC_CPU_State &aCPU);
-void ppc_opc_crandc(PPC_CPU_State &aCPU);
-void ppc_opc_creqv(PPC_CPU_State &aCPU);
-void ppc_opc_crnand(PPC_CPU_State &aCPU);
-void ppc_opc_crnor(PPC_CPU_State &aCPU);
-void ppc_opc_cror(PPC_CPU_State &aCPU);
-void ppc_opc_crorc(PPC_CPU_State &aCPU);
-void ppc_opc_crxor(PPC_CPU_State &aCPU);
+int ppc_opc_crand(PPC_CPU_State &aCPU);
+int ppc_opc_crandc(PPC_CPU_State &aCPU);
+int ppc_opc_creqv(PPC_CPU_State &aCPU);
+int ppc_opc_crnand(PPC_CPU_State &aCPU);
+int ppc_opc_crnor(PPC_CPU_State &aCPU);
+int ppc_opc_cror(PPC_CPU_State &aCPU);
+int ppc_opc_crorc(PPC_CPU_State &aCPU);
+int ppc_opc_crxor(PPC_CPU_State &aCPU);
 
-void ppc_opc_divwx(PPC_CPU_State &aCPU);
-void ppc_opc_divwux(PPC_CPU_State &aCPU);
+int ppc_opc_divwx(PPC_CPU_State &aCPU);
+int ppc_opc_divwux(PPC_CPU_State &aCPU);
 
-void ppc_opc_eqvx(PPC_CPU_State &aCPU);
+int ppc_opc_eqvx(PPC_CPU_State &aCPU);
 
-void ppc_opc_extsbx(PPC_CPU_State &aCPU);
-void ppc_opc_extshx(PPC_CPU_State &aCPU);
+int ppc_opc_extsbx(PPC_CPU_State &aCPU);
+int ppc_opc_extshx(PPC_CPU_State &aCPU);
 
-void ppc_opc_mulhwx(PPC_CPU_State &aCPU);
-void ppc_opc_mulhwux(PPC_CPU_State &aCPU);
-void ppc_opc_mulli(PPC_CPU_State &aCPU);
-void ppc_opc_mullwx(PPC_CPU_State &aCPU);
+int ppc_opc_mulhwx(PPC_CPU_State &aCPU);
+int ppc_opc_mulhwux(PPC_CPU_State &aCPU);
+int ppc_opc_mulli(PPC_CPU_State &aCPU);
+int ppc_opc_mullwx(PPC_CPU_State &aCPU);
 
-void ppc_opc_nandx(PPC_CPU_State &aCPU);
+int ppc_opc_nandx(PPC_CPU_State &aCPU);
 
-void ppc_opc_negx(PPC_CPU_State &aCPU);
-void ppc_opc_norx(PPC_CPU_State &aCPU);
+int ppc_opc_negx(PPC_CPU_State &aCPU);
+int ppc_opc_norx(PPC_CPU_State &aCPU);
 
-void ppc_opc_orx(PPC_CPU_State &aCPU);
-void ppc_opc_orcx(PPC_CPU_State &aCPU);
-void ppc_opc_ori(PPC_CPU_State &aCPU);
-void ppc_opc_oris(PPC_CPU_State &aCPU);
+int ppc_opc_orx(PPC_CPU_State &aCPU);
+int ppc_opc_orcx(PPC_CPU_State &aCPU);
+int ppc_opc_ori(PPC_CPU_State &aCPU);
+int ppc_opc_oris(PPC_CPU_State &aCPU);
 
-void ppc_opc_rlwimix(PPC_CPU_State &aCPU);
-void ppc_opc_rlwinmx(PPC_CPU_State &aCPU);
-void ppc_opc_rlwnmx(PPC_CPU_State &aCPU);
+int ppc_opc_rlwimix(PPC_CPU_State &aCPU);
+int ppc_opc_rlwinmx(PPC_CPU_State &aCPU);
+int ppc_opc_rlwnmx(PPC_CPU_State &aCPU);
 
-void ppc_opc_slwx(PPC_CPU_State &aCPU);
-void ppc_opc_srawx(PPC_CPU_State &aCPU);
-void ppc_opc_srawix(PPC_CPU_State &aCPU);
-void ppc_opc_srwx(PPC_CPU_State &aCPU);
+int ppc_opc_slwx(PPC_CPU_State &aCPU);
+int ppc_opc_srawx(PPC_CPU_State &aCPU);
+int ppc_opc_srawix(PPC_CPU_State &aCPU);
+int ppc_opc_srwx(PPC_CPU_State &aCPU);
 
-void ppc_opc_subfx(PPC_CPU_State &aCPU);
-void ppc_opc_subfcx(PPC_CPU_State &aCPU);
-void ppc_opc_subfex(PPC_CPU_State &aCPU);
-void ppc_opc_subfic(PPC_CPU_State &aCPU);
-void ppc_opc_subfmex(PPC_CPU_State &aCPU);
-void ppc_opc_subfzex(PPC_CPU_State &aCPU);
+int ppc_opc_subfx(PPC_CPU_State &aCPU);
+int ppc_opc_subfcx(PPC_CPU_State &aCPU);
+int ppc_opc_subfex(PPC_CPU_State &aCPU);
+int ppc_opc_subfic(PPC_CPU_State &aCPU);
+int ppc_opc_subfmex(PPC_CPU_State &aCPU);
+int ppc_opc_subfzex(PPC_CPU_State &aCPU);
 
-void ppc_opc_xorx(PPC_CPU_State &aCPU);
-void ppc_opc_xori(PPC_CPU_State &aCPU);
-void ppc_opc_xoris(PPC_CPU_State &aCPU);
+int ppc_opc_xorx(PPC_CPU_State &aCPU);
+int ppc_opc_xori(PPC_CPU_State &aCPU);
+int ppc_opc_xoris(PPC_CPU_State &aCPU);
 
 JITCFlow ppc_opc_gen_addx(JITC &aJITC);
 JITCFlow ppc_opc_gen_addcx(JITC &aJITC);

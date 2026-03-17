@@ -43,6 +43,6 @@ struct PPC_CPU_State;
 struct JITC;
 
 typedef JITCFlow (*ppc_opc_gen_function)(JITC &aJITC);
-typedef void (*ppc_opc_function)(PPC_CPU_State &aCPU);
+typedef int (*ppc_opc_function)(PPC_CPU_State &aCPU);
 
 #endif

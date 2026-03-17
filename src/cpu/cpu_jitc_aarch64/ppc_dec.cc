@@ -37,11 +37,12 @@
 
 #include "io/prom/promosi.h"
 
-static void ppc_opc_invalid(PPC_CPU_State &aCPU)
+static int ppc_opc_invalid(PPC_CPU_State &aCPU)
 {
     fprintf(stderr, "[INVALID] opc=%08x pc=%08x\n", aCPU.current_opc,
         aCPU.current_code_base + aCPU.pc_ofs);
     SINGLESTEP("unknown instruction\n");
+	return 0;
 }
 
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
@@ -81,6 +82,16 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
         /* Jump to ppc_new_pc_asm */                                                                                   \
         jitc.emitBLR((NativeAddress)ppc_new_pc_asm);                                                                   \
         return flowEndBlockUnreachable;                                                                                \
+    }
+
+/* Load/store: check return value instead of exception_pending.
+ * Avoids race where concurrent DEC/ext sets exception_pending
+ * during the interpreter call, consuming the async exception. */
+#define GEN_INTERPRET_LOADSTORE(name)                                                                                  \
+    JITCFlow ppc_opc_gen_##name(JITC &jitc)                                                                            \
+    {                                                                                                                  \
+        ppc_opc_gen_interpret_loadstore(jitc, ppc_opc_##name);                                                         \
+        return flowEndBlock;                                                                                           \
     }
 
 /* Opcodes that change MSR or other global state: end the block */
@@ -190,59 +201,59 @@ GEN_INTERPRET(crxor)
  * Load/Store - native gen_ with TLB fast path in ppc_mmu.cc:
  *   lwz, stw, lbz, stb, lhz, sth
  */
-GEN_INTERPRET(lwzu)
-GEN_INTERPRET(lwzx)
-GEN_INTERPRET(lwzux)
-GEN_INTERPRET(lbzu)
-GEN_INTERPRET(lbzx)
-GEN_INTERPRET(lbzux)
-GEN_INTERPRET(lhzu)
-GEN_INTERPRET(lhzx)
-GEN_INTERPRET(lhzux)
-GEN_INTERPRET(lha)
-GEN_INTERPRET(lhau)
-GEN_INTERPRET(lhax)
-GEN_INTERPRET(lhaux)
-GEN_INTERPRET(stwu)
-GEN_INTERPRET(stwx)
-GEN_INTERPRET(stwux)
-GEN_INTERPRET(stbu)
-GEN_INTERPRET(stbx)
-GEN_INTERPRET(stbux)
-GEN_INTERPRET(sthu)
-GEN_INTERPRET(sthx)
-GEN_INTERPRET(sthux)
-GEN_INTERPRET(lmw)
-GEN_INTERPRET(stmw)
-GEN_INTERPRET(lwarx)
-GEN_INTERPRET(stwcx_)
-GEN_INTERPRET(lswi)
-GEN_INTERPRET(lswx)
-GEN_INTERPRET(stswi)
-GEN_INTERPRET(stswx)
-GEN_INTERPRET(lwbrx)
-GEN_INTERPRET(lhbrx)
-GEN_INTERPRET(stwbrx)
-GEN_INTERPRET(sthbrx)
+GEN_INTERPRET_LOADSTORE(lwzu)
+GEN_INTERPRET_LOADSTORE(lwzx)
+GEN_INTERPRET_LOADSTORE(lwzux)
+GEN_INTERPRET_LOADSTORE(lbzu)
+GEN_INTERPRET_LOADSTORE(lbzx)
+GEN_INTERPRET_LOADSTORE(lbzux)
+GEN_INTERPRET_LOADSTORE(lhzu)
+GEN_INTERPRET_LOADSTORE(lhzx)
+GEN_INTERPRET_LOADSTORE(lhzux)
+GEN_INTERPRET_LOADSTORE(lha)
+GEN_INTERPRET_LOADSTORE(lhau)
+GEN_INTERPRET_LOADSTORE(lhax)
+GEN_INTERPRET_LOADSTORE(lhaux)
+GEN_INTERPRET_LOADSTORE(stwu)
+GEN_INTERPRET_LOADSTORE(stwx)
+GEN_INTERPRET_LOADSTORE(stwux)
+GEN_INTERPRET_LOADSTORE(stbu)
+GEN_INTERPRET_LOADSTORE(stbx)
+GEN_INTERPRET_LOADSTORE(stbux)
+GEN_INTERPRET_LOADSTORE(sthu)
+GEN_INTERPRET_LOADSTORE(sthx)
+GEN_INTERPRET_LOADSTORE(sthux)
+GEN_INTERPRET_LOADSTORE(lmw)
+GEN_INTERPRET_LOADSTORE(stmw)
+GEN_INTERPRET_LOADSTORE(lwarx)
+GEN_INTERPRET_LOADSTORE(stwcx_)
+GEN_INTERPRET_LOADSTORE(lswi)
+GEN_INTERPRET_LOADSTORE(lswx)
+GEN_INTERPRET_LOADSTORE(stswi)
+GEN_INTERPRET_LOADSTORE(stswx)
+GEN_INTERPRET_LOADSTORE(lwbrx)
+GEN_INTERPRET_LOADSTORE(lhbrx)
+GEN_INTERPRET_LOADSTORE(stwbrx)
+GEN_INTERPRET_LOADSTORE(sthbrx)
 
 /* FPU load/store */
-GEN_INTERPRET(lfs)
-GEN_INTERPRET(lfsu)
-GEN_INTERPRET(lfsx)
-GEN_INTERPRET(lfsux)
-GEN_INTERPRET(lfd)
-GEN_INTERPRET(lfdu)
-GEN_INTERPRET(lfdx)
-GEN_INTERPRET(lfdux)
-GEN_INTERPRET(stfs)
-GEN_INTERPRET(stfsu)
-GEN_INTERPRET(stfsx)
-GEN_INTERPRET(stfsux)
-GEN_INTERPRET(stfd)
-GEN_INTERPRET(stfdu)
-GEN_INTERPRET(stfdx)
-GEN_INTERPRET(stfdux)
-GEN_INTERPRET(stfiwx)
+GEN_INTERPRET_LOADSTORE(lfs)
+GEN_INTERPRET_LOADSTORE(lfsu)
+GEN_INTERPRET_LOADSTORE(lfsx)
+GEN_INTERPRET_LOADSTORE(lfsux)
+GEN_INTERPRET_LOADSTORE(lfd)
+GEN_INTERPRET_LOADSTORE(lfdu)
+GEN_INTERPRET_LOADSTORE(lfdx)
+GEN_INTERPRET_LOADSTORE(lfdux)
+GEN_INTERPRET_LOADSTORE(stfs)
+GEN_INTERPRET_LOADSTORE(stfsu)
+GEN_INTERPRET_LOADSTORE(stfsx)
+GEN_INTERPRET_LOADSTORE(stfsux)
+GEN_INTERPRET_LOADSTORE(stfd)
+GEN_INTERPRET_LOADSTORE(stfdu)
+GEN_INTERPRET_LOADSTORE(stfdx)
+GEN_INTERPRET_LOADSTORE(stfdux)
+GEN_INTERPRET_LOADSTORE(stfiwx)
 
 /* FPU arithmetic */
 GEN_INTERPRET(fdivx)
@@ -294,7 +305,7 @@ GEN_INTERPRET_ENDBLOCK(tlbie)
 GEN_INTERPRET_ENDBLOCK(tlbia)
 GEN_INTERPRET(tlbsync)
 GEN_INTERPRET_ENDBLOCK(icbi)
-GEN_INTERPRET(dcbz)
+GEN_INTERPRET_LOADSTORE(dcbz)
 GEN_INTERPRET(dcba)
 GEN_INTERPRET(dcbf)
 GEN_INTERPRET(dcbi)
@@ -302,11 +313,11 @@ GEN_INTERPRET(dcbst)
 GEN_INTERPRET(dcbt)
 GEN_INTERPRET(dcbtst)
 
-static void ppc_opc_special(PPC_CPU_State &aCPU)
+static int ppc_opc_special(PPC_CPU_State &aCPU)
 {
     if (aCPU.pc == gPromOSIEntry && aCPU.current_opc == PROM_MAGIC_OPCODE) {
         call_prom_osi();
-        return;
+        return 0;
     }
     if (aCPU.current_opc == 0x00333301) {
         // memset(r3, r4, r5)
@@ -334,7 +345,7 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
             memset(dst, c, size);
         }
         aCPU.pc = aCPU.npc;
-        return;
+        return 0;
     }
     if (aCPU.current_opc == 0x00333302) {
         // memcpy
@@ -358,7 +369,7 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
             s++;
         }
         aCPU.pc = aCPU.npc;
-        return;
+        return 0;
     }
     if (aCPU.current_opc == 0x00333303) {
         // print string: r3 = address, r4 = length
@@ -371,7 +382,7 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
             }
         }
         aCPU.pc = aCPU.npc;
-        return;
+        return 0;
     }
     if (aCPU.current_opc == 0x00333304) {
         // exit: r3 = exit code
@@ -379,6 +390,7 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
         exit(aCPU.gpr[3]);
     }
     ppc_opc_invalid(aCPU);
+	return 0;
 }
 
 static JITCFlow ppc_opc_gen_special(JITC &jitc)
@@ -389,38 +401,38 @@ static JITCFlow ppc_opc_gen_special(JITC &jitc)
 }
 
 // main opcode 19
-static void ppc_opc_group_1(PPC_CPU_State &aCPU)
+static int ppc_opc_group_1(PPC_CPU_State &aCPU)
 {
     uint32 ext = PPC_OPC_EXT(aCPU.current_opc);
     if (ext & 1) {
         // crxxx
         if (ext <= 225) {
             switch (ext) {
-            case 33: ppc_opc_crnor(aCPU); return;
-            case 129: ppc_opc_crandc(aCPU); return;
-            case 193: ppc_opc_crxor(aCPU); return;
-            case 225: ppc_opc_crnand(aCPU); return;
+            case 33: ppc_opc_crnor(aCPU); return 0;
+            case 129: ppc_opc_crandc(aCPU); return 0;
+            case 193: ppc_opc_crxor(aCPU); return 0;
+            case 225: ppc_opc_crnand(aCPU); return 0;
             }
         } else {
             switch (ext) {
-            case 257: ppc_opc_crand(aCPU); return;
-            case 289: ppc_opc_creqv(aCPU); return;
-            case 417: ppc_opc_crorc(aCPU); return;
-            case 449: ppc_opc_cror(aCPU); return;
+            case 257: ppc_opc_crand(aCPU); return 0;
+            case 289: ppc_opc_creqv(aCPU); return 0;
+            case 417: ppc_opc_crorc(aCPU); return 0;
+            case 449: ppc_opc_cror(aCPU); return 0;
             }
         }
     } else if (ext & (1 << 9)) {
         // bcctrx
         if (ext == 528) {
             ppc_opc_bcctrx(aCPU);
-            return;
+            return 0;
         }
     } else {
         switch (ext) {
-        case 16: ppc_opc_bclrx(aCPU); return;
-        case 0: ppc_opc_mcrf(aCPU); return;
-        case 50: ppc_opc_rfi(aCPU); return;
-        case 150: ppc_opc_isync(aCPU); return;
+        case 16: ppc_opc_bclrx(aCPU); return 0;
+        case 0: ppc_opc_mcrf(aCPU); return 0;
+        case 50: ppc_opc_rfi(aCPU); return 0;
+        case 150: ppc_opc_isync(aCPU); return 0;
         }
     }
     return ppc_opc_invalid(aCPU);
@@ -663,13 +675,14 @@ static void ppc_opc_init_group2()
 }
 
 // main opcode 31
-static void ppc_opc_group_2(PPC_CPU_State &aCPU)
+static int ppc_opc_group_2(PPC_CPU_State &aCPU)
 {
     uint32 ext = PPC_OPC_EXT(aCPU.current_opc);
     if (ext >= (sizeof ppc_opc_table_group2 / sizeof ppc_opc_table_group2[0])) {
         ppc_opc_invalid(aCPU);
     }
     ppc_opc_table_group2[ext](aCPU);
+	return 0;
 }
 static JITCFlow ppc_opc_gen_group_2(JITC &aJITC)
 {
@@ -681,25 +694,26 @@ static JITCFlow ppc_opc_gen_group_2(JITC &aJITC)
 }
 
 // main opcode 59
-static void ppc_opc_group_f1(PPC_CPU_State &aCPU)
+static int ppc_opc_group_f1(PPC_CPU_State &aCPU)
 {
     if ((aCPU.msr & MSR_FP) == 0) {
-        return;
+        return 0;
     }
     uint32 ext = PPC_OPC_EXT(aCPU.current_opc);
     switch (ext & 0x1f) {
-    case 18: ppc_opc_fdivsx(aCPU); return;
-    case 20: ppc_opc_fsubsx(aCPU); return;
-    case 21: ppc_opc_faddsx(aCPU); return;
-    case 22: ppc_opc_fsqrtsx(aCPU); return;
-    case 24: ppc_opc_fresx(aCPU); return;
-    case 25: ppc_opc_fmulsx(aCPU); return;
-    case 28: ppc_opc_fmsubsx(aCPU); return;
-    case 29: ppc_opc_fmaddsx(aCPU); return;
-    case 30: ppc_opc_fnmsubsx(aCPU); return;
-    case 31: ppc_opc_fnmaddsx(aCPU); return;
+    case 18: ppc_opc_fdivsx(aCPU); return 0;
+    case 20: ppc_opc_fsubsx(aCPU); return 0;
+    case 21: ppc_opc_faddsx(aCPU); return 0;
+    case 22: ppc_opc_fsqrtsx(aCPU); return 0;
+    case 24: ppc_opc_fresx(aCPU); return 0;
+    case 25: ppc_opc_fmulsx(aCPU); return 0;
+    case 28: ppc_opc_fmsubsx(aCPU); return 0;
+    case 29: ppc_opc_fmaddsx(aCPU); return 0;
+    case 30: ppc_opc_fnmsubsx(aCPU); return 0;
+    case 31: ppc_opc_fnmaddsx(aCPU); return 0;
     }
     ppc_opc_invalid(aCPU);
+	return 0;
 }
 static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
 {
@@ -720,46 +734,47 @@ static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
 }
 
 // main opcode 63
-static void ppc_opc_group_f2(PPC_CPU_State &aCPU)
+static int ppc_opc_group_f2(PPC_CPU_State &aCPU)
 {
     if ((aCPU.msr & MSR_FP) == 0) {
-        return;
+        return 0;
     }
     uint32 ext = PPC_OPC_EXT(aCPU.current_opc);
     if (ext & 16) {
         switch (ext & 0x1f) {
-        case 18: ppc_opc_fdivx(aCPU); return;
-        case 20: ppc_opc_fsubx(aCPU); return;
-        case 21: ppc_opc_faddx(aCPU); return;
-        case 22: ppc_opc_fsqrtx(aCPU); return;
-        case 23: ppc_opc_fselx(aCPU); return;
-        case 25: ppc_opc_fmulx(aCPU); return;
-        case 26: ppc_opc_frsqrtex(aCPU); return;
-        case 28: ppc_opc_fmsubx(aCPU); return;
-        case 29: ppc_opc_fmaddx(aCPU); return;
-        case 30: ppc_opc_fnmsubx(aCPU); return;
-        case 31: ppc_opc_fnmaddx(aCPU); return;
+        case 18: ppc_opc_fdivx(aCPU); return 0;
+        case 20: ppc_opc_fsubx(aCPU); return 0;
+        case 21: ppc_opc_faddx(aCPU); return 0;
+        case 22: ppc_opc_fsqrtx(aCPU); return 0;
+        case 23: ppc_opc_fselx(aCPU); return 0;
+        case 25: ppc_opc_fmulx(aCPU); return 0;
+        case 26: ppc_opc_frsqrtex(aCPU); return 0;
+        case 28: ppc_opc_fmsubx(aCPU); return 0;
+        case 29: ppc_opc_fmaddx(aCPU); return 0;
+        case 30: ppc_opc_fnmsubx(aCPU); return 0;
+        case 31: ppc_opc_fnmaddx(aCPU); return 0;
         }
     } else {
         switch (ext) {
-        case 0: ppc_opc_fcmpu(aCPU); return;
-        case 12: ppc_opc_frspx(aCPU); return;
-        case 14: ppc_opc_fctiwx(aCPU); return;
-        case 15: ppc_opc_fctiwzx(aCPU); return;
-        case 32: ppc_opc_fcmpo(aCPU); return;
-        case 38: ppc_opc_mtfsb1x(aCPU); return;
-        case 40: ppc_opc_fnegx(aCPU); return;
-        case 64: ppc_opc_mcrfs(aCPU); return;
-        case 70: ppc_opc_mtfsb0x(aCPU); return;
-        case 72: ppc_opc_fmrx(aCPU); return;
-        case 134: ppc_opc_mtfsfix(aCPU); return;
-        case 136: ppc_opc_fnabsx(aCPU); return;
-        case 264: ppc_opc_fabsx(aCPU); return;
-        case 583: ppc_opc_mffsx(aCPU); return;
-        case 711: ppc_opc_mtfsfx(aCPU); return;
+        case 0: ppc_opc_fcmpu(aCPU); return 0;
+        case 12: ppc_opc_frspx(aCPU); return 0;
+        case 14: ppc_opc_fctiwx(aCPU); return 0;
+        case 15: ppc_opc_fctiwzx(aCPU); return 0;
+        case 32: ppc_opc_fcmpo(aCPU); return 0;
+        case 38: ppc_opc_mtfsb1x(aCPU); return 0;
+        case 40: ppc_opc_fnegx(aCPU); return 0;
+        case 64: ppc_opc_mcrfs(aCPU); return 0;
+        case 70: ppc_opc_mtfsb0x(aCPU); return 0;
+        case 72: ppc_opc_fmrx(aCPU); return 0;
+        case 134: ppc_opc_mtfsfix(aCPU); return 0;
+        case 136: ppc_opc_fnabsx(aCPU); return 0;
+        case 264: ppc_opc_fabsx(aCPU); return 0;
+        case 583: ppc_opc_mffsx(aCPU); return 0;
+        case 711: ppc_opc_mtfsfx(aCPU); return 0;
         }
     }
     ppc_opc_invalid(aCPU);
+	return 0;
 }
 static JITCFlow ppc_opc_gen_group_f2(JITC &aJITC)
 {

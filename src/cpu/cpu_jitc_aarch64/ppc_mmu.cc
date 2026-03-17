@@ -731,202 +731,238 @@ bool ppc_prom_page_free(uint32 ea)
  *	from the x86_64 version. For now, minimal stubs are provided.
  */
 
-void ppc_opc_dcbz(PPC_CPU_State &aCPU) {}
-void ppc_opc_dcba(PPC_CPU_State &aCPU) {}
-void ppc_opc_dcbf(PPC_CPU_State &aCPU) {}
-void ppc_opc_dcbi(PPC_CPU_State &aCPU) {}
-void ppc_opc_dcbst(PPC_CPU_State &aCPU) {}
-void ppc_opc_dcbt(PPC_CPU_State &aCPU) {}
-void ppc_opc_dcbtst(PPC_CPU_State &aCPU) {}
+int ppc_opc_dcbz(PPC_CPU_State &aCPU) { return PPC_MMU_OK; }
+int ppc_opc_dcba(PPC_CPU_State &aCPU) { return 0; }
+int ppc_opc_dcbf(PPC_CPU_State &aCPU) { return 0; }
+int ppc_opc_dcbi(PPC_CPU_State &aCPU) { return 0; }
+int ppc_opc_dcbst(PPC_CPU_State &aCPU) { return 0; }
+int ppc_opc_dcbt(PPC_CPU_State &aCPU) { return 0; }
+int ppc_opc_dcbtst(PPC_CPU_State &aCPU) { return 0; }
 
-void ppc_opc_lbz(PPC_CPU_State &aCPU)
+int ppc_opc_lbz(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     uint8 r;
-    if (ppc_read_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lbzu(PPC_CPU_State &aCPU)
+int ppc_opc_lbzu(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     uint8 r;
-    if (ppc_read_effective_byte(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_byte(aCPU, aCPU.gpr[rA] + imm, r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rA] += imm;
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lbzux(PPC_CPU_State &aCPU)
+int ppc_opc_lbzux(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     uint8 r;
-    if (ppc_read_effective_byte(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_byte(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rA] += aCPU.gpr[rB];
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lbzx(PPC_CPU_State &aCPU)
+int ppc_opc_lbzx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     uint8 r;
-    if (ppc_read_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lwz(PPC_CPU_State &aCPU)
+int ppc_opc_lwz(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     uint32 r;
-    if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lwzu(PPC_CPU_State &aCPU)
+int ppc_opc_lwzu(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     uint32 r;
-    if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_word(aCPU, aCPU.gpr[rA] + imm, r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rA] += imm;
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lwzux(PPC_CPU_State &aCPU)
+int ppc_opc_lwzux(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     uint32 r;
-    if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rA] += aCPU.gpr[rB];
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lwzx(PPC_CPU_State &aCPU)
+int ppc_opc_lwzx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     uint32 r;
-    if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lhz(PPC_CPU_State &aCPU)
+int ppc_opc_lhz(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     uint16 r;
-    if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+    int ret = ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r);
+    if (ret == PPC_MMU_OK) {
         aCPU.gpr[rD] = r;
     }
+    return ret;
 }
 
-void ppc_opc_lhzu(PPC_CPU_State &aCPU)
+int ppc_opc_lhzu(PPC_CPU_State &aCPU)
 {
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, aCPU.gpr[rA] + imm, r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 		aCPU.gpr[rD] = r;
 	}
+	return ret;
 }
-void ppc_opc_lhzux(PPC_CPU_State &aCPU)
+int ppc_opc_lhzux(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 		aCPU.gpr[rD] = r;
 	}
+	return ret;
 }
-void ppc_opc_lhzx(PPC_CPU_State &aCPU)
+int ppc_opc_lhzx(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rD] = r;
 	}
+	return ret;
 }
-void ppc_opc_lha(PPC_CPU_State &aCPU)
+int ppc_opc_lha(PPC_CPU_State &aCPU)
 {
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rD] = (sint32)(sint16)r;
 	}
+	return ret;
 }
-void ppc_opc_lhau(PPC_CPU_State &aCPU)
+int ppc_opc_lhau(PPC_CPU_State &aCPU)
 {
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, aCPU.gpr[rA] + imm, r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 		aCPU.gpr[rD] = (sint32)(sint16)r;
 	}
+	return ret;
 }
-void ppc_opc_lhaux(PPC_CPU_State &aCPU)
+int ppc_opc_lhaux(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 		aCPU.gpr[rD] = (sint32)(sint16)r;
 	}
+	return ret;
 }
-void ppc_opc_lhax(PPC_CPU_State &aCPU)
+int ppc_opc_lhax(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rD] = (sint32)(sint16)r;
 	}
+	return ret;
 }
-void ppc_opc_lhbrx(PPC_CPU_State &aCPU)
+int ppc_opc_lhbrx(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint16 r;
-	if (ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rD] = ppc_bswap_half(r);
 	}
+	return ret;
 }
-void ppc_opc_lwbrx(PPC_CPU_State &aCPU)
+int ppc_opc_lwbrx(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint32 r;
-	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rD] = ppc_bswap_word(r);
 	}
+	return ret;
 }
-void ppc_opc_lwarx(PPC_CPU_State &aCPU)
+int ppc_opc_lwarx(PPC_CPU_State &aCPU)
 {
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
@@ -937,8 +973,9 @@ void ppc_opc_lwarx(PPC_CPU_State &aCPU)
 		aCPU.reserve = r;
 		aCPU.have_reservation = 1;
 	}
+	return ret;
 }
-void ppc_opc_lmw(PPC_CPU_State &aCPU)
+int ppc_opc_lmw(PPC_CPU_State &aCPU)
 {
 	int rD, rA;
 	uint32 imm;
@@ -946,12 +983,14 @@ void ppc_opc_lmw(PPC_CPU_State &aCPU)
 	uint32 ea = (rA ? aCPU.gpr[rA] : 0) + imm;
 	for (int i = rD; i <= 31; i++) {
 		uint32 val;
-		if (ppc_read_effective_word(aCPU, ea, val) != PPC_MMU_OK) return;
+		int ret = ppc_read_effective_word(aCPU, ea, val);
+		if (ret != PPC_MMU_OK) return ret;
 		aCPU.gpr[i] = val;
 		ea += 4;
 	}
+	return PPC_MMU_OK;
 }
-void ppc_opc_lswi(PPC_CPU_State &aCPU)
+int ppc_opc_lswi(PPC_CPU_State &aCPU)
 {
 	int rA, rD, NB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, NB);
@@ -968,7 +1007,8 @@ void ppc_opc_lswi(PPC_CPU_State &aCPU)
 			rD %= 32;
 			r = 0;
 		}
-		if (ppc_read_effective_byte(aCPU, ea, v)) return;
+		int ret = ppc_read_effective_byte(aCPU, ea, v);
+		if (ret) return ret;
 		r <<= 8;
 		r |= v;
 		ea++;
@@ -977,8 +1017,9 @@ void ppc_opc_lswi(PPC_CPU_State &aCPU)
 	}
 	while (i) { r <<= 8; i--; }
 	aCPU.gpr[rD] = r;
+	return PPC_MMU_OK;
 }
-void ppc_opc_lswx(PPC_CPU_State &aCPU)
+int ppc_opc_lswx(PPC_CPU_State &aCPU)
 {
 	int rA, rD, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
@@ -995,7 +1036,8 @@ void ppc_opc_lswx(PPC_CPU_State &aCPU)
 			rD %= 32;
 			r = 0;
 		}
-		if (ppc_read_effective_byte(aCPU, ea, v)) return;
+		int ret = ppc_read_effective_byte(aCPU, ea, v);
+		if (ret) return ret;
 		r <<= 8;
 		r |= v;
 		ea++;
@@ -1004,78 +1046,87 @@ void ppc_opc_lswx(PPC_CPU_State &aCPU)
 	}
 	while (i) { r <<= 8; i--; }
 	aCPU.gpr[rD] = r;
+	return PPC_MMU_OK;
 }
 
-void ppc_opc_stb(PPC_CPU_State &aCPU)
+int ppc_opc_stb(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-    ppc_write_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, (uint8)aCPU.gpr[rS]);
+    return ppc_write_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, (uint8)aCPU.gpr[rS]);
 }
 
-void ppc_opc_stbu(PPC_CPU_State &aCPU)
+int ppc_opc_stbu(PPC_CPU_State &aCPU)
 {
 	int rS, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-	if (ppc_write_effective_byte(aCPU, aCPU.gpr[rA] + imm, (uint8)aCPU.gpr[rS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_byte(aCPU, aCPU.gpr[rA] + imm, (uint8)aCPU.gpr[rS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_stbux(PPC_CPU_State &aCPU)
+int ppc_opc_stbux(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	if (ppc_write_effective_byte(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], (uint8)aCPU.gpr[rS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_byte(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], (uint8)aCPU.gpr[rS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 	}
+	return ret;
 }
-void ppc_opc_stbx(PPC_CPU_State &aCPU)
+int ppc_opc_stbx(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	ppc_write_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint8)aCPU.gpr[rS]);
+	return ppc_write_effective_byte(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint8)aCPU.gpr[rS]);
 }
 
-void ppc_opc_stw(PPC_CPU_State &aCPU)
+int ppc_opc_stw(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-    ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, aCPU.gpr[rS]);
+    return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, aCPU.gpr[rS]);
 }
 
-void ppc_opc_stwu(PPC_CPU_State &aCPU)
+int ppc_opc_stwu(PPC_CPU_State &aCPU)
 {
 	int rS, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + imm, aCPU.gpr[rS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_word(aCPU, aCPU.gpr[rA] + imm, aCPU.gpr[rS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_stwux(PPC_CPU_State &aCPU)
+int ppc_opc_stwux(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], aCPU.gpr[rS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], aCPU.gpr[rS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 	}
+	return ret;
 }
-void ppc_opc_stwx(PPC_CPU_State &aCPU)
+int ppc_opc_stwx(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.gpr[rS]);
+	return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.gpr[rS]);
 }
-void ppc_opc_stwbrx(PPC_CPU_State &aCPU)
+int ppc_opc_stwbrx(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], ppc_bswap_word(aCPU.gpr[rS]));
+	return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], ppc_bswap_word(aCPU.gpr[rS]));
 }
-void ppc_opc_stwcx_(PPC_CPU_State &aCPU)
+int ppc_opc_stwcx_(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1083,12 +1134,14 @@ void ppc_opc_stwcx_(PPC_CPU_State &aCPU)
 	if (aCPU.have_reservation) {
 		aCPU.have_reservation = false;
 		uint32 v;
-		if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], v)) {
-			return;
+		int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], v);
+		if (ret) {
+			return ret;
 		}
 		if (v == aCPU.reserve) {
-			if (ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.gpr[rS])) {
-				return;
+			ret = ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.gpr[rS]);
+			if (ret) {
+				return ret;
 			}
 			aCPU.cr |= CR_CR0_EQ;
 		}
@@ -1096,57 +1149,64 @@ void ppc_opc_stwcx_(PPC_CPU_State &aCPU)
 			aCPU.cr |= CR_CR0_SO;
 		}
 	}
+	return PPC_MMU_OK;
 }
 
-void ppc_opc_sth(PPC_CPU_State &aCPU)
+int ppc_opc_sth(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-    ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, (uint16)aCPU.gpr[rS]);
+    return ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, (uint16)aCPU.gpr[rS]);
 }
 
-void ppc_opc_sthbrx(PPC_CPU_State &aCPU)
+int ppc_opc_sthbrx(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], ppc_bswap_half(aCPU.gpr[rS]));
+	return ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], ppc_bswap_half(aCPU.gpr[rS]));
 }
-void ppc_opc_sthu(PPC_CPU_State &aCPU)
+int ppc_opc_sthu(PPC_CPU_State &aCPU)
 {
 	int rS, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
-	if (ppc_write_effective_half(aCPU, aCPU.gpr[rA] + imm, (uint16)aCPU.gpr[rS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_half(aCPU, aCPU.gpr[rA] + imm, (uint16)aCPU.gpr[rS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_sthux(PPC_CPU_State &aCPU)
+int ppc_opc_sthux(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	if (ppc_write_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_half(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 	}
+	return ret;
 }
-void ppc_opc_sthx(PPC_CPU_State &aCPU)
+int ppc_opc_sthx(PPC_CPU_State &aCPU)
 {
 	int rS, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
-	ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]);
+	return ppc_write_effective_half(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint16)aCPU.gpr[rS]);
 }
-void ppc_opc_stmw(PPC_CPU_State &aCPU)
+int ppc_opc_stmw(PPC_CPU_State &aCPU)
 {
 	int rS, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rS, rA, imm);
 	uint32 ea = (rA ? aCPU.gpr[rA] : 0) + imm;
 	for (int i = rS; i <= 31; i++) {
-		if (ppc_write_effective_word(aCPU, ea, aCPU.gpr[i]) != PPC_MMU_OK) return;
+		int ret = ppc_write_effective_word(aCPU, ea, aCPU.gpr[i]);
+		if (ret != PPC_MMU_OK) return ret;
 		ea += 4;
 	}
+	return PPC_MMU_OK;
 }
-void ppc_opc_stswi(PPC_CPU_State &aCPU)
+int ppc_opc_stswi(PPC_CPU_State &aCPU)
 {
 	int rA, rS, NB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, NB);
@@ -1161,14 +1221,16 @@ void ppc_opc_stswi(PPC_CPU_State &aCPU)
 			rS %= 32;
 			i = 4;
 		}
-		if (ppc_write_effective_byte(aCPU, ea, (r >> 24))) return;
+		int ret = ppc_write_effective_byte(aCPU, ea, (r >> 24));
+		if (ret) return ret;
 		r <<= 8;
 		ea++;
 		i--;
 		NB--;
 	}
+	return PPC_MMU_OK;
 }
-void ppc_opc_stswx(PPC_CPU_State &aCPU)
+int ppc_opc_stswx(PPC_CPU_State &aCPU)
 {
 	int rA, rS, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1183,12 +1245,14 @@ void ppc_opc_stswx(PPC_CPU_State &aCPU)
 			rS %= 32;
 			i = 4;
 		}
-		if (ppc_write_effective_byte(aCPU, ea, (r >> 24))) return;
+		int ret = ppc_write_effective_byte(aCPU, ea, (r >> 24));
+		if (ret) return ret;
 		r <<= 8;
 		ea++;
 		i--;
 		NB--;
 	}
+	return PPC_MMU_OK;
 }
 
 /*
@@ -1200,76 +1264,87 @@ void ppc_opc_stswx(PPC_CPU_State &aCPU)
 
 #define FPU_CHECK(cpu) \
 	if (!(cpu.msr & MSR_FP)) { \
-		return; \
+		return PPC_MMU_OK; \
 	}
 
-void ppc_opc_lfd(PPC_CPU_State &aCPU)
+int ppc_opc_lfd(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
 	uint64 r;
-	if (ppc_read_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.fpr[frD] = r;
 	}
+	return ret;
 }
-void ppc_opc_lfdu(PPC_CPU_State &aCPU)
+int ppc_opc_lfdu(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
 	uint64 r;
-	if (ppc_read_effective_dword(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_dword(aCPU, aCPU.gpr[rA] + imm, r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.fpr[frD] = r;
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_lfdux(PPC_CPU_State &aCPU)
+int ppc_opc_lfdux(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
 	uint64 r;
-	if (ppc_read_effective_dword(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_dword(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 		aCPU.fpr[frD] = r;
 	}
+	return ret;
 }
-void ppc_opc_lfdx(PPC_CPU_State &aCPU)
+int ppc_opc_lfdx(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
 	uint64 r;
-	if (ppc_read_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.fpr[frD] = r;
 	}
+	return ret;
 }
-void ppc_opc_lfs(PPC_CPU_State &aCPU)
+int ppc_opc_lfs(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
 	uint32 r;
-	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, r);
+	if (ret == PPC_MMU_OK) {
 		ppc_single s;
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
 		ppc_fpu_single_to_double(s, d);
 		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
 	}
+	return ret;
 }
-void ppc_opc_lfsu(PPC_CPU_State &aCPU)
+int ppc_opc_lfsu(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frD, rA, imm);
 	uint32 r;
-	if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + imm, r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_word(aCPU, aCPU.gpr[rA] + imm, r);
+	if (ret == PPC_MMU_OK) {
 		ppc_single s;
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
@@ -1277,14 +1352,16 @@ void ppc_opc_lfsu(PPC_CPU_State &aCPU)
 		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_lfsux(PPC_CPU_State &aCPU)
+int ppc_opc_lfsux(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
 	uint32 r;
-	if (ppc_read_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		ppc_single s;
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
@@ -1292,63 +1369,70 @@ void ppc_opc_lfsux(PPC_CPU_State &aCPU)
 		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 	}
+	return ret;
 }
-void ppc_opc_lfsx(PPC_CPU_State &aCPU)
+int ppc_opc_lfsx(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frD, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
 	uint32 r;
-	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		ppc_single s;
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
 		ppc_fpu_single_to_double(s, d);
 		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
 	}
+	return ret;
 }
-void ppc_opc_stfd(PPC_CPU_State &aCPU)
+int ppc_opc_stfd(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frS, rA, imm);
-	ppc_write_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, aCPU.fpr[frS]);
+	return ppc_write_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, aCPU.fpr[frS]);
 }
-void ppc_opc_stfdu(PPC_CPU_State &aCPU)
+int ppc_opc_stfdu(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, frS, rA, imm);
-	if (ppc_write_effective_dword(aCPU, aCPU.gpr[rA] + imm, aCPU.fpr[frS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_dword(aCPU, aCPU.gpr[rA] + imm, aCPU.fpr[frS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_stfdux(PPC_CPU_State &aCPU)
+int ppc_opc_stfdux(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
-	if (ppc_write_effective_dword(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], aCPU.fpr[frS]) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_dword(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], aCPU.fpr[frS]);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 	}
+	return ret;
 }
-void ppc_opc_stfdx(PPC_CPU_State &aCPU)
+int ppc_opc_stfdx(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
-	ppc_write_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.fpr[frS]);
+	return ppc_write_effective_dword(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.fpr[frS]);
 }
-void ppc_opc_stfiwx(PPC_CPU_State &aCPU)
+int ppc_opc_stfiwx(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, frS, rA, rB);
-	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint32)aCPU.fpr[frS]);
+	return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], (uint32)aCPU.fpr[frS]);
 }
-void ppc_opc_stfs(PPC_CPU_State &aCPU)
+int ppc_opc_stfs(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS;
@@ -1358,9 +1442,9 @@ void ppc_opc_stfs(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
 	uint32 s;
 	ppc_fpu_pack_single(aCPU.fpscr, d, s);
-	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, s);
+	return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + imm, s);
 }
-void ppc_opc_stfsu(PPC_CPU_State &aCPU)
+int ppc_opc_stfsu(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS;
@@ -1370,11 +1454,13 @@ void ppc_opc_stfsu(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
 	uint32 s;
 	ppc_fpu_pack_single(aCPU.fpscr, d, s);
-	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + imm, s) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_word(aCPU, aCPU.gpr[rA] + imm, s);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += imm;
 	}
+	return ret;
 }
-void ppc_opc_stfsux(PPC_CPU_State &aCPU)
+int ppc_opc_stfsux(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS, rB;
@@ -1383,11 +1469,13 @@ void ppc_opc_stfsux(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
 	uint32 s;
 	ppc_fpu_pack_single(aCPU.fpscr, d, s);
-	if (ppc_write_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], s) == PPC_MMU_OK) {
+	int ret = ppc_write_effective_word(aCPU, aCPU.gpr[rA] + aCPU.gpr[rB], s);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rA] += aCPU.gpr[rB];
 	}
+	return ret;
 }
-void ppc_opc_stfsx(PPC_CPU_State &aCPU)
+int ppc_opc_stfsx(PPC_CPU_State &aCPU)
 {
 	FPU_CHECK(aCPU);
 	int rA, frS, rB;
@@ -1396,67 +1484,67 @@ void ppc_opc_stfsx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(d, aCPU.fpr[frS]);
 	uint32 s;
 	ppc_fpu_pack_single(aCPU.fpscr, d, s);
-	ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], s);
+	return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], s);
 }
 
 /* Altivec load/store stubs */
-void ppc_opc_lvx(PPC_CPU_State &aCPU)
+int ppc_opc_lvx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_lvxl(PPC_CPU_State &aCPU)
+int ppc_opc_lvxl(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_lvebx(PPC_CPU_State &aCPU)
+int ppc_opc_lvebx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_lvehx(PPC_CPU_State &aCPU)
+int ppc_opc_lvehx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_lvewx(PPC_CPU_State &aCPU)
+int ppc_opc_lvewx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_lvsl(PPC_CPU_State &aCPU)
+int ppc_opc_lvsl(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_lvsr(PPC_CPU_State &aCPU)
+int ppc_opc_lvsr(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_dst(PPC_CPU_State &aCPU)
+int ppc_opc_dst(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_stvx(PPC_CPU_State &aCPU)
+int ppc_opc_stvx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_stvxl(PPC_CPU_State &aCPU)
+int ppc_opc_stvxl(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_stvebx(PPC_CPU_State &aCPU)
+int ppc_opc_stvebx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_stvehx(PPC_CPU_State &aCPU)
+int ppc_opc_stvehx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_stvewx(PPC_CPU_State &aCPU)
+int ppc_opc_stvewx(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_dstst(PPC_CPU_State &aCPU)
+int ppc_opc_dstst(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }
-void ppc_opc_dss(PPC_CPU_State &aCPU)
+int ppc_opc_dss(PPC_CPU_State &aCPU)
 {
 	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
 }

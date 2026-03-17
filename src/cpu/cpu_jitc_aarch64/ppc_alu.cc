@@ -432,13 +432,13 @@ JITCFlow ppc_opc_gen_xoris(JITC &jitc)
  * to the interpreter when Rc is set.
  */
 /* Forward declarations for interpreter functions used by RC_FALLBACK */
-void ppc_opc_addx(PPC_CPU_State &);
-void ppc_opc_subfx(PPC_CPU_State &);
-void ppc_opc_andx(PPC_CPU_State &);
-void ppc_opc_orx(PPC_CPU_State &);
-void ppc_opc_xorx(PPC_CPU_State &);
-void ppc_opc_negx(PPC_CPU_State &);
-void ppc_opc_mullwx(PPC_CPU_State &);
+int ppc_opc_addx(PPC_CPU_State &);
+int ppc_opc_subfx(PPC_CPU_State &);
+int ppc_opc_andx(PPC_CPU_State &);
+int ppc_opc_orx(PPC_CPU_State &);
+int ppc_opc_xorx(PPC_CPU_State &);
+int ppc_opc_negx(PPC_CPU_State &);
+int ppc_opc_mullwx(PPC_CPU_State &);
 
 #define RC_FALLBACK(interp_func) \
     if (jitc.current_opc & PPC_OPC_Rc) { \
@@ -633,7 +633,7 @@ static inline uint32 ppc_mask(int MB, int ME)
  *	addx		Add
  *	.422
  */
-void ppc_opc_addx(PPC_CPU_State &aCPU)
+int ppc_opc_addx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -641,13 +641,14 @@ void ppc_opc_addx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	addox		Add with Overflow
  *	.422
  */
-void ppc_opc_addox(PPC_CPU_State &aCPU)
+int ppc_opc_addox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -657,13 +658,14 @@ void ppc_opc_addox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addox unimplemented\n");
+	return 0;
 }
 
 /*
  *	addcx		Add Carrying
  *	.423
  */
-void ppc_opc_addcx(PPC_CPU_State &aCPU)
+int ppc_opc_addcx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -673,13 +675,14 @@ void ppc_opc_addcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	addcox		Add Carrying with Overflow
  *	.423
  */
-void ppc_opc_addcox(PPC_CPU_State &aCPU)
+int ppc_opc_addcox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -691,13 +694,14 @@ void ppc_opc_addcox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addcox unimplemented\n");
+	return 0;
 }
 
 /*
  *	addex		Add Extended
  *	.424
  */
-void ppc_opc_addex(PPC_CPU_State &aCPU)
+int ppc_opc_addex(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -709,13 +713,14 @@ void ppc_opc_addex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	addeox		Add Extended with Overflow
  *	.424
  */
-void ppc_opc_addeox(PPC_CPU_State &aCPU)
+int ppc_opc_addeox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -729,25 +734,27 @@ void ppc_opc_addeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addeox unimplemented\n");
+	return 0;
 }
 
 /*
  *	addi		Add Immediate
  *	.425
  */
-void ppc_opc_addi(PPC_CPU_State &aCPU)
+int ppc_opc_addi(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     aCPU.gpr[rD] = (rA ? aCPU.gpr[rA] : 0) + imm;
+	return 0;
 }
 
 /*
  *	addic		Add Immediate Carrying
  *	.426
  */
-void ppc_opc_addic(PPC_CPU_State &aCPU)
+int ppc_opc_addic(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
@@ -755,13 +762,14 @@ void ppc_opc_addic(PPC_CPU_State &aCPU)
     uint32 a = aCPU.gpr[rA];
     aCPU.gpr[rD] = a + imm;
     aCPU.xer_ca = (aCPU.gpr[rD] < a);
+	return 0;
 }
 
 /*
  *	addic.		Add Immediate Carrying and Record
  *	.427
  */
-void ppc_opc_addic_(PPC_CPU_State &aCPU)
+int ppc_opc_addic_(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
@@ -770,25 +778,27 @@ void ppc_opc_addic_(PPC_CPU_State &aCPU)
     aCPU.gpr[rD] = a + imm;
     aCPU.xer_ca = (aCPU.gpr[rD] < a);
     ppc_update_cr0(aCPU, aCPU.gpr[rD]);
+	return 0;
 }
 
 /*
  *	addis		Add Immediate Shifted
  *	.428
  */
-void ppc_opc_addis(PPC_CPU_State &aCPU)
+int ppc_opc_addis(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rD, rA, imm);
     aCPU.gpr[rD] = (rA ? aCPU.gpr[rA] : 0) + imm;
+	return 0;
 }
 
 /*
  *	addmex		Add to Minus One Extended
  *	.429
  */
-void ppc_opc_addmex(PPC_CPU_State &aCPU)
+int ppc_opc_addmex(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -800,13 +810,14 @@ void ppc_opc_addmex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	addmeox		Add to Minus One Extended with Overflow
  *	.429
  */
-void ppc_opc_addmeox(PPC_CPU_State &aCPU)
+int ppc_opc_addmeox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -820,13 +831,14 @@ void ppc_opc_addmeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addmeox unimplemented\n");
+	return 0;
 }
 
 /*
  *	addzex		Add to Zero Extended
  *	.430
  */
-void ppc_opc_addzex(PPC_CPU_State &aCPU)
+int ppc_opc_addzex(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -838,13 +850,14 @@ void ppc_opc_addzex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	addzeox		Add to Zero Extended with Overflow
  *	.430
  */
-void ppc_opc_addzeox(PPC_CPU_State &aCPU)
+int ppc_opc_addzeox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -858,13 +871,14 @@ void ppc_opc_addzeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addzeox unimplemented\n");
+	return 0;
 }
 
 /*
  *	andx		AND
  *	.431
  */
-void ppc_opc_andx(PPC_CPU_State &aCPU)
+int ppc_opc_andx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -872,13 +886,14 @@ void ppc_opc_andx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	andcx		AND with Complement
  *	.432
  */
-void ppc_opc_andcx(PPC_CPU_State &aCPU)
+int ppc_opc_andcx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -886,35 +901,38 @@ void ppc_opc_andcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	andi.		AND Immediate
  *	.433
  */
-void ppc_opc_andi_(PPC_CPU_State &aCPU)
+int ppc_opc_andi_(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] & imm;
     ppc_update_cr0(aCPU, aCPU.gpr[rA]);
+	return 0;
 }
 
 /*
  *	andis.		AND Immediate Shifted
  *	.434
  */
-void ppc_opc_andis_(PPC_CPU_State &aCPU)
+int ppc_opc_andis_(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] & imm;
     ppc_update_cr0(aCPU, aCPU.gpr[rA]);
+	return 0;
 }
 
-void ppc_opc_cmp(PPC_CPU_State &aCPU)
+int ppc_opc_cmp(PPC_CPU_State &aCPU)
 {
     uint32 cr;
     int rA, rB;
@@ -936,13 +954,14 @@ void ppc_opc_cmp(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
+	return 0;
 }
 
 /*
  *	cmpi		Compare Immediate
  *	.443
  */
-void ppc_opc_cmpi(PPC_CPU_State &aCPU)
+int ppc_opc_cmpi(PPC_CPU_State &aCPU)
 {
     uint32 cr;
     int rA;
@@ -965,13 +984,14 @@ void ppc_opc_cmpi(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
+	return 0;
 }
 
 /*
  *	cmpl		Compare Logical
  *	.444
  */
-void ppc_opc_cmpl(PPC_CPU_State &aCPU)
+int ppc_opc_cmpl(PPC_CPU_State &aCPU)
 {
     uint32 cr;
     int rA, rB;
@@ -993,13 +1013,14 @@ void ppc_opc_cmpl(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
+	return 0;
 }
 
 /*
  *	cmpli		Compare Logical Immediate
  *	.445
  */
-void ppc_opc_cmpli(PPC_CPU_State &aCPU)
+int ppc_opc_cmpli(PPC_CPU_State &aCPU)
 {
     uint32 cr;
     int rA;
@@ -1022,13 +1043,14 @@ void ppc_opc_cmpli(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
+	return 0;
 }
 
 /*
  *	cntlzwx		Count Leading Zeros Word
  *	.447
  */
-void ppc_opc_cntlzwx(PPC_CPU_State &aCPU)
+int ppc_opc_cntlzwx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1047,13 +1069,14 @@ void ppc_opc_cntlzwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	crand		Condition Register AND
  *	.448
  */
-void ppc_opc_crand(PPC_CPU_State &aCPU)
+int ppc_opc_crand(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1062,13 +1085,14 @@ void ppc_opc_crand(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	crandc		Condition Register AND with Complement
  *	.449
  */
-void ppc_opc_crandc(PPC_CPU_State &aCPU)
+int ppc_opc_crandc(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1077,13 +1101,14 @@ void ppc_opc_crandc(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	creqv		Condition Register Equivalent
  *	.450
  */
-void ppc_opc_creqv(PPC_CPU_State &aCPU)
+int ppc_opc_creqv(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1093,13 +1118,14 @@ void ppc_opc_creqv(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	crnand		Condition Register NAND
  *	.451
  */
-void ppc_opc_crnand(PPC_CPU_State &aCPU)
+int ppc_opc_crnand(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1108,13 +1134,14 @@ void ppc_opc_crnand(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	crnor		Condition Register NOR
  *	.452
  */
-void ppc_opc_crnor(PPC_CPU_State &aCPU)
+int ppc_opc_crnor(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1124,13 +1151,14 @@ void ppc_opc_crnor(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	cror		Condition Register OR
  *	.453
  */
-void ppc_opc_cror(PPC_CPU_State &aCPU)
+int ppc_opc_cror(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1140,13 +1168,14 @@ void ppc_opc_cror(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	crorc		Condition Register OR with Complement
  *	.454
  */
-void ppc_opc_crorc(PPC_CPU_State &aCPU)
+int ppc_opc_crorc(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1155,13 +1184,14 @@ void ppc_opc_crorc(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	crxor		Condition Register XOR
  *	.448
  */
-void ppc_opc_crxor(PPC_CPU_State &aCPU)
+int ppc_opc_crxor(PPC_CPU_State &aCPU)
 {
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crA, crB);
@@ -1171,13 +1201,14 @@ void ppc_opc_crxor(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
+	return 0;
 }
 
 /*
  *	divwx		Divide Word
  *	.470
  */
-void ppc_opc_divwx(PPC_CPU_State &aCPU)
+int ppc_opc_divwx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1192,13 +1223,14 @@ void ppc_opc_divwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	divwox		Divide Word with Overflow
  *	.470
  */
-void ppc_opc_divwox(PPC_CPU_State &aCPU)
+int ppc_opc_divwox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1214,13 +1246,14 @@ void ppc_opc_divwox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("divwox unimplemented\n");
+	return 0;
 }
 
 /*
  *	divwux		Divide Word Unsigned
  *	.472
  */
-void ppc_opc_divwux(PPC_CPU_State &aCPU)
+int ppc_opc_divwux(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1233,13 +1266,14 @@ void ppc_opc_divwux(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	divwuox		Divide Word Unsigned with Overflow
  *	.472
  */
-void ppc_opc_divwuox(PPC_CPU_State &aCPU)
+int ppc_opc_divwuox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1253,13 +1287,14 @@ void ppc_opc_divwuox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("divwuox unimplemented\n");
+	return 0;
 }
 
 /*
  *	eqvx		Equivalent
  *	.480
  */
-void ppc_opc_eqvx(PPC_CPU_State &aCPU)
+int ppc_opc_eqvx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1267,13 +1302,14 @@ void ppc_opc_eqvx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	extsbx		Extend Sign Byte
  *	.481
  */
-void ppc_opc_extsbx(PPC_CPU_State &aCPU)
+int ppc_opc_extsbx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1287,13 +1323,14 @@ void ppc_opc_extsbx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	extshx		Extend Sign Half Word
  *	.482
  */
-void ppc_opc_extshx(PPC_CPU_State &aCPU)
+int ppc_opc_extshx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1307,13 +1344,14 @@ void ppc_opc_extshx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	mulhwx		Multiply High Word
  *	.595
  */
-void ppc_opc_mulhwx(PPC_CPU_State &aCPU)
+int ppc_opc_mulhwx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1324,13 +1362,14 @@ void ppc_opc_mulhwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	mulhwux		Multiply High Word Unsigned
  *	.596
  */
-void ppc_opc_mulhwux(PPC_CPU_State &aCPU)
+int ppc_opc_mulhwux(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1341,26 +1380,28 @@ void ppc_opc_mulhwux(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	mulli		Multiply Low Immediate
  *	.598
  */
-void ppc_opc_mulli(PPC_CPU_State &aCPU)
+int ppc_opc_mulli(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     // FIXME: signed / unsigned correct?
     aCPU.gpr[rD] = aCPU.gpr[rA] * imm;
+	return 0;
 }
 
 /*
  *	mullwx		Multiply Low Word
  *	.599
  */
-void ppc_opc_mullwx(PPC_CPU_State &aCPU)
+int ppc_opc_mullwx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1372,13 +1413,14 @@ void ppc_opc_mullwx(PPC_CPU_State &aCPU)
         // update XER flags
         PPC_ALU_ERR("mullwox unimplemented\n");
     }
+	return 0;
 }
 
 /*
  *	nandx		NAND
  *	.600
  */
-void ppc_opc_nandx(PPC_CPU_State &aCPU)
+int ppc_opc_nandx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1386,13 +1428,14 @@ void ppc_opc_nandx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	negx		Negate
  *	.601
  */
-void ppc_opc_negx(PPC_CPU_State &aCPU)
+int ppc_opc_negx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1401,13 +1444,14 @@ void ppc_opc_negx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	negox		Negate with Overflow
  *	.601
  */
-void ppc_opc_negox(PPC_CPU_State &aCPU)
+int ppc_opc_negox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1418,13 +1462,14 @@ void ppc_opc_negox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("negox unimplemented\n");
+	return 0;
 }
 
 /*
  *	norx		NOR
  *	.602
  */
-void ppc_opc_norx(PPC_CPU_State &aCPU)
+int ppc_opc_norx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1432,13 +1477,14 @@ void ppc_opc_norx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	orx		OR
  *	.603
  */
-void ppc_opc_orx(PPC_CPU_State &aCPU)
+int ppc_opc_orx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1446,13 +1492,14 @@ void ppc_opc_orx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	orcx		OR with Complement
  *	.604
  */
-void ppc_opc_orcx(PPC_CPU_State &aCPU)
+int ppc_opc_orcx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1460,37 +1507,40 @@ void ppc_opc_orcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	ori		OR Immediate
  *	.605
  */
-void ppc_opc_ori(PPC_CPU_State &aCPU)
+int ppc_opc_ori(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] | imm;
+	return 0;
 }
 
 /*
  *	oris		OR Immediate Shifted
  *	.606
  */
-void ppc_opc_oris(PPC_CPU_State &aCPU)
+int ppc_opc_oris(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] | imm;
+	return 0;
 }
 
 /*
  *	rlwimix		Rotate Left Word Immediate then Mask Insert
  *	.617
  */
-void ppc_opc_rlwimix(PPC_CPU_State &aCPU)
+int ppc_opc_rlwimix(PPC_CPU_State &aCPU)
 {
     int rS, rA, SH, MB, ME;
     PPC_OPC_TEMPL_M(aCPU.current_opc, rS, rA, SH, MB, ME);
@@ -1500,13 +1550,14 @@ void ppc_opc_rlwimix(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	rlwinmx		Rotate Left Word Immediate then AND with Mask
  *	.618
  */
-void ppc_opc_rlwinmx(PPC_CPU_State &aCPU)
+int ppc_opc_rlwinmx(PPC_CPU_State &aCPU)
 {
     int rS, rA, SH;
     uint32 MB, ME;
@@ -1517,13 +1568,14 @@ void ppc_opc_rlwinmx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	rlwnmx		Rotate Left Word then AND with Mask
  *	.620
  */
-void ppc_opc_rlwnmx(PPC_CPU_State &aCPU)
+int ppc_opc_rlwnmx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB, MB, ME;
     PPC_OPC_TEMPL_M(aCPU.current_opc, rS, rA, rB, MB, ME);
@@ -1533,13 +1585,14 @@ void ppc_opc_rlwnmx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	slwx		Shift Left Word
  *	.625
  */
-void ppc_opc_slwx(PPC_CPU_State &aCPU)
+int ppc_opc_slwx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1552,13 +1605,14 @@ void ppc_opc_slwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	srawx		Shift Right Algebraic Word
  *	.628
  */
-void ppc_opc_srawx(PPC_CPU_State &aCPU)
+int ppc_opc_srawx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1587,13 +1641,14 @@ void ppc_opc_srawx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	srawix		Shift Right Algebraic Word Immediate
  *	.629
  */
-void ppc_opc_srawix(PPC_CPU_State &aCPU)
+int ppc_opc_srawix(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 SH;
@@ -1618,13 +1673,14 @@ void ppc_opc_srawix(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	srwx		Shift Right Word
  *	.631
  */
-void ppc_opc_srwx(PPC_CPU_State &aCPU)
+int ppc_opc_srwx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1637,13 +1693,14 @@ void ppc_opc_srwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	subfx		Subtract From
  *	.666
  */
-void ppc_opc_subfx(PPC_CPU_State &aCPU)
+int ppc_opc_subfx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1651,13 +1708,14 @@ void ppc_opc_subfx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	subfox		Subtract From with Overflow
  *	.666
  */
-void ppc_opc_subfox(PPC_CPU_State &aCPU)
+int ppc_opc_subfox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1667,13 +1725,14 @@ void ppc_opc_subfox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfox unimplemented\n");
+	return 0;
 }
 
 /*
  *	subfcx		Subtract From Carrying
  *	.667
  */
-void ppc_opc_subfcx(PPC_CPU_State &aCPU)
+int ppc_opc_subfcx(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1684,13 +1743,14 @@ void ppc_opc_subfcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	subfcox		Subtract From Carrying with Overflow
  *	.667
  */
-void ppc_opc_subfcox(PPC_CPU_State &aCPU)
+int ppc_opc_subfcox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1703,13 +1763,14 @@ void ppc_opc_subfcox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfcox unimplemented\n");
+	return 0;
 }
 
 /*
  *	subfex		Subtract From Extended
  *	.668
  */
-void ppc_opc_subfex(PPC_CPU_State &aCPU)
+int ppc_opc_subfex(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1721,13 +1782,14 @@ void ppc_opc_subfex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	subfeox		Subtract From Extended with Overflow
  *	.668
  */
-void ppc_opc_subfeox(PPC_CPU_State &aCPU)
+int ppc_opc_subfeox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1741,13 +1803,14 @@ void ppc_opc_subfeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfeox unimplemented\n");
+	return 0;
 }
 
 /*
  *	subfic		Subtract From Immediate Carrying
  *	.669
  */
-void ppc_opc_subfic(PPC_CPU_State &aCPU)
+int ppc_opc_subfic(PPC_CPU_State &aCPU)
 {
     int rD, rA;
     uint32 imm;
@@ -1755,13 +1818,14 @@ void ppc_opc_subfic(PPC_CPU_State &aCPU)
     uint32 a = aCPU.gpr[rA];
     aCPU.gpr[rD] = ~a + imm + 1;
     aCPU.xer_ca = (ppc_carry_3(~a, imm, 1));
+	return 0;
 }
 
 /*
  *	subfmex		Subtract From Minus One Extended
  *	.670
  */
-void ppc_opc_subfmex(PPC_CPU_State &aCPU)
+int ppc_opc_subfmex(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1773,13 +1837,14 @@ void ppc_opc_subfmex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	subfmeox	Subtract From Minus One Extended with Overflow
  *	.670
  */
-void ppc_opc_subfmeox(PPC_CPU_State &aCPU)
+int ppc_opc_subfmeox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1793,13 +1858,14 @@ void ppc_opc_subfmeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfmeox unimplemented\n");
+	return 0;
 }
 
 /*
  *	subfzex		Subtract From Zero Extended
  *	.671
  */
-void ppc_opc_subfzex(PPC_CPU_State &aCPU)
+int ppc_opc_subfzex(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1811,13 +1877,14 @@ void ppc_opc_subfzex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
+	return 0;
 }
 
 /*
  *	subfzeox	Subtract From Zero Extended with Overflow
  *	.671
  */
-void ppc_opc_subfzeox(PPC_CPU_State &aCPU)
+int ppc_opc_subfzeox(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, rA, rB);
@@ -1831,13 +1898,14 @@ void ppc_opc_subfzeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfzeox unimplemented\n");
+	return 0;
 }
 
 /*
  *	xorx		XOR
  *	.680
  */
-void ppc_opc_xorx(PPC_CPU_State &aCPU)
+int ppc_opc_xorx(PPC_CPU_State &aCPU)
 {
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
@@ -1845,37 +1913,40 @@ void ppc_opc_xorx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
+	return 0;
 }
 
 /*
  *	xori		XOR Immediate
  *	.681
  */
-void ppc_opc_xori(PPC_CPU_State &aCPU)
+int ppc_opc_xori(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] ^ imm;
+	return 0;
 }
 
 /*
  *	xoris		XOR Immediate Shifted
  *	.682
  */
-void ppc_opc_xoris(PPC_CPU_State &aCPU)
+int ppc_opc_xoris(PPC_CPU_State &aCPU)
 {
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] ^ imm;
+	return 0;
 }
 
 /*
  *	bx		Branch
  *	.435
  */
-void ppc_opc_bx(PPC_CPU_State &aCPU)
+int ppc_opc_bx(PPC_CPU_State &aCPU)
 {
     uint32 li;
     PPC_OPC_TEMPL_I(aCPU.current_opc, li);
@@ -1886,13 +1957,14 @@ void ppc_opc_bx(PPC_CPU_State &aCPU)
         aCPU.lr = aCPU.pc + 4;
     }
     aCPU.npc = li;
+	return 0;
 }
 
 /*
  *	bcx		Branch Conditional
  *	.436
  */
-void ppc_opc_bcx(PPC_CPU_State &aCPU)
+int ppc_opc_bcx(PPC_CPU_State &aCPU)
 {
     uint32 BO, BI, BD;
     PPC_OPC_TEMPL_B(aCPU.current_opc, BO, BI, BD);
@@ -1911,13 +1983,14 @@ void ppc_opc_bcx(PPC_CPU_State &aCPU)
         }
         aCPU.npc = BD;
     }
+	return 0;
 }
 
 /*
  *	bcctrx		Branch Conditional to Count Register
  *	.438
  */
-void ppc_opc_bcctrx(PPC_CPU_State &aCPU)
+int ppc_opc_bcctrx(PPC_CPU_State &aCPU)
 {
     uint32 BO, BI, BD;
     PPC_OPC_TEMPL_XL(aCPU.current_opc, BO, BI, BD);
@@ -1931,13 +2004,14 @@ void ppc_opc_bcctrx(PPC_CPU_State &aCPU)
         }
         aCPU.npc = aCPU.ctr & 0xfffffffc;
     }
+	return 0;
 }
 
 /*
  *	bclrx		Branch Conditional to Link Register
  *	.440
  */
-void ppc_opc_bclrx(PPC_CPU_State &aCPU)
+int ppc_opc_bclrx(PPC_CPU_State &aCPU)
 {
     uint32 BO, BI, BD;
     PPC_OPC_TEMPL_XL(aCPU.current_opc, BO, BI, BD);
@@ -1955,6 +2029,7 @@ void ppc_opc_bclrx(PPC_CPU_State &aCPU)
         }
         aCPU.npc = BD;
     }
+	return 0;
 }
 
 /*
@@ -1986,66 +2061,71 @@ void ppc_opc_bclrx(PPC_CPU_State &aCPU)
  *	eciwx		External Control In Word Indexed
  *	.474
  */
-void ppc_opc_eciwx(PPC_CPU_State &aCPU)
+int ppc_opc_eciwx(PPC_CPU_State &aCPU)
 {
     PPC_OPC_ERR("eciwx unimplemented.\n");
+	return 0;
 }
 
 /*
  *	ecowx		External Control Out Word Indexed
  *	.476
  */
-void ppc_opc_ecowx(PPC_CPU_State &aCPU)
+int ppc_opc_ecowx(PPC_CPU_State &aCPU)
 {
     PPC_OPC_ERR("ecowx unimplemented.\n");
+	return 0;
 }
 
 /*
  *	eieio		Enforce In-Order Execution of I/O
  *	.478
  */
-void ppc_opc_eieio(PPC_CPU_State &aCPU)
+int ppc_opc_eieio(PPC_CPU_State &aCPU)
 {
     // NO-OP
+	return 0;
 }
 
 /*
  *	icbi		Instruction Cache Block Invalidate
  *	.519
  */
-void ppc_opc_icbi(PPC_CPU_State &aCPU)
+int ppc_opc_icbi(PPC_CPU_State &aCPU)
 {
     int rA, rD, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     uint32 ea = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
     uint32 pa;
     if (ppc_effective_to_physical(aCPU, ea, PPC_MMU_READ | PPC_MMU_NO_EXC, pa) != PPC_MMU_OK) {
-        return;
+        return 0;
     }
-    if (pa >= gMemorySize) return;
-    if (!aCPU.jitc) return;
+    if (pa >= gMemorySize) return 0;
+    if (!aCPU.jitc) return 0;
     uint32 pageIndex = pa >> 12;
     JITC &jitc = *aCPU.jitc;
     ClientPage *cp = jitc.clientPages[pageIndex];
     if (cp) {
         jitcDestroyAndFreeClientPage(jitc, cp);
     }
+	return 0;
 }
 
 /*
  *	isync		Instruction Synchronize
  *	.520
  */
-void ppc_opc_isync(PPC_CPU_State &aCPU)
+int ppc_opc_isync(PPC_CPU_State &aCPU)
 {
     // NO-OP
+	return 0;
 }
 
 /*
  *	mcrf		Move Condition Register Field
  *	.561
  */
-void ppc_opc_mcrf(PPC_CPU_State &aCPU)
+int ppc_opc_mcrf(PPC_CPU_State &aCPU)
 {
     uint32 crD, crS, bla;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, crS, bla);
@@ -2057,22 +2137,24 @@ void ppc_opc_mcrf(PPC_CPU_State &aCPU)
     uint32 c = (aCPU.cr >> (crS * 4)) & 0xf;
     aCPU.cr &= ppc_cmp_and_mask[crD];
     aCPU.cr |= c << (crD * 4);
+	return 0;
 }
 
 /*
  *	mcrfs		Move to Condition Register from FPSCR
  *	.562
  */
-void ppc_opc_mcrfs(PPC_CPU_State &aCPU)
+int ppc_opc_mcrfs(PPC_CPU_State &aCPU)
 {
     PPC_OPC_ERR("mcrfs unimplemented.\n");
+	return 0;
 }
 
 /*
  *	mcrxr		Move to Condition Register from XER
  *	.563
  */
-void ppc_opc_mcrxr(PPC_CPU_State &aCPU)
+int ppc_opc_mcrxr(PPC_CPU_State &aCPU)
 {
     int crD, a, b;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crD, a, b);
@@ -2082,25 +2164,27 @@ void ppc_opc_mcrxr(PPC_CPU_State &aCPU)
     aCPU.cr |= (((aCPU.xer & 0xf0000000) | (aCPU.xer_ca ? XER_CA : 0)) >> 28) << (crD * 4);
     aCPU.xer = ~0xf0000000;
     aCPU.xer_ca = 0;
+	return 0;
 }
 
 /*
  *	mfcr		Move from Condition Register
  *	.564
  */
-void ppc_opc_mfcr(PPC_CPU_State &aCPU)
+int ppc_opc_mfcr(PPC_CPU_State &aCPU)
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     PPC_OPC_ASSERT(rA == 0 && rB == 0);
     aCPU.gpr[rD] = aCPU.cr;
+	return 0;
 }
 
 /*
  *	mffs		Move from FPSCR
  *	.565
  */
-void ppc_opc_mffsx(PPC_CPU_State &aCPU)
+int ppc_opc_mffsx(PPC_CPU_State &aCPU)
 {
     int frD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, frD, rA, rB);
@@ -2110,212 +2194,218 @@ void ppc_opc_mffsx(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mffs. unimplemented.\n");
     }
+	return 0;
 }
 
 /*
  *	mfmsr		Move from Machine State Register
  *	.566
  */
-void ppc_opc_mfmsr(PPC_CPU_State &aCPU)
+int ppc_opc_mfmsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     PPC_OPC_ASSERT((rA == 0) && (rB == 0));
     aCPU.gpr[rD] = aCPU.msr;
+	return 0;
 }
 
 /*
  *	mfspr		Move from Special-Purpose Register
  *	.567
  */
-void ppc_opc_mfspr(PPC_CPU_State &aCPU)
+int ppc_opc_mfspr(PPC_CPU_State &aCPU)
 {
     int rD, spr1, spr2;
     PPC_OPC_TEMPL_XO(aCPU.current_opc, rD, spr1, spr2);
     switch (spr2) {
     case 0:
         switch (spr1) {
-        case 1: aCPU.gpr[rD] = aCPU.xer | (aCPU.xer_ca ? XER_CA : 0); return;
-        case 8: aCPU.gpr[rD] = aCPU.lr; return;
-        case 9: aCPU.gpr[rD] = aCPU.ctr; return;
+        case 1: aCPU.gpr[rD] = aCPU.xer | (aCPU.xer_ca ? XER_CA : 0); return 0;
+        case 8: aCPU.gpr[rD] = aCPU.lr; return 0;
+        case 9: aCPU.gpr[rD] = aCPU.ctr; return 0;
         }
     case 8: // altivec makes this user visible
         if (spr1 == 0) {
             aCPU.gpr[rD] = aCPU.vrsave;
-            return;
+            return 0;
         }
     }
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     switch (spr2) {
     case 0:
         switch (spr1) {
-        case 18: aCPU.gpr[rD] = aCPU.dsisr; return;
-        case 19: aCPU.gpr[rD] = aCPU.dar; return;
+        case 18: aCPU.gpr[rD] = aCPU.dsisr; return 0;
+        case 19: aCPU.gpr[rD] = aCPU.dar; return 0;
         case 22: {
             readDEC(aCPU); aCPU.gpr[rD] = aCPU.dec;
             static int rc = 0; rc++;
             if (rc <= 100 || rc % 1000 == 0)
                 fprintf(stderr, "[SPR] mfspr DEC #%d: dec=%08x pc=%08x\n", rc, aCPU.dec, aCPU.pc);
-            return;
+            return 0;
         }
-        case 25: aCPU.gpr[rD] = aCPU.sdr1; return;
-        case 26: aCPU.gpr[rD] = aCPU.srr[0]; return;
-        case 27: aCPU.gpr[rD] = aCPU.srr[1]; return;
+        case 25: aCPU.gpr[rD] = aCPU.sdr1; return 0;
+        case 26: aCPU.gpr[rD] = aCPU.srr[0]; return 0;
+        case 27: aCPU.gpr[rD] = aCPU.srr[1]; return 0;
         }
         break;
     case 8:
         switch (spr1) {
-        case 12: aCPU.gpr[rD] = ppc_get_cpu_timebase(); return;
-        case 13: aCPU.gpr[rD] = ppc_get_cpu_timebase() >> 32; return;
-        case 16: aCPU.gpr[rD] = aCPU.sprg[0]; return;
-        case 17: aCPU.gpr[rD] = aCPU.sprg[1]; return;
-        case 18: aCPU.gpr[rD] = aCPU.sprg[2]; return;
-        case 19: aCPU.gpr[rD] = aCPU.sprg[3]; return;
-        case 26: aCPU.gpr[rD] = aCPU.ear; return;
-        case 31: aCPU.gpr[rD] = aCPU.pvr; return;
+        case 12: aCPU.gpr[rD] = ppc_get_cpu_timebase(); return 0;
+        case 13: aCPU.gpr[rD] = ppc_get_cpu_timebase() >> 32; return 0;
+        case 16: aCPU.gpr[rD] = aCPU.sprg[0]; return 0;
+        case 17: aCPU.gpr[rD] = aCPU.sprg[1]; return 0;
+        case 18: aCPU.gpr[rD] = aCPU.sprg[2]; return 0;
+        case 19: aCPU.gpr[rD] = aCPU.sprg[3]; return 0;
+        case 26: aCPU.gpr[rD] = aCPU.ear; return 0;
+        case 31: aCPU.gpr[rD] = aCPU.pvr; return 0;
         }
         break;
     case 16:
         switch (spr1) {
-        case 16: aCPU.gpr[rD] = aCPU.ibatu[0]; return;
-        case 17: aCPU.gpr[rD] = aCPU.ibatl[0]; return;
-        case 18: aCPU.gpr[rD] = aCPU.ibatu[1]; return;
-        case 19: aCPU.gpr[rD] = aCPU.ibatl[1]; return;
-        case 20: aCPU.gpr[rD] = aCPU.ibatu[2]; return;
-        case 21: aCPU.gpr[rD] = aCPU.ibatl[2]; return;
-        case 22: aCPU.gpr[rD] = aCPU.ibatu[3]; return;
-        case 23: aCPU.gpr[rD] = aCPU.ibatl[3]; return;
-        case 24: aCPU.gpr[rD] = aCPU.dbatu[0]; return;
-        case 25: aCPU.gpr[rD] = aCPU.dbatl[0]; return;
-        case 26: aCPU.gpr[rD] = aCPU.dbatu[1]; return;
-        case 27: aCPU.gpr[rD] = aCPU.dbatl[1]; return;
-        case 28: aCPU.gpr[rD] = aCPU.dbatu[2]; return;
-        case 29: aCPU.gpr[rD] = aCPU.dbatl[2]; return;
-        case 30: aCPU.gpr[rD] = aCPU.dbatu[3]; return;
-        case 31: aCPU.gpr[rD] = aCPU.dbatl[3]; return;
+        case 16: aCPU.gpr[rD] = aCPU.ibatu[0]; return 0;
+        case 17: aCPU.gpr[rD] = aCPU.ibatl[0]; return 0;
+        case 18: aCPU.gpr[rD] = aCPU.ibatu[1]; return 0;
+        case 19: aCPU.gpr[rD] = aCPU.ibatl[1]; return 0;
+        case 20: aCPU.gpr[rD] = aCPU.ibatu[2]; return 0;
+        case 21: aCPU.gpr[rD] = aCPU.ibatl[2]; return 0;
+        case 22: aCPU.gpr[rD] = aCPU.ibatu[3]; return 0;
+        case 23: aCPU.gpr[rD] = aCPU.ibatl[3]; return 0;
+        case 24: aCPU.gpr[rD] = aCPU.dbatu[0]; return 0;
+        case 25: aCPU.gpr[rD] = aCPU.dbatl[0]; return 0;
+        case 26: aCPU.gpr[rD] = aCPU.dbatu[1]; return 0;
+        case 27: aCPU.gpr[rD] = aCPU.dbatl[1]; return 0;
+        case 28: aCPU.gpr[rD] = aCPU.dbatu[2]; return 0;
+        case 29: aCPU.gpr[rD] = aCPU.dbatl[2]; return 0;
+        case 30: aCPU.gpr[rD] = aCPU.dbatu[3]; return 0;
+        case 31: aCPU.gpr[rD] = aCPU.dbatl[3]; return 0;
         }
         break;
     case 29:
         switch (spr1) {
-        case 16: aCPU.gpr[rD] = 0; return;
-        case 17: aCPU.gpr[rD] = 0; return;
-        case 18: aCPU.gpr[rD] = 0; return;
-        case 24: aCPU.gpr[rD] = 0; return;
-        case 25: aCPU.gpr[rD] = 0; return;
-        case 26: aCPU.gpr[rD] = 0; return;
-        case 28: aCPU.gpr[rD] = 0; return;
-        case 29: aCPU.gpr[rD] = 0; return;
-        case 30: aCPU.gpr[rD] = 0; return;
+        case 16: aCPU.gpr[rD] = 0; return 0;
+        case 17: aCPU.gpr[rD] = 0; return 0;
+        case 18: aCPU.gpr[rD] = 0; return 0;
+        case 24: aCPU.gpr[rD] = 0; return 0;
+        case 25: aCPU.gpr[rD] = 0; return 0;
+        case 26: aCPU.gpr[rD] = 0; return 0;
+        case 28: aCPU.gpr[rD] = 0; return 0;
+        case 29: aCPU.gpr[rD] = 0; return 0;
+        case 30: aCPU.gpr[rD] = 0; return 0;
         }
     case 31:
         switch (spr1) {
         case 16:
             //			PPC_OPC_WARN("read from spr %d:%d (HID0) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = aCPU.hid[0];
-            return;
+            return 0;
         case 17:
             PPC_OPC_WARN("read from spr %d:%d (HID1) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = aCPU.hid[1];
-            return;
-        case 22: aCPU.gpr[rD] = 0; return;
-        case 23: aCPU.gpr[rD] = 0; return;
+            return 0;
+        case 22: aCPU.gpr[rD] = 0; return 0;
+        case 23: aCPU.gpr[rD] = 0; return 0;
         case 25:
             PPC_OPC_WARN("read from spr %d:%d (L2CR) not supported! (from %08x)\n", spr1, spr2, aCPU.pc);
             aCPU.gpr[rD] = 0;
-            return;
+            return 0;
         case 27:
             PPC_OPC_WARN("read from spr %d:%d (ICTC) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = 0;
-            return;
+            return 0;
         case 28:
             //			PPC_OPC_WARN("read from spr %d:%d (THRM1) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = 0;
-            return;
+            return 0;
         case 29:
             //			PPC_OPC_WARN("read from spr %d:%d (THRM2) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = 0;
-            return;
+            return 0;
         case 30:
             //			PPC_OPC_WARN("read from spr %d:%d (THRM3) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = 0;
-            return;
+            return 0;
         case 31:
             //			PPC_OPC_WARN("read from spr %d:%d (???) not supported!\n", spr1, spr2);
             aCPU.gpr[rD] = 0;
-            return;
+            return 0;
         }
     }
     fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
     SINGLESTEP("invalid mfspr\n");
+	return 0;
 }
 
 /*
  *	mfsr		Move from Segment Register
  *	.570
  */
-void ppc_opc_mfsr(PPC_CPU_State &aCPU)
+int ppc_opc_mfsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rD, SR, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, SR, rB);
     // FIXME: check insn
     aCPU.gpr[rD] = aCPU.sr[SR & 0xf];
+	return 0;
 }
 
 /*
  *	mfsrin		Move from Segment Register Indirect
  *	.572
  */
-void ppc_opc_mfsrin(PPC_CPU_State &aCPU)
+int ppc_opc_mfsrin(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     // FIXME: check insn
     aCPU.gpr[rD] = aCPU.sr[aCPU.gpr[rB] >> 28];
+	return 0;
 }
 
 /*
  *	mftb		Move from Time Base
  *	.574
  */
-void ppc_opc_mftb(PPC_CPU_State &aCPU)
+int ppc_opc_mftb(PPC_CPU_State &aCPU)
 {
     int rD, spr1, spr2;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, spr1, spr2);
     switch (spr2) {
     case 8:
         switch (spr1) {
-        case 12: aCPU.gpr[rD] = ppc_get_cpu_timebase(); return;
+        case 12: aCPU.gpr[rD] = ppc_get_cpu_timebase(); return 0;
         case 13:
             aCPU.gpr[rD] = ppc_get_cpu_timebase() >> 32;
-            return;
-            /*		case 12: aCPU.gpr[rD] = aCPU.tb; return;
-		case 13: aCPU.gpr[rD] = aCPU.tb >> 32; return;*/
+            return 0;
+            /*		case 12: aCPU.gpr[rD] = aCPU.tb; return 0;
+		case 13: aCPU.gpr[rD] = aCPU.tb >> 32; return 0;*/
         }
         break;
     }
     SINGLESTEP("unknown mftb\n");
+	return 0;
 }
 
 /*
  *	mtcrf		Move to Condition Register Fields
  *	.576
  */
-void ppc_opc_mtcrf(PPC_CPU_State &aCPU)
+int ppc_opc_mtcrf(PPC_CPU_State &aCPU)
 {
     int rS;
     uint32 crm;
@@ -2325,13 +2415,14 @@ void ppc_opc_mtcrf(PPC_CPU_State &aCPU)
           ((crm & 0x10) ? 0x000f0000 : 0) | ((crm & 0x08) ? 0x0000f000 : 0) | ((crm & 0x04) ? 0x00000f00 : 0) |
           ((crm & 0x02) ? 0x000000f0 : 0) | ((crm & 0x01) ? 0x0000000f : 0);
     aCPU.cr = (aCPU.gpr[rS] & CRM) | (aCPU.cr & ~CRM);
+	return 0;
 }
 
 /*
  *	mtfsb0x		Move to FPSCR Bit 0
  *	.577
  */
-void ppc_opc_mtfsb0x(PPC_CPU_State &aCPU)
+int ppc_opc_mtfsb0x(PPC_CPU_State &aCPU)
 {
     int crbD, n1, n2;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crbD, n1, n2);
@@ -2342,13 +2433,14 @@ void ppc_opc_mtfsb0x(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsb0. unimplemented.\n");
     }
+	return 0;
 }
 
 /*
  *	mtfsb1x		Move to FPSCR Bit 1
  *	.578
  */
-void ppc_opc_mtfsb1x(PPC_CPU_State &aCPU)
+int ppc_opc_mtfsb1x(PPC_CPU_State &aCPU)
 {
     int crbD, n1, n2;
     PPC_OPC_TEMPL_X(aCPU.current_opc, crbD, n1, n2);
@@ -2359,13 +2451,14 @@ void ppc_opc_mtfsb1x(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsb1. unimplemented.\n");
     }
+	return 0;
 }
 
 /*
  *	mtfsfx		Move to FPSCR Fields
  *	.579
  */
-void ppc_opc_mtfsfx(PPC_CPU_State &aCPU)
+int ppc_opc_mtfsfx(PPC_CPU_State &aCPU)
 {
     int frB;
     uint32 fm, FM;
@@ -2378,13 +2471,14 @@ void ppc_opc_mtfsfx(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsf. unimplemented.\n");
     }
+	return 0;
 }
 
 /*
  *	mtfsfix		Move to FPSCR Field Immediate
  *	.580
  */
-void ppc_opc_mtfsfix(PPC_CPU_State &aCPU)
+int ppc_opc_mtfsfix(PPC_CPU_State &aCPU)
 {
     int crfD, n1;
     uint32 imm;
@@ -2398,29 +2492,31 @@ void ppc_opc_mtfsfix(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsfi. unimplemented.\n");
     }
+	return 0;
 }
 
 /*
  *	mtmsr		Move to Machine State Register
  *	.581
  */
-void ppc_opc_mtmsr(PPC_CPU_State &aCPU)
+int ppc_opc_mtmsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     PPC_OPC_ASSERT((rA == 0) && (rB == 0));
     ppc_set_msr(aCPU, aCPU.gpr[rS]);
+	return 0;
 }
 
 /*
  *	mtspr		Move to Special-Purpose Register
  *	.584
  */
-void ppc_opc_mtspr(PPC_CPU_State &aCPU)
+int ppc_opc_mtspr(PPC_CPU_State &aCPU)
 {
     int rS, spr1, spr2;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, spr1, spr2);
@@ -2430,53 +2526,53 @@ void ppc_opc_mtspr(PPC_CPU_State &aCPU)
         case 1:
             aCPU.xer = aCPU.gpr[rS] & ~XER_CA;
             aCPU.xer_ca = !!(aCPU.gpr[rS] & XER_CA);
-            return;
-        case 8: aCPU.lr = aCPU.gpr[rS]; return;
-        case 9: aCPU.ctr = aCPU.gpr[rS]; return;
+            return 0;
+        case 8: aCPU.lr = aCPU.gpr[rS]; return 0;
+        case 9: aCPU.ctr = aCPU.gpr[rS]; return 0;
         }
     case 8:
         if (spr1 == 0) {
             aCPU.vrsave = aCPU.gpr[rS];
-            return;
+            return 0;
         }
     }
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     switch (spr2) {
     case 0:
         switch (spr1) {
-            /*		case 18: aCPU.gpr[rD] = aCPU.dsisr; return;
-		case 19: aCPU.gpr[rD] = aCPU.dar; return;*/
+            /*		case 18: aCPU.gpr[rD] = aCPU.dsisr; return 0;
+		case 19: aCPU.gpr[rD] = aCPU.dar; return 0;*/
         case 22: {
             static int wc = 0; wc++;
             if (wc <= 100 || wc % 1000 == 0)
                 fprintf(stderr, "[SPR] mtspr DEC #%d: val=%08x pc=%08x\n", wc, aCPU.gpr[rS], aCPU.pc);
             writeDEC(aCPU, aCPU.gpr[rS]);
-            return;
+            return 0;
         }
         case 25:
             if (!ppc_mmu_set_sdr1(aCPU, aCPU.gpr[rS], true)) {
                 PPC_OPC_ERR("cannot set sdr1\n");
             }
-            return;
-        case 26: aCPU.srr[0] = aCPU.gpr[rS]; return;
-        case 27: aCPU.srr[1] = aCPU.gpr[rS]; return;
+            return 0;
+        case 26: aCPU.srr[0] = aCPU.gpr[rS]; return 0;
+        case 27: aCPU.srr[1] = aCPU.gpr[rS]; return 0;
         }
         break;
     case 8:
         switch (spr1) {
-        case 16: aCPU.sprg[0] = aCPU.gpr[rS]; return;
-        case 17: aCPU.sprg[1] = aCPU.gpr[rS]; return;
-        case 18: aCPU.sprg[2] = aCPU.gpr[rS]; return;
-        case 19: aCPU.sprg[3] = aCPU.gpr[rS]; return;
-        case 28: writeTBL(aCPU, aCPU.gpr[rS]); return;
+        case 16: aCPU.sprg[0] = aCPU.gpr[rS]; return 0;
+        case 17: aCPU.sprg[1] = aCPU.gpr[rS]; return 0;
+        case 18: aCPU.sprg[2] = aCPU.gpr[rS]; return 0;
+        case 19: aCPU.sprg[3] = aCPU.gpr[rS]; return 0;
+        case 28: writeTBL(aCPU, aCPU.gpr[rS]); return 0;
         case 29:
             writeTBU(aCPU, aCPU.gpr[rS]);
-            return;
-            /*		case 26: aCPU.gpr[rD] = aCPU.ear; return;
-		case 31: aCPU.gpr[rD] = aCPU.pvr; return;*/
+            return 0;
+            /*		case 26: aCPU.gpr[rD] = aCPU.ear; return 0;
+		case 31: aCPU.gpr[rD] = aCPU.pvr; return 0;*/
         }
         break;
     case 16:
@@ -2484,223 +2580,232 @@ void ppc_opc_mtspr(PPC_CPU_State &aCPU)
         case 16:
             aCPU.ibatu[0] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, false, 0);
-            return;
+            return 0;
         case 17:
             aCPU.ibatl[0] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, false, 0);
-            return;
+            return 0;
         case 18:
             aCPU.ibatu[1] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, false, 1);
-            return;
+            return 0;
         case 19:
             aCPU.ibatl[1] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, false, 1);
-            return;
+            return 0;
         case 20:
             aCPU.ibatu[2] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, false, 2);
-            return;
+            return 0;
         case 21:
             aCPU.ibatl[2] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, false, 2);
-            return;
+            return 0;
         case 22:
             aCPU.ibatu[3] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, false, 3);
-            return;
+            return 0;
         case 23:
             aCPU.ibatl[3] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, false, 3);
-            return;
+            return 0;
         case 24:
             aCPU.dbatu[0] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, true, 0);
-            return;
+            return 0;
         case 25:
             aCPU.dbatl[0] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, true, 0);
-            return;
+            return 0;
         case 26:
             aCPU.dbatu[1] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, true, 1);
-            return;
+            return 0;
         case 27:
             aCPU.dbatl[1] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, true, 1);
-            return;
+            return 0;
         case 28:
             aCPU.dbatu[2] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, true, 2);
-            return;
+            return 0;
         case 29:
             aCPU.dbatl[2] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, true, 2);
-            return;
+            return 0;
         case 30:
             aCPU.dbatu[3] = aCPU.gpr[rS];
             ppc_opc_batu_helper(aCPU, true, 3);
-            return;
+            return 0;
         case 31:
             aCPU.dbatl[3] = aCPU.gpr[rS];
             ppc_opc_batl_helper(aCPU, true, 3);
-            return;
+            return 0;
         }
         break;
     case 29:
         switch (spr1) {
-        case 17: return;
-        case 24: return;
-        case 25: return;
-        case 26: return;
+        case 17: return 0;
+        case 24: return 0;
+        case 25: return 0;
+        case 26: return 0;
         }
     case 31:
         switch (spr1) {
         case 16:
             //			PPC_OPC_WARN("write(%08x) to spr %d:%d (HID0) not supported! @%08x\n", aCPU.gpr[rS], spr1, spr2, aCPU.pc);
             aCPU.hid[0] = aCPU.gpr[rS];
-            return;
+            return 0;
         case 17:
             PPC_OPC_WARN("write(%08x) to spr %d:%d (HID1) not supported! @%08x\n", aCPU.gpr[rS], spr1, spr2, aCPU.pc);
             aCPU.hid[1] = aCPU.gpr[rS];
-            return;
-        case 18: PPC_OPC_ERR("write(%08x) to spr %d:%d (IABR) not supported!\n", aCPU.gpr[rS], spr1, spr2); return;
-        case 21: PPC_OPC_ERR("write(%08x) to spr %d:%d (DABR) not supported!\n", aCPU.gpr[rS], spr1, spr2); return;
-        case 22: PPC_OPC_ERR("write(%08x) to spr %d:%d (?) not supported!\n", aCPU.gpr[rS], spr1, spr2); return;
-        case 23: PPC_OPC_ERR("write(%08x) to spr %d:%d (?) not supported!\n", aCPU.gpr[rS], spr1, spr2); return;
-        case 27: PPC_OPC_WARN("write(%08x) to spr %d:%d (ICTC) not supported!\n", aCPU.gpr[rS], spr1, spr2); return;
+            return 0;
+        case 18: PPC_OPC_ERR("write(%08x) to spr %d:%d (IABR) not supported!\n", aCPU.gpr[rS], spr1, spr2); return 0;
+        case 21: PPC_OPC_ERR("write(%08x) to spr %d:%d (DABR) not supported!\n", aCPU.gpr[rS], spr1, spr2); return 0;
+        case 22: PPC_OPC_ERR("write(%08x) to spr %d:%d (?) not supported!\n", aCPU.gpr[rS], spr1, spr2); return 0;
+        case 23: PPC_OPC_ERR("write(%08x) to spr %d:%d (?) not supported!\n", aCPU.gpr[rS], spr1, spr2); return 0;
+        case 27: PPC_OPC_WARN("write(%08x) to spr %d:%d (ICTC) not supported!\n", aCPU.gpr[rS], spr1, spr2); return 0;
         case 28:
             //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM1) not supported!\n", aCPU.gpr[rS], spr1, spr2);
-            return;
+            return 0;
         case 29:
             //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM2) not supported!\n", aCPU.gpr[rS], spr1, spr2);
-            return;
+            return 0;
         case 30:
             //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM3) not supported!\n", aCPU.gpr[rS], spr1, spr2);
-            return;
-        case 31: return;
+            return 0;
+        case 31: return 0;
         }
     }
     fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
     SINGLESTEP("unknown mtspr\n");
+	return 0;
 }
 
 /*
  *	mtsr		Move to Segment Register
  *	.587
  */
-void ppc_opc_mtsr(PPC_CPU_State &aCPU)
+int ppc_opc_mtsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rS, SR, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, SR, rB);
     // FIXME: check insn
     aCPU.sr[SR & 0xf] = aCPU.gpr[rS];
+	return 0;
 }
 
 /*
  *	mtsrin		Move to Segment Register Indirect
  *	.591
  */
-void ppc_opc_mtsrin(PPC_CPU_State &aCPU)
+int ppc_opc_mtsrin(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check insn
     aCPU.sr[aCPU.gpr[rB] >> 28] = aCPU.gpr[rS];
+	return 0;
 }
 
 /*
  *	rfi		Return from Interrupt
  *	.607
  */
-void ppc_opc_rfi(PPC_CPU_State &aCPU)
+int ppc_opc_rfi(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     ppc_set_msr(aCPU, aCPU.srr[1] & MSR_RFI_SAVE_MASK);
     aCPU.npc = aCPU.srr[0] & 0xfffffffc;
+	return 0;
 }
 
-void ppc_opc_sc(PPC_CPU_State &aCPU)
+int ppc_opc_sc(PPC_CPU_State &aCPU)
 {
     if (aCPU.gpr[3] == 0x113724fa && aCPU.gpr[4] == 0x77810f9b) {
         gcard_osi(0);
-        return;
+        return 0;
     }
     //	ppc_exception(PPC_EXC_SC);
+	return 0;
 }
 
 /*
  *	sync		Synchronize
  *	.672
  */
-void ppc_opc_sync(PPC_CPU_State &aCPU)
+int ppc_opc_sync(PPC_CPU_State &aCPU)
 {
     // NO-OP
+	return 0;
 }
 
 /*
  *	tlbia		Translation Lookaside Buffer Invalidate All
  *	.676
  */
-void ppc_opc_tlbia(PPC_CPU_State &aCPU)
+int ppc_opc_tlbia(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check rS.. for 0
     ppc_mmu_tlb_invalidate(aCPU);
+	return 0;
 }
 
 /*
  *	tlbie		Translation Lookaside Buffer Invalidate Entry
  *	.676
  */
-void ppc_opc_tlbie(PPC_CPU_State &aCPU)
+int ppc_opc_tlbie(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check rS.. for 0
     ppc_mmu_tlb_invalidate(aCPU);
+	return 0;
 }
 
 /*
  *	tlbsync		Translation Lookaside Buffer Syncronize
  *	.677
  */
-void ppc_opc_tlbsync(PPC_CPU_State &aCPU)
+int ppc_opc_tlbsync(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-        return;
+        return 0;
     }
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check rS.. for 0
+	return 0;
 }
 
 /*
  *	tw		Trap Word
  *	.678
  */
-void ppc_opc_tw(PPC_CPU_State &aCPU)
+int ppc_opc_tw(PPC_CPU_State &aCPU)
 {
     int TO, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, TO, rA, rB);
@@ -2710,13 +2815,14 @@ void ppc_opc_tw(PPC_CPU_State &aCPU)
         ((TO & 2) && (a < b)) || ((TO & 1) && (a > b))) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
     }
+	return 0;
 }
 
 /*
  *	twi		Trap Word Immediate
  *	.679
  */
-void ppc_opc_twi(PPC_CPU_State &aCPU)
+int ppc_opc_twi(PPC_CPU_State &aCPU)
 {
     int TO, rA;
     uint32 imm;
@@ -2726,6 +2832,7 @@ void ppc_opc_twi(PPC_CPU_State &aCPU)
         ((TO & 4) && (a == imm)) || ((TO & 2) && (a < imm)) || ((TO & 1) && (a > imm))) {
         //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
     }
+	return 0;
 }
 
 /*      dcba	    Data Cache Block Allocate

@@ -59,8 +59,8 @@
 
 #include "jitc_types.h"
 
-void ppc_opc_mfvscr(PPC_CPU_State &aCPU);
-void ppc_opc_mtvscr(PPC_CPU_State &aCPU);
+int ppc_opc_mfvscr(PPC_CPU_State &aCPU);
+int ppc_opc_mtvscr(PPC_CPU_State &aCPU);
 
 JITCFlow ppc_opc_gen_mfvscr(JITC &aJITC);
 JITCFlow ppc_opc_gen_mtvscr(JITC &aJITC);

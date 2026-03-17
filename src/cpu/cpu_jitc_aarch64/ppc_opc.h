@@ -52,7 +52,7 @@ static inline void ppc_update_cr0(PPC_CPU_State &aCPU, uint32 r)
  *    MOV X16, #func_addr         ; load function address
  *    BLR X16                     ; call it
  */
-static inline void ppc_opc_gen_interpret(JITC &jitc, void (*func)(PPC_CPU_State &))
+static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &))
 {
     jitc.clobberAll();
     // Store current opcode to CPU state
@@ -94,54 +94,109 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, void (*func)(PPC_CPU_State 
     }
 }
 
+/*
+ * Wrapper for load/store interpreter functions that return int.
+ * Unlike ppc_opc_gen_interpret(), this checks the RETURN VALUE (W0)
+ * instead of exception_pending. This avoids a race where a concurrent
+ * DEC/ext interrupt sets exception_pending during the BLR call, causing
+ * the wrapper to consume the async exception instead of letting the
+ * heartbeat handle it.
+ *
+ * The interpreter function returns 0 (PPC_MMU_OK) on success, nonzero
+ * on DSI/ISI. When nonzero, ppc_exception() has already set up
+ * SRR0/SRR1/npc and exception_pending.
+ */
+static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_CPU_State &))
+{
+    jitc.clobberAll();
+    // Store current opcode to CPU state
+    jitc.emitMOV32((NativeReg)16, jitc.current_opc);
+    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_opc));
 
-void ppc_opc_bx(PPC_CPU_State &aCPU);
-void ppc_opc_bcx(PPC_CPU_State &aCPU);
-void ppc_opc_bcctrx(PPC_CPU_State &aCPU);
-void ppc_opc_bclrx(PPC_CPU_State &aCPU);
+    // Store pc = current_code_base + pc_ofs
+    jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
+    jitc.emitMOV32((NativeReg)17, jitc.pc);
+    jitc.emit32(0x0B110210); // ADD W16, W16, W17
+    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
 
-void ppc_opc_dcba(PPC_CPU_State &aCPU);
-void ppc_opc_dcbf(PPC_CPU_State &aCPU);
-void ppc_opc_dcbi(PPC_CPU_State &aCPU);
-void ppc_opc_dcbst(PPC_CPU_State &aCPU);
-void ppc_opc_dcbt(PPC_CPU_State &aCPU);
-void ppc_opc_dcbtst(PPC_CPU_State &aCPU);
+    // Store npc = pc + 4
+    jitc.emit32(0x11001210); // ADD W16, W16, #4
+    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
-void ppc_opc_eciwx(PPC_CPU_State &aCPU);
-void ppc_opc_ecowx(PPC_CPU_State &aCPU);
-void ppc_opc_eieio(PPC_CPU_State &aCPU);
+    // X0 = &CPU state (X20)
+    jitc.emit32(0xAA1403E0); // MOV X0, X20
+    // Call interpreter function — returns int in W0
+    jitc.emitBLR((NativeAddress)func);
 
-void ppc_opc_icbi(PPC_CPU_State &aCPU);
-void ppc_opc_isync(PPC_CPU_State &aCPU);
+    // Check return value: W0 != 0 means synchronous exception (DSI/ISI).
+    // ppc_exception() already set SRR0/SRR1/npc and exception_pending.
+    // Clear exception_pending and dispatch to npc.
+    // If W0 == 0: no exception, continue normally.
+    // Any pending DEC/ext stays in dec_exception/ext_exception and will
+    // be handled by the heartbeat at the next page dispatch.
+    NativeAddress noExc = jitc.emitBxxFixup();
+    // Exception path: clear exception_pending, dispatch to npc
+    jitc.emit32(a64_STRBw(31, 20, offsetof(PPC_CPU_State, exception_pending)));
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    // Patch: CBZ W0, #skip (branch if return value == 0 → no exception)
+    {
+        NativeAddress here = jitc.asmHERE();
+        sint64 offset = (sint64)(here - noExc);
+        sint32 imm19 = (sint32)(offset / 4);
+        uint32 insn = 0x34000000 | ((imm19 & 0x7FFFF) << 5) | 0; // CBZ W0
+        *(uint32 *)noExc = insn;
+    }
+}
 
-void ppc_opc_mcrf(PPC_CPU_State &aCPU);
-void ppc_opc_mcrfs(PPC_CPU_State &aCPU);
-void ppc_opc_mcrxr(PPC_CPU_State &aCPU);
-void ppc_opc_mfcr(PPC_CPU_State &aCPU);
-void ppc_opc_mffsx(PPC_CPU_State &aCPU);
-void ppc_opc_mfmsr(PPC_CPU_State &aCPU);
-void ppc_opc_mfspr(PPC_CPU_State &aCPU);
-void ppc_opc_mfsr(PPC_CPU_State &aCPU);
-void ppc_opc_mfsrin(PPC_CPU_State &aCPU);
-void ppc_opc_mftb(PPC_CPU_State &aCPU);
-void ppc_opc_mtcrf(PPC_CPU_State &aCPU);
-void ppc_opc_mtfsb0x(PPC_CPU_State &aCPU);
-void ppc_opc_mtfsb1x(PPC_CPU_State &aCPU);
-void ppc_opc_mtfsfx(PPC_CPU_State &aCPU);
-void ppc_opc_mtfsfix(PPC_CPU_State &aCPU);
-void ppc_opc_mtmsr(PPC_CPU_State &aCPU);
-void ppc_opc_mtspr(PPC_CPU_State &aCPU);
-void ppc_opc_mtsr(PPC_CPU_State &aCPU);
-void ppc_opc_mtsrin(PPC_CPU_State &aCPU);
 
-void ppc_opc_rfi(PPC_CPU_State &aCPU);
-void ppc_opc_sc(PPC_CPU_State &aCPU);
-void ppc_opc_sync(PPC_CPU_State &aCPU);
-void ppc_opc_tlbia(PPC_CPU_State &aCPU);
-void ppc_opc_tlbie(PPC_CPU_State &aCPU);
-void ppc_opc_tlbsync(PPC_CPU_State &aCPU);
-void ppc_opc_tw(PPC_CPU_State &aCPU);
-void ppc_opc_twi(PPC_CPU_State &aCPU);
+int ppc_opc_bx(PPC_CPU_State &aCPU);
+int ppc_opc_bcx(PPC_CPU_State &aCPU);
+int ppc_opc_bcctrx(PPC_CPU_State &aCPU);
+int ppc_opc_bclrx(PPC_CPU_State &aCPU);
+
+int ppc_opc_dcba(PPC_CPU_State &aCPU);
+int ppc_opc_dcbf(PPC_CPU_State &aCPU);
+int ppc_opc_dcbi(PPC_CPU_State &aCPU);
+int ppc_opc_dcbst(PPC_CPU_State &aCPU);
+int ppc_opc_dcbt(PPC_CPU_State &aCPU);
+int ppc_opc_dcbtst(PPC_CPU_State &aCPU);
+
+int ppc_opc_eciwx(PPC_CPU_State &aCPU);
+int ppc_opc_ecowx(PPC_CPU_State &aCPU);
+int ppc_opc_eieio(PPC_CPU_State &aCPU);
+
+int ppc_opc_icbi(PPC_CPU_State &aCPU);
+int ppc_opc_isync(PPC_CPU_State &aCPU);
+
+int ppc_opc_mcrf(PPC_CPU_State &aCPU);
+int ppc_opc_mcrfs(PPC_CPU_State &aCPU);
+int ppc_opc_mcrxr(PPC_CPU_State &aCPU);
+int ppc_opc_mfcr(PPC_CPU_State &aCPU);
+int ppc_opc_mffsx(PPC_CPU_State &aCPU);
+int ppc_opc_mfmsr(PPC_CPU_State &aCPU);
+int ppc_opc_mfspr(PPC_CPU_State &aCPU);
+int ppc_opc_mfsr(PPC_CPU_State &aCPU);
+int ppc_opc_mfsrin(PPC_CPU_State &aCPU);
+int ppc_opc_mftb(PPC_CPU_State &aCPU);
+int ppc_opc_mtcrf(PPC_CPU_State &aCPU);
+int ppc_opc_mtfsb0x(PPC_CPU_State &aCPU);
+int ppc_opc_mtfsb1x(PPC_CPU_State &aCPU);
+int ppc_opc_mtfsfx(PPC_CPU_State &aCPU);
+int ppc_opc_mtfsfix(PPC_CPU_State &aCPU);
+int ppc_opc_mtmsr(PPC_CPU_State &aCPU);
+int ppc_opc_mtspr(PPC_CPU_State &aCPU);
+int ppc_opc_mtsr(PPC_CPU_State &aCPU);
+int ppc_opc_mtsrin(PPC_CPU_State &aCPU);
+
+int ppc_opc_rfi(PPC_CPU_State &aCPU);
+int ppc_opc_sc(PPC_CPU_State &aCPU);
+int ppc_opc_sync(PPC_CPU_State &aCPU);
+int ppc_opc_tlbia(PPC_CPU_State &aCPU);
+int ppc_opc_tlbie(PPC_CPU_State &aCPU);
+int ppc_opc_tlbsync(PPC_CPU_State &aCPU);
+int ppc_opc_tw(PPC_CPU_State &aCPU);
+int ppc_opc_twi(PPC_CPU_State &aCPU);
 
 JITCFlow ppc_opc_gen_bx(JITC &aJITC);
 JITCFlow ppc_opc_gen_bcx(JITC &aJITC);
