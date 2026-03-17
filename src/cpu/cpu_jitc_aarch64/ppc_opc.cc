@@ -38,6 +38,23 @@
 #include "jitc.h"
 #include "jitc_asm.h"
 
+// Per-instruction trace log
+static FILE *gInsnLog = NULL;
+static uint64 gInsnCount = 0;
+
+void ppc_opc_trace_insn(PPC_CPU_State &aCPU)
+{
+    if (!gInsnLog) {
+        gInsnLog = fopen("jitc_insn.log", "w");
+        if (!gInsnLog) return;
+    }
+    gInsnCount++;
+    fprintf(gInsnLog, "%llu pc=%08x opc=%08x msr=%08x cr=%08x lr=%08x r0=%08x r3=%08x r8=%08x\n",
+        gInsnCount, aCPU.pc, aCPU.current_opc, aCPU.msr,
+        aCPU.cr, aCPU.lr, aCPU.gpr[0], aCPU.gpr[3], aCPU.gpr[8]);
+    if (gInsnCount % 1000 == 0) fflush(gInsnLog);
+}
+
 static uint64 gDECwriteITB = 0;
 static uint64 gDECwriteValue = 0;
 static bool gDECinitialized = false;

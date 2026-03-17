@@ -500,6 +500,10 @@ int FASTCALL ppc_read_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 &
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
         return ppc_read_physical_dword(p, result);
     }
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
+    }
     return r;
 }
 
@@ -509,6 +513,10 @@ int FASTCALL ppc_read_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 &r
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
         return ppc_read_physical_word(p, result);
+    }
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
     }
     return r;
 }
@@ -520,6 +528,10 @@ int FASTCALL ppc_read_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 &r
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
         return ppc_read_physical_half(p, result);
     }
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
+    }
     return r;
 }
 
@@ -529,6 +541,10 @@ int FASTCALL ppc_read_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 &re
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
         return ppc_read_physical_byte(p, result);
+    }
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
     }
     return r;
 }
@@ -576,7 +592,10 @@ int FASTCALL ppc_write_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_dword(p, data);
     }
-    // ppc_exception() already set up DSI in ppc_effective_to_physical
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
+    }
     return r;
 }
 
@@ -587,7 +606,10 @@ int FASTCALL ppc_write_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 d
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_word(p, data);
     }
-    // ppc_exception() already set up DSI in ppc_effective_to_physical
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
+    }
     return r;
 }
 
@@ -598,7 +620,10 @@ int FASTCALL ppc_write_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 d
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_half(p, data);
     }
-    // ppc_exception() already set up DSI in ppc_effective_to_physical
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
+    }
     return r;
 }
 
@@ -609,7 +634,10 @@ int FASTCALL ppc_write_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 da
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
         return ppc_write_physical_byte(p, data);
     }
-    // ppc_exception() already set up DSI in ppc_effective_to_physical
+    if (r == PPC_MMU_FATAL) {
+        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
+        exit(1);
+    }
     return r;
 }
 

@@ -52,7 +52,10 @@ static inline void ppc_update_cr0(PPC_CPU_State &aCPU, uint32 r)
  *    MOV X16, #func_addr         ; load function address
  *    BLR X16                     ; call it
  */
-static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &))
+// Per-instruction trace: logs pc and opcode to jitc_insn.log
+extern void ppc_opc_trace_insn(PPC_CPU_State &aCPU);
+
+static inline void ppc_opc_gen_interpret_prologue(JITC &jitc)
 {
     jitc.clobberAll();
     // Store current opcode to CPU state
@@ -69,29 +72,26 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &
     jitc.emit32(0x11001210); // ADD W16, W16, #4
     jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
+    // Trace instruction (logs to jitc_insn.log if enabled)
+    jitc.emit32(0xAA1403E0); // MOV X0, X20
+    jitc.emitBLR((NativeAddress)ppc_opc_trace_insn);
+}
+
+static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &))
+{
+    ppc_opc_gen_interpret_prologue(jitc);
+
     // X0 = &CPU state (X20)
     jitc.emit32(0xAA1403E0); // MOV X0, X20
     // Call interpreter function
     jitc.emitBLR((NativeAddress)func);
 
-    // Check if the interpreter raised an exception (DSI, ISI, etc.)
-    // ppc_exception() sets npc to the exception vector.
-    // If exception_pending is set, dispatch to npc immediately.
-    jitc.emit32(a64_LDRBw(16, 20, offsetof(PPC_CPU_State, exception_pending)));
-    NativeAddress noExc = jitc.emitBxxFixup();
-    // Exception: clear flag, load npc, dispatch
-    jitc.emit32(a64_STRBw(31, 20, offsetof(PPC_CPU_State, exception_pending))); // clear flag (WZR)
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
-    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
-    // Patch the branch: skip to here if no exception
-    {
-        NativeAddress here = jitc.asmHERE();
-        sint64 offset = (sint64)(here - noExc);
-        sint32 imm19 = (sint32)(offset / 4);
-        // CBZ W16, #offset — branch if exception_pending == 0
-        uint32 insn = 0x34000000 | ((imm19 & 0x7FFFF) << 5) | 16; // CBZ W16, offset
-        *(uint32 *)noExc = insn;
-    }
+    // No exception check here. Non-load/store opcodes don't trigger DSI.
+    // Async interrupts (DEC/ext) that set exception_pending are handled
+    // by the heartbeat at the next page dispatch (ppc_new_pc_asm).
+    // Opcodes that can trigger synchronous exceptions (sc, rfi, mtmsr,
+    // load/store) use GEN_INTERPRET_ENDBLOCK, GEN_INTERPRET_BRANCH,
+    // or GEN_INTERPRET_LOADSTORE instead.
 }
 
 /*
@@ -108,20 +108,7 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &
  */
 static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_CPU_State &))
 {
-    jitc.clobberAll();
-    // Store current opcode to CPU state
-    jitc.emitMOV32((NativeReg)16, jitc.current_opc);
-    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_opc));
-
-    // Store pc = current_code_base + pc_ofs
-    jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
-    jitc.emitMOV32((NativeReg)17, jitc.pc);
-    jitc.emit32(0x0B110210); // ADD W16, W16, W17
-    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
-
-    // Store npc = pc + 4
-    jitc.emit32(0x11001210); // ADD W16, W16, #4
-    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+    ppc_opc_gen_interpret_prologue(jitc);
 
     // X0 = &CPU state (X20)
     jitc.emit32(0xAA1403E0); // MOV X0, X20
