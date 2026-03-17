@@ -225,7 +225,9 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
     str w1, [x20, #current_code_base]
 
     // Check exception_pending word (includes dec/ext/stop exception bytes)
-    ldr     w2, [x20, #exception_pending]
+    // Use acquire load to see writes from timer thread (GCD/signal handler)
+    add     x1, x20, #exception_pending
+    ldar    w2, [x1]
     cbnz    w2, .Lheartbeat_exception
     ret
 
@@ -285,7 +287,9 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
 .p2align 4
 do_export EXTERN(ppc_heartbeat_ext_rel_asm)
     // Check exception_pending word (includes dec/ext/stop exception bytes)
-    ldr     w2, [x20, #exception_pending]
+    // Use acquire load to see writes from timer thread
+    add     x1, x20, #exception_pending
+    ldar    w2, [x1]
     cbnz    w2, .Lheartbeat_rel_exception
     ret
 
@@ -439,7 +443,7 @@ do_export EXTERN(ppc_ext_exception_asm)
     mov     w3, #0
     cset    w3, ne
     orr     w3, w3, w3, lsl #8  // if dec: 0x00000101, else 0x00000000
-    stxr    w4, w3, [x1]
+    stlxr   w4, w3, [x1]
     cbnz    w4, 1b
     exception_epilogue 0x500
 
@@ -468,7 +472,7 @@ do_export EXTERN(ppc_dec_exception_asm)
     mov     w3, #0
     cset    w3, ne              // w3 = ext_exception ? 1 : 0
     orr     w3, w3, w3, lsl #16 // if ext: 0x00010001, else 0x00000000
-    stxr    w4, w3, [x1]
+    stlxr   w4, w3, [x1]
     cbnz    w4, 1b
     exception_epilogue 0x900
 
@@ -626,10 +630,10 @@ do_export EXTERN(ppc_mmu_tlb_invalidate_all_asm)
 do_export EXTERN(ppc_cpu_atomic_raise_dec_exception)
     add x1, x0, #exception_pending
 1:
-    ldxr    w2, [x1]
+    ldaxr   w2, [x1]
     mov w16, #0x0101
     orr w2, w2, w16
-    stxr    w3, w2, [x1]
+    stlxr   w3, w2, [x1]
     cbnz    w3, 1b
     ret
 
@@ -637,11 +641,11 @@ do_export EXTERN(ppc_cpu_atomic_raise_dec_exception)
 do_export EXTERN(ppc_cpu_atomic_raise_ext_exception)
     add x1, x0, #exception_pending
 1:
-    ldxr    w2, [x1]
+    ldaxr   w2, [x1]
     mov w16, #0x0001
     movk    w16, #0x0001, lsl #16
     orr w2, w2, w16
-    stxr    w3, w2, [x1]
+    stlxr   w3, w2, [x1]
     cbnz    w3, 1b
     ret
 
@@ -649,11 +653,11 @@ do_export EXTERN(ppc_cpu_atomic_raise_ext_exception)
 do_export EXTERN(ppc_cpu_atomic_raise_stop_exception)
     add x1, x0, #exception_pending
 1:
-    ldxr    w2, [x1]
+    ldaxr   w2, [x1]
     mov w16, #0x0001
     movk    w16, #0x0100, lsl #16
     orr w2, w2, w16
-    stxr    w3, w2, [x1]
+    stlxr   w3, w2, [x1]
     cbnz    w3, 1b
     ret
 
@@ -661,13 +665,13 @@ do_export EXTERN(ppc_cpu_atomic_raise_stop_exception)
 do_export EXTERN(ppc_cpu_atomic_cancel_ext_exception)
     add x1, x0, #exception_pending
 1:
-    ldxr    w2, [x1]
+    ldaxr   w2, [x1]
     // Keep only dec_exception bit and pending flag if dec is set
     tst w2, #0x00000100
     mov w3, #0
     cset    w3, ne
     orr w3, w3, w3, lsl #8      // if dec: 0x00000101, else 0x00000000
-    stxr    w4, w3, [x1]
+    stlxr   w4, w3, [x1]
     cbnz    w4, 1b
     ret
 

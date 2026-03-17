@@ -50,17 +50,10 @@ void readDEC(PPC_CPU_State &aCPU)
     }
     uint64 itb = ppc_get_cpu_ideal_timebase() - gDECwriteITB;
     aCPU.dec = gDECwriteValue - itb;
-    static int rdc = 0; rdc++;
-    if (rdc <= 20)
-        fprintf(stderr, "[RDEC] #%d writeVal=%08x itb=%llx dec=%08x\n",
-            rdc, gDECwriteValue, itb, aCPU.dec);
 }
 
 void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
 {
-    static int wdc = 0; wdc++;
-    if (wdc <= 50 || wdc % 100 == 0)
-        fprintf(stderr, "[WDEC] #%d old=%08x new=%08x\n", wdc, aCPU.dec, newdec);
     if (!(aCPU.dec & 0x80000000) && (newdec & 0x80000000)) {
         aCPU.dec = newdec;
         sys_set_timer(gDECtimer, 0, 0, false);
@@ -76,6 +69,9 @@ void FASTCALL writeDEC(PPC_CPU_State &aCPU, uint32 newdec)
             PPC_OPC_WARN("write dec > 20 millisec := %08x (%qu)\n", aCPU.dec, q);
             q = 10 * 1000 * 1000;
         }
+        static int stc = 0; stc++;
+        if (stc <= 20)
+            fprintf(stderr, "[TIMER] set_timer #%d: dec=%08x q=%llu ns (%.1f ms)\n", stc, aCPU.dec, q, q / 1e6);
         sys_set_timer(gDECtimer, 0, q, false);
     }
     gDECwriteValue = aCPU.dec;
@@ -106,7 +102,9 @@ void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr)
     aCPU.singlestep_ignore = true;
 #endif
     if (newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS) {
-        jitc_error_msr_unsupported_bits(newmsr);
+        PPC_CPU_WARN("unsupported MSR bits set: %08x (msr=%08x) — ignoring\n",
+            newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, newmsr);
+        newmsr &= ~PPC_CPU_UNSUPPORTED_MSR_BITS;
     }
     aCPU.msr = newmsr;
 }

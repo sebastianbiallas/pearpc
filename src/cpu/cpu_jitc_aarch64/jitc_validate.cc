@@ -49,9 +49,9 @@ void jitcValidateInit()
 
 static void refStepOne()
 {
-	PPC_CPU_State *savedCPU = gCPU;
+	// Only swap gMemory, NOT gCPU — the timer callback uses gCPU
+	// and would write to the reference CPU state if we swapped.
 	byte *savedMem = gMemory;
-	gCPU = refCPU;
 	gMemory = refMemory;
 	gIOReadReplay = true;
 
@@ -59,7 +59,6 @@ static void refStepOne()
 	int r = ppc_effective_to_physical(*refCPU, refCPU->pc, PPC_MMU_READ | PPC_MMU_CODE, physAddr);
 	if (r != PPC_MMU_OK) {
 		gIOReadReplay = false;
-		gCPU = savedCPU;
 		gMemory = savedMem;
 		return;
 	}
@@ -70,13 +69,9 @@ static void refStepOne()
 	refCPU->npc = refCPU->pc + 4;
 	refCPU->current_opc = opc;
 
-	// Skip PROM calls — they use globals and would corrupt shared memory.
-	// Instead, just advance PC. The validate function will resync state
-	// from the JIT when PCs don't match.
 	if (opc == PROM_MAGIC_OPCODE) {
 		refCPU->pc = refCPU->npc;
 		gIOReadReplay = false;
-		gCPU = savedCPU;
 		gMemory = savedMem;
 		return;
 	}
@@ -84,7 +79,6 @@ static void refStepOne()
 	ppc_exec_opc(*refCPU);
 	refCPU->pc = refCPU->npc;
 
-	// Keep timers in sync
 	refCPU->ptb++;
 	if (refCPU->pdec == 0) {
 		refCPU->pdec = 0xffffffff;
@@ -94,7 +88,6 @@ static void refStepOne()
 
 	gIOReadReplay = false;
 	gIOReadCacheValid = false;
-	gCPU = savedCPU;
 	gMemory = savedMem;
 }
 

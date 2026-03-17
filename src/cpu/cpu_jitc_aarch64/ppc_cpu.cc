@@ -105,10 +105,6 @@ void ppc_cpu_wakeup()
 
 static void decTimerCB(sys_timer t)
 {
-    static int dc = 0; dc++;
-    if (dc <= 5 || dc % 50 == 0)
-        fprintf(stderr, "[DEC] #%d exc_pend=%d dec_exc=%d msr=%08x\n",
-            dc, gCPU->exception_pending, gCPU->dec_exception, gCPU->msr);
     ppc_cpu_atomic_raise_dec_exception(*gCPU);
 }
 
@@ -123,6 +119,17 @@ void ppc_cpu_run()
     if (!sys_create_timer(&gDECtimer, decTimerCB)) {
         ht_printf("Unable to create timer\n");
         exit(1);
+    }
+    // Ensure SIGALRM is not blocked on this thread
+    {
+        sigset_t set;
+        pthread_sigmask(SIG_BLOCK, NULL, &set);
+        fprintf(stderr, "[INIT] SIGALRM blocked: %d\n", sigismember(&set, SIGALRM));
+        if (sigismember(&set, SIGALRM)) {
+            sigdelset(&set, SIGALRM);
+            pthread_sigmask(SIG_SETMASK, &set, NULL);
+            fprintf(stderr, "[INIT] SIGALRM unblocked\n");
+        }
     }
     if ((sizeof *gCPU) % 16) {
         ht_printf("compilation problem: sizeof gCPU is not multiple of 16 (aarch64 alignment)\n");
@@ -261,6 +268,7 @@ bool ppc_cpu_init()
     }
     gTBreadITB = sys_get_hiresclk_ticks();
     gClientTimeBaseFrequency = q;
+    fprintf(stderr, "[INIT] gClientTimeBaseFrequency=%llu gHostClockScale=%d\n", gClientTimeBaseFrequency, gHostClockScale);
     gClientBusFrequency = gClientTimeBaseFrequency * 4;
     gClientClockFrequency = gClientBusFrequency * 5;
     gCPU->jitc = new JITC;

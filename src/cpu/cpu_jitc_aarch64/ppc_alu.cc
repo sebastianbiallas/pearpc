@@ -2131,7 +2131,13 @@ void ppc_opc_mfspr(PPC_CPU_State &aCPU)
         switch (spr1) {
         case 18: aCPU.gpr[rD] = aCPU.dsisr; return;
         case 19: aCPU.gpr[rD] = aCPU.dar; return;
-        case 22: readDEC(aCPU); aCPU.gpr[rD] = aCPU.dec; return;
+        case 22: {
+            readDEC(aCPU); aCPU.gpr[rD] = aCPU.dec;
+            static int rc = 0; rc++;
+            if (rc <= 100 || rc % 1000 == 0)
+                fprintf(stderr, "[SPR] mfspr DEC #%d: dec=%08x pc=%08x\n", rc, aCPU.dec, aCPU.pc);
+            return;
+        }
         case 25: aCPU.gpr[rD] = aCPU.sdr1; return;
         case 26: aCPU.gpr[rD] = aCPU.srr[0]; return;
         case 27: aCPU.gpr[rD] = aCPU.srr[1]; return;
@@ -2417,6 +2423,9 @@ void ppc_opc_mtspr(PPC_CPU_State &aCPU)
             /*		case 18: aCPU.gpr[rD] = aCPU.dsisr; return;
 		case 19: aCPU.gpr[rD] = aCPU.dar; return;*/
         case 22: {
+            static int wc = 0; wc++;
+            if (wc <= 100 || wc % 1000 == 0)
+                fprintf(stderr, "[SPR] mtspr DEC #%d: val=%08x pc=%08x\n", wc, aCPU.gpr[rS], aCPU.pc);
             writeDEC(aCPU, aCPU.gpr[rS]);
             return;
         }

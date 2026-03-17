@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#if defined(__APPLE__)
+#include <dispatch/dispatch.h>
+#endif
 
 #include "system/systimer.h"
 #include "tools/snprintf.h"
@@ -211,6 +214,31 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 	
 #else
 # ifdef USE_POSIX_SETITIMER
+#if defined(__APPLE__)
+	// macOS: setitimer/SIGALRM is unreliable with multiple threads.
+	// Use dispatch_source one-shot timer instead.
+	{
+		static dispatch_queue_t dsQueue = NULL;
+		static dispatch_source_t dsTimer = NULL;
+		if (!dsQueue) {
+			dsQueue = dispatch_queue_create("pearpc.dec_timer", DISPATCH_QUEUE_SERIAL);
+		}
+		if (dsTimer) {
+			dispatch_source_cancel(dsTimer);
+		}
+		dsTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dsQueue);
+		sys_timer_callback cb = timer->callback;
+		sys_timer t_copy = reinterpret_cast<sys_timer>(timer);
+		dispatch_source_set_event_handler(dsTimer, ^{
+			cb(t_copy);
+		});
+		uint64_t interval_ns = (uint64_t)secs * 1000000000ULL + (uint64_t)nanosecs;
+		dispatch_source_set_timer(dsTimer,
+			dispatch_time(DISPATCH_TIME_NOW, interval_ns),
+			DISPATCH_TIME_FOREVER, 0); // one-shot
+		dispatch_resume(dsTimer);
+	}
+#else
 	struct itimerval itime;
 
 	itime.it_value.tv_sec = secs;
@@ -224,6 +252,7 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 	}
 
 	setitimer(timer->clock, &itime, NULL);
+#endif
 #else
 #error No timer implementation!
 # endif
