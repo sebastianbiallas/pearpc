@@ -432,6 +432,9 @@ do_export EXTERN(ppc_ext_exception_asm)
     movk    w16, #0x87c0, lsl #16
     and w3, w3, w16
     str w3, [x20, #srr1]
+    // Clear ext_exception and exception_pending
+    strb    wzr, [x20, #ext_exception]
+    strb    wzr, [x20, #exception_pending]
     exception_epilogue 0x500
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -447,6 +450,9 @@ do_export EXTERN(ppc_dec_exception_asm)
     movk    w16, #0x87c0, lsl #16
     and w3, w3, w16
     str w3, [x20, #srr1]
+    // Clear dec_exception and exception_pending
+    strb    wzr, [x20, #dec_exception]
+    strb    wzr, [x20, #exception_pending]
     exception_epilogue 0x900
 
 //////////////////////////////////////////////////////////////////////////////////////////////
