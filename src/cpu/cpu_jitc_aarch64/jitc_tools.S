@@ -147,20 +147,46 @@ do_export EXTERN(ppc_new_pc_rel_asm)
 //
 .p2align 4
 do_export EXTERN(ppc_new_pc_this_page_asm)
-    ldr w1, [x20, #current_code_base]
-    add w0, w0, w1
+    // IN: w0 = pc offset within current page (0..4092)
+    //
+    // Fast same-page dispatch: translate EA to PA, look up the entrypoint
+    // directly from the ClientPage array, and jump to it.
+    // Falls back to jitcNewPC if entrypoint not found.
 
-    // Translate effective to physical
-    mov w1, #0
-    bl  EXTERN(ppc_effective_to_physical_code)
+    // Save offset for later
+    mov     w21, w0
 
-    // jitcNewPC
-    mov w1, w0
-    mov x0, x19
-    bl  EXTERN(jitcNewPC)
+    // EA = current_code_base + offset
+    ldr     w1, [x20, #current_code_base]
+    add     w0, w0, w1
 
-    // Jump to translated code
-    br  x0
+    // Translate EA to PA
+    mov     w1, #0
+    bl      EXTERN(ppc_effective_to_physical_code)
+    // w0 = physical address
+
+    // Look up ClientPage: clientPages[PA >> 12]
+    // X19 = JITC pointer, clientPages is at offset 0
+    ldr     x1, [x19, #clientPages]     // x1 = clientPages array
+    lsr     w2, w0, #12                 // w2 = page index
+    ldr     x3, [x1, x2, lsl #3]       // x3 = ClientPage pointer
+    cbz     x3, .Lthispage_fallback     // no ClientPage? fallback
+
+    // Look up entrypoint: entrypoints[(PA & 0xFFF) >> 2]
+    and     w4, w0, #0xFFF
+    lsr     w4, w4, #2                  // w4 = instruction index (0..1023)
+    ldr     x5, [x3, x4, lsl #3]       // x5 = native entry point
+    cbz     x5, .Lthispage_fallback     // not translated? fallback
+
+    // Direct jump to translated code
+    br      x5
+
+.Lthispage_fallback:
+    // Fall back to full jitcNewPC dispatch
+    mov     w1, w0
+    mov     x0, x19
+    bl      EXTERN(jitcNewPC)
+    br      x0
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////

@@ -98,17 +98,24 @@ AArch64 has 31 GPRs -- much more than x86_64's 16. Current allocation:
 
 ```
 X0-X7    : Scratch / function arguments (caller-saved)
-X8       : Indirect result register
-X9-X15   : Temporary registers (caller-saved) -- PPC register cache
-X16-X17  : IP0/IP1 (intra-procedure scratch, linker use) -- used as temp in asm
+X8       : Indirect result register (caller-saved)
+X9-X15   : Temporaries (caller-saved) -- future PPC register cache
+X16-X17  : IP0/IP1 intra-procedure scratch -- used by emitBLR/emitMOV64
 X18      : Platform register (reserved on macOS) -- DO NOT USE
-X19      : JITC pointer (callee-saved, set in ppc_start_jitc_asm)
-X20      : CPU state pointer (callee-saved, set in ppc_start_jitc_asm)
-X21-X28  : PPC register cache (callee-saved)
+X19      : JITC pointer (callee-saved, set once in ppc_start_jitc_asm)
+X20      : CPU state pointer (callee-saved, set once in ppc_start_jitc_asm)
+X21-X28  : Callee-saved -- future PPC register cache
 X29 (FP) : Frame pointer
 X30 (LR) : Link register
 SP       : Stack pointer (must be 16-byte aligned)
 ```
+
+**Important conventions for generated code:**
+
+- **X16-X17**: Used by `emitBLR()` / `emitMOV64()` to load function addresses. Any `emitBLR` clobbers X16. Generated code must not rely on X16/X17 across BLR calls.
+- **X0-X7, X9-X15**: Clobbered by any BLR call (caller-saved per AArch64 ABI). This includes calls to asm helpers like `ppc_heartbeat_ext_rel_asm`, `ppc_new_pc_this_page_asm`, `ppc_read/write_effective_*_asm`.
+- **X19-X28**: Preserved across BLR calls (callee-saved). X19 and X20 are reserved. X21-X28 are available for values that must survive across helper calls (e.g. branch target offsets). Currently used as scratch by `ppc_new_pc_this_page_asm` (X21).
+- **CPU state** (`[X20, #offset]`): Always accessible. Gen_ functions read/write PPC registers via `emitLDR32_cpu` / `emitSTR32_cpu`. This is memory, not a register, so it survives all calls.
 
 ### W^X on macOS ARM64
 
@@ -220,9 +227,28 @@ Replace interpreter calls with actual AArch64 instructions. Each native gen_ fun
 - `rlwimi`, `rlwnm` - rotate and mask variants
 - `extsb`, `extsh`, `cntlzw` - extend/count
 - `cmpi`, `cmpli`, `cmp`, `cmpl` - native CR update (currently interpreter)
-- `bclr` (branch to LR), `bcctr` (branch to CTR)
 
 **FPU/AltiVec:** All use interpreter calls. FPU could use AArch64 NEON/FP instructions.
+
+#### Branch Dispatch Strategy
+
+All branch gen_ functions use the interpreter to evaluate the branch condition (handles all BO variants, CTR decrement, LK bit). The optimization is in **how the target is dispatched**:
+
+**`b`/`bl` (unconditional):** Compute target EA at translation time. Jump via `ppc_new_pc_asm` (full dispatch) or `ppc_new_pc_rel_asm`.
+
+**`bc` (conditional, `gen_bcx`):** Interpreter sets `npc`. Generated code compares `npc` with the expected fall-through address (`current_code_base + pc + 4`):
+- **Not taken** (`npc == fall-through`): patched `B.EQ` skips the dispatch, continues to next translated instruction (`flowContinue`).
+- **Taken, backward same-page, entry exists**: heartbeat + direct `BR` to the known native address. No dispatch overhead at all.
+- **Taken, same-page, entry not yet known**: heartbeat + `ppc_new_pc_this_page_asm` (fast lookup in ClientPage entrypoints array, no `jitcNewPC`).
+- **Taken, cross-page**: `ppc_new_pc_asm` (full dispatch).
+
+**`bclr`/`bcctr` (indirect):** Interpreter sets `npc` from LR or CTR. Generated code checks if `npc` is on the current page:
+- **Same page** (`npc - current_code_base < 4096`): heartbeat + `ppc_new_pc_this_page_asm`.
+- **Cross page**: `ppc_new_pc_asm`.
+
+**`ppc_new_pc_this_page_asm`** (assembly helper): Translates EA→PA, then directly indexes `clientPages[PA >> 12]->entrypoints[(PA & 0xFFF) >> 2]` to get the native address. No `jitcNewPC` call, no icache flush, no W^X toggle. Falls back to `jitcNewPC` only if the entrypoint doesn't exist.
+
+**`ppc_new_pc_asm`** (assembly helper): Full dispatch — heartbeat check, EA→PA translation, `jitcNewPC` (page lookup, possibly translate, icache flush, W^X toggle). Used for cross-page branches.
 
 ### Phase 5: MMU Fast Path (DONE)
 

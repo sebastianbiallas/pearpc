@@ -242,23 +242,24 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
 
         // Taken path:
         uint32 target_ofs = (uint32)((sint32)jitc.pc + (sint32)BD);
-        if (target_ofs < 4096 && target_ofs <= jitc.pc) {
-            // Backward same-page branch: target already translated.
-            // Do heartbeat check, then jump directly to native entry point.
-            // This avoids jitcNewPC entirely (no W^X toggle, no icache flush).
+        if (target_ofs < 4096) {
+            // Same-page branch.
             NativeAddress targetNative = jitc.currentPage->entrypoints[target_ofs >> 2];
             if (targetNative) {
+                // Target already translated — heartbeat + direct jump
                 jitc.emitMOV32((NativeReg)0, target_ofs);
                 jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
-                // Direct jump to already-translated native code
                 jitc.emitMOV64((NativeReg)16, (uint64)targetNative);
                 jitc.emit32(a64_BR(16));
             } else {
-                // Target not yet translated (shouldn't happen for backward branch)
-                jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+                // Target not yet translated — use fast this_page lookup
+                jitc.emitMOV32((NativeReg)0, target_ofs);
+                jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
+                jitc.emitMOV32((NativeReg)0, target_ofs);
+                jitc.emitBLR((NativeAddress)ppc_new_pc_this_page_asm);
             }
         } else {
-            // Forward or cross-page: full dispatch
+            // Cross-page: full dispatch
             jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
         }
 
@@ -277,6 +278,70 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     // General case: always dispatch via npc
     jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
     jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    return flowEndBlockUnreachable;
+}
+
+/*
+ *  Helper: emit dispatch for npc with same-page optimization.
+ *  Loads npc from CPU state. If npc is on the current page
+ *  (same current_code_base), uses the fast ppc_new_pc_this_page_asm
+ *  lookup. Otherwise falls through to ppc_new_pc_asm.
+ */
+static void gen_dispatch_npc(JITC &jitc)
+{
+    // Load npc and current_code_base
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+    jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
+
+    // Compute offset = npc - current_code_base
+    jitc.emit32(a64_SUBw_reg(17, 0, 16)); // W17 = npc - ccb
+
+    // If offset < 4096, it's same-page → use fast path
+    jitc.emit32(a64_CMPw_imm(17, 4096)); // CMP W17, #4096
+
+    // B.HS (unsigned >=) → cross-page, use full dispatch
+    NativeAddress fixup = jitc.emitBxxFixup();
+
+    // Same-page: use fast this_page lookup
+    // Save offset in W21 (callee-saved, survives BLR calls)
+    jitc.emit32(a64_MOVw(21, 17)); // W21 = offset
+    jitc.emit32(a64_MOVw(0, 17));  // W0 = offset
+    jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
+    jitc.emit32(a64_MOVw(0, 21));  // W0 = offset (from saved W21)
+    jitc.emitBLR((NativeAddress)ppc_new_pc_this_page_asm);
+
+    // Cross-page fallback: patch fixup to B.HS here
+    {
+        NativeAddress here = jitc.asmHERE();
+        sint64 offset = (sint64)(here - fixup);
+        sint32 imm19 = (sint32)(offset / 4);
+        uint32 insn = 0x54000000 | ((imm19 & 0x7FFFF) << 5) | A64_CS; // B.HS = B.CS
+        *(uint32 *)fixup = insn;
+    }
+
+    // Full dispatch
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+}
+
+/*
+ *  bclrx - Branch Conditional to Link Register  (opcode 19, XO 16)
+ *  bcctrx - Branch Conditional to Count Register  (opcode 19, XO 528)
+ *
+ *  Use interpreter for condition eval, then dispatch via same-page
+ *  fast path when possible.
+ */
+JITCFlow ppc_opc_gen_bclrx(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_bclrx);
+    gen_dispatch_npc(jitc);
+    return flowEndBlockUnreachable;
+}
+
+JITCFlow ppc_opc_gen_bcctrx(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_bcctrx);
+    gen_dispatch_npc(jitc);
     return flowEndBlockUnreachable;
 }
 
