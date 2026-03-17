@@ -223,9 +223,7 @@ static void crash_handler(int sig, siginfo_t *info, void *ctx)
 	fprintf(stderr, "  Backtrace (%d frames):\n", n);
 	backtrace_symbols_fd(bt, n, STDERR_FILENO);
 
-	// Flush trace log
-	extern FILE *gTraceLog;
-	if (gTraceLog) fflush(gTraceLog);
+	fflush(stderr);
 
 	_exit(128 + sig);
 }
