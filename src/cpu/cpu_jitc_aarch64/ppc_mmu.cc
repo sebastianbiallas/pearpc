@@ -60,21 +60,14 @@ extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea
     if (r == PPC_MMU_OK) {
         return pa;
     }
-    // ISI exception — translation failed. Set SRR1 bits and let the
-    // ISI handler in jitc_tools.S dispatch to the exception vector.
-    // The x86_64 JIT handles this the same way via ppc_isi_exception_asm.
+    // ISI exception — set exception_pending so the caller can detect it.
+    // The caller (ppc_new_pc_asm in jitc_tools.S) will check and jump to
+    // ppc_isi_exception_asm which handles it properly (SRR0/SRR1 setup,
+    // MSR clear, TLB invalidate, dispatch to vector 0x400).
     PPC_MMU_WARN("ISI for EA %08x (r=%d)\n", ea, r);
-    // Return a sentinel that ppc_new_pc_asm can't use.
-    // The caller (jitc_tools.S) will jump to the ISI handler.
-    // For now, set up SRR0/SRR1 and return the ISI vector address.
-    cpu->srr[0] = ea;
-    cpu->srr[1] = cpu->msr & 0x87c0ffff;
-    if (r == PPC_MMU_FATAL) {
-        cpu->srr[1] |= (1 << 30); // SRR1[1] = page fault
-    }
-    cpu->msr = 0;
-    // Return physical address of ISI vector (0x400)
-    return 0x400;
+    cpu->exception_pending = true;
+    cpu->srr[1] = (r == PPC_MMU_FATAL) ? (1 << 30) : 0; // stash fault type in srr1 temporarily
+    return ea; // return EA — caller will handle the exception
 }
 
 byte *gMemory = NULL;

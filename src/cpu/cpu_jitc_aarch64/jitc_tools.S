@@ -109,10 +109,17 @@ do_export EXTERN(ppc_new_pc_asm)
     // Store effective PC for validation
     str w0, [x20, #pc]
 
+    // Save effective PC in w21 (callee-saved) for ISI handler
+    mov     w21, w0
+
     // Translate effective address to physical
     // w0 = effective address, w1 = 0 (bytes to unwind, not used on aarch64)
     mov w1, #0
     bl  EXTERN(ppc_effective_to_physical_code)
+
+    // Check for ISI exception
+    ldrb    w16, [x20, #exception_pending]
+    tbnz    w16, #0, .Lnewpc_isi
 
     // Call jitcNewPC(jitc, physical_addr)
     // x0 = jitc, w1 = physical address from translation
@@ -122,6 +129,16 @@ do_export EXTERN(ppc_new_pc_asm)
 
     // Jump to translated code
     br  x0
+
+.Lnewpc_isi:
+    // ISI exception — code translation failed.
+    // w21 = faulting effective address (saved before bl)
+    // Clear exception_pending
+    strb    wzr, [x20, #exception_pending]
+    // Set up for ppc_isi_exception_asm: w0 = EA, w1 = SRR1 bits
+    mov     w0, w21
+    ldr     w1, [x20, #srr1]    // fault type was stashed here by C++
+    b       EXTERN(ppc_isi_exception_asm)
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////
