@@ -304,27 +304,58 @@ This is the biggest performance win after native code generation.
 
 ### Phase 8: Exception Handling (CRITICAL — IN PROGRESS)
 
-The x86_64 JIT raises DSI exceptions (vector 0x300) when page table walks fail during data access. The OS kernel relies on this for demand paging — page faults trigger the kernel's page fault handler which maps the page and retries the instruction.
+PPC exceptions (DSI, ISI) are synchronous — they fire at the faulting instruction and dispatch to exception vectors (DSI=0x300, ISI=0x400). The kernel relies on these for demand paging.
 
-**Current state:** Our C++ slow path (`ppc_write_effective_word_slow`, etc.) silently drops accesses when `ppc_effective_to_physical` fails. The x86_64 `jitc_mmu.S` calls `ppc_dsi_exception_asm` with DAR/DSISR set.
+#### How the three CPU backends handle DSI
 
-**What needs to happen:**
-- On `PPC_MMU_FATAL` from `ppc_effective_to_physical`: set DAR = faulting EA, DSISR = fault type (page fault / protection), then jump to `ppc_dsi_exception_asm`
-- The exception handler sets SRR0/SRR1, clears MSR, and dispatches to vector 0x300
-- The OS page fault handler maps the page and does `rfi` to retry
+**Generic CPU (interpreter):**
+`ppc_effective_to_physical()` calls `ppc_exception(PPC_EXC_DSI, ...)` inline when the page table walk fails. `ppc_exception` sets SRR0=PC, SRR1=MSR, DAR, DSISR, clears MSR, sets `npc = 0x300`. The main loop does `pc = npc`, so the next instruction is the DSI handler. Returns `PPC_MMU_EXC`.
 
-**Impact:** Without DSI exceptions, kernel memory initialization fails silently. Stores to unmapped pages are dropped, leaving memory zeroed. This causes r31 (device tree pointer) to be 0 at kernel entry → machine check.
+**x86_64 JIT:**
+The full BAT/page-table walk is reimplemented in hand-written assembly (`jitc_mmu.S`, ~500 lines). On page fault, the assembly jumps directly to `ppc_dsi_exception_asm`. The C++ `ppc_effective_to_physical` just returns `PPC_MMU_FATAL` (no `ppc_exception` call) — it's only used for the interpreter fallback path.
+
+**Our aarch64 JIT (current state):**
+Two paths, handled differently:
+
+1. **Asm stub path** (native gen_ lwz/stw/etc.): C++ slow path (`ppc_write_effective_word_slow`) calls `raise_dsi()` which sets `exception_pending`, `dar`, `dsisr`. The asm stub checks `exception_pending` immediately after the slow path returns and jumps to `ppc_dsi_exception_asm`. **This works correctly.**
+
+2. **Interpreter path** (GEN_INTERPRET opcodes like lmw/stmw/lwzu/stwu): `ppc_write_effective_word()` (the interpreter version) also calls `raise_dsi()`. But nobody checks `exception_pending` after the interpreter returns — the generated code continues to the next instruction. The stale flag is picked up later by the heartbeat at a block boundary, at the wrong PC and wrong time. **This is broken.**
+
+#### Root cause of the kernel boot failure
+
+The kernel entry code at PA 0x64 does:
+```
+mfmsr r0          ; read MSR
+ori r0, r0, 0x30  ; set IR|DR (enable translation)
+mtsrr1 r0         ; SRR1 = new MSR
+lis r0, 0xc000
+ori r0, r0, 0x3c58 ; r0 = 0xc0003c58 (kernel VA)
+mtsrr0 r0          ; SRR0 = kernel entry
+rfi                 ; jump to kernel with translation ON
+```
+
+After `rfi`, the JIT dispatches to EA `0xc0003c58`. `ppc_effective_to_physical` does a page table walk. The walk fails (page not mapped yet). Our code returns `PPC_MMU_FATAL` — but the generic CPU would call `ppc_exception(PPC_EXC_ISI, ...)` which sets `npc = 0x400` (ISI vector). The ISI handler maps the page and retries. Without `ppc_exception`, the JIT's ISI handler returns PA 0 → executes zeroed memory → crash.
+
+The EA→PA dispatch logging confirmed: every kernel virtual address (c0003c58, c0209d5c, etc.) translates to PA 0x00000000.
+
+#### What needs to happen
+
+Our `ppc_effective_to_physical` needs to call `ppc_exception()` on failure, like the generic CPU. This handles both the interpreter path (GEN_INTERPRET opcodes) and the code fetch path.
+
+For the asm stub path (native gen_ load/store), `raise_dsi` + immediate asm check works correctly and should be kept. In the future, when the JIT does its own page walks in assembly (like x86_64), the DSI will be handled entirely in assembly without going through C++.
 
 ### Phase 9: Full Bootstrap (IN PROGRESS)
 
 **Progress:**
 - Open Firmware PROM: boots, detects Apple Partition Map on Mandrake ISO, loads yaboot ELF
 - Yaboot: full boot menu displayed, config file read, kernel loading initiated
-- Kernel: starts executing but hits machine check due to missing DSI exceptions
-- Lock-step validation: 20M+ instructions validated, confirms correctness up to kernel entry
+- Kernel entry: `rfi` to `c0003c58` dispatches correctly, ISI fires but not handled properly
+- Lock-step validation: 112M+ instructions validated with zero mismatches (GPRs, CR, LR, CTR, XER, MSR, SRR0, SRR1, BATs, segment registers, SDR1)
+- EA→PA logging found root cause: all kernel VAs map to PA 0
 
 **Remaining:**
-- Implement DSI exception handling in TLB slow path
+- Add `ppc_exception` calls to `ppc_effective_to_physical` (matching generic CPU)
+- Remove `raise_dsi` from interpreter `ppc_write/read_effective_*` functions
 - Boot Mandrake Linux PPC kernel
 - Profile and optimize hot paths
 
@@ -338,9 +369,11 @@ The x86_64 JIT raises DSI exceptions (vector 0x300) when page table walks fail d
 
 4. **Test ELFs run with MMU on** (MSR=0x2030). The PROM sets up page tables. Addresses outside mapped regions fail with PPC_MMU_FATAL, which looks like a JIT bug but is actually a test bug.
 
-5. **PPC exceptions are core execution semantics, not error handling.** The kernel relies on page faults (DSI) for demand paging. Silently dropping failed memory accesses causes the kernel to see zeroed memory where it stored register values. The Rc bit (CR0 update) is similarly critical — missing it causes wrong branch decisions.
+5. **PPC exceptions are core execution semantics, not error handling.** The kernel relies on page faults (DSI/ISI) for demand paging. The generic CPU handles them inline via `ppc_exception()` which modifies `npc`. The JIT must do the same — either inline or via exception_pending + immediate check.
 
-6. **Lock-step validation is essential.** Running a reference interpreter alongside the JIT, comparing registers after every instruction, found the Rc bit bug within seconds. Key design: shared memory, PROM calls only on JIT side with callee-saved register checking at resync points.
+6. **Lock-step validation is essential.** Running a reference interpreter alongside the JIT, comparing registers after every instruction, found the Rc bit bug. Key design: shared memory, compare GPRs + SPRs + BATs + SRs. PROM calls only on JIT side with callee-saved register checking at resync points.
+
+7. **Understand the three-way architecture.** Generic CPU, x86_64 JIT, and aarch64 JIT handle exceptions differently. Always check all three before implementing. The generic CPU is the reference for correctness; the x86_64 JIT shows how to do it in a JIT context.
 
 ## Key Files
 

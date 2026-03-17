@@ -218,8 +218,12 @@ static int ppc_pte_protection[] = {
     1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0,
 };
 
+static int e2p_trace = 0;
+
 int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int flags, uint32 &result)
 {
+    bool trace = (addr >= 0xc0000000);
+
     if (flags & PPC_MMU_CODE) {
         if (!(aCPU.msr & MSR_IR)) {
             result = addr;
@@ -232,10 +236,12 @@ int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int fla
                     addr &= aCPU.ibat_nbl[i];
                     addr |= aCPU.ibat_brpn[i];
                     result = addr;
+                    if (trace) { e2p_trace++; fprintf(stderr, "[E2P] ea=%08x → IBAT%d → pa=%08x\n", result, i, result); }
                     return PPC_MMU_OK;
                 }
             }
         }
+        if (trace) { fprintf(stderr, "[E2P] ea=%08x CODE: no IBAT match, trying page table (msr=%08x)\n", addr, aCPU.msr); }
     } else {
         if (!(aCPU.msr & MSR_DR)) {
             result = addr;
@@ -255,10 +261,16 @@ int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int fla
     }
 
     uint32 sr = aCPU.sr[EA_SR(addr)];
+    if (trace) {
+        e2p_trace++;
+        fprintf(stderr, "[E2P] ea=%08x sr[%d]=%08x VSID=%06x flags=%x pagetable=%08x mask=%08x\n",
+            addr, EA_SR(addr), sr, SR_VSID(sr), flags, aCPU.pagetable_base, aCPU.pagetable_hashmask);
+    }
     if (sr & SR_T) {
         PPC_MMU_ERR("sr & T\n");
     } else {
         if ((flags & PPC_MMU_CODE) && (sr & SR_N)) {
+            if (trace) fprintf(stderr, "[E2P] ea=%08x FATAL: SR_N set\n", addr);
             return PPC_MMU_FATAL;
         }
         uint32 offset = EA_Offset(addr);
@@ -268,6 +280,7 @@ int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int fla
 
         uint32 hash1 = (VSID ^ page_index);
         uint32 pteg_addr = ((hash1 & aCPU.pagetable_hashmask) << 6) | aCPU.pagetable_base;
+        if (trace) fprintf(stderr, "[E2P] hash1=%08x pteg=%08x api=%x\n", hash1, pteg_addr, api);
         for (int i = 0; i < 8; i++) {
             uint32 pte;
             if (ppc_read_physical_word(pteg_addr, pte)) {
@@ -288,10 +301,12 @@ int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int fla
                         key = (sr & SR_Ks) ? 4 : 0;
                     }
                     if (!ppc_pte_protection[((flags & PPC_MMU_WRITE) ? 8 : 0) + key + PTE2_PP(pte)]) {
+                        if (trace) fprintf(stderr, "[E2P] PROT FAIL at pteg=%08x\n", pteg_addr);
                         return PPC_MMU_FATAL;
                     }
                     uint32 pap = PTE2_RPN(pte);
                     result = pap | offset;
+                    if (trace) fprintf(stderr, "[E2P] ea=%08x → PTE at %08x → pa=%08x (RPN=%08x ofs=%08x)\n", addr, pteg_addr, result, pap, offset);
                     if (flags & PPC_MMU_WRITE) {
                         pte |= PTE2_C | PTE2_R;
                     } else {
