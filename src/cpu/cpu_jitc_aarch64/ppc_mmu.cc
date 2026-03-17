@@ -931,10 +931,11 @@ void ppc_opc_lwarx(PPC_CPU_State &aCPU)
 	int rD, rA, rB;
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	uint32 r;
-	if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r) == PPC_MMU_OK) {
+	int ret = ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], r);
+	if (ret == PPC_MMU_OK) {
 		aCPU.gpr[rD] = r;
-		aCPU.have_reservation = true;
-		aCPU.reserve = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+		aCPU.reserve = r;
+		aCPU.have_reservation = 1;
 	}
 }
 void ppc_opc_lmw(PPC_CPU_State &aCPU)
@@ -1081,14 +1082,20 @@ void ppc_opc_stwcx_(PPC_CPU_State &aCPU)
 	aCPU.cr &= 0x0fffffff;
 	if (aCPU.have_reservation) {
 		aCPU.have_reservation = false;
-		uint32 ea = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
-		if (ea == aCPU.reserve) {
-			if (ppc_write_effective_word(aCPU, ea, aCPU.gpr[rS]) == PPC_MMU_OK) {
-				aCPU.cr |= CR_CR0_EQ;
+		uint32 v;
+		if (ppc_read_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], v)) {
+			return;
+		}
+		if (v == aCPU.reserve) {
+			if (ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], aCPU.gpr[rS])) {
+				return;
 			}
+			aCPU.cr |= CR_CR0_EQ;
+		}
+		if (aCPU.xer & XER_SO) {
+			aCPU.cr |= CR_CR0_SO;
 		}
 	}
-	if (aCPU.xer & XER_SO) aCPU.cr |= CR_CR0_SO;
 }
 
 void ppc_opc_sth(PPC_CPU_State &aCPU)
