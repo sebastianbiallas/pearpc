@@ -1264,7 +1264,8 @@ int ppc_opc_stswx(PPC_CPU_State &aCPU)
 
 #define FPU_CHECK(cpu) \
 	if (!(cpu.msr & MSR_FP)) { \
-		return PPC_MMU_OK; \
+		ppc_exception(cpu, PPC_EXC_NO_FPU, 0, 0); \
+		return PPC_MMU_EXC; \
 	}
 
 int ppc_opc_lfd(PPC_CPU_State &aCPU)
