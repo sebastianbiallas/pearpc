@@ -121,6 +121,27 @@ static bool compareStates()
 		if (valLog) fprintf(valLog, "  SRR1 MISMATCH: jit=%08x ref=%08x\n", gCPU->srr[1], refCPU->srr[1]);
 		ok = false;
 	}
+	CMP(sdr1, "%08x");
+	CMP(pagetable_base, "%08x");
+	CMP(pagetable_hashmask, "%08x");
+	for (int i = 0; i < 16; i++) {
+		if (gCPU->sr[i] != refCPU->sr[i]) {
+			if (valLog) fprintf(valLog, "  SR%d MISMATCH: jit=%08x ref=%08x\n", i, gCPU->sr[i], refCPU->sr[i]);
+			ok = false;
+		}
+	}
+	for (int i = 0; i < 4; i++) {
+		if (gCPU->ibatu[i] != refCPU->ibatu[i] || gCPU->ibatl[i] != refCPU->ibatl[i]) {
+			if (valLog) fprintf(valLog, "  IBAT%d MISMATCH: jit=(%08x,%08x) ref=(%08x,%08x)\n",
+				i, gCPU->ibatu[i], gCPU->ibatl[i], refCPU->ibatu[i], refCPU->ibatl[i]);
+			ok = false;
+		}
+		if (gCPU->dbatu[i] != refCPU->dbatu[i] || gCPU->dbatl[i] != refCPU->dbatl[i]) {
+			if (valLog) fprintf(valLog, "  DBAT%d MISMATCH: jit=(%08x,%08x) ref=(%08x,%08x)\n",
+				i, gCPU->dbatu[i], gCPU->dbatl[i], refCPU->dbatu[i], refCPU->dbatl[i]);
+			ok = false;
+		}
+	}
 
 #undef CMP
 	return ok;
