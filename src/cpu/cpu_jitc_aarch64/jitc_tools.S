@@ -238,8 +238,22 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
     b.eq    2f
     b   EXTERN(ppc_dec_exception_asm)
 2:
+    // Check for DSI (page fault) — raised by TLB slow path
+    ldr     w2, [x20, #dsisr]
+    cbnz    w2, .Lheartbeat_dsi
     // Unknown exception
     b   EXTERN(jitc_error_unknown_exception)
+
+.Lheartbeat_dsi:
+    // DSI exception: DAR and DSISR already set by slow path.
+    // Clear exception_pending flag.
+    strb    wzr, [x20, #exception_pending]
+    // Load DAR and DSISR for the handler
+    ldr     w0, [x20, #dar]
+    ldr     w1, [x20, #dsisr]
+    // Clear DSISR so we don't re-trigger
+    str     wzr, [x20, #dsisr]
+    b   EXTERN(ppc_dsi_exception_asm)
 
 .Lheartbeat_no_exception:
     ret
@@ -289,7 +303,17 @@ do_export EXTERN(ppc_heartbeat_ext_rel_asm)
     b.eq    4f
     b   EXTERN(ppc_dec_exception_asm)
 4:
+    // Check for DSI
+    ldr     w2, [x20, #dsisr]
+    cbnz    w2, .Lheartbeat_rel_dsi
     b   EXTERN(jitc_error_unknown_exception)
+
+.Lheartbeat_rel_dsi:
+    strb    wzr, [x20, #exception_pending]
+    ldr     w0, [x20, #dar]
+    ldr     w1, [x20, #dsisr]
+    str     wzr, [x20, #dsisr]
+    b   EXTERN(ppc_dsi_exception_asm)
 
 .Lheartbeat_rel_no_exception:
     ret

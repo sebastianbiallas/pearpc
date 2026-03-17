@@ -88,10 +88,20 @@ uint32 gMemorySize;
  *  2. Fills the TLB for the accessed page (RAM only, not IO)
  *  3. Performs the actual read/write
  *
- *  Read helpers return the value (host-endian, already byte-swapped).
- *  On MMU exception, reads return 0 and writes are silently skipped
- *  (same behavior as the interpreter path).
+ *  On MMU failure: sets DAR, DSISR and returns with cpu->exception_pending
+ *  set. The asm stub checks exception_pending and jumps to the DSI handler.
  */
+
+#define DSISR_PAGE  (1<<30)
+#define DSISR_STORE (1<<25)
+#define DSISR_PROT  (1<<27)
+
+static inline void raise_dsi(PPC_CPU_State *cpu, uint32 ea, bool isWrite)
+{
+	cpu->dar = ea;
+	cpu->dsisr = DSISR_PAGE | (isWrite ? DSISR_STORE : 0);
+	cpu->exception_pending = true;
+}
 
 static inline void tlb_fill_data_read(PPC_CPU_State *cpu, uint32 ea, uint32 pa)
 {
@@ -122,6 +132,7 @@ extern "C" uint32 ppc_read_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea)
 		ppc_read_physical_byte(pa, result);
 		return result;
 	}
+	raise_dsi(cpu, ea, false);
 	return 0;
 }
 
@@ -134,6 +145,7 @@ extern "C" uint32 ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
 		ppc_read_physical_half(pa, result);
 		return result;
 	}
+	raise_dsi(cpu, ea, false);
 	return 0;
 }
 
@@ -146,6 +158,7 @@ extern "C" uint32 ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
 		ppc_read_physical_word(pa, result);
 		return result;
 	}
+	raise_dsi(cpu, ea, false);
 	return 0;
 }
 
@@ -158,6 +171,7 @@ extern "C" uint64 ppc_read_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea)
 		ppc_read_physical_dword(pa, result);
 		return result;
 	}
+	raise_dsi(cpu, ea, false);
 	return 0;
 }
 
@@ -167,7 +181,9 @@ extern "C" void ppc_write_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea, uin
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_byte(pa, data);
+		return;
 	}
+	raise_dsi(cpu, ea, true);
 }
 
 extern "C" void ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
@@ -176,7 +192,9 @@ extern "C" void ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uin
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_half(pa, data);
+		return;
 	}
+	raise_dsi(cpu, ea, true);
 }
 
 extern "C" void ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
@@ -185,7 +203,9 @@ extern "C" void ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uin
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_word(pa, data);
+		return;
 	}
+	raise_dsi(cpu, ea, true);
 }
 
 extern "C" void ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, uint64 data)
@@ -194,7 +214,9 @@ extern "C" void ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, ui
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_dword(pa, data);
+		return;
 	}
+	raise_dsi(cpu, ea, true);
 }
 
 #undef TLB
