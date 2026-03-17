@@ -242,16 +242,13 @@ TLB-based memory access with assembly fast path + C++ slow path.
 - Invalidate-all stores 0xFFFFFFFF (not 0 — page 0x00000000 was false-hitting)
 - Single-entry invalidation implemented
 
-### Phase 6: Same-Page Branch Optimization (NEEDED)
+### Phase 6: Same-Page Branch Optimization (DONE for backward branches)
 
-**Current bottleneck:** Same-page backward branches (tight loops) exit translated code and go through the full `ppc_new_pc_asm` → `jitcNewPC` → 64MB icache flush dispatcher on every iteration. This makes BSS-zeroing loops in yaboot take 5+ minutes instead of milliseconds.
+For backward same-page `bc` branches (tight loops), the generated code now jumps directly to the already-translated native entry point via `BR X16`. Each loop iteration: interpreter evaluates condition → heartbeat check → direct jump. No `jitcNewPC`, no icache flush.
 
-**Needed:** For same-page backward `bc` branches, emit a native AArch64 conditional branch that loops within the translation cache fragment, avoiding the dispatcher entirely. The x86_64 JIT does this with `ppc_new_pc_this_page_asm` + backpatching.
+**Remaining bottleneck:** Forward branches and function call/return still go through `ppc_new_pc_asm` → `jitcNewPC` → 64MB icache flush. The x86_64 JIT uses self-modifying code (backpatching) for this — on aarch64 with W^X, this requires toggling permissions.
 
-On AArch64 with W^X, backpatching is harder (can't modify executable code without toggling permissions). Options:
-1. Emit forward-looking conditional branch within the fragment during translation
-2. Use indirect branch via a writable jump table
-3. Pre-compute entry points and emit direct branches at translation time
+**icache flush scope:** Currently flushing all 64MB on every `jitcNewPC`. Fragment-level flush was attempted but broke things (needs investigation — likely fragments spanning multiple allocations or the lookup-only case accessing stale fragment pointers). This is the biggest remaining performance issue.
 
 ### Phase 7: Register Caching
 
@@ -263,16 +260,26 @@ The x86_64 JIT maps frequently-used PPC GPRs to native registers, avoiding load/
 
 This is the biggest performance win after native code generation.
 
-### Phase 8: Full Bootstrap
+### Phase 8: Full Bootstrap (IN PROGRESS)
 
 **Progress:**
 - Open Firmware PROM: boots, detects Apple Partition Map on Mandrake ISO, loads yaboot ELF
-- Yaboot: starts executing BSS-zeroing loop (currently too slow due to Phase 6 bottleneck)
+- Yaboot: BSS clear, palette setup, PROM device discovery (finddevice, getprop for CD)
 
 **Remaining:**
-- Complete Phase 6 to get past yaboot init
+- Continue yaboot boot (load kernel from CD)
 - Boot Mandrake Linux PPC from CD ISO
 - Profile and optimize hot paths
+
+## Lessons Learned
+
+1. **Silent no-op stubs are fatal bugs in disguise.** `lmw`/`stmw` being empty stubs meant callee-saved registers were never saved/restored. Symptom: loop counter stuck. Cause: completely unrelated opcode. Every unimplemented opcode must abort with an error message.
+
+2. **Don't blindly copy x86_64.** The TLB fast path works better as "asm check + C++ slow path" than reimplementing BAT/page-walk in assembly. The bcx works better as "interpreter eval + native dispatch" than fully native condition checking.
+
+3. **Tracing is essential for JIT debugging.** `jitc_trace.log` logs every `jitcNewPC` dispatch with CPU state. This found both the BSS loop bottleneck and the r30 register corruption. Flush frequently — buffered output is lost on timeout/crash.
+
+4. **Test ELFs run with MMU on** (MSR=0x2030). The PROM sets up page tables. Addresses outside mapped regions fail with PPC_MMU_FATAL, which looks like a JIT bug but is actually a test bug.
 
 ## Key Files
 
