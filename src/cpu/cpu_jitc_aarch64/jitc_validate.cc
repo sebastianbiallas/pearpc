@@ -236,9 +236,50 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 			gCPU->current_opc, refCPU->current_opc);
 	}
 	if (!compareStates()) {
-		if (prevPC == gPromOSIEntry || prevPC == gPromOSIEntry + 4) {
-			// After PROM call: only sync caller-saved registers.
-			// r14-r31 are callee-saved — if they differ, it's a real bug.
+		bool isProm = (prevPC == gPromOSIEntry || prevPC == gPromOSIEntry + 4);
+		// Check if previous instruction was an I/O read (volatile register).
+		// Detect by checking if the previous instruction's opcode is a load
+		// and the effective address is in I/O space (>= gMemorySize).
+		bool isIO = false;
+		if (!isProm) {
+			// Check if previous instruction was a load from I/O space.
+			// Decode the previous instruction to get the load EA.
+			uint32 prevInsn = 0;
+			uint32 prevPA = 0;
+			if (ppc_effective_to_physical(*gCPU, prevPC, PPC_MMU_READ | PPC_MMU_CODE | 16, prevPA) == 0) {
+				ppc_read_physical_word(prevPA, prevInsn);
+			}
+			uint32 opc = (prevInsn >> 26) & 0x3f;
+			int rA_field = (prevInsn >> 16) & 0x1f;
+			int16_t d_field = (int16_t)(prevInsn & 0xffff);
+			uint32 loadEA = 0;
+			// D-form loads: lbz(34), lhz(40), lha(42), lwz(32)
+			if (opc == 34 || opc == 40 || opc == 42 || opc == 32) {
+				loadEA = (rA_field ? gCPU->gpr[rA_field] : 0) + d_field;
+			}
+			// X-form (opcode 31): loads use rA + rB, also mftb/mfspr
+			if (opc == 31) {
+				uint32 xo = (prevInsn >> 1) & 0x3ff;
+				if (xo == 371 || xo == 339) {
+					// mftb or mfspr — volatile, always resync
+					isIO = true;
+				} else {
+					int rB_field = (prevInsn >> 11) & 0x1f;
+					loadEA = (rA_field ? gCPU->gpr[rA_field] : 0) + gCPU->gpr[rB_field];
+				}
+			}
+			// Check if loadEA translates to I/O space (PA >= gMemorySize)
+			if (loadEA) {
+				uint32 loadPA = 0;
+				if (ppc_effective_to_physical(*gCPU, loadEA, PPC_MMU_READ | 16, loadPA) == 0) {
+					if (loadPA >= gMemorySize) {
+						isIO = true;
+					}
+				}
+			}
+		}
+		if (isProm || isIO) {
+			// Resync caller-saved registers.
 			for (int i = 0; i <= 12; i++)
 				refCPU->gpr[i] = gCPU->gpr[i];
 			refCPU->cr = gCPU->cr;
@@ -246,7 +287,6 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 			refCPU->ctr = gCPU->ctr;
 			refCPU->xer = gCPU->xer;
 			refCPU->xer_ca = gCPU->xer_ca;
-			// Do NOT sync memory — keep reference memory independent
 			needStep = false;
 		} else {
 			if (valLog) {
@@ -287,7 +327,7 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 			diverged = true;
 			if (valLog) fflush(valLog);
 			fprintf(stderr, "[VALIDATE] MISMATCH #%llu pc=%08x. See validate.log\n", valCount, effectivePC);
-			return;
+			exit(1);
 		}
 	}
 
