@@ -58,7 +58,14 @@ extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea
     uint32 pa;
     int r = ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ | PPC_MMU_CODE, pa);
     if (r == PPC_MMU_OK) {
+        if (ea >= 0xc0000000 && (pa & 0xfff) != (ea & 0xfff)) {
+            fprintf(stderr, "[E2P-BUG] ea=%08x pa=%08x offset mismatch! ea_ofs=%03x pa_ofs=%03x msr=%08x\n",
+                ea, pa, ea & 0xfff, pa & 0xfff, cpu->msr);
+        }
         return pa;
+    }
+    if (r == PPC_MMU_EXC && ea >= 0xc0000000) {
+        fprintf(stderr, "[E2P-ISI] ea=%08x → ISI exception, returning ea=%08x\n", ea, ea);
     }
     if (r == PPC_MMU_EXC) {
         // ppc_exception() already set up SRR0/SRR1, cleared MSR,
@@ -215,7 +222,7 @@ static int e2p_trace = 0;
 
 int FASTCALL ppc_effective_to_physical(PPC_CPU_State &aCPU, uint32 addr, int flags, uint32 &result)
 {
-    bool trace = false; // disabled — was (addr >= 0xc0000000)
+    bool trace = false;
 
     if (flags & PPC_MMU_CODE) {
         if (!(aCPU.msr & MSR_IR)) {

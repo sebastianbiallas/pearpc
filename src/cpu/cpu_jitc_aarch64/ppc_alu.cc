@@ -568,6 +568,7 @@ static inline void ppc_opc_batu_helper(PPC_CPU_State &aCPU, bool dbat, int idx)
         aCPU.dbat_bepi[idx] = (aCPU.dbatu[idx] & aCPU.dbat_bl[idx]);
     } else {
         aCPU.ibat_bl[idx] = ((~aCPU.ibatu[idx] << 15) & 0xfffe0000);
+        aCPU.ibat_nbl[idx] = ~aCPU.ibat_bl[idx];
         aCPU.ibat_bepi[idx] = (aCPU.ibatu[idx] & aCPU.ibat_bl[idx]);
     }
 }
@@ -1994,7 +1995,12 @@ void ppc_opc_icbi(PPC_CPU_State &aCPU)
         return;
     }
     if (pa >= gMemorySize) return;
-    if (!aCPU.jitc) return; // reference interpreter has no JITC
+    if (!aCPU.jitc) return;
+    if ((pa >> 12) == 0) {
+        JITC &jitc2 = *aCPU.jitc;
+        fprintf(stderr, "[ICBI] PA page 0! ea=%08x pa=%08x clientPage=%p\n",
+            ea, pa, jitc2.clientPages[0]);
+    }
     uint32 pageIndex = pa >> 12;
     JITC &jitc = *aCPU.jitc;
     ClientPage *cp = jitc.clientPages[pageIndex];
