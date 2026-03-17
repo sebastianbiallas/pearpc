@@ -603,10 +603,34 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     total++;
     if (entry >= 0x01400000 && entry < 0x02000000) {
         extern PPC_CPU_State *gCPU;
+        extern byte *gMemory;
         static int kernelDisp = 0; kernelDisp++;
-        if (kernelDisp <= 20)
-            fprintf(stderr, "[JITC] kernel dispatch #%d: ea=%08x pa=%08x msr=%08x\n",
-                kernelDisp, gCPU->pc, entry, gCPU->msr);
+        static uint32 lastEntry = 0;
+        if (kernelDisp <= 20 || (entry != lastEntry && kernelDisp <= 100)) {
+            fprintf(stderr, "[JITC] kernel dispatch #%d: ea=%08x pa=%08x msr=%08x r8=%08x\n",
+                kernelDisp, gCPU->pc, entry, gCPU->msr, gCPU->gpr[8]);
+        }
+        // The hang loop at offset 0xcd8 within some page
+        uint32 ofs = entry & 0xfff;
+        if (ofs == 0xcd8 && kernelDisp <= 25) {
+            uint32 r29 = gCPU->gpr[29];
+            uint32 watchAddr = r29 + 0x35b4;
+            uint32 val = 0;
+            if (watchAddr < 0x08000000)
+                val = ppc_word_from_BE(*(uint32 *)(gMemory + watchAddr));
+            fprintf(stderr, "[HANG] r29=%08x [r29+35b4]=%08x (%08x) msr=%08x\n",
+                r29, val, watchAddr, gCPU->msr);
+        }
+        if (entry == 0x01408360 && kernelDisp <= 25) {
+            // Dump what r8 points to
+            uint32 r8 = gCPU->gpr[8];
+            uint32 val = 0;
+            if (r8 < 0x08000000)
+                val = ppc_word_from_BE(*(uint32 *)(gMemory + r8));
+            fprintf(stderr, "[LOOP] r8=%08x [r8]=%08x r5=%08x r3=%08x r4=%08x\n",
+                r8, val, gCPU->gpr[5], gCPU->gpr[3], gCPU->gpr[4]);
+        }
+        lastEntry = entry;
     }
     if (total % 100000 == 0) {
         fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
