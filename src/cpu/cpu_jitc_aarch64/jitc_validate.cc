@@ -34,10 +34,58 @@ static FILE *valLog = NULL;
 static bool diverged = false;
 static uint64 valCount = 0;
 
+// Copy PPC-visible registers from src to dst.
+// Does NOT copy: jitc pointer, JIT internals (pc_ofs, current_code_base,
+// exception flags, TLB cache, translation state).
+static void syncCPUState(PPC_CPU_State *dst, const PPC_CPU_State *src)
+{
+	for (int i = 0; i < 32; i++) dst->gpr[i] = src->gpr[i];
+	for (int i = 0; i < 32; i++) dst->fpr[i] = src->fpr[i];
+	dst->cr = src->cr;
+	dst->fpscr = src->fpscr;
+	dst->xer = src->xer;
+	dst->xer_ca = src->xer_ca;
+	dst->lr = src->lr;
+	dst->ctr = src->ctr;
+	dst->msr = src->msr;
+	dst->pvr = src->pvr;
+	for (int i = 0; i < 4; i++) {
+		dst->ibatu[i] = src->ibatu[i];
+		dst->ibatl[i] = src->ibatl[i];
+		dst->ibat_bl[i] = src->ibat_bl[i];
+		dst->ibat_nbl[i] = src->ibat_nbl[i];
+		dst->ibat_bepi[i] = src->ibat_bepi[i];
+		dst->ibat_brpn[i] = src->ibat_brpn[i];
+		dst->dbatu[i] = src->dbatu[i];
+		dst->dbatl[i] = src->dbatl[i];
+		dst->dbat_bl[i] = src->dbat_bl[i];
+		dst->dbat_nbl[i] = src->dbat_nbl[i];
+		dst->dbat_bepi[i] = src->dbat_bepi[i];
+		dst->dbat_brpn[i] = src->dbat_brpn[i];
+	}
+	dst->sdr1 = src->sdr1;
+	for (int i = 0; i < 16; i++) dst->sr[i] = src->sr[i];
+	dst->dar = src->dar;
+	dst->dsisr = src->dsisr;
+	for (int i = 0; i < 4; i++) dst->sprg[i] = src->sprg[i];
+	dst->srr[0] = src->srr[0];
+	dst->srr[1] = src->srr[1];
+	dst->dec = src->dec;
+	dst->ear = src->ear;
+	dst->pir = src->pir;
+	dst->tb = src->tb;
+	for (int i = 0; i < 16; i++) dst->hid[i] = src->hid[i];
+	dst->pagetable_base = src->pagetable_base;
+	dst->pagetable_hashmask = src->pagetable_hashmask;
+	dst->reserve = src->reserve;
+	dst->have_reservation = src->have_reservation;
+}
+
 void jitcValidateInit()
 {
 	refCPU = (PPC_CPU_State *)malloc(sizeof(PPC_CPU_State));
-	memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
+	memset(refCPU, 0, sizeof(PPC_CPU_State));
+	syncCPUState(refCPU, gCPU);
 	refCPU->jitc = NULL;
 	refMemory = gMemory;
 	gValidateRefMemory = NULL;
@@ -49,17 +97,12 @@ void jitcValidateInit()
 
 static void refStepOne()
 {
-	// Only swap gMemory, NOT gCPU — the timer callback uses gCPU
-	// and would write to the reference CPU state if we swapped.
-	byte *savedMem = gMemory;
-	gMemory = refMemory;
 	gIOReadReplay = true;
 
 	uint32 physAddr;
 	int r = ppc_effective_to_physical(*refCPU, refCPU->pc, PPC_MMU_READ | PPC_MMU_CODE, physAddr);
 	if (r != PPC_MMU_OK) {
 		gIOReadReplay = false;
-		gMemory = savedMem;
 		return;
 	}
 
@@ -72,7 +115,6 @@ static void refStepOne()
 	if (opc == PROM_MAGIC_OPCODE) {
 		refCPU->pc = refCPU->npc;
 		gIOReadReplay = false;
-		gMemory = savedMem;
 		return;
 	}
 
@@ -80,15 +122,9 @@ static void refStepOne()
 	refCPU->pc = refCPU->npc;
 
 	refCPU->ptb++;
-	if (refCPU->pdec == 0) {
-		refCPU->pdec = 0xffffffff;
-	} else {
-		refCPU->pdec--;
-	}
 
 	gIOReadReplay = false;
 	gIOReadCacheValid = false;
-	gMemory = savedMem;
 }
 
 static bool compareStates()
@@ -113,14 +149,11 @@ static bool compareStates()
 	CMP(xer, "%08x");
 	CMP(xer_ca, "%08x");
 	CMP(msr, "%08x");
-	if (gCPU->srr[0] != refCPU->srr[0]) {
-		if (valLog) fprintf(valLog, "  SRR0 MISMATCH: jit=%08x ref=%08x\n", gCPU->srr[0], refCPU->srr[0]);
-		ok = false;
-	}
-	if (gCPU->srr[1] != refCPU->srr[1]) {
-		if (valLog) fprintf(valLog, "  SRR1 MISMATCH: jit=%08x ref=%08x\n", gCPU->srr[1], refCPU->srr[1]);
-		ok = false;
-	}
+	// SRR0/SRR1 and DEC are set by the JIT's asynchronous timer.
+	// The reference doesn't have its own timer — sync from JIT.
+	refCPU->srr[0] = gCPU->srr[0];
+	refCPU->srr[1] = gCPU->srr[1];
+	refCPU->dec = gCPU->dec;
 	CMP(sdr1, "%08x");
 	CMP(pagetable_base, "%08x");
 	CMP(pagetable_hashmask, "%08x");
@@ -215,10 +248,8 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 					i, valCount, gCPU->gpr[i], refCPU->gpr[i]);
 			}
 		}
-		// Full resync
-		JITC *savedJitc = refCPU->jitc;
-		memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
-		refCPU->jitc = savedJitc;
+		// Full resync — copy only PPC-visible registers
+		syncCPUState(refCPU, gCPU);
 		refCPU->pc = effectivePC;
 		return;
 	}
@@ -314,14 +345,8 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 		if (isProm || isIO) {
 			// Resync all registers — I/O and volatile SPR reads can
 			// write to any register (including callee-saved like r29).
-			for (int i = 0; i < 32; i++)
-				refCPU->gpr[i] = gCPU->gpr[i];
-			refCPU->cr = gCPU->cr;
-			refCPU->lr = gCPU->lr;
-			refCPU->ctr = gCPU->ctr;
-			refCPU->xer = gCPU->xer;
-			refCPU->xer_ca = gCPU->xer_ca;
-			refCPU->dec = gCPU->dec;
+			syncCPUState(refCPU, gCPU);
+			refCPU->pc = effectivePC;
 			needStep = false;
 		} else {
 			if (valLog) {
