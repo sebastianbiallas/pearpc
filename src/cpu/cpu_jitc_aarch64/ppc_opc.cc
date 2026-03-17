@@ -102,8 +102,8 @@ void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr)
     aCPU.singlestep_ignore = true;
 #endif
     if (newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS) {
-        PPC_CPU_WARN("unsupported MSR bits set: %08x (msr=%08x) — ignoring\n",
-            newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, newmsr);
+        fprintf(stderr, "[MSR] unsupported bits: %08x (msr=%08x) pc=%08x srr1=%08x\n",
+            newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, newmsr, aCPU.pc, aCPU.srr[1]);
         newmsr &= ~PPC_CPU_UNSUPPORTED_MSR_BITS;
     }
     aCPU.msr = newmsr;
