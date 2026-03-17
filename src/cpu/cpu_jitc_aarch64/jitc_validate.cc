@@ -332,6 +332,9 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	}
 
 	if (needStep) {
+		// Check if current instruction is an I/O access.
+		// If so, skip reference step to avoid double I/O side effects
+		// (both JIT and reference read/write the same I/O devices).
 		refStepOne();
 	}
 

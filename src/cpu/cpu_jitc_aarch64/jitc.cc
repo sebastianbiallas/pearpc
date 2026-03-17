@@ -616,15 +616,6 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     ClientPage *cp = jitcGetOrCreateClientPage(jitc, baseaddr);
     jitcTouchClientPage(jitc, cp);
 
-    if (baseaddr == 0) {
-        extern PPC_CPU_State *gCPU;
-        extern byte *gMemory;
-        uint32 ofs = entry & 0xfff;
-        uint32 w = *(uint32 *)(gMemory + ofs);
-        NativeAddress ep = cp->tcf_current ? jitcGetEntrypoint(cp, ofs) : 0;
-        fprintf(stderr, "[JITC] dispatch PA=0+%03x ea=%08x tcf=%d ep=%p mem=%08x\n",
-            ofs, gCPU->pc, cp->tcf_current ? 1 : 0, ep, w);
-    }
     NativeAddress result;
     if (!cp->tcf_current) {
         /* First translation for this page */
@@ -643,7 +634,6 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
             /* New entrypoint on existing page */
             jitcNewEntries++;
             pthread_jit_write_protect_np(0);
-            NativeAddress before = cp->tcp;
             result = jitcNewEntrypoint(jitc, cp, baseaddr, entry & 0xfff);
             jitcFlushClientPage(cp);
             pthread_jit_write_protect_np(1);
