@@ -20,7 +20,12 @@ bootfile.dump
 # Test artifacts
 test/*.o
 test/nvram_test
+test/nvram_mandrake
 nvram
+
+# JIT debug/trace logs
+jitc.log
+jitc_trace.log
 
 # Large binary files
 *.iso
