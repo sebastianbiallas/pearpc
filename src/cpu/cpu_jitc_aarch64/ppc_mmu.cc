@@ -357,7 +357,10 @@ int FASTCALL ppc_effective_to_physical_vm(PPC_CPU_State &aCPU, uint32 addr, int 
     return ppc_effective_to_physical(aCPU, addr, flags, result);
 }
 
-void ppc_mmu_tlb_invalidate(PPC_CPU_State &aCPU) {}
+void ppc_mmu_tlb_invalidate(PPC_CPU_State &aCPU)
+{
+	ppc_mmu_tlb_invalidate_all_asm(&aCPU);
+}
 
 bool FASTCALL ppc_mmu_set_sdr1(PPC_CPU_State &aCPU, uint32 newval, bool quiesce)
 {
