@@ -24,6 +24,7 @@ extern byte *gMemory;
 extern uint32 gMemorySize;
 
 bool gValidateMode = false;
+byte *gValidateRefMemory = NULL;
 
 static PPC_CPU_State *refCPU = NULL;
 static byte *refMemory = NULL;
@@ -34,10 +35,11 @@ static uint64 valCount = 0;
 void jitcValidateInit()
 {
 	refCPU = (PPC_CPU_State *)malloc(sizeof(PPC_CPU_State));
-	refMemory = (byte *)malloc(gMemorySize);
 	memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
-	memcpy(refMemory, gMemory, gMemorySize);
 	refCPU->jitc = NULL;
+	// Shared memory — both read/write the same gMemory
+	refMemory = gMemory;
+	gValidateRefMemory = NULL;
 
 	gValidateMode = true;
 	valLog = fopen("validate.log", "w");
@@ -198,8 +200,8 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 		refCPU->msr = gCPU->msr;
 		refCPU->pc = effectivePC;
 
-		// Sync memory: PROM writes to gMemory, need to copy to refMemory
-		memcpy(refMemory, gMemory, gMemorySize);
+		// Do NOT sync memory here — let reference keep its own correct memory.
+		// If the JIT has corrupted memory, subsequent loads will show mismatches.
 		return;
 	}
 
@@ -217,8 +219,7 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 			refCPU->ctr = gCPU->ctr;
 			refCPU->xer = gCPU->xer;
 			refCPU->xer_ca = gCPU->xer_ca;
-			// Sync memory: PROM writes to gMemory
-			memcpy(refMemory, gMemory, gMemorySize);
+			// Do NOT sync memory — keep reference memory independent
 			needStep = false;
 		} else {
 			if (valLog) {

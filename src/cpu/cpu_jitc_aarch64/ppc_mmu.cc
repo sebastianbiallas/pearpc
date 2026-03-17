@@ -603,6 +603,11 @@ bool ppc_dma_write(uint32 dest, const void *src, uint32 size)
     byte *ptr;
     ppc_direct_physical_memory_handle(dest, ptr);
     memcpy(ptr, src, size);
+    // Also write to validation reference memory if active
+    extern byte *gValidateRefMemory;
+    if (gValidateRefMemory) {
+        memcpy(gValidateRefMemory + dest, src, size);
+    }
     return true;
 }
 
