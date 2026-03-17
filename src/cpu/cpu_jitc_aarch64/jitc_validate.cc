@@ -34,12 +34,10 @@ static uint64 valCount = 0;
 void jitcValidateInit()
 {
 	refCPU = (PPC_CPU_State *)malloc(sizeof(PPC_CPU_State));
+	refMemory = (byte *)malloc(gMemorySize);
 	memcpy(refCPU, gCPU, sizeof(PPC_CPU_State));
+	memcpy(refMemory, gMemory, gMemorySize);
 	refCPU->jitc = NULL;
-
-	// Share memory — PROM calls only run on the JIT side.
-	// Reference skips PROM calls and resyncs state from JIT.
-	refMemory = gMemory;
 
 	gValidateMode = true;
 	valLog = fopen("validate.log", "w");
@@ -185,6 +183,28 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 		refCPU->xer_ca = gCPU->xer_ca;
 		refCPU->msr = gCPU->msr;
 		refCPU->pc = effectivePC;
+
+		// Compare memory at PROM boundary
+		{
+			int diffs = 0;
+			for (uint32 i = 0; i < gMemorySize; i += 4) {
+				uint32 jitVal = *(uint32 *)(gMemory + i);
+				uint32 refVal = *(uint32 *)(refMemory + i);
+				if (jitVal != refVal) {
+					if (diffs < 10 && valLog) {
+						fprintf(valLog, "MEM DIFF at PA %08x: jit=%08x ref=%08x (#%llu)\n",
+							i, jitVal, refVal, valCount);
+					}
+					diffs++;
+				}
+			}
+			if (diffs > 0 && valLog) {
+				fprintf(valLog, "TOTAL MEM DIFFS: %d at PROM resync #%llu\n", diffs, valCount);
+				fflush(valLog);
+			}
+			// Sync: copy JIT memory to reference so they continue with same state
+			memcpy(refMemory, gMemory, gMemorySize);
+		}
 		return;
 	}
 
