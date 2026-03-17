@@ -124,6 +124,30 @@ extern "C" void jitcValidateAtDispatch(uint32 effectivePC)
 	if (diverged || !refCPU) return;
 	valCount++;
 
+	// Watchpoint: log when r3, r4, r5, r31 change (kernel entry regs)
+	static uint32 last_r3 = 0, last_r4 = 0, last_r5 = 0, last_r31 = 0;
+	// Only log near the kernel transition (after 15M instructions)
+	if (valCount > 15000000) {
+		if (gCPU->gpr[3] != last_r3 && valLog) {
+			fprintf(valLog, "R3 CHANGED: %08x -> %08x at pc=%08x (#%llu)\n",
+				last_r3, gCPU->gpr[3], effectivePC, valCount);
+		}
+		if (gCPU->gpr[4] != last_r4 && valLog) {
+			fprintf(valLog, "R4 CHANGED: %08x -> %08x at pc=%08x (#%llu)\n",
+				last_r4, gCPU->gpr[4], effectivePC, valCount);
+		}
+		if (gCPU->gpr[5] != last_r5 && valLog) {
+			fprintf(valLog, "R5 CHANGED: %08x -> %08x at pc=%08x (#%llu)\n",
+				last_r5, gCPU->gpr[5], effectivePC, valCount);
+		}
+		if (gCPU->gpr[31] != last_r31 && valLog) {
+			fprintf(valLog, "R31 CHANGED: %08x -> %08x at pc=%08x (#%llu)\n",
+				last_r31, gCPU->gpr[31], effectivePC, valCount);
+		}
+	}
+	last_r3 = gCPU->gpr[3]; last_r4 = gCPU->gpr[4];
+	last_r5 = gCPU->gpr[5]; last_r31 = gCPU->gpr[31];
+
 	// Called BEFORE each PPC instruction executes on the JIT.
 	// The reference should be at the same PC with the same state.
 
