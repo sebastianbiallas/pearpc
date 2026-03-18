@@ -265,6 +265,56 @@ _start:
 7:
 
     /*
+     * Test 23: mfmsr (read MSR — should have IR=1, DR=1 at minimum)
+     */
+    PRINT   .Ltest23, (.Ltest23_end - .Ltest23)
+    mfmsr   3
+    /* MSR should have IR (bit 5) and DR (bit 4) set since we run with translation on */
+    andi.   4, 3, 0x30           /* mask IR|DR = bits 5+4 = 0x30 */
+    cmpwi   0, 4, 0x30
+    beq     .Lt23_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Lt23_end
+.Lt23_ok:
+    PRINT   .Lok, 3
+.Lt23_end:
+
+    /*
+     * Test 24: mfmsr / mtmsr round-trip (set and read back EE bit)
+     */
+    PRINT   .Ltest24, (.Ltest24_end - .Ltest24)
+    mfmsr   4                    /* save original MSR */
+    ori     5, 4, 0x8000         /* set EE (bit 15) */
+    mtmsr   5
+    mfmsr   3
+    andi.   6, 3, 0x8000         /* check EE is set */
+    mtmsr   4                    /* restore original MSR */
+    cmpwi   0, 6, 0
+    bne     .Lt24_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Lt24_end
+.Lt24_ok:
+    PRINT   .Lok, 3
+.Lt24_end:
+
+    /*
+     * Test 25: mfmsr confirms MSR_PR=0 (supervisor mode)
+     */
+    PRINT   .Ltest25, (.Ltest25_end - .Ltest25)
+    mfmsr   3
+    andi.   4, 3, 0x4000         /* MSR_PR = bit 14 */
+    cmpwi   0, 4, 0
+    beq     .Lt25_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Lt25_end
+.Lt25_ok:
+    PRINT   .Lok, 3
+.Lt25_end:
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -354,6 +404,15 @@ _start:
 .Ltest22:
     .ascii  "test 22 mfcr/cmpwi:  "
 .Ltest22_end:
+.Ltest23:
+    .ascii  "test 23 mfmsr IR|DR: "
+.Ltest23_end:
+.Ltest24:
+    .ascii  "test 24 mtmsr/mfmsr: "
+.Ltest24_end:
+.Ltest25:
+    .ascii  "test 25 mfmsr !PR:   "
+.Ltest25_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
