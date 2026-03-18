@@ -124,19 +124,28 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     // If W0 == 0: no exception, continue normally.
     // Any pending DEC/ext stays in dec_exception/ext_exception and will
     // be handled by the heartbeat at the next page dispatch.
-    NativeAddress noExc = jitc.emitBxxFixup();
+    //
+    // Use CBNZ W0, #exception (short forward branch, always in range)
+    // + B #skip (unconditional, ±128MB range, handles fragment boundaries).
+    // This avoids the CBZ ±1MB range overflow that occurs when the exception
+    // path crosses a fragment boundary.
+    NativeAddress excBranch = jitc.asmHERE();
+    jitc.emit32(0xD503201F); // NOP placeholder for CBNZ W0, #exception
+    NativeAddress skipBranch = jitc.emitBxxFixup(); // B #skip (placeholder)
     // Exception path: clear exception_pending, dispatch to npc
+    NativeAddress excTarget = jitc.asmHERE();
     jitc.emit32(a64_STRBw(31, 20, offsetof(PPC_CPU_State, exception_pending)));
     jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
     jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
-    // Patch: CBZ W0, #skip (branch if return value == 0 → no exception)
+    // Patch CBNZ W0, #exception (short forward branch to excTarget)
     {
-        NativeAddress here = jitc.asmHERE();
-        sint64 offset = (sint64)(here - noExc);
+        sint64 offset = (sint64)(excTarget - excBranch);
         sint32 imm19 = (sint32)(offset / 4);
-        uint32 insn = 0x34000000 | ((imm19 & 0x7FFFF) << 5) | 0; // CBZ W0
-        *(uint32 *)noExc = insn;
+        uint32 insn = 0x35000000 | ((imm19 & 0x7FFFF) << 5) | 0; // CBNZ W0
+        *(uint32 *)excBranch = insn;
     }
+    // Patch B #skip (unconditional branch past exception path, ±128MB range)
+    jitc.resolveFixup(skipBranch);
 }
 
 

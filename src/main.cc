@@ -210,14 +210,27 @@ static void crash_handler(int sig, siginfo_t *info, void *ctx)
 
 #ifdef __aarch64__
 	ucontext_t *uc = (ucontext_t *)ctx;
-	fprintf(stderr, "  pc=%p  lr=%p  sp=%p\n",
-		(void *)uc->uc_mcontext->__ss.__pc,
-		(void *)uc->uc_mcontext->__ss.__lr,
-		(void *)uc->uc_mcontext->__ss.__sp);
-	if (sig == SIGILL) {
-		uint32 insn = *(uint32 *)info->si_addr;
-		fprintf(stderr, "  Instruction word: %08x\n", insn);
-	}
+	auto *ss = &uc->uc_mcontext->__ss;
+	fprintf(stderr, "  pc=%p  lr=%p  sp=%p  fp=%p\n",
+		(void *)ss->__pc, (void *)ss->__lr,
+		(void *)ss->__sp, (void *)ss->__fp);
+	fprintf(stderr, "  x0=%016llx  x1=%016llx  x2=%016llx  x3=%016llx\n",
+		ss->__x[0], ss->__x[1], ss->__x[2], ss->__x[3]);
+	fprintf(stderr, "  x4=%016llx  x5=%016llx  x6=%016llx  x7=%016llx\n",
+		ss->__x[4], ss->__x[5], ss->__x[6], ss->__x[7]);
+	fprintf(stderr, "  x8=%016llx  x9=%016llx x10=%016llx x11=%016llx\n",
+		ss->__x[8], ss->__x[9], ss->__x[10], ss->__x[11]);
+	fprintf(stderr, " x12=%016llx x13=%016llx x14=%016llx x15=%016llx\n",
+		ss->__x[12], ss->__x[13], ss->__x[14], ss->__x[15]);
+	fprintf(stderr, " x16=%016llx x17=%016llx x18=%016llx x19=%016llx\n",
+		ss->__x[16], ss->__x[17], ss->__x[18], ss->__x[19]);
+	fprintf(stderr, " x20=%016llx x21=%016llx x22=%016llx x23=%016llx\n",
+		ss->__x[20], ss->__x[21], ss->__x[22], ss->__x[23]);
+	fprintf(stderr, " x24=%016llx x25=%016llx x26=%016llx x27=%016llx\n",
+		ss->__x[24], ss->__x[25], ss->__x[26], ss->__x[27]);
+	fprintf(stderr, " x28=%016llx\n", ss->__x[28]);
+	// Print instruction at faulting PC
+	fprintf(stderr, "  insn@pc: %08x\n", *(uint32 *)ss->__pc);
 #endif
 
 	// Dump PPC CPU state
