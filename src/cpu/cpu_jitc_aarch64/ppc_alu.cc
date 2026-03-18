@@ -53,6 +53,36 @@
 
 #define GPR_OFS(n) (offsetof(PPC_CPU_State, gpr) + (n) * 4)
 
+/*
+ *  Emit a privilege check: if MSR_PR is set, jump to
+ *  ppc_program_exception_asm (which never returns).
+ *  Uses checkedPriviledge to skip redundant checks within
+ *  the same block (same as x86 JIT).
+ */
+static void ppc_opc_gen_check_privilege(JITC &jitc)
+{
+    if (!jitc.checkedPriviledge) {
+        jitc.clobberAll();
+        // Load MSR, test MSR_PR (bit 14)
+        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, msr));
+        // TST W0, #(1<<14) — ANDS WZR, W0, #imm
+        // AArch64 logical immediate encoding for (1<<14): N=0, immr=18, imms=0
+        jitc.emit32(0x7212001F); // TST W0, #0x4000 (MSR_PR)
+        NativeAddress skip = jitc.emitBxxFixup(); // B.EQ skip (not user mode)
+
+        // User mode: raise privilege exception
+        // W0 = pc_ofs, W1 = PPC_EXC_PROGRAM_PRIV
+        jitc.emitMOV32((NativeReg)0, jitc.pc);
+        jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_PRIV);
+        jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+        // ppc_program_exception_asm does not return
+
+        // Patch B.EQ to skip here
+        jitc.resolveCondFixup(skip, jitc.asmHERE(), A64_EQ);
+        jitc.checkedPriviledge = true;
+    }
+}
+
 // Native ALU gen_ functions - disabled, using GEN_INTERPRET in ppc_dec.cc instead
 #if 0
 
@@ -244,65 +274,20 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     // The optimization is in how we dispatch to the target afterwards.
     ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
 
-    // After the interpreter runs, npc holds the next PC:
-    //   - If branch taken: npc = target EA
-    //   - If not taken: npc = pc + 4
-
-    if (!lk && !aa) {
-        // No link, PC-relative.
-        // Check if the branch was taken by comparing npc with pc + 4.
-        // If npc == pc + 4 → not taken → continue to next instruction.
-        // Otherwise → taken → dispatch to target.
-
-        // Emit: load npc, compare with (current_code_base + pc + 4)
-        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
-        jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
-        jitc.emitMOV32((NativeReg)17, jitc.pc + 4);
-        jitc.emit32(a64_ADDw_reg(16, 16, 17)); // W16 = current_code_base + pc + 4
-        jitc.emit32(a64_CMPw_reg(0, 16));       // CMP W0, W16
-
-        // If equal (not taken), skip the dispatch
-        NativeAddress fixup = jitc.emitBxxFixup();
-
-        // Taken path:
-        uint32 target_ofs = (uint32)((sint32)jitc.pc + (sint32)BD);
-        if (target_ofs < 4096) {
-            // Same-page branch.
-            NativeAddress targetNative = jitc.currentPage->entrypoints[target_ofs >> 2];
-            if (targetNative) {
-                // Target already translated — heartbeat + direct jump
-                jitc.emitMOV32((NativeReg)0, target_ofs);
-                jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
-                jitc.emitMOV64((NativeReg)16, (uint64)targetNative);
-                jitc.emit32(a64_BR(16));
-            } else {
-                // Target not yet translated — use fast this_page lookup
-                jitc.emitMOV32((NativeReg)0, target_ofs);
-                jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
-                jitc.emitMOV32((NativeReg)0, target_ofs);
-                jitc.emitBLR((NativeAddress)ppc_new_pc_this_page_asm);
-            }
-        } else {
-            // Cross-page or validate mode: full dispatch
-            jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
-        }
-
-        // Not-taken: patch fixup to B.EQ here
-        {
-            NativeAddress here = jitc.asmHERE();
-            sint64 offset = (sint64)(here - fixup);
-            sint32 imm19 = (sint32)(offset / 4);
-            uint32 insn = 0x54000000 | ((imm19 & 0x7FFFF) << 5) | A64_EQ;
-            *(uint32 *)fixup = insn;
-        }
-
-        return flowContinue;
-    }
-
-    // General case: always dispatch via npc
+    // The interpreter set npc: branch target if taken, pc+4 if not taken.
+    // Compare npc to pc+4 to detect the not-taken case and fall through.
+    // Ensure entire sequence fits in one fragment to avoid conditional branch overflow.
+    uint32 next_pc = jitc.pc + 4;
+    jitc.emitAssure(40); // LDR + MOV32 + CMP + B.EQ + emitBLR = max 40 bytes
     jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
+    jitc.emitMOV32((NativeReg)1, next_pc);
+    jitc.emitCMP32((NativeReg)0, (NativeReg)1);
+    NativeAddress fixup = jitc.emitBxxFixup(); // placeholder for B.EQ
+    // Taken: full dispatch
     jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
-    return flowEndBlockUnreachable;
+    // Not taken: land here, continue compiling next instruction
+    jitc.resolveCondFixup(fixup, 0, 0x0); // 0x0 = EQ
+    return flowContinue;
 }
 
 /*
@@ -313,37 +298,9 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
  */
 static void gen_dispatch_npc(JITC &jitc)
 {
-    // Load npc and current_code_base
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
-    jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
-
-    // Compute offset = npc - current_code_base
-    jitc.emit32(a64_SUBw_reg(17, 0, 16)); // W17 = npc - ccb
-
-    // If offset < 4096, it's same-page → use fast path
-    jitc.emit32(a64_CMPw_imm(17, 4096)); // CMP W17, #4096
-
-    // B.HS (unsigned >=) → cross-page, use full dispatch
-    NativeAddress fixup = jitc.emitBxxFixup();
-
-    // Same-page: use fast this_page lookup
-    // Save offset in W21 (callee-saved, survives BLR calls)
-    jitc.emit32(a64_MOVw(21, 17)); // W21 = offset
-    jitc.emit32(a64_MOVw(0, 17));  // W0 = offset
-    jitc.emitBLR((NativeAddress)ppc_heartbeat_ext_rel_asm);
-    jitc.emit32(a64_MOVw(0, 21));  // W0 = offset (from saved W21)
-    jitc.emitBLR((NativeAddress)ppc_new_pc_this_page_asm);
-
-    // Cross-page fallback: patch fixup to B.HS here
-    {
-        NativeAddress here = jitc.asmHERE();
-        sint64 offset = (sint64)(here - fixup);
-        sint32 imm19 = (sint32)(offset / 4);
-        uint32 insn = 0x54000000 | ((imm19 & 0x7FFFF) << 5) | A64_CS; // B.HS = B.CS
-        *(uint32 *)fixup = insn;
-    }
-
-    // Full dispatch
+    // Load npc and dispatch via ppc_new_pc_asm.
+    // Same approach as x86 JIT — no same-page fast path, no conditional branch.
+    // This avoids conditional branch range overflow when fragments are far apart.
     jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
     jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
 }
@@ -2029,6 +1986,17 @@ int ppc_opc_bclrx(PPC_CPU_State &aCPU)
             aCPU.lr = aCPU.pc + 4;
         }
         aCPU.npc = BD;
+        if (aCPU.lr & 3) {
+            fprintf(stderr, "[BCLRX-ALIGN] LR=%08x not aligned! pc=%08x npc=%08x\n",
+                aCPU.lr, aCPU.pc, BD);
+        }
+        if (BD >= 0xBF000000 && BD < 0xC0000000) {
+            fprintf(stderr, "[BCLRX-PROM] npc=%08x lr=%08x pc=%08x msr=%08x\n",
+                BD, aCPU.lr, aCPU.pc, aCPU.msr);
+            extern FILE *gTraceLog;
+            if (gTraceLog) fflush(gTraceLog);
+            exit(48);
+        }
     }
 	return 0;
 }
@@ -2205,7 +2173,7 @@ int ppc_opc_mffsx(PPC_CPU_State &aCPU)
 int ppc_opc_mfmsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rD, rA, rB;
@@ -2237,7 +2205,7 @@ int ppc_opc_mfspr(PPC_CPU_State &aCPU)
         }
     }
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     switch (spr2) {
@@ -2351,7 +2319,7 @@ int ppc_opc_mfspr(PPC_CPU_State &aCPU)
 int ppc_opc_mfsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rD, SR, rB;
@@ -2368,7 +2336,7 @@ int ppc_opc_mfsr(PPC_CPU_State &aCPU)
 int ppc_opc_mfsrin(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rD, rA, rB;
@@ -2503,7 +2471,7 @@ int ppc_opc_mtfsfix(PPC_CPU_State &aCPU)
 int ppc_opc_mtmsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rS, rA, rB;
@@ -2538,7 +2506,7 @@ int ppc_opc_mtspr(PPC_CPU_State &aCPU)
         }
     }
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     switch (spr2) {
@@ -2690,7 +2658,7 @@ int ppc_opc_mtspr(PPC_CPU_State &aCPU)
 int ppc_opc_mtsr(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rS, SR, rB;
@@ -2707,7 +2675,7 @@ int ppc_opc_mtsr(PPC_CPU_State &aCPU)
 int ppc_opc_mtsrin(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rS, rA, rB;
@@ -2724,7 +2692,7 @@ int ppc_opc_mtsrin(PPC_CPU_State &aCPU)
 int ppc_opc_rfi(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     ppc_set_msr(aCPU, aCPU.srr[1] & MSR_RFI_SAVE_MASK);
@@ -2738,8 +2706,20 @@ int ppc_opc_sc(PPC_CPU_State &aCPU)
         gcard_osi(0);
         return 0;
     }
-    //	ppc_exception(PPC_EXC_SC);
+    ppc_exception(aCPU, PPC_EXC_SC);
 	return 0;
+}
+
+JITCFlow ppc_opc_gen_sc(JITC &jitc)
+{
+    jitc.clobberAll();
+    // W0 = pc_ofs of next instruction (SRR0 for SC exception)
+    jitc.emitMOV32((NativeReg)0, jitc.pc + 4);
+    // ppc_sc_exception_asm checks OSI magic and either:
+    //   - OSI match: calls gcard_osi(0), returns here → flowEndBlock
+    //   - Otherwise: raises SC exception (vector 0xC00), does not return
+    jitc.emitBLR((NativeAddress)ppc_sc_exception_asm);
+    return flowEndBlock;
 }
 
 /*
@@ -2759,7 +2739,7 @@ int ppc_opc_sync(PPC_CPU_State &aCPU)
 int ppc_opc_tlbia(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rS, rA, rB;
@@ -2776,7 +2756,7 @@ int ppc_opc_tlbia(PPC_CPU_State &aCPU)
 int ppc_opc_tlbie(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rS, rA, rB;
@@ -2793,7 +2773,7 @@ int ppc_opc_tlbie(PPC_CPU_State &aCPU)
 int ppc_opc_tlbsync(PPC_CPU_State &aCPU)
 {
     if (aCPU.msr & MSR_PR) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
         return 0;
     }
     int rS, rA, rB;
@@ -2814,7 +2794,7 @@ int ppc_opc_tw(PPC_CPU_State &aCPU)
     uint32 b = aCPU.gpr[rB];
     if (((TO & 16) && ((sint32)a < (sint32)b)) || ((TO & 8) && ((sint32)a > (sint32)b)) || ((TO & 4) && (a == b)) ||
         ((TO & 2) && (a < b)) || ((TO & 1) && (a > b))) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
     }
 	return 0;
 }
@@ -2831,9 +2811,193 @@ int ppc_opc_twi(PPC_CPU_State &aCPU)
     uint32 a = aCPU.gpr[rA];
     if (((TO & 16) && ((sint32)a < (sint32)imm)) || ((TO & 8) && ((sint32)a > (sint32)imm)) ||
         ((TO & 4) && (a == imm)) || ((TO & 2) && (a < imm)) || ((TO & 1) && (a > imm))) {
-        //		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
+        ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
     }
 	return 0;
+}
+
+/*
+ *  ========================================================
+ *  Native gen_ functions for privileged and trap opcodes
+ *  ========================================================
+ */
+
+JITCFlow ppc_opc_gen_mfmsr(JITC &jitc)
+{
+    ppc_opc_gen_check_privilege(jitc);
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, msr));
+    jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_mfsr(JITC &jitc)
+{
+    ppc_opc_gen_check_privilege(jitc);
+    int rD, SR, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, SR, rB);
+    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, sr[SR & 0xf]));
+    jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_mfsrin(JITC &jitc)
+{
+    ppc_opc_gen_check_privilege(jitc);
+    // Use interpreter for the indirect SR lookup
+    ppc_opc_gen_interpret(jitc, ppc_opc_mfsrin);
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_mtsr(JITC &jitc)
+{
+    ppc_opc_gen_check_privilege(jitc);
+    // mtsr changes segment registers — use interpreter + invalidate TLB
+    ppc_opc_gen_interpret(jitc, ppc_opc_mtsr);
+    return flowEndBlock;
+}
+
+JITCFlow ppc_opc_gen_mtsrin(JITC &jitc)
+{
+    ppc_opc_gen_check_privilege(jitc);
+    ppc_opc_gen_interpret(jitc, ppc_opc_mtsrin);
+    return flowEndBlock;
+}
+
+JITCFlow ppc_opc_gen_tlbia(JITC &jitc)
+{
+    jitc.clobberAll();
+    ppc_opc_gen_check_privilege(jitc);
+    // Invalidate all TLB, then dispatch to next instruction
+    jitc.emit32(0xAA1403E0); // MOV X0, X20
+    jitc.emitBLR((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
+    jitc.emitMOV32((NativeReg)0, jitc.pc + 4);
+    jitc.emitBLR((NativeAddress)ppc_new_pc_rel_asm);
+    return flowEndBlockUnreachable;
+}
+
+JITCFlow ppc_opc_gen_tlbie(JITC &jitc)
+{
+    jitc.clobberAll();
+    ppc_opc_gen_check_privilege(jitc);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    // W0 = gpr[rB] (EA to invalidate)
+    jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rB));
+    jitc.emitBLR((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
+    jitc.emitMOV32((NativeReg)0, jitc.pc + 4);
+    jitc.emitBLR((NativeAddress)ppc_new_pc_rel_asm);
+    return flowEndBlockUnreachable;
+}
+
+JITCFlow ppc_opc_gen_tlbsync(JITC &jitc)
+{
+    ppc_opc_gen_check_privilege(jitc);
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_tw(JITC &jitc)
+{
+    jitc.clobberAll();
+    int TO, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, TO, rA, rB);
+
+    if (TO == 0) {
+        // Never trap
+        return flowContinue;
+    }
+
+    // Load operands
+    jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rA));
+    jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rB));
+    jitc.emit32(a64_CMPw_reg(0, 1));
+
+    if (TO == 0x1f) {
+        // Always trap
+        jitc.emitMOV32((NativeReg)0, jitc.pc);
+        jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
+        jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+        return flowEndBlockUnreachable;
+    }
+
+    // Conditional trap: branch to exception if any TO condition matches
+    // Emit conditional branches to the trap path
+    NativeAddress trap1 = NULL, trap2 = NULL, trap3 = NULL, trap4 = NULL, trap5 = NULL;
+    if (TO & 16) trap1 = jitc.emitBxxFixup(); // B.LT
+    if (TO & 8)  trap2 = jitc.emitBxxFixup(); // B.GT
+    if (TO & 4)  trap3 = jitc.emitBxxFixup(); // B.EQ
+    if (TO & 2)  trap4 = jitc.emitBxxFixup(); // B.LO (unsigned <)
+    if (TO & 1)  trap5 = jitc.emitBxxFixup(); // B.HI (unsigned >)
+
+    // No trap: skip over exception code
+    NativeAddress noTrap = jitc.emitBxxFixup(); // B skip
+
+    // Trap path
+    NativeAddress trapPath = jitc.asmHERE();
+    jitc.emitMOV32((NativeReg)0, jitc.pc);
+    jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
+    jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+
+    // Patch conditional branches to trapPath
+    if (trap1) jitc.resolveCondFixup(trap1, trapPath, A64_LT);
+    if (trap2) jitc.resolveCondFixup(trap2, trapPath, A64_GT);
+    if (trap3) jitc.resolveCondFixup(trap3, trapPath, A64_EQ);
+    if (trap4) jitc.resolveCondFixup(trap4, trapPath, A64_CC);
+    if (trap5) jitc.resolveCondFixup(trap5, trapPath, A64_HI);
+
+    // Patch noTrap to skip here
+    jitc.resolveFixup(noTrap, 0);
+
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_twi(JITC &jitc)
+{
+    jitc.clobberAll();
+    int TO, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, TO, rA, imm);
+
+    if (TO == 0) {
+        return flowContinue;
+    }
+
+    // Load operand and compare with immediate
+    jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rA));
+    jitc.emitMOV32((NativeReg)1, imm);
+    jitc.emit32(a64_CMPw_reg(0, 1));
+
+    if (TO == 0x1f) {
+        jitc.emitMOV32((NativeReg)0, jitc.pc);
+        jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
+        jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+        return flowEndBlockUnreachable;
+    }
+
+    NativeAddress trap1 = NULL, trap2 = NULL, trap3 = NULL, trap4 = NULL, trap5 = NULL;
+    if (TO & 16) trap1 = jitc.emitBxxFixup();
+    if (TO & 8)  trap2 = jitc.emitBxxFixup();
+    if (TO & 4)  trap3 = jitc.emitBxxFixup();
+    if (TO & 2)  trap4 = jitc.emitBxxFixup();
+    if (TO & 1)  trap5 = jitc.emitBxxFixup();
+
+    NativeAddress noTrap = jitc.emitBxxFixup();
+
+    NativeAddress trapPath = jitc.asmHERE();
+    jitc.emitMOV32((NativeReg)0, jitc.pc);
+    jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
+    jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+
+    if (trap1) jitc.resolveCondFixup(trap1, trapPath, A64_LT);
+    if (trap2) jitc.resolveCondFixup(trap2, trapPath, A64_GT);
+    if (trap3) jitc.resolveCondFixup(trap3, trapPath, A64_EQ);
+    if (trap4) jitc.resolveCondFixup(trap4, trapPath, A64_CC);
+    if (trap5) jitc.resolveCondFixup(trap5, trapPath, A64_HI);
+
+    jitc.resolveFixup(noTrap, 0);
+
+    return flowContinue;
 }
 
 /*      dcba	    Data Cache Block Allocate

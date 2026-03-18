@@ -102,6 +102,23 @@ do_export EXTERN(ppc_start_jitc_asm)
 //
 .p2align 4
 do_export EXTERN(ppc_new_pc_asm)
+    // TRAP: log if W0 (EA) is in PROM range BEFORE heartbeat
+    lsr     w16, w0, #24
+    cmp     w16, #0xBF
+    b.ne    .Lnewpc_not_prom
+    // W0 is PROM EA — log it with npc and ccb
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    stp     x0, x1, [sp, #-16]!      // save W0
+    mov     w1, w0                     // w1 = EA
+    ldr     w2, [x20, #npc]           // w2 = npc
+    ldr     w3, [x20, #current_code_base] // w3 = ccb
+    ldr     w4, [x20, #pc]            // w4 = pc
+    mov     x0, x20
+    bl      EXTERN(jitc_log_prom_newpc)
+    ldp     x0, x1, [sp], #16        // restore W0
+    ldp     x29, x30, [sp], #16
+.Lnewpc_not_prom:
     // Call heartbeat (checks exceptions, sets current_code_base)
     // w0 = effective PC on entry and preserved through heartbeat
     bl  EXTERN(ppc_heartbeat_ext_asm)
@@ -187,10 +204,19 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
     ldr     w1, [x20, #current_code_base]
     add     w0, w0, w1
 
+    // TRAP: if computed EA is in PROM range, abort
+    lsr     w16, w0, #24
+    cmp     w16, #0xBF
+    b.eq    .Lthispage_prom_trap
+
     // Translate EA to PA
     mov     w1, #0
     bl      EXTERN(ppc_effective_to_physical_code)
-    // w0 = physical address
+    // w0 = physical address (or EA on ISI)
+
+    // Check for ISI exception
+    ldrb    w16, [x20, #exception_pending]
+    tbnz    w16, #0, .Lthispage_isi
 
     // Look up ClientPage: clientPages[PA >> 12]
     // X19 = JITC pointer, clientPages is at offset 0
@@ -215,6 +241,24 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
 2:
     // Direct jump to translated code
     br      x5
+
+.Lthispage_prom_trap:
+    // w0 = EA in PROM range from this_page computation
+    // w21 = original offset, w1 = current_code_base
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    // pass: w0=EA, w1=ccb (already set), w2=offset
+    mov     w2, w21
+    bl      EXTERN(jitc_fatal_thispage_prom)
+    // does not return
+
+.Lthispage_isi:
+    // ISI exception — ppc_exception() already set up SRR0/SRR1,
+    // cleared MSR, invalidated TLB, and set npc = 0x400.
+    // Clear exception_pending and dispatch to npc.
+    strb    wzr, [x20, #exception_pending]
+    ldr     w0, [x20, #npc]
+    b       EXTERN(ppc_new_pc_asm)
 
 .Lthispage_fallback:
     // Fall back to full jitcNewPC dispatch
@@ -247,6 +291,11 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
     // Store current_code_base = w0 & 0xFFFFF000
     and w1, w0, #0xFFFFF000
     str w1, [x20, #current_code_base]
+
+    // TRAP: if EA is in PROM range (0xBF000000-0xBFFFFFFF), abort
+    lsr     w16, w0, #24
+    cmp     w16, #0xBF
+    b.eq    .Lheartbeat_prom_trap
 
     // Check exception_pending word (includes dec/ext/stop exception bytes)
     // Use acquire load to see writes from timer thread (GCD/signal handler)
@@ -297,6 +346,13 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
 
 .Lheartbeat_no_exception:
     ret
+
+.Lheartbeat_prom_trap:
+    // w0 = EA in PROM range. Fatal — dump state and exit.
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    bl      EXTERN(jitc_fatal_prom_dispatch)
+    // does not return
 
 .Lheartbeat_stop:
     b   ppc_stop_jitc_asm
@@ -558,10 +614,35 @@ do_export EXTERN(ppc_no_vec_exception_asm)
 //////////////////////////////////////////////////////////////////////////////////////////////
 //  ppc_sc_exception_asm
 //
-//  IN: w0 = pc_ofs
+//  IN: w0 = pc_ofs of instruction AFTER sc (for SRR0)
+//
+//  Checks for gcard OSI magic (gpr[3]==0x113724fa && gpr[4]==0x77810f9b).
+//  If OSI: calls gcard_osi(0) and returns to caller (flowEndBlock).
+//  Otherwise: raises SC exception (vector 0xC00), does not return.
 //
 .p2align 4
 do_export EXTERN(ppc_sc_exception_asm)
+    // Check gpr[3] for OSI magic
+    ldr     w1, [x20, #(gpr + 3 * 4)]
+    mov     w16, #0x24fa
+    movk    w16, #0x1137, lsl #16       // w16 = 0x113724fa
+    cmp     w1, w16
+    b.ne    1f
+    // Check gpr[4]
+    ldr     w1, [x20, #(gpr + 4 * 4)]
+    mov     w16, #0x0f9b
+    movk    w16, #0x7781, lsl #16       // w16 = 0x77810f9b
+    cmp     w1, w16
+    b.ne    1f
+    // OSI match: call gcard_osi(0), return to caller
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    mov     w0, #0
+    bl      EXTERN(gcard_osi)
+    ldp     x29, x30, [sp], #16
+    ret
+
+1:  // SC exception
     str w0, [x20, #pc_ofs]
     ldr w3, [x20, #msr]
     ldr w4, [x20, #current_code_base]

@@ -68,7 +68,8 @@
 #include "jitc_common.h"
 
 // Define to disable TLB fast path (force all accesses through slow path)
-// #define DISABLE_TLB 1
+#define DISABLE_TLB 1
+// #define VALIDATE_TLB 1
 
 #ifdef DISABLE_TLB
 #define TLB_MISS_BRANCH b
@@ -240,7 +241,36 @@ do_export EXTERN(ppc_read_effective_word_asm)
     ldr     x4, [x4, x2, lsl #3]
     ldr     w0, [x4, x1]
     rev     w0, w0                      // BE -> LE
+#ifdef VALIDATE_TLB
+    // Save fast path result, redo via slow path, compare
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    str     w0, [x20, #temp2]          // save fast result in temp2
+    // Reconstruct EA from page tag + offset
+    orr     w1, w3, w1                  // w1 = page_tag | offset = EA
+    mov     x0, x20
+    bl      EXTERN(ppc_read_effective_word_slow)
+    cbnz    w0, .Lvalidate_word_dsi
+    ldr     w1, [x20, #temp]           // slow result
+    ldr     w0, [x20, #temp2]          // fast result
+    cmp     w0, w1
+    b.ne    .Lvalidate_word_mismatch
+    ldp     x29, x30, [sp], #16
     ret
+.Lvalidate_word_mismatch:
+    // w0=fast, w1=slow — call C to report
+    bl      EXTERN(jitc_tlb_validate_word_mismatch)
+    ldr     w0, [x20, #temp]           // use slow (correct) result
+    ldp     x29, x30, [sp], #16
+    ret
+.Lvalidate_word_dsi:
+    // Slow path got DSI but fast path succeeded — TLB stale
+    ldr     w0, [x20, #temp2]          // use fast result (may be wrong)
+    ldp     x29, x30, [sp], #16
+    ret
+#else
+    ret
+#endif
 .Lread_word_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
