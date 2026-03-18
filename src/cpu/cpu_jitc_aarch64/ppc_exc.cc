@@ -55,6 +55,17 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
     fprintf(stderr, "[EXC] ppc_exception type=%03x pc=%08x msr=%08x flags=%08x addr=%08x\n",
         type, aCPU.pc, aCPU.msr, flags, a);
 
+    // Catch NULL pointer DSI from CUDA handler (the primary crash)
+    if (type == PPC_EXC_DSI && a < 0x100 && aCPU.pc >= 0xC00D8000 && aCPU.pc < 0xC00D9000) {
+        fprintf(stderr, "[FATAL-DSI] pc=%08x dar=%08x lr=%08x ctr=%08x ccb=%08x\n",
+            aCPU.pc, a, aCPU.lr, aCPU.ctr, aCPU.current_code_base);
+        fprintf(stderr, "[FATAL-DSI] r0=%08x r1=%08x r3=%08x r7=%08x r8=%08x r9=%08x r10=%08x r30=%08x\n",
+            aCPU.gpr[0], aCPU.gpr[1], aCPU.gpr[3], aCPU.gpr[7],
+            aCPU.gpr[8], aCPU.gpr[9], aCPU.gpr[10], aCPU.gpr[30]);
+        extern void jitc_dump_and_exit(int);
+        jitc_dump_and_exit(44);
+    }
+
     switch (type) {
     case PPC_EXC_DSI:
         aCPU.srr[0] = aCPU.pc;
@@ -65,6 +76,10 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
     case PPC_EXC_ISI:
         aCPU.srr[0] = aCPU.pc;
         aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | flags;
+        break;
+    case PPC_EXC_SC:
+        aCPU.srr[0] = aCPU.npc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
         break;
     case PPC_EXC_NO_FPU:
         aCPU.srr[0] = aCPU.pc;

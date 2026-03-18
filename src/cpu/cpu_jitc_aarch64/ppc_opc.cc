@@ -109,6 +109,8 @@ void FASTCALL writeTBU(PPC_CPU_State &aCPU, uint32 newtbu)
     aCPU.tb = ((uint64)newtbu << 32) | (tbBase & 0xffffffff);
 }
 
+extern "C" void cpu_doze();
+
 void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr)
 {
     ppc_mmu_tlb_invalidate(aCPU);
@@ -127,6 +129,10 @@ void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr)
             newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, newmsr, aCPU.msr, aCPU.pc, aCPU.srr[0], aCPU.srr[1]);
         PPC_CPU_ERR("unsupported bits in MSR set: %08x (msr=%08x)\n",
             newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, newmsr);
+    }
+    if (newmsr & MSR_POW) {
+        cpu_doze();
+        newmsr &= ~MSR_POW;
     }
     aCPU.msr = newmsr;
 }

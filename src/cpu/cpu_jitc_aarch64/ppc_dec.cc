@@ -172,21 +172,18 @@ GEN_INTERPRET(mcrxr)
 GEN_INTERPRET(mfspr)
 GEN_INTERPRET(mtspr)
 GEN_INTERPRET(mftb)
-GEN_INTERPRET(mfmsr)
+/* mfmsr has native gen_ in ppc_alu.cc */
 GEN_INTERPRET_ENDBLOCK(mtmsr)
 
-/* SR */
-GEN_INTERPRET(mfsr)
-GEN_INTERPRET(mtsr)
-GEN_INTERPRET(mfsrin)
-GEN_INTERPRET(mtsrin)
+/* SR — native gen_ in ppc_alu.cc */
+/* mfsr, mtsr, mfsrin, mtsrin have native gen_ in ppc_alu.cc */
 
 /* Branch */
 /* bx - native gen_ in ppc_alu.cc */
 /* bcx has native gen_ in ppc_alu.cc */
 /* bclrx and bcctrx have native gen_ in ppc_alu.cc */
 GEN_INTERPRET_BRANCH(rfi)
-GEN_INTERPRET_BRANCH(sc)
+/* sc has native gen_ in ppc_alu.cc */
 
 /* CR */
 GEN_INTERPRET(mcrf)
@@ -300,16 +297,13 @@ GEN_INTERPRET(mtfsfx)
 GEN_INTERPRET(mtfsfix)
 
 /* Misc */
-GEN_INTERPRET(twi)
-GEN_INTERPRET(tw)
+/* twi, tw have native gen_ in ppc_alu.cc */
 GEN_INTERPRET(eciwx)
 GEN_INTERPRET(ecowx)
 GEN_INTERPRET(isync)
 GEN_INTERPRET(sync)
 GEN_INTERPRET(eieio)
-GEN_INTERPRET_ENDBLOCK(tlbie)
-GEN_INTERPRET_ENDBLOCK(tlbia)
-GEN_INTERPRET(tlbsync)
+/* tlbie, tlbia, tlbsync have native gen_ in ppc_alu.cc */
 GEN_INTERPRET_ENDBLOCK(icbi)
 GEN_INTERPRET_LOADSTORE(dcbz)
 GEN_INTERPRET(dcba)

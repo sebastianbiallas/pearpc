@@ -225,6 +225,8 @@ void sys_set_timer(sys_timer t, time_t secs, long int nanosecs, bool periodic)
 		}
 		if (dsTimer) {
 			dispatch_source_cancel(dsTimer);
+			dispatch_release(dsTimer);
+			dsTimer = NULL;
 		}
 		dsTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dsQueue);
 		sys_timer_callback cb = timer->callback;
