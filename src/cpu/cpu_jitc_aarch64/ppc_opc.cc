@@ -49,9 +49,11 @@ void ppc_opc_trace_insn(PPC_CPU_State &aCPU)
         if (!gInsnLog) return;
     }
     gInsnCount++;
-    fprintf(gInsnLog, "%llu pc=%08x opc=%08x msr=%08x cr=%08x lr=%08x r0=%08x r3=%08x r8=%08x\n",
+    fprintf(gInsnLog, "%llu pc=%08x opc=%08x msr=%08x cr=%08x lr=%08x "
+        "r0=%08x r3=%08x r30=%08x r31=%08x npc=%08x\n",
         gInsnCount, aCPU.pc, aCPU.current_opc, aCPU.msr,
-        aCPU.cr, aCPU.lr, aCPU.gpr[0], aCPU.gpr[3], aCPU.gpr[8]);
+        aCPU.cr, aCPU.lr, aCPU.gpr[0], aCPU.gpr[3],
+        aCPU.gpr[30], aCPU.gpr[31], aCPU.npc);
     if (gInsnCount % 1000 == 0) fflush(gInsnLog);
 }
 

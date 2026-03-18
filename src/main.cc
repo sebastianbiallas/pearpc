@@ -532,6 +532,7 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			runUI();
+			sys_join_thread(cpuThread);
 		}
 
 		io_done();

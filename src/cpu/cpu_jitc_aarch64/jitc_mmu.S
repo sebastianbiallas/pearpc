@@ -44,6 +44,12 @@
  *
  *  Scratch registers (clobbered): x0-x5, x16, x17
  *  Preserved: x19-x28, x29, x30 (LR saved/restored in slow path)
+ *
+ *  All slow-path helpers return int: 0 = OK, nonzero = DSI exception.
+ *  Read helpers store the result in cpu->temp (word) or
+ *  cpu->temp/temp2 (dword). This avoids a race where a concurrent
+ *  DEC/ext interrupt sets exception_pending during the slow-path call,
+ *  which would be mistaken for a DSI if we checked exception_pending.
  */
 
 #ifndef PREFIX
@@ -121,9 +127,10 @@ do_export EXTERN(ppc_read_effective_byte_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_byte_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
+    // Load result from cpu->temp
+    ldr     w0, [x20, #temp]
     ldp     x29, x30, [sp], #16
     ret
 
@@ -160,9 +167,9 @@ do_export EXTERN(ppc_read_effective_half_z_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_half_z_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
+    ldr     w0, [x20, #temp]
     ldp     x29, x30, [sp], #16
     ret
 
@@ -200,9 +207,9 @@ do_export EXTERN(ppc_read_effective_half_s_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_half_z_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
+    ldr     w0, [x20, #temp]
     sxth    w0, w0                      // sign-extend result
     ldp     x29, x30, [sp], #16
     ret
@@ -240,9 +247,9 @@ do_export EXTERN(ppc_read_effective_word_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_word_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
+    ldr     w0, [x20, #temp]
     ldp     x29, x30, [sp], #16
     ret
 
@@ -279,9 +286,12 @@ do_export EXTERN(ppc_read_effective_dword_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_dword_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
+    // Load 64-bit result from cpu->temp (hi32) and cpu->temp2 (lo32)
+    ldr     w16, [x20, #temp]
+    ldr     w17, [x20, #temp2]
+    orr     x0, x17, x16, lsl #32
     ldp     x29, x30, [sp], #16
     ret
 
@@ -315,9 +325,8 @@ do_export EXTERN(ppc_write_effective_byte_asm)
     mov     w1, w0                      // w1 = ea
     mov     x0, x20                     // x0 = cpu
     bl      EXTERN(ppc_write_effective_byte_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
     ldp     x29, x30, [sp], #16
     ret
 
@@ -354,9 +363,8 @@ do_export EXTERN(ppc_write_effective_half_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_write_effective_half_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
     ldp     x29, x30, [sp], #16
     ret
 
@@ -393,9 +401,8 @@ do_export EXTERN(ppc_write_effective_word_asm)
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_write_effective_word_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
     ldp     x29, x30, [sp], #16
     ret
 
@@ -432,9 +439,8 @@ do_export EXTERN(ppc_write_effective_dword_asm)
     mov     w1, w0                      // w1 = ea
     mov     x0, x20                     // x0 = cpu
     bl      EXTERN(ppc_write_effective_dword_slow)
-    // Check for DSI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Ldsi_from_slow
+    // Check return value: w0 != 0 means DSI
+    cbnz    w0, .Ldsi_from_slow
     ldp     x29, x30, [sp], #16
     ret
 
@@ -460,15 +466,15 @@ do_export EXTERN(ppc_opc_icbi_asm)
 //
 //  DSI exception from slow path
 //
-//  Called when a TLB slow-path function sets exception_pending after
-//  a failed EA→PA translation. DAR and DSISR are already set in CPU state.
-//  Clean up the slow-path stack frame and jump to the DSI handler.
+//  Called when a TLB slow-path function returns nonzero (DSI).
+//  ppc_exception() already set DAR, DSISR, SRR0/SRR1, MSR, npc,
+//  and exception_pending.
+//  Clean up the slow-path stack frame and dispatch to npc.
 //
 .Ldsi_from_slow:
     // Clean up the slow-path stack frame (stp x29, x30 was pushed)
     ldp     x29, x30, [sp], #16
-    // ppc_exception() already set up DAR, DSISR, SRR0/SRR1, MSR, npc.
-    // Just clear exception_pending and dispatch to npc (exception vector).
+    // Clear exception_pending and dispatch to npc (exception vector).
     strb    wzr, [x20, #exception_pending]
     ldr     w0, [x20, #npc]
     b       EXTERN(ppc_new_pc_asm)

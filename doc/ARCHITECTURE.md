@@ -15,7 +15,7 @@ PearPC is a PowerPC (G4) platform emulator that emulates a complete Macintosh-li
 │ generic   │ pci/     │ osapi/   │ data.h (containers)   │
 │ jitc_x86  │ graphic/ │  posix   │ stream.h (I/O)        │
 │ jitc_x64  │ ide/     │  win32   │ str.h (strings)       │
-│           │ cuda/    │  beos    │ configfile.h          │
+│jitc_arm64 │ cuda/    │  beos    │ configfile.h          │
 │           │ prom/    │ ui/      │ snprintf.h            │
 │           │ pic/     │  sdl     │ except.h              │
 │           │ nvram/   │  x11     │ endianess.h           │
@@ -43,7 +43,8 @@ src/
 │   ├── mem.h            Memory access interface
 │   ├── cpu_generic/     Pure C++ interpreter (portable)
 │   ├── cpu_jitc_x86/    x86 32-bit JIT compiler
-│   └── cpu_jitc_x86_64/ x86_64 JIT compiler
+│   ├── cpu_jitc_x86_64/ x86_64 JIT compiler
+│   └── cpu_jitc_aarch64/ AArch64 (ARM64) JIT compiler
 ├── io/                   Emulated I/O devices
 │   ├── io.h/cc          Memory-mapped I/O dispatcher
 │   ├── pci/             PCI bus and bridge
@@ -103,11 +104,11 @@ src/
 
 ## CPU Emulation
 
-PearPC emulates a PowerPC G3/G4 (32-bit PPC ISA) with three backend implementations, selected at compile time:
+PearPC emulates a PowerPC G3/G4 (32-bit PPC ISA) with four backend implementations, selected at compile time:
 
 ### Generic Interpreter (`cpu_generic/`)
 
-Pure C++ interpreter. Decodes and executes one PPC instruction at a time. Portable to any host architecture but slow. This is the only option for ARM64 (Apple Silicon) hosts.
+Pure C++ interpreter. Decodes and executes one PPC instruction at a time. Portable to any host architecture but slow.
 
 Key modules mirror PPC functional units:
 - `ppc_alu.cc` - Integer arithmetic/logic
@@ -129,6 +130,10 @@ Translates PPC instructions to native x86 (32-bit) machine code at runtime. Incl
 ### x86_64 JIT Compiler (`cpu_jitc_x86_64/`)
 
 Same architecture as the x86 JIT but targeting x86_64. Takes advantage of 16 GPRs and 16 XMM registers for better register allocation.
+
+### AArch64 JIT Compiler (`cpu_jitc_aarch64/`)
+
+JIT compiler targeting AArch64 (ARM64), primarily for macOS on Apple Silicon. Uses MAP_JIT + pthread_jit_write_protect_np for W^X compliance. Most opcodes use GEN_INTERPRET (calling the C++ interpreter via BLR); 6 core load/store opcodes (lwz/stw/lbz/stb/lhz/sth) have native code generation with TLB fast path. See `doc/AARCH64_JIT_PORT.md` for details.
 
 ### CPU Interface (`cpu.h`)
 
@@ -205,7 +210,7 @@ Runtime configuration via text file (see `ppccfg.example`):
 ## Build System
 
 GNU Autotools (autoconf + automake). Key configure options:
-- `--enable-cpu=generic|jitc_x86|jitc_x86_64` (auto-detected from host)
+- `--enable-cpu=generic|jitc_x86|jitc_x86_64|jitc_aarch64` (auto-detected from host)
 - `--enable-ui=sdl|x11|win32|beos|gtk|qt` (platform-specific default)
 - `--enable-debug`, `--enable-release`, `--enable-profiling`
 

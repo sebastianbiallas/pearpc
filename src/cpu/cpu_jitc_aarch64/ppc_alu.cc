@@ -1974,7 +1974,8 @@ int ppc_opc_bcx(PPC_CPU_State &aCPU)
     bool bo2 = (BO & 2);
     bool bo8 = (BO & 8); // branch condition true
     bool cr = (aCPU.cr & (1 << (31 - BI)));
-    if (((BO & 4) || ((aCPU.ctr != 0) ^ bo2)) && ((BO & 16) || (!(cr ^ bo8)))) {
+    bool taken = ((BO & 4) || ((aCPU.ctr != 0) ^ bo2)) && ((BO & 16) || (!(cr ^ bo8)));
+    if (taken) {
         if (!(aCPU.current_opc & PPC_OPC_AA)) {
             BD += aCPU.pc;
         }

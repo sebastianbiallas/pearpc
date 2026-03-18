@@ -60,6 +60,12 @@ See [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) for a detailed description of the
 | `src/system/` | Platform abstraction (display, input, threading, OS API) |
 | `src/debug/` | Debugger, PPC/x86 disassemblers |
 | `src/tools/` | Utility libraries (containers, strings, streams) |
+| `scripts/debug/` | Debug tools for analyzing memory dumps, kernel logs, PPC disassembly |
+| `test/` | Test programs (PPC ELFs, test harnesses) |
+
+## Debugging
+
+See [doc/AGENT_DEBUGGING.md](doc/AGENT_DEBUGGING.md) for the full debugging methodology, including how to diagnose JIT kernel boot issues, what tools to use, and common pitfalls.
 
 ## Code Style
 

@@ -116,100 +116,118 @@ static inline void tlb_fill_data_write(PPC_CPU_State *cpu, uint32 ea, uint32 pa)
 	}
 }
 
-extern "C" uint32 ppc_read_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea)
+extern "C" int ppc_read_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
 		uint8 result;
 		ppc_read_physical_byte(pa, result);
-		return result;
+		cpu->temp = result;
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
-	return 0;
+	return 1;
 }
 
-extern "C" uint32 ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
+extern "C" int ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
 		uint16 result;
 		ppc_read_physical_half(pa, result);
-		return result;
+		cpu->temp = result;
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
-	return 0;
+	return 1;
 }
 
-extern "C" uint32 ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
+extern "C" int ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
 		uint32 result;
 		ppc_read_physical_word(pa, result);
-		return result;
+		cpu->temp = result;
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
-	return 0;
+	return 1;
 }
 
-extern "C" uint64 ppc_read_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea)
+extern "C" int ppc_read_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
 		uint64 result;
 		ppc_read_physical_dword(pa, result);
-		return result;
+		// Store 64-bit result in temp/temp2
+		cpu->temp = (uint32)(result >> 32);
+		cpu->temp2 = (uint32)(result);
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
-	return 0;
+	return 1;
 }
 
-extern "C" void ppc_write_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
+extern "C" int ppc_write_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_byte(pa, data);
-		return;
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	return 1;
 }
 
-extern "C" void ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
+extern "C" int ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_half(pa, data);
-		return;
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	return 1;
 }
 
-extern "C" void ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
+extern "C" int ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
+		// Trace writes to bh_task_vec / softirq / jiffies area
+		if (pa >= 0x0025abe0 && pa <= 0x0025ac10) {
+			fprintf(stderr, "[WRITE-SLOW] EA=%08x PA=%08x data=%08x pc=%08x lr=%08x\n",
+				ea, pa, data, cpu->pc, cpu->lr);
+		}
+		if (pa >= 0x002432e4 && pa <= 0x002432ec) {
+			fprintf(stderr, "[JIFFIES-SLOW] EA=%08x PA=%08x data=%08x pc=%08x lr=%08x\n",
+				ea, pa, data, cpu->pc, cpu->lr);
+		}
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_word(pa, data);
-		return;
+		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	return 1;
 }
 
-extern "C" void ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, uint64 data)
+extern "C" int ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, uint64 data)
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_dword(pa, data);
-		return;
+		return 0;
 	}
 	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	return 1;
 }
 
 #undef TLB
@@ -452,6 +470,16 @@ int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
 {
     if (addr < gMemorySize) {
         result = ppc_word_from_BE(*((uint32 *)(gMemory + addr)));
+        // Trace reads from jiffies (PA 0025abe4)
+        if (addr >= 0x0025abe0 && addr <= 0x0025abe8) {
+            extern PPC_CPU_State *gCPU;
+            static int readTraceCount = 0;
+            if (readTraceCount < 200) {
+                fprintf(stderr, "[READ-TRACE] PA=%08x result=%08x raw_BE=%08x pc=%08x lr=%08x\n",
+                    addr, result, *((uint32 *)(gMemory + addr)), gCPU->pc, gCPU->lr);
+                readTraceCount++;
+            }
+        }
         return PPC_MMU_OK;
     }
     int ret = io_mem_read(addr, result, 4);
@@ -560,6 +588,18 @@ int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 
 int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
 {
+    // Trace writes to bh_task_vec / softirq / jiffies area
+    if (addr >= 0x0025abe0 && addr <= 0x0025ac10) {
+        extern PPC_CPU_State *gCPU;
+        fprintf(stderr, "[WRITE-TRACE] PA=%08x data=%08x pc=%08x lr=%08x msr=%08x\n",
+            addr, data, gCPU->pc, gCPU->lr, gCPU->msr);
+    }
+    // Trace writes to jiffies (PA 0x002432e8 - the REAL jiffies address)
+    if (addr >= 0x002432e4 && addr <= 0x002432ec) {
+        extern PPC_CPU_State *gCPU;
+        fprintf(stderr, "[JIFFIES-WRITE] PA=%08x data=%08x pc=%08x lr=%08x\n",
+            addr, data, gCPU->pc, gCPU->lr);
+    }
     if (addr < gMemorySize) {
         *((uint32 *)(gMemory + addr)) = ppc_word_to_BE(data);
         return PPC_MMU_OK;
@@ -1571,11 +1611,13 @@ int ppc_opc_stvewx(PPC_CPU_State &aCPU)
 }
 int ppc_opc_dstst(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	/* Since we are not emulating the cache, this is a nop */
+	return 0;
 }
 int ppc_opc_dss(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	/* Since we are not emulating the cache, this is a nop */
+	return 0;
 }
 
 /*
@@ -1630,7 +1672,6 @@ JITCFlow ppc_opc_gen_lwz(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
 
-	// Store pc_ofs for exception handling
 	// Store pc_ofs and full pc for exception handling
 	jitc.emitMOV32((NativeReg)16, jitc.pc);
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
@@ -1638,9 +1679,13 @@ JITCFlow ppc_opc_gen_lwz(JITC &jitc)
 	jitc.emit32(0x0B110210); // ADD W16, W16, W17
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
 
+	// Store npc = pc + 4
+	jitc.emit32(0x11001210); // ADD W16, W16, #4
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.emitBLR((NativeAddress)ppc_read_effective_word_asm);
-	// W0 = result
+	// W0 = result (asm handles DSI internally, never returns on DSI)
 	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -1663,6 +1708,10 @@ JITCFlow ppc_opc_gen_stw(JITC &jitc)
 	jitc.emit32(0x0B110210); // ADD W16, W16, W17
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
 
+	// Store npc = pc + 4
+	jitc.emit32(0x11001210); // ADD W16, W16, #4
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+
 	gen_ea_D(jitc, rA, (sint32)imm);
 	// W1 = value to store
 	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
@@ -1681,12 +1730,13 @@ JITCFlow ppc_opc_gen_lbz(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
 
-	// Store pc_ofs and full pc for exception handling
 	jitc.emitMOV32((NativeReg)16, jitc.pc);
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
 	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
 	jitc.emit32(0x0B110210); // ADD W16, W16, W17
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+	jitc.emit32(0x11001210); // ADD W16, W16, #4
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.emitBLR((NativeAddress)ppc_read_effective_byte_asm);
@@ -1705,12 +1755,13 @@ JITCFlow ppc_opc_gen_stb(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
 	jitc.clobberAll();
 
-	// Store pc_ofs and full pc for exception handling
 	jitc.emitMOV32((NativeReg)16, jitc.pc);
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
 	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
 	jitc.emit32(0x0B110210); // ADD W16, W16, W17
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+	jitc.emit32(0x11001210); // ADD W16, W16, #4
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
@@ -1729,12 +1780,13 @@ JITCFlow ppc_opc_gen_lhz(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
 
-	// Store pc_ofs and full pc for exception handling
 	jitc.emitMOV32((NativeReg)16, jitc.pc);
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
 	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
 	jitc.emit32(0x0B110210); // ADD W16, W16, W17
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+	jitc.emit32(0x11001210); // ADD W16, W16, #4
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.emitBLR((NativeAddress)ppc_read_effective_half_z_asm);
@@ -1753,12 +1805,13 @@ JITCFlow ppc_opc_gen_sth(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
 	jitc.clobberAll();
 
-	// Store pc_ofs and full pc for exception handling
 	jitc.emitMOV32((NativeReg)16, jitc.pc);
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
 	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
 	jitc.emit32(0x0B110210); // ADD W16, W16, W17
 	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+	jitc.emit32(0x11001210); // ADD W16, W16, #4
+	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));

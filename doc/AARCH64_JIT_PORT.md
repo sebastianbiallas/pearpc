@@ -14,9 +14,14 @@ The aarch64 JIT backend compiles and links on macOS ARM64 (`aarch64-jit` branch)
 - MMU stub (jitc_mmu.S): identity mapping, memory access stubs
 - Full opcode dispatch tables (ppc_dec.cc)
 - All 143 PPC interpreter opcode implementations (copied from x86_64, platform-independent C++)
-- All gen_ functions return flowEndBlockUnreachable (no native code generation yet)
-
-**Next:** Get the first PPC instructions executing through the JIT loop.
+- Most gen_ functions use GEN_INTERPRET (call C++ interpreter via BLR)
+- 6 core load/store opcodes (lwz/stw/lbz/stb/lhz/sth) have native code generation with TLB fast path
+- ALU immediate/register opcodes and branches have native code generation
+- Load/store GEN_INTERPRET wrapper checks return value (not exception_pending) for DSI detection
+- TLB slow-path DSI fix: all slow-path C functions return int (0=OK, 1=DSI), asm stubs check return value instead of exception_pending; async DEC/ext exceptions stay pending for heartbeat. Read slow paths store results in cpu->temp.
+- emitBxxFixup fix: captures address AFTER emit32() to handle fragment overflow correctly
+- dss/dstst cache hint opcodes are now registered (no-ops)
+- ppc_opc_gen_invalid now prints `[JITC] WARNING: unknown opcode XXXXXXXX at pc_ofs=XXXX` to stderr at JIT compile time
 
 ## How the x86_64 JIT Works
 
@@ -186,7 +191,7 @@ Custom opcodes for test I/O (defined in `ppc_dec.cc ppc_opc_special`):
 
 ### Phase 3: Naive Opcode Execution (DONE)
 
-All 200+ PPC opcodes generate AArch64 code that calls the C++ interpreter function via `BLR`. The `ppc_opc_gen_interpret()` helper emits:
+All 200+ PPC opcodes generate AArch64 code that calls the C++ interpreter function via `BLR`. Load/store opcodes use a separate `ppc_opc_gen_interpret_loadstore()` wrapper that checks the function return value (not `exception_pending`) for DSI detection. The `ppc_opc_gen_interpret()` helper emits:
 1. Store `current_opc`, `pc`, `npc` to CPU state
 2. `MOV X0, X20` (first arg = CPU state pointer)
 3. Load function address into X16
@@ -198,7 +203,7 @@ Test results: `test_loop.elf` prints "Hello from PPC!" and counts 1-10. `test_al
 
 ### Phase 4: Native Code Generation (IN PROGRESS)
 
-Replace interpreter calls with actual AArch64 instructions. Each native gen_ function loads PPC registers from `[X20, #offset]`, performs the operation with AArch64 instructions, and stores the result back.
+Replace interpreter calls with actual AArch64 instructions. Each native gen_ function loads PPC registers from `[X20, #offset]`, performs the operation with AArch64 instructions, and stores the result back. 6 core load/store opcodes now have native code generation with inline TLB fast path (see below).
 
 **Done - ALU immediate:**
 - `addi`/`li` - immediate add (handles rA==0 for load immediate)

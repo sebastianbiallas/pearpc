@@ -1,5 +1,7 @@
 # Plan: Load/Store GEN_INTERPRET Wrapper
 
+> **Status: COMPLETED.** This plan has been fully implemented. Additionally, 6 core load/store opcodes (lwz/stw/lbz/stb/lhz/sth) have been upgraded to native code generation with TLB fast path in ppc_mmu.cc, going beyond the original plan scope.
+
 ## Problem
 
 The current `ppc_opc_gen_interpret()` wrapper checks `exception_pending` after

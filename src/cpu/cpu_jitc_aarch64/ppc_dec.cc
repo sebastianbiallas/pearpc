@@ -47,6 +47,8 @@ static int ppc_opc_invalid(PPC_CPU_State &aCPU)
 
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 {
+    fprintf(stderr, "[JITC] WARNING: unknown opcode %08x at pc_ofs=%04x (base+ofs)\n",
+        jitc.current_opc, jitc.pc);
     jitc.clobberAll();
     // Store pc_ofs for exception handler
     jitc.emitMOV32((NativeReg)0, jitc.pc);
@@ -235,6 +237,10 @@ GEN_INTERPRET_LOADSTORE(lwbrx)
 GEN_INTERPRET_LOADSTORE(lhbrx)
 GEN_INTERPRET_LOADSTORE(stwbrx)
 GEN_INTERPRET_LOADSTORE(sthbrx)
+
+/* Cache/stream hints (no-ops) */
+GEN_INTERPRET(dss)
+GEN_INTERPRET(dstst)
 
 /* FPU load/store */
 GEN_INTERPRET_LOADSTORE(lfs)
@@ -630,6 +636,7 @@ static void ppc_opc_init_group2()
     ppc_opc_table_gen_group2[343] = ppc_opc_gen_lhax;
     ppc_opc_table_gen_group2[370] = ppc_opc_gen_tlbia;
     ppc_opc_table_gen_group2[371] = ppc_opc_gen_mftb;
+    ppc_opc_table_gen_group2[374] = ppc_opc_gen_dstst;
     ppc_opc_table_gen_group2[375] = ppc_opc_gen_lhaux;
     ppc_opc_table_gen_group2[407] = ppc_opc_gen_sthx;
     ppc_opc_table_gen_group2[412] = ppc_opc_gen_orcx;
@@ -664,6 +671,7 @@ static void ppc_opc_init_group2()
     ppc_opc_table_gen_group2[759] = ppc_opc_gen_stfdux;
     ppc_opc_table_gen_group2[790] = ppc_opc_gen_lhbrx;
     ppc_opc_table_gen_group2[792] = ppc_opc_gen_srawx;
+    ppc_opc_table_gen_group2[822] = ppc_opc_gen_dss;
     ppc_opc_table_gen_group2[824] = ppc_opc_gen_srawix;
     ppc_opc_table_gen_group2[854] = ppc_opc_gen_eieio;
     ppc_opc_table_gen_group2[918] = ppc_opc_gen_sthbrx;

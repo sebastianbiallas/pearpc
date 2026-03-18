@@ -236,9 +236,13 @@ NativeAddress JITC::emitBxxFixup()
 {
     // Emit a placeholder B instruction (unconditional, offset 0).
     // Returns the address of the instruction so it can be patched later.
-    NativeAddress here = currentPage->tcp;
+    //
+    // IMPORTANT: emit32() may trigger a fragment overflow, which emits a
+    // linking branch at the old tcp and moves tcp to a new fragment.
+    // We must capture the address AFTER emit32, not before, to get the
+    // actual location of the placeholder instruction.
     emit32(0x14000000); // B #0 (placeholder, will be patched)
-    return here;
+    return currentPage->tcp - 4;
 }
 
 void JITC::resolveFixup(NativeAddress at, NativeAddress to)
@@ -636,14 +640,41 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
                 total, jitcHits, jitcNewTranslations, jitcNewEntries);
     }
+    // Watchpoint: monitor real jiffies (PA 002432e8) and lost_ticks (PA 0025abe4)
+    {
+        extern PPC_CPU_State *gCPU;
+        extern byte *gMemory;
+        static uint32 prev_jiffies = 0xDEAD;
+        static uint32 prev_lost = 0xDEAD;
+        static int watchCount = 0;
+        if (gMemory && 0x002432ec <= gMemorySize) {
+            uint32 jiffies_val = ppc_word_from_BE(*(uint32 *)(gMemory + 0x002432e8));
+            uint32 lost_val = ppc_word_from_BE(*(uint32 *)(gMemory + 0x0025abe4));
+            if (jiffies_val != prev_jiffies && watchCount < 500) {
+                fprintf(stderr, "[WATCH] jiffies @ PA 002432e8: %u -> %u (pc=%08x disp=%llu)\n",
+                    prev_jiffies, jiffies_val, gCPU->pc, total);
+                prev_jiffies = jiffies_val;
+                watchCount++;
+            }
+            if (lost_val != prev_lost && watchCount < 500) {
+                fprintf(stderr, "[WATCH] lost_ticks @ PA 0025abe4: %08x -> %08x (pc=%08x disp=%llu)\n",
+                    prev_lost, lost_val, gCPU->pc, total);
+                prev_lost = lost_val;
+                watchCount++;
+            }
+        }
+    }
     if (gTraceLog) {
         gTraceCount++;
         extern PPC_CPU_State *gCPU;
-        fprintf(gTraceLog, "%llu pc=%08x cr=%08x lr=%08x ctr=%08x r3=%08x r5=%08x r30=%08x r31=%08x\n",
-                gTraceCount, entry,
+        fprintf(gTraceLog, "%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x "
+                "r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x "
+                "dec=%08x\n",
+                gTraceCount, entry, gCPU->msr,
                 gCPU->cr, gCPU->lr, gCPU->ctr,
-                gCPU->gpr[3], gCPU->gpr[5],
-                gCPU->gpr[30], gCPU->gpr[31]);
+                gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[2],
+                gCPU->gpr[3], gCPU->gpr[4], gCPU->gpr[5],
+                gCPU->dec);
         if (gTraceCount % 100 == 0) fflush(gTraceLog);
     }
     if (entry > gMemorySize) {
