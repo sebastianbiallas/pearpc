@@ -71,6 +71,15 @@ enum NativeReg {
     X29 = 29, // FP - don't allocate
     X30 = 30, // LR - don't allocate
     REG_NO = 0xff,
+
+    // W-register aliases (same encoding, for readability in 32-bit ops)
+    W0 = 0, W1 = 1, W2 = 2, W3 = 3, W4 = 4, W5 = 5, W6 = 6, W7 = 7,
+    W8 = 8, W9 = 9, W10 = 10, W11 = 11, W12 = 12, W13 = 13, W14 = 14, W15 = 15,
+    W16 = 16, W17 = 17, W18 = 18, W19 = 19, W20 = 20,
+    W21 = 21, W22 = 22, W23 = 23, W24 = 24, W25 = 25,
+    W26 = 26, W27 = 27, W28 = 28, W29 = 29, W30 = 30,
+    WZR = 31,
+    XZR = 31,
 };
 
 enum NativeVectorReg {
@@ -299,42 +308,75 @@ public:
     }
 
     /*
-     *  AArch64 emit helpers
+     *  AArch64 assembler methods.
+     *  Named to match x86_64 JIT style: jitc.asmXXX(reg, ...)
      */
-    void emitNOP();
+    void asmNOP();
 
     // MOV immediate (using MOVZ/MOVK sequence)
-    void emitMOV32(NativeReg rd, uint32 imm);
-    void emitMOV64(NativeReg rd, uint64 imm);
+    void asmMOV(NativeReg rd, uint32 imm);     // MOV Wd, #imm32
+    void asmMOV64(NativeReg rd, uint64 imm);    // MOV Xd, #imm64
+    void asmMOV(NativeReg rd, NativeReg rs);    // MOV Xd, Xs (register)
 
     // Load/store from CPU state (X20-relative)
-    void emitLDR32_cpu(NativeReg rd, uint32 offset);
-    void emitSTR32_cpu(NativeReg rs, uint32 offset);
-    void emitLDR64_cpu(NativeReg rd, uint32 offset);
-    void emitSTR64_cpu(NativeReg rs, uint32 offset);
+    void asmLDRw_cpu(NativeReg rd, uint32 offset);  // LDR Wd, [X20, #offset]
+    void asmSTRw_cpu(NativeReg rs, uint32 offset);  // STR Ws, [X20, #offset]
+    void asmLDR_cpu(NativeReg rd, uint32 offset);   // LDR Xd, [X20, #offset]
+    void asmSTR_cpu(NativeReg rs, uint32 offset);   // STR Xs, [X20, #offset]
 
     // Branch helpers
-    void emitBL(NativeAddress to);
-    void emitB(NativeAddress to);
-    void emitBR(NativeReg rn);
-    void emitBLR(NativeAddress to);
-    void emitRET();
+    void asmB(NativeAddress to);
+    void asmBL(NativeAddress to);       // BL via BLR X16 (far call)
+    void asmBR(NativeReg rn);           // BR Xn
+    void asmCALL(NativeAddress to);     // alias for asmBL (x86 compat name)
+    void asmRET();
 
-    // ALU operations
-    void emitADD32(NativeReg rd, NativeReg rn, NativeReg rm);
-    void emitSUB32(NativeReg rd, NativeReg rn, NativeReg rm);
-    void emitAND32(NativeReg rd, NativeReg rn, NativeReg rm);
-    void emitORR32(NativeReg rd, NativeReg rn, NativeReg rm);
-    void emitEOR32(NativeReg rd, NativeReg rn, NativeReg rm);
+    // ALU 32-bit register-register
+    void asmADDw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmSUBw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmANDw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmORRw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmEORw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmMULw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmNEGw(NativeReg rd, NativeReg rm);
+
+    // ALU 32-bit immediate
+    void asmADDw(NativeReg rd, NativeReg rn, uint32 imm12);
+    void asmSUBw(NativeReg rd, NativeReg rn, uint32 imm12);
 
     // Compare
-    void emitCMP32(NativeReg rn, NativeReg rm);
-    void emitCMP32_imm(NativeReg rn, uint32 imm12);
+    void asmCMPw(NativeReg rn, NativeReg rm);
+    void asmCMPw(NativeReg rn, uint32 imm12);
+    void asmTSTw(NativeReg rn, int immr, int imms);  // TST Wn, #bitmask
 
     // Fixup support
-    NativeAddress emitBxxFixup(); // emit a placeholder branch, return address for fixup
-    void resolveFixup(NativeAddress at, NativeAddress to = 0);
-    void resolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond);
+    NativeAddress asmJxxFixup();  // emit placeholder B, return address for fixup
+    void asmResolveFixup(NativeAddress at, NativeAddress to = 0);
+    void asmResolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond);
+
+    // Compatibility aliases for old names (to be removed incrementally)
+    void emitNOP()                                              { asmNOP(); }
+    void emitMOV32(NativeReg rd, uint32 imm)                   { asmMOV(rd, imm); }
+    void emitMOV64(NativeReg rd, uint64 imm)                   { asmMOV64(rd, imm); }
+    void emitLDR32_cpu(NativeReg rd, uint32 offset)             { asmLDRw_cpu(rd, offset); }
+    void emitSTR32_cpu(NativeReg rs, uint32 offset)             { asmSTRw_cpu(rs, offset); }
+    void emitLDR64_cpu(NativeReg rd, uint32 offset)             { asmLDR_cpu(rd, offset); }
+    void emitSTR64_cpu(NativeReg rs, uint32 offset)             { asmSTR_cpu(rs, offset); }
+    void emitBL(NativeAddress to)                               { asmBL(to); }
+    void emitB(NativeAddress to)                                { asmB(to); }
+    void emitBR(NativeReg rn)                                   { asmBR(rn); }
+    void emitBLR(NativeAddress to)                              { asmBL(to); }
+    void emitRET()                                              { asmRET(); }
+    void emitADD32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmADDw(rd, rn, rm); }
+    void emitSUB32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmSUBw(rd, rn, rm); }
+    void emitAND32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmANDw(rd, rn, rm); }
+    void emitORR32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmORRw(rd, rn, rm); }
+    void emitEOR32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmEORw(rd, rn, rm); }
+    void emitCMP32(NativeReg rn, NativeReg rm)                 { asmCMPw(rn, rm); }
+    void emitCMP32_imm(NativeReg rn, uint32 imm12)             { asmCMPw(rn, imm12); }
+    NativeAddress emitBxxFixup()                                { return asmJxxFixup(); }
+    void resolveFixup(NativeAddress at, NativeAddress to = 0)   { asmResolveFixup(at, to); }
+    void resolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond) { asmResolveCondFixup(at, to, cond); }
 
     void floatRegisterClobberAll() {}
 };

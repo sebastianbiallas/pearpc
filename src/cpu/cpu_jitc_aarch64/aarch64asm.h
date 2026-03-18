@@ -81,6 +81,21 @@ A64Instr a64_CMPw_reg(int rn, int rm);
 A64Instr a64_MOV(int rd, int rn);  // MOV Xd, Xn
 A64Instr a64_MOVw(int rd, int rn); // MOV Wd, Wn
 
+/* Logical (register) with flag setting */
+A64Instr a64_ANDSw_reg(int rd, int rn, int rm); // ANDS Wd, Wn, Wm (sets flags)
+A64Instr a64_TSTw_reg(int rn, int rm);           // TST Wn, Wm = ANDS WZR, Wn, Wm
+
+/* Logical (immediate) with flag setting */
+A64Instr a64_ANDSw_imm(int rd, int rn, int immr, int imms); // ANDS Wd, Wn, #bitmask
+A64Instr a64_TSTw_imm(int rn, int immr, int imms);          // TST Wn, #bitmask
+
+/* Multiply */
+A64Instr a64_MADDw(int rd, int rn, int rm, int ra); // MADD Wd, Wn, Wm, Wa
+A64Instr a64_MULw(int rd, int rn, int rm);           // MUL Wd, Wn, Wm = MADD Wd, Wn, Wm, WZR
+
+/* Negate */
+A64Instr a64_NEGw(int rd, int rm); // NEG Wd, Wm = SUB Wd, WZR, Wm
+
 /* Shifts */
 A64Instr a64_LSLw_imm(int rd, int rn, int shift);
 A64Instr a64_LSRw_imm(int rd, int rn, int shift);

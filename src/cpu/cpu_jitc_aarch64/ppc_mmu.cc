@@ -790,11 +790,6 @@ bool ppc_dma_write(uint32 dest, const void *src, uint32 size)
     byte *ptr;
     ppc_direct_physical_memory_handle(dest, ptr);
     memcpy(ptr, src, size);
-    // Also write to validation reference memory if active
-    extern byte *gValidateRefMemory;
-    if (gValidateRefMemory) {
-        memcpy(gValidateRefMemory + dest, src, size);
-    }
     return true;
 }
 
@@ -1727,16 +1722,16 @@ int ppc_opc_dss(PPC_CPU_State &aCPU)
 static void gen_ea_D(JITC &jitc, int rA, sint32 simm)
 {
 	if (rA == 0) {
-		jitc.emitMOV32((NativeReg)0, (uint32)simm);
+		jitc.asmMOV(W0, (uint32)simm);
 	} else {
-		jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rA));
+		jitc.asmLDRw_cpu(W0, GPR_OFS(rA));
 		if (simm > 0 && simm < 4096) {
-			jitc.emit32(a64_ADDw_imm(0, 0, simm));
+			jitc.asmADDw(W0, W0, (uint32)simm);
 		} else if (simm < 0 && (-simm) < 4096) {
-			jitc.emit32(a64_SUBw_imm(0, 0, -simm));
+			jitc.asmSUBw(W0, W0, (uint32)(-simm));
 		} else if (simm != 0) {
-			jitc.emitMOV32((NativeReg)17, (uint32)simm);
-			jitc.emit32(a64_ADDw_reg(0, 0, 17));
+			jitc.asmMOV(W17, (uint32)simm);
+			jitc.asmADDw(W0, W0, W17);
 		}
 	}
 }
@@ -1753,20 +1748,20 @@ JITCFlow ppc_opc_gen_lwz(JITC &jitc)
 	jitc.clobberAll();
 
 	// Store pc_ofs and full pc for exception handling
-	jitc.emitMOV32((NativeReg)16, jitc.pc);
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.emit32(0x0B110210); // ADD W16, W16, W17
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
 
 	// Store npc = pc + 4
-	jitc.emit32(0x11001210); // ADD W16, W16, #4
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.emitBLR((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
 	// W0 = result (asm handles DSI internally, never returns on DSI)
-	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
 
@@ -1782,20 +1777,20 @@ JITCFlow ppc_opc_gen_stw(JITC &jitc)
 	jitc.clobberAll();
 
 	// Store pc_ofs and full pc for exception handling
-	jitc.emitMOV32((NativeReg)16, jitc.pc);
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.emit32(0x0B110210); // ADD W16, W16, W17
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
 
 	// Store npc = pc + 4
-	jitc.emit32(0x11001210); // ADD W16, W16, #4
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
 	// W1 = value to store
-	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
-	jitc.emitBLR((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
 	return flowContinue;
 }
 
@@ -1810,17 +1805,17 @@ JITCFlow ppc_opc_gen_lbz(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
 
-	jitc.emitMOV32((NativeReg)16, jitc.pc);
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.emit32(0x0B110210); // ADD W16, W16, W17
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
-	jitc.emit32(0x11001210); // ADD W16, W16, #4
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.emitBLR((NativeAddress)ppc_read_effective_byte_asm);
-	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
 
@@ -1835,17 +1830,17 @@ JITCFlow ppc_opc_gen_stb(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
 	jitc.clobberAll();
 
-	jitc.emitMOV32((NativeReg)16, jitc.pc);
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.emit32(0x0B110210); // ADD W16, W16, W17
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
-	jitc.emit32(0x11001210); // ADD W16, W16, #4
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
-	jitc.emitBLR((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
 	return flowContinue;
 }
 
@@ -1860,17 +1855,17 @@ JITCFlow ppc_opc_gen_lhz(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
 
-	jitc.emitMOV32((NativeReg)16, jitc.pc);
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.emit32(0x0B110210); // ADD W16, W16, W17
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
-	jitc.emit32(0x11001210); // ADD W16, W16, #4
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.emitBLR((NativeAddress)ppc_read_effective_half_z_asm);
-	jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
 
@@ -1885,16 +1880,16 @@ JITCFlow ppc_opc_gen_sth(JITC &jitc)
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
 	jitc.clobberAll();
 
-	jitc.emitMOV32((NativeReg)16, jitc.pc);
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.emitLDR32_cpu((NativeReg)17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.emit32(0x0B110210); // ADD W16, W16, W17
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
-	jitc.emit32(0x11001210); // ADD W16, W16, #4
-	jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rS));
-	jitc.emitBLR((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
 	return flowContinue;
 }

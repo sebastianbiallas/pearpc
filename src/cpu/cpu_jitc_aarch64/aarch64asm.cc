@@ -191,6 +191,47 @@ A64Instr a64_MOVw(int rd, int rn)
     return a64_ORRw_reg(rd, 31, rn);
 }
 
+/* Logical (register) with flag setting */
+A64Instr a64_ANDSw_reg(int rd, int rn, int rm)
+{
+    return 0x6A000000 | (rm << 16) | (rn << 5) | rd;
+}
+
+A64Instr a64_TSTw_reg(int rn, int rm)
+{
+    return a64_ANDSw_reg(31, rn, rm); // WZR
+}
+
+/* Logical (immediate) with flag setting
+ * N=0 for 32-bit, immr and imms encode a bitmask pattern.
+ * E.g. for (1<<14) = 0x4000: immr=18, imms=0 */
+A64Instr a64_ANDSw_imm(int rd, int rn, int immr, int imms)
+{
+    return 0x72000000 | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_TSTw_imm(int rn, int immr, int imms)
+{
+    return a64_ANDSw_imm(31, rn, immr, imms); // WZR
+}
+
+/* Multiply */
+A64Instr a64_MADDw(int rd, int rn, int rm, int ra)
+{
+    return 0x1B000000 | (rm << 16) | (ra << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_MULw(int rd, int rn, int rm)
+{
+    return a64_MADDw(rd, rn, rm, 31); // WZR as accumulator
+}
+
+/* Negate */
+A64Instr a64_NEGw(int rd, int rm)
+{
+    return a64_SUBw_reg(rd, 31, rm); // SUB Wd, WZR, Wm
+}
+
 /* Shifts (aliases for UBFM/SBFM) */
 A64Instr a64_LSLw_imm(int rd, int rn, int shift)
 {

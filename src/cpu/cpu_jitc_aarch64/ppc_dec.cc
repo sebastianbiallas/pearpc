@@ -51,12 +51,12 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
         jitc.current_opc, jitc.pc);
     jitc.clobberAll();
     // Store pc_ofs for exception handler
-    jitc.emitMOV32((NativeReg)0, jitc.pc);
-    jitc.emitSTR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, pc_ofs));
+    jitc.asmMOV(W0, jitc.pc);
+    jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, pc_ofs));
     // SRR1 bit 17 = illegal instruction
-    jitc.emitMOV32((NativeReg)1, 0x00080000);
+    jitc.asmMOV(W1, (uint32)0x00080000);
     // Jump to program exception handler
-    jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+    jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
     return flowEndBlockUnreachable;
 }
 
@@ -80,9 +80,9 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
     {                                                                                                                  \
         ppc_opc_gen_interpret(jitc, ppc_opc_##name);                                                                   \
         /* Load npc from CPU state into W0 */                                                                          \
-        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));                                                \
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));                                                             \
         /* Jump to ppc_new_pc_asm */                                                                                   \
-        jitc.emitBLR((NativeAddress)ppc_new_pc_asm);                                                                   \
+        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);                                                                   \
         return flowEndBlockUnreachable;                                                                                \
     }
 

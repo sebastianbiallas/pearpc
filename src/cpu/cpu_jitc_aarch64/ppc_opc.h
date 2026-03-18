@@ -62,22 +62,22 @@ static inline void ppc_opc_gen_interpret_prologue(JITC &jitc)
 {
     jitc.clobberAll();
     // Store current opcode to CPU state
-    jitc.emitMOV32((NativeReg)16, jitc.current_opc);
-    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_opc));
+    jitc.asmMOV(W16, jitc.current_opc);
+    jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, current_opc));
 
     // Store pc = current_code_base + pc_ofs (interpreter functions need this)
-    jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
-    jitc.emitMOV32((NativeReg)17, jitc.pc);
-    jitc.emit32(0x0B110210); // ADD W16, W16, W17
-    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc));
+    jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+    jitc.asmMOV(W17, jitc.pc);
+    jitc.asmADDw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
 
     // Store npc = pc + 4
-    jitc.emit32(0x11001210); // ADD W16, W16, #4
-    jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, npc));
+    jitc.asmADDw(W16, W16, (uint32)4);
+    jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
 
     // Per-instruction trace (disabled — causes SIGSEGV due to code size overflow)
-    // jitc.emit32(0xAA1403E0); // MOV X0, X20
-    // jitc.emitBLR((NativeAddress)ppc_opc_trace_insn);
+    // jitc.asmMOV(X0, X20);
+    // jitc.asmCALL((NativeAddress)ppc_opc_trace_insn);
 }
 
 static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &))
@@ -85,9 +85,9 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &
     ppc_opc_gen_interpret_prologue(jitc);
 
     // X0 = &CPU state (X20)
-    jitc.emit32(0xAA1403E0); // MOV X0, X20
+    jitc.asmMOV(X0, X20);
     // Call interpreter function
-    jitc.emitBLR((NativeAddress)func);
+    jitc.asmCALL((NativeAddress)func);
 
     // No exception check here. Non-load/store opcodes don't trigger DSI.
     // Async interrupts (DEC/ext) that set exception_pending are handled
@@ -114,9 +114,9 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     ppc_opc_gen_interpret_prologue(jitc);
 
     // X0 = &CPU state (X20)
-    jitc.emit32(0xAA1403E0); // MOV X0, X20
+    jitc.asmMOV(X0, X20);
     // Call interpreter function — returns int in W0
-    jitc.emitBLR((NativeAddress)func);
+    jitc.asmCALL((NativeAddress)func);
 
     // Check return value: W0 != 0 means synchronous exception (DSI/ISI).
     // ppc_exception() already set SRR0/SRR1/npc and exception_pending.
@@ -130,22 +130,17 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     // This avoids the CBZ ±1MB range overflow that occurs when the exception
     // path crosses a fragment boundary.
     NativeAddress excBranch = jitc.asmHERE();
-    jitc.emit32(0xD503201F); // NOP placeholder for CBNZ W0, #exception
-    NativeAddress skipBranch = jitc.emitBxxFixup(); // B #skip (placeholder)
+    jitc.asmNOP(); // placeholder for CBNZ W0, #exception
+    NativeAddress skipBranch = jitc.asmJxxFixup(); // B #skip (placeholder)
     // Exception path: clear exception_pending, dispatch to npc
     NativeAddress excTarget = jitc.asmHERE();
-    jitc.emit32(a64_STRBw(31, 20, offsetof(PPC_CPU_State, exception_pending)));
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
-    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    jitc.emit32(a64_STRBw(WZR, X20, offsetof(PPC_CPU_State, exception_pending)));
+    jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
+    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
     // Patch CBNZ W0, #exception (short forward branch to excTarget)
-    {
-        sint64 offset = (sint64)(excTarget - excBranch);
-        sint32 imm19 = (sint32)(offset / 4);
-        uint32 insn = 0x35000000 | ((imm19 & 0x7FFFF) << 5) | 0; // CBNZ W0
-        *(uint32 *)excBranch = insn;
-    }
+    *(uint32 *)excBranch = a64_CBNZw(W0, (sint32)(excTarget - excBranch));
     // Patch B #skip (unconditional branch past exception path, ±128MB range)
-    jitc.resolveFixup(skipBranch);
+    jitc.asmResolveFixup(skipBranch);
 }
 
 

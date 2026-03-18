@@ -23,9 +23,7 @@
 #include "ppc_tools.h"
 #include "aarch64asm.h"
 
-extern bool gValidateMode;
 byte *gTranslationCacheBase = NULL;
-extern "C" void jitcValidateAtDispatch(uint32 effectivePC);
 extern void jitc_dump_and_exit(int code);
 
 static TranslationCacheFragment *jitcAllocFragment(JITC &jitc);
@@ -165,93 +163,157 @@ bool JITC::emitAssure(uint size)
 }
 
 /*
- *  AArch64 emit helpers
+ *  AArch64 assembler methods
  */
 
-void JITC::emitNOP()
+void JITC::asmNOP()
 {
-    emit32(0xD503201F);
+    emit32(a64_NOP());
 }
 
-void JITC::emitMOV32(NativeReg rd, uint32 imm)
+void JITC::asmMOV(NativeReg rd, uint32 imm)
 {
-    // MOVZ Wd, #lo16
-    emit32(0x52800000 | (((uint32)(imm & 0xFFFF)) << 5) | rd);
+    emit32(a64_MOVZw(rd, imm & 0xFFFF, 0));
     if (imm >> 16) {
-        // MOVK Wd, #hi16, LSL #16
-        emit32(0x72A00000 | (((uint32)((imm >> 16) & 0xFFFF)) << 5) | rd);
+        emit32(a64_MOVKw(rd, (imm >> 16) & 0xFFFF, 16));
     }
 }
 
-void JITC::emitMOV64(NativeReg rd, uint64 imm)
+void JITC::asmMOV64(NativeReg rd, uint64 imm)
 {
-    // MOVZ Xd, #imm[15:0]
-    emit32(0xD2800000 | (((uint32)(imm & 0xFFFF)) << 5) | rd);
+    emit32(a64_MOVZ(rd, imm & 0xFFFF, 0));
     if (imm >> 16) {
-        emit32(0xF2A00000 | (((uint32)((imm >> 16) & 0xFFFF)) << 5) | rd);
+        emit32(a64_MOVK(rd, (imm >> 16) & 0xFFFF, 16));
     }
     if (imm >> 32) {
-        emit32(0xF2C00000 | (((uint32)((imm >> 32) & 0xFFFF)) << 5) | rd);
+        emit32(a64_MOVK(rd, (imm >> 32) & 0xFFFF, 32));
     }
     if (imm >> 48) {
-        emit32(0xF2E00000 | (((uint32)((imm >> 48) & 0xFFFF)) << 5) | rd);
+        emit32(a64_MOVK(rd, (imm >> 48) & 0xFFFF, 48));
     }
 }
 
-void JITC::emitLDR32_cpu(NativeReg rd, uint32 offset)
+void JITC::asmMOV(NativeReg rd, NativeReg rs)
 {
-    // LDR Wd, [X20, #offset]  (X20 = CPU state pointer)
-    uint32 uoff = (offset / 4) & 0xFFF;
-    emit32(0xB9400000 | (uoff << 10) | (20 << 5) | rd);
+    emit32(a64_MOV(rd, rs));
 }
 
-void JITC::emitSTR32_cpu(NativeReg rs, uint32 offset)
+void JITC::asmLDRw_cpu(NativeReg rd, uint32 offset)
 {
-    // STR Ws, [X20, #offset]
-    uint32 uoff = (offset / 4) & 0xFFF;
-    emit32(0xB9000000 | (uoff << 10) | (20 << 5) | rs);
+    emit32(a64_LDRw(rd, X20, offset));
 }
 
-void JITC::emitLDR64_cpu(NativeReg rd, uint32 offset)
+void JITC::asmSTRw_cpu(NativeReg rs, uint32 offset)
 {
-    // LDR Xd, [X20, #offset]
-    uint32 uoff = (offset / 8) & 0xFFF;
-    emit32(0xF9400000 | (uoff << 10) | (20 << 5) | rd);
+    emit32(a64_STRw(rs, X20, offset));
 }
 
-void JITC::emitSTR64_cpu(NativeReg rs, uint32 offset)
+void JITC::asmLDR_cpu(NativeReg rd, uint32 offset)
 {
-    // STR Xs, [X20, #offset]
-    uint32 uoff = (offset / 8) & 0xFFF;
-    emit32(0xF9000000 | (uoff << 10) | (20 << 5) | rs);
+    emit32(a64_LDR(rd, X20, offset));
 }
 
-void JITC::emitCMP32(NativeReg rn, NativeReg rm)
+void JITC::asmSTR_cpu(NativeReg rs, uint32 offset)
 {
-    // SUBS WZR, Wn, Wm (CMP is alias for SUBS with Rd=WZR)
-    emit32(0x6B000000 | (rm << 16) | (rn << 5) | 31);
+    emit32(a64_STR(rs, X20, offset));
 }
 
-void JITC::emitBLR(NativeAddress to)
+void JITC::asmBL(NativeAddress to)
 {
-    // Ensure the entire MOVZ/MOVK/BLR sequence fits in one fragment
-    emitAssure(20); // 3-4 MOV instructions (12-16 bytes) + BLR (4 bytes)
-    // Load address into X16 (IP0), then BLR X16
-    emitMOV64((NativeReg)16, (uint64)to);
-    emit32(0xD63F0000 | (16 << 5)); // BLR X16
+    emitAssure(20);
+    asmMOV64(X16, (uint64)to);
+    emit32(a64_BLR(X16));
 }
 
-void JITC::emitBR(NativeReg rn)
+void JITC::asmB(NativeAddress to)
 {
-    emit32(0xD61F0000 | (rn << 5));
+    sint64 offset = (sint64)(to - currentPage->tcp);
+    sint32 imm26 = (sint32)(offset / 4);
+    if (imm26 <= 0x1FFFFFF && imm26 >= -0x2000000) {
+        emit32(a64_B(offset));
+    } else {
+        emitAssure(20);
+        asmMOV64(X16, (uint64)to);
+        asmBR(X16);
+    }
 }
 
-void JITC::emitRET()
+void JITC::asmBR(NativeReg rn)
 {
-    emit32(0xD65F03C0); // RET X30
+    emit32(a64_BR(rn));
 }
 
-NativeAddress JITC::emitBxxFixup()
+void JITC::asmCALL(NativeAddress to)
+{
+    asmBL(to);
+}
+
+void JITC::asmRET()
+{
+    emit32(a64_RET());
+}
+
+void JITC::asmADDw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_ADDw_reg(rd, rn, rm));
+}
+
+void JITC::asmSUBw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_SUBw_reg(rd, rn, rm));
+}
+
+void JITC::asmANDw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_ANDw_reg(rd, rn, rm));
+}
+
+void JITC::asmORRw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_ORRw_reg(rd, rn, rm));
+}
+
+void JITC::asmEORw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_EORw_reg(rd, rn, rm));
+}
+
+void JITC::asmMULw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_MULw(rd, rn, rm));
+}
+
+void JITC::asmNEGw(NativeReg rd, NativeReg rm)
+{
+    emit32(a64_NEGw(rd, rm));
+}
+
+void JITC::asmADDw(NativeReg rd, NativeReg rn, uint32 imm12)
+{
+    emit32(a64_ADDw_imm(rd, rn, imm12));
+}
+
+void JITC::asmSUBw(NativeReg rd, NativeReg rn, uint32 imm12)
+{
+    emit32(a64_SUBw_imm(rd, rn, imm12));
+}
+
+void JITC::asmCMPw(NativeReg rn, NativeReg rm)
+{
+    emit32(a64_CMPw_reg(rn, rm));
+}
+
+void JITC::asmCMPw(NativeReg rn, uint32 imm12)
+{
+    emit32(a64_CMPw_imm(rn, imm12));
+}
+
+void JITC::asmTSTw(NativeReg rn, int immr, int imms)
+{
+    emit32(a64_TSTw_imm(rn, immr, imms));
+}
+
+NativeAddress JITC::asmJxxFixup()
 {
     // Emit a placeholder B instruction (unconditional, offset 0).
     // Returns the address of the instruction so it can be patched later.
@@ -260,38 +322,32 @@ NativeAddress JITC::emitBxxFixup()
     // linking branch at the old tcp and moves tcp to a new fragment.
     // We must capture the address AFTER emit32, not before, to get the
     // actual location of the placeholder instruction.
-    emit32(0x14000000); // B #0 (placeholder, will be patched)
+    emit32(a64_B(0)); // placeholder, will be patched
     return currentPage->tcp - 4;
 }
 
-void JITC::resolveFixup(NativeAddress at, NativeAddress to)
+void JITC::asmResolveFixup(NativeAddress at, NativeAddress to)
 {
-    // Patch the B instruction at 'at' to branch to 'to' (or current tcp if to==0).
     if (to == 0) to = currentPage->tcp;
     sint64 offset = (sint64)(to - at);
     sint32 imm26 = (sint32)(offset / 4);
-    // B instruction: 26-bit signed offset = ±128MB range
     if (imm26 > 0x1FFFFFF || imm26 < -0x2000000) {
-        PPC_CPU_ERR("resolveFixup: B offset %d out of range (±128MB) at %p → %p\n",
+        PPC_CPU_ERR("asmResolveFixup: B offset %d out of range (±128MB) at %p → %p\n",
             imm26, at, to);
     }
-    uint32 insn = 0x14000000 | (imm26 & 0x03FFFFFF);
-    *(uint32 *)at = insn;
+    *(uint32 *)at = a64_B(offset);
 }
 
-void JITC::resolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond)
+void JITC::asmResolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond)
 {
-    // Patch the B.cc instruction at 'at' to branch to 'to' with condition 'cond'.
     if (to == 0) to = currentPage->tcp;
     sint64 offset = (sint64)(to - at);
     sint32 imm19 = (sint32)(offset / 4);
-    // B.cc instruction: 19-bit signed offset = ±1MB range
     if (imm19 > 0x3FFFF || imm19 < -0x40000) {
-        PPC_CPU_ERR("resolveCondFixup: B.cc offset %d out of range (±1MB) at %p → %p\n",
+        PPC_CPU_ERR("asmResolveCondFixup: B.cc offset %d out of range (±1MB) at %p → %p\n",
             imm19, at, to);
     }
-    uint32 insn = 0x54000000 | ((imm19 & 0x7FFFF) << 5) | cond;
-    *(uint32 *)at = insn;
+    *(uint32 *)at = a64_Bcc((A64Cond)cond, offset);
 }
 
 static void jitcEmitAlign(JITC &jitc, uint align)
@@ -306,7 +362,7 @@ static void jitcEmitAlign(JITC &jitc, uint align)
             }
             // Fill with NOP instructions (4 bytes each)
             while (bytes >= 4) {
-                *(uint32 *)(jitc.currentPage->tcp) = 0xD503201F; // NOP
+                *(uint32 *)(jitc.currentPage->tcp) = a64_NOP();
                 jitc.currentPage->tcp += 4;
                 jitc.currentPage->bytesLeft -= 4;
                 bytes -= 4;
@@ -530,37 +586,6 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
         jitcDebugLogNewInstruction(jitc);
 
-        // Validation: emit validate call before each instruction.
-        if (false && gValidateMode) {
-            // Store current pc to CPU state so validate knows where we are
-            jitc.emitMOV32((NativeReg)16, jitc.pc);
-            jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, pc_ofs));
-            // Save all caller-saved regs, call validate, restore
-            // STP/LDP pairs for x0-x15, x17 (x16 used by emitBLR)
-            jitc.emit32(a64_STP_pre(0, 1, 31, -16));    // push x0,x1
-            jitc.emit32(a64_STP_pre(2, 3, 31, -16));    // push x2,x3
-            jitc.emit32(a64_STP_pre(4, 5, 31, -16));    // push x4,x5
-            jitc.emit32(a64_STP_pre(6, 7, 31, -16));    // push x6,x7
-            jitc.emit32(a64_STP_pre(8, 9, 31, -16));    // push x8,x9
-            jitc.emit32(a64_STP_pre(10, 11, 31, -16));  // push x10,x11
-            jitc.emit32(a64_STP_pre(12, 13, 31, -16));  // push x12,x13
-            jitc.emit32(a64_STP_pre(14, 15, 31, -16));  // push x14,x15
-            // W0 = effective PC = current_code_base + pc_ofs
-            jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, current_code_base));
-            jitc.emitMOV32((NativeReg)17, jitc.pc);
-            jitc.emit32(a64_ADDw_reg(0, 0, 17));
-            jitc.emitBLR((NativeAddress)jitcValidateAtDispatch);
-            // Restore
-            jitc.emit32(a64_LDP_post(14, 15, 31, 16));
-            jitc.emit32(a64_LDP_post(12, 13, 31, 16));
-            jitc.emit32(a64_LDP_post(10, 11, 31, 16));
-            jitc.emit32(a64_LDP_post(8, 9, 31, 16));
-            jitc.emit32(a64_LDP_post(6, 7, 31, 16));
-            jitc.emit32(a64_LDP_post(4, 5, 31, 16));
-            jitc.emit32(a64_LDP_post(2, 3, 31, 16));
-            jitc.emit32(a64_LDP_post(0, 1, 31, 16));
-        }
-
         JITCFlow flow = ppc_gen_opc(jitc);
         if (flow == flowContinue) {
             /* nothing to do */
@@ -585,10 +610,8 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
              *  Load 4096 into W0, then branch.
              */
             jitc.clobberAll();
-            // MOV W0, #4096 = MOVZ W0, #4096
-            jitc.emit32(0x52820000); // MOVZ W0, #0x1000
-            // Jump to ppc_new_pc_rel_asm to continue on next page
-            jitc.emitBLR((NativeAddress)ppc_new_pc_rel_asm);
+            jitc.asmMOV(W0, (uint32)4096);
+            jitc.asmCALL((NativeAddress)ppc_new_pc_rel_asm);
             break;
         }
         jitc.pc += 4;

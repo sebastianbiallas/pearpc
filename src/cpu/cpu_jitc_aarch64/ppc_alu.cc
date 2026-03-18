@@ -64,21 +64,20 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
     if (!jitc.checkedPriviledge) {
         jitc.clobberAll();
         // Load MSR, test MSR_PR (bit 14)
-        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, msr));
-        // TST W0, #(1<<14) — ANDS WZR, W0, #imm
-        // AArch64 logical immediate encoding for (1<<14): N=0, immr=18, imms=0
-        jitc.emit32(0x7212001F); // TST W0, #0x4000 (MSR_PR)
-        NativeAddress skip = jitc.emitBxxFixup(); // B.EQ skip (not user mode)
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
+        // TST W0, #(1<<14) = ANDS WZR, W0, #0x4000 (MSR_PR)
+        // Logical immediate encoding for (1<<14): immr=18, imms=0
+        jitc.asmTSTw(W0, 18, 0);
+        NativeAddress skip = jitc.asmJxxFixup(); // B.EQ skip (not user mode)
 
         // User mode: raise privilege exception
-        // W0 = pc_ofs, W1 = PPC_EXC_PROGRAM_PRIV
-        jitc.emitMOV32((NativeReg)0, jitc.pc);
-        jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_PRIV);
-        jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+        jitc.asmMOV(W0, jitc.pc);
+        jitc.asmMOV(W1, PPC_EXC_PROGRAM_PRIV);
+        jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
         // ppc_program_exception_asm does not return
 
         // Patch B.EQ to skip here
-        jitc.resolveCondFixup(skip, jitc.asmHERE(), A64_EQ);
+        jitc.asmResolveCondFixup(skip, jitc.asmHERE(), A64_EQ);
         jitc.checkedPriviledge = true;
     }
 }
@@ -100,20 +99,20 @@ JITCFlow ppc_opc_gen_addi(JITC &jitc)
 
     if (rA == 0) {
         // rD = SIMM
-        jitc.emitMOV32((NativeReg)16, (uint32)simm);
-        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+        jitc.asmMOV(W16, (uint32)simm);
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     } else {
         // rD = gpr[rA] + SIMM
-        jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+        jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
         if (simm >= 0 && simm < 4096) {
-            jitc.emit32(a64_ADDw_imm(16, 16, simm));
+            jitc.asmADDw(W16, W16, simm));
         } else if (simm < 0 && (-simm) < 4096) {
-            jitc.emit32(a64_SUBw_imm(16, 16, -simm));
+            jitc.asmSUBw(W16, W16, -simm));
         } else {
-            jitc.emitMOV32((NativeReg)17, (uint32)simm);
-            jitc.emit32(a64_ADDw_reg(16, 16, 17));
+            jitc.asmMOV(W17, (uint32)simm);
+            jitc.asmADDw(W16, W16, W17);
         }
-        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     }
     return flowContinue;
 }
@@ -131,13 +130,13 @@ JITCFlow ppc_opc_gen_addis(JITC &jitc)
     uint32 shifted = imm << 16;
 
     if (rA == 0) {
-        jitc.emitMOV32((NativeReg)16, shifted);
-        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+        jitc.asmMOV(W16, shifted);
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     } else {
-        jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
-        jitc.emitMOV32((NativeReg)17, shifted);
-        jitc.emit32(a64_ADDw_reg(16, 16, 17));
-        jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+        jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+        jitc.asmMOV(W17, shifted);
+        jitc.asmADDw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     }
     return flowContinue;
 }
@@ -156,12 +155,12 @@ JITCFlow ppc_opc_gen_ori(JITC &jitc)
         // nop (ori 0,0,0)
         return flowContinue;
     }
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm != 0) {
-        jitc.emitMOV32((NativeReg)17, imm);
-        jitc.emit32(a64_ORRw_reg(16, 16, 17));
+        jitc.asmMOV(W17, imm);
+        jitc.asmORRw(W16, W16, W17);
     }
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 
@@ -180,9 +179,9 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
     sint32 simm = (sint32)imm;
 
     // Load gpr[rA]
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     // Load SIMM into W17
-    jitc.emitMOV32((NativeReg)17, (uint32)simm);
+    jitc.asmMOV(W17, (uint32)simm);
 
     // For now, fall back to interpreter for CR update (complex bit packing)
     // TODO: generate native CR update
@@ -209,10 +208,10 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
 
     if (lk) {
         // BL: set LR = current_code_base + pc + 4
-        jitc.emitLDR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, current_code_base));
-        jitc.emitMOV32((NativeReg)17, jitc.pc + 4);
-        jitc.emit32(a64_ADDw_reg(16, 16, 17));
-        jitc.emitSTR32_cpu((NativeReg)16, offsetof(PPC_CPU_State, lr));
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+        jitc.asmMOV(W17, jitc.pc + 4);
+        jitc.asmADDw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
     }
 
     uint32 target;
@@ -222,17 +221,17 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
         // PC-relative: we need current_code_base + pc + li at runtime
         // But current_code_base + pc is the current EA
         // Emit: W0 = current_code_base + pc + li
-        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, current_code_base));
-        jitc.emitMOV32((NativeReg)17, jitc.pc + li);
-        jitc.emit32(a64_ADDw_reg(0, 0, 17));
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
+        jitc.asmMOV(W17, jitc.pc + li);
+        jitc.asmADDw(W0, W0, W17);
         // Jump to ppc_new_pc_asm (W0 = new effective PC)
-        jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
         return flowEndBlockUnreachable;
     }
 
     // Absolute address
-    jitc.emitMOV32((NativeReg)0, target);
-    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    jitc.asmMOV(W0, target);
+    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
     return flowEndBlockUnreachable;
 }
 
@@ -256,16 +255,16 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     // going through the interpreter on every iteration.
     if (!lk && !aa && BO == 16 && BD == 0) {
         // LDR W0, [X20, #ctr]
-        jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, ctr));
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, ctr));
         // loop: SUBS W0, W0, #1
         NativeAddress loop = jitc.asmHERE();
-        jitc.emit32(a64_SUBSw_imm(0, 0, 1));
+        jitc.emit32(a64_SUBSw_imm(W0, W0, 1));
         // CBNZ W0, loop  (offset = loop - here)
         NativeAddress cbnz_pos = jitc.asmHERE();
         sint32 cbnz_off = (sint32)(loop - cbnz_pos);
-        jitc.emit32(a64_CBNZw(0, cbnz_off));
+        jitc.emit32(a64_CBNZw(W0, cbnz_off));
         // STR W0, [X20, #ctr]  (CTR = 0)
-        jitc.emitSTR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, ctr));
+        jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, ctr));
         return flowContinue;
     }
 
@@ -279,14 +278,14 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     // Ensure entire sequence fits in one fragment to avoid conditional branch overflow.
     uint32 next_pc = jitc.pc + 4;
     jitc.emitAssure(40); // LDR + MOV32 + CMP + B.EQ + emitBLR = max 40 bytes
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
-    jitc.emitMOV32((NativeReg)1, next_pc);
-    jitc.emitCMP32((NativeReg)0, (NativeReg)1);
-    NativeAddress fixup = jitc.emitBxxFixup(); // placeholder for B.EQ
+    jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
+    jitc.asmMOV(W1, next_pc);
+    jitc.asmCMPw(W0, W1);
+    NativeAddress fixup = jitc.asmJxxFixup(); // placeholder for B.EQ
     // Taken: full dispatch
-    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
     // Not taken: land here, continue compiling next instruction
-    jitc.resolveCondFixup(fixup, 0, 0x0); // 0x0 = EQ
+    jitc.asmResolveCondFixup(fixup, 0, 0x0); // 0x0 = EQ
     return flowContinue;
 }
 
@@ -301,8 +300,8 @@ static void gen_dispatch_npc(JITC &jitc)
     // Load npc and dispatch via ppc_new_pc_asm.
     // Same approach as x86 JIT — no same-page fast path, no conditional branch.
     // This avoids conditional branch range overflow when fragments are far apart.
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, npc));
-    jitc.emitBLR((NativeAddress)ppc_new_pc_asm);
+    jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
+    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
 }
 
 /*
@@ -336,12 +335,12 @@ JITCFlow ppc_opc_gen_oris(JITC &jitc)
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm) {
-        jitc.emitMOV32((NativeReg)17, imm << 16);
-        jitc.emit32(a64_ORRw_reg(16, 16, 17));
+        jitc.asmMOV(W17, imm << 16);
+        jitc.asmORRw(W16, W16, W17);
     }
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 
@@ -353,12 +352,12 @@ JITCFlow ppc_opc_gen_xori(JITC &jitc)
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm) {
-        jitc.emitMOV32((NativeReg)17, imm);
-        jitc.emit32(a64_EORw_reg(16, 16, 17));
+        jitc.asmMOV(W17, imm);
+        jitc.asmEORw(W16, W16, W17);
     }
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 
@@ -370,12 +369,12 @@ JITCFlow ppc_opc_gen_xoris(JITC &jitc)
     int rS, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm) {
-        jitc.emitMOV32((NativeReg)17, imm << 16);
-        jitc.emit32(a64_EORw_reg(16, 16, 17));
+        jitc.asmMOV(W17, imm << 16);
+        jitc.asmEORw(W16, W16, W17);
     }
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 
@@ -407,10 +406,10 @@ static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
 {
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
-    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.emit32(op(16, 16, 17));
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
 }
 
@@ -426,10 +425,10 @@ JITCFlow ppc_opc_gen_subfx(JITC &jitc)
     RC_FALLBACK(ppc_opc_subfx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rA));
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rB));
-    jitc.emit32(a64_SUBw_reg(16, 16, 17));
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rB));
+    jitc.asmSUBw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
 }
 /* and rA, rS, rB */
@@ -438,10 +437,10 @@ JITCFlow ppc_opc_gen_andx(JITC &jitc)
     RC_FALLBACK(ppc_opc_andx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
-    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
-    jitc.emit32(a64_ANDw_reg(16, 16, 17));
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmANDw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 /* or rA, rS, rB */
@@ -450,10 +449,10 @@ JITCFlow ppc_opc_gen_orx(JITC &jitc)
     RC_FALLBACK(ppc_opc_orx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
-    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
-    jitc.emit32(a64_ORRw_reg(16, 16, 17));
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmORRw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 /* xor rA, rS, rB */
@@ -462,10 +461,10 @@ JITCFlow ppc_opc_gen_xorx(JITC &jitc)
     RC_FALLBACK(ppc_opc_xorx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rS));
-    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
-    jitc.emit32(a64_EORw_reg(16, 16, 17));
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmEORw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 
@@ -477,10 +476,10 @@ JITCFlow ppc_opc_gen_negx(JITC &jitc)
     RC_FALLBACK(ppc_opc_negx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     // NEG Wd, Wn = SUB Wd, WZR, Wn
-    jitc.emit32(a64_SUBw_reg(16, 31, 16));
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    jitc.asmNEGw(W16, W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
 }
 
@@ -528,11 +527,10 @@ JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
     RC_FALLBACK(ppc_opc_mullwx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)16, GPR_OFS(rA));
-    jitc.emitLDR32_cpu((NativeReg)17, GPR_OFS(rB));
-    // MUL Wd, Wn, Wm = MADD Wd, Wn, Wm, WZR
-    jitc.emit32(0x1B107E10 | (17 << 16) | (16 << 5) | 16);
-    jitc.emitSTR32_cpu((NativeReg)16, GPR_OFS(rD));
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmMULw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
 }
 
@@ -2714,11 +2712,11 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
 {
     jitc.clobberAll();
     // W0 = pc_ofs of next instruction (SRR0 for SC exception)
-    jitc.emitMOV32((NativeReg)0, jitc.pc + 4);
+    jitc.asmMOV(W0, jitc.pc + 4);
     // ppc_sc_exception_asm checks OSI magic and either:
     //   - OSI match: calls gcard_osi(0), returns here → flowEndBlock
     //   - Otherwise: raises SC exception (vector 0xC00), does not return
-    jitc.emitBLR((NativeAddress)ppc_sc_exception_asm);
+    jitc.asmCALL((NativeAddress)ppc_sc_exception_asm);
     return flowEndBlock;
 }
 
@@ -2827,8 +2825,8 @@ JITCFlow ppc_opc_gen_mfmsr(JITC &jitc)
     ppc_opc_gen_check_privilege(jitc);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, msr));
-    jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+    jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
+    jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
     return flowContinue;
 }
 
@@ -2837,8 +2835,8 @@ JITCFlow ppc_opc_gen_mfsr(JITC &jitc)
     ppc_opc_gen_check_privilege(jitc);
     int rD, SR, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, SR, rB);
-    jitc.emitLDR32_cpu((NativeReg)0, offsetof(PPC_CPU_State, sr[SR & 0xf]));
-    jitc.emitSTR32_cpu((NativeReg)0, GPR_OFS(rD));
+    jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, sr[SR & 0xf]));
+    jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
     return flowContinue;
 }
 
@@ -2870,10 +2868,10 @@ JITCFlow ppc_opc_gen_tlbia(JITC &jitc)
     jitc.clobberAll();
     ppc_opc_gen_check_privilege(jitc);
     // Invalidate all TLB, then dispatch to next instruction
-    jitc.emit32(0xAA1403E0); // MOV X0, X20
-    jitc.emitBLR((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
-    jitc.emitMOV32((NativeReg)0, jitc.pc + 4);
-    jitc.emitBLR((NativeAddress)ppc_new_pc_rel_asm);
+    jitc.asmMOV(X0, X20);
+    jitc.asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
+    jitc.asmMOV(W0, jitc.pc + 4);
+    jitc.asmCALL((NativeAddress)ppc_new_pc_rel_asm);
     return flowEndBlockUnreachable;
 }
 
@@ -2884,10 +2882,10 @@ JITCFlow ppc_opc_gen_tlbie(JITC &jitc)
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     // W0 = gpr[rB] (EA to invalidate)
-    jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rB));
-    jitc.emitBLR((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
-    jitc.emitMOV32((NativeReg)0, jitc.pc + 4);
-    jitc.emitBLR((NativeAddress)ppc_new_pc_rel_asm);
+    jitc.asmLDRw_cpu(W0, GPR_OFS(rB));
+    jitc.asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
+    jitc.asmMOV(W0, jitc.pc + 4);
+    jitc.asmCALL((NativeAddress)ppc_new_pc_rel_asm);
     return flowEndBlockUnreachable;
 }
 
@@ -2909,45 +2907,45 @@ JITCFlow ppc_opc_gen_tw(JITC &jitc)
     }
 
     // Load operands
-    jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rA));
-    jitc.emitLDR32_cpu((NativeReg)1, GPR_OFS(rB));
-    jitc.emit32(a64_CMPw_reg(0, 1));
+    jitc.asmLDRw_cpu(W0, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W1, GPR_OFS(rB));
+    jitc.asmCMPw(W0, W1);
 
     if (TO == 0x1f) {
         // Always trap
-        jitc.emitMOV32((NativeReg)0, jitc.pc);
-        jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
-        jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+        jitc.asmMOV(W0, jitc.pc);
+        jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
+        jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
         return flowEndBlockUnreachable;
     }
 
     // Conditional trap: branch to exception if any TO condition matches
     // Emit conditional branches to the trap path
     NativeAddress trap1 = NULL, trap2 = NULL, trap3 = NULL, trap4 = NULL, trap5 = NULL;
-    if (TO & 16) trap1 = jitc.emitBxxFixup(); // B.LT
-    if (TO & 8)  trap2 = jitc.emitBxxFixup(); // B.GT
-    if (TO & 4)  trap3 = jitc.emitBxxFixup(); // B.EQ
-    if (TO & 2)  trap4 = jitc.emitBxxFixup(); // B.LO (unsigned <)
-    if (TO & 1)  trap5 = jitc.emitBxxFixup(); // B.HI (unsigned >)
+    if (TO & 16) trap1 = jitc.asmJxxFixup(); // B.LT
+    if (TO & 8)  trap2 = jitc.asmJxxFixup(); // B.GT
+    if (TO & 4)  trap3 = jitc.asmJxxFixup(); // B.EQ
+    if (TO & 2)  trap4 = jitc.asmJxxFixup(); // B.LO (unsigned <)
+    if (TO & 1)  trap5 = jitc.asmJxxFixup(); // B.HI (unsigned >)
 
     // No trap: skip over exception code
-    NativeAddress noTrap = jitc.emitBxxFixup(); // B skip
+    NativeAddress noTrap = jitc.asmJxxFixup(); // B skip
 
     // Trap path
     NativeAddress trapPath = jitc.asmHERE();
-    jitc.emitMOV32((NativeReg)0, jitc.pc);
-    jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
-    jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+    jitc.asmMOV(W0, jitc.pc);
+    jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
+    jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
 
     // Patch conditional branches to trapPath
-    if (trap1) jitc.resolveCondFixup(trap1, trapPath, A64_LT);
-    if (trap2) jitc.resolveCondFixup(trap2, trapPath, A64_GT);
-    if (trap3) jitc.resolveCondFixup(trap3, trapPath, A64_EQ);
-    if (trap4) jitc.resolveCondFixup(trap4, trapPath, A64_CC);
-    if (trap5) jitc.resolveCondFixup(trap5, trapPath, A64_HI);
+    if (trap1) jitc.asmResolveCondFixup(trap1, trapPath, A64_LT);
+    if (trap2) jitc.asmResolveCondFixup(trap2, trapPath, A64_GT);
+    if (trap3) jitc.asmResolveCondFixup(trap3, trapPath, A64_EQ);
+    if (trap4) jitc.asmResolveCondFixup(trap4, trapPath, A64_CC);
+    if (trap5) jitc.asmResolveCondFixup(trap5, trapPath, A64_HI);
 
     // Patch noTrap to skip here
-    jitc.resolveFixup(noTrap, 0);
+    jitc.asmResolveFixup(noTrap, 0);
 
     return flowContinue;
 }
@@ -2964,38 +2962,38 @@ JITCFlow ppc_opc_gen_twi(JITC &jitc)
     }
 
     // Load operand and compare with immediate
-    jitc.emitLDR32_cpu((NativeReg)0, GPR_OFS(rA));
-    jitc.emitMOV32((NativeReg)1, imm);
-    jitc.emit32(a64_CMPw_reg(0, 1));
+    jitc.asmLDRw_cpu(W0, GPR_OFS(rA));
+    jitc.asmMOV(W1, imm);
+    jitc.asmCMPw(W0, W1);
 
     if (TO == 0x1f) {
-        jitc.emitMOV32((NativeReg)0, jitc.pc);
-        jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
-        jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+        jitc.asmMOV(W0, jitc.pc);
+        jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
+        jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
         return flowEndBlockUnreachable;
     }
 
     NativeAddress trap1 = NULL, trap2 = NULL, trap3 = NULL, trap4 = NULL, trap5 = NULL;
-    if (TO & 16) trap1 = jitc.emitBxxFixup();
-    if (TO & 8)  trap2 = jitc.emitBxxFixup();
-    if (TO & 4)  trap3 = jitc.emitBxxFixup();
-    if (TO & 2)  trap4 = jitc.emitBxxFixup();
-    if (TO & 1)  trap5 = jitc.emitBxxFixup();
+    if (TO & 16) trap1 = jitc.asmJxxFixup();
+    if (TO & 8)  trap2 = jitc.asmJxxFixup();
+    if (TO & 4)  trap3 = jitc.asmJxxFixup();
+    if (TO & 2)  trap4 = jitc.asmJxxFixup();
+    if (TO & 1)  trap5 = jitc.asmJxxFixup();
 
-    NativeAddress noTrap = jitc.emitBxxFixup();
+    NativeAddress noTrap = jitc.asmJxxFixup();
 
     NativeAddress trapPath = jitc.asmHERE();
-    jitc.emitMOV32((NativeReg)0, jitc.pc);
-    jitc.emitMOV32((NativeReg)1, PPC_EXC_PROGRAM_TRAP);
-    jitc.emitBLR((NativeAddress)ppc_program_exception_asm);
+    jitc.asmMOV(W0, jitc.pc);
+    jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
+    jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
 
-    if (trap1) jitc.resolveCondFixup(trap1, trapPath, A64_LT);
-    if (trap2) jitc.resolveCondFixup(trap2, trapPath, A64_GT);
-    if (trap3) jitc.resolveCondFixup(trap3, trapPath, A64_EQ);
-    if (trap4) jitc.resolveCondFixup(trap4, trapPath, A64_CC);
-    if (trap5) jitc.resolveCondFixup(trap5, trapPath, A64_HI);
+    if (trap1) jitc.asmResolveCondFixup(trap1, trapPath, A64_LT);
+    if (trap2) jitc.asmResolveCondFixup(trap2, trapPath, A64_GT);
+    if (trap3) jitc.asmResolveCondFixup(trap3, trapPath, A64_EQ);
+    if (trap4) jitc.asmResolveCondFixup(trap4, trapPath, A64_CC);
+    if (trap5) jitc.asmResolveCondFixup(trap5, trapPath, A64_HI);
 
-    jitc.resolveFixup(noTrap, 0);
+    jitc.asmResolveFixup(noTrap, 0);
 
     return flowContinue;
 }
