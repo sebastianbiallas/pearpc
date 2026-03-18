@@ -174,6 +174,15 @@ void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)
 }
 
 
+extern "C" void crash_dump_cpu_state();
+extern void jitc_dump_and_exit(int code);
+
+void ppc_cpu_crash_dump(int code)
+{
+    crash_dump_cpu_state();
+    jitc_dump_and_exit(code);
+}
+
 void ppc_cpu_stop()
 {
     ppc_cpu_atomic_raise_stop_exception(*gCPU);

@@ -25,8 +25,6 @@
 #include <execinfo.h>
 #include <unistd.h>
 
-extern "C" void crash_dump_cpu_state();
-extern void jitc_dump_and_exit(int code);
 
 #include "info.h"
 #include "cpu/cpu.h"
@@ -233,17 +231,14 @@ static void crash_handler(int sig, siginfo_t *info, void *ctx)
 	fprintf(stderr, "  insn@pc: %08x\n", *(uint32 *)ss->__pc);
 #endif
 
-	// Dump PPC CPU state
-	crash_dump_cpu_state();
-
 	// Stack trace
 	void *bt[64];
 	int n = backtrace(bt, 64);
 	fprintf(stderr, "  Backtrace (%d frames):\n", n);
 	backtrace_symbols_fd(bt, n, STDERR_FILENO);
 
-	// Dump memory for analysis
-	jitc_dump_and_exit(128 + sig);
+	// Dump CPU state and memory, then exit
+	ppc_cpu_crash_dump(128 + sig);
 }
 
 int main(int argc, char *argv[])

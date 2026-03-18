@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>
 
 #include "system/systhread.h"
 #include "system/arch/sysendian.h"
@@ -254,6 +255,26 @@ void ppc_cpu_run()
 		gGenericTraceLog = NULL;
 		ht_printf("[DUMP] wrote trace_generic.log (%llu entries)\n", gGenericTraceCount);
 	}
+}
+
+void ppc_cpu_crash_dump(int code)
+{
+	fprintf(stderr, "  PPC state: pc=%08x lr=%08x ctr=%08x cr=%08x msr=%08x\n",
+		gCPU.pc, gCPU.lr, gCPU.ctr, gCPU.cr, gCPU.msr);
+	fprintf(stderr, "  srr0=%08x srr1=%08x\n", gCPU.srr[0], gCPU.srr[1]);
+	fprintf(stderr, "  gpr: r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x\n",
+		gCPU.gpr[0], gCPU.gpr[1], gCPU.gpr[2], gCPU.gpr[3],
+		gCPU.gpr[4], gCPU.gpr[5]);
+
+	extern byte *gMemory;
+	extern uint32 gMemorySize;
+	FILE *df = fopen("memdump_generic.bin", "wb");
+	if (df) {
+		fwrite(gMemory, 1, gMemorySize, df);
+		fclose(df);
+		fprintf(stderr, "[DUMP] wrote memdump_generic.bin (%u bytes)\n", gMemorySize);
+	}
+	exit(code);
 }
 
 void ppc_cpu_stop()

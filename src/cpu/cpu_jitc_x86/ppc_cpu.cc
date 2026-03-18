@@ -19,6 +19,8 @@
  */
 
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "debug/tracers.h"
@@ -139,6 +141,14 @@ void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)
 	gCPU.dbat_brpn[0] = gCPU.dbatl[0] & gCPU.dbat_bl[0];
 }
 
+
+void ppc_cpu_crash_dump(int code)
+{
+	fprintf(stderr, "  PPC state: pc=%08x lr=%08x ctr=%08x cr=%08x msr=%08x\n",
+		gCPU.pc, gCPU.lr, gCPU.ctr, gCPU.cr, gCPU.msr);
+	fprintf(stderr, "  srr0=%08x srr1=%08x\n", gCPU.srr[0], gCPU.srr[1]);
+	exit(code);
+}
 
 void ppc_cpu_stop()
 {

@@ -33,6 +33,8 @@ void	ppc_cpu_init_config();
 void	ppc_cpu_stop();
 void	ppc_cpu_wakeup();
 
+void	ppc_cpu_crash_dump(int code);
+
 void	ppc_machine_check_exception();
 
 void	ppc_cpu_raise_ext_exception();
