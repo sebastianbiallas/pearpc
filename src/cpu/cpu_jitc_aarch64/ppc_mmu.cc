@@ -47,6 +47,106 @@
 #include "ppc_opc.h"
 
 extern PPC_CPU_State *gCPU;
+extern FILE *gTraceLog;
+
+extern "C" void crash_dump_cpu_state()
+{
+    if (gCPU) {
+        fprintf(stderr, "  PPC state: pc=%08x npc=%08x lr=%08x ctr=%08x cr=%08x msr=%08x\n",
+            gCPU->pc, gCPU->npc, gCPU->lr, gCPU->ctr, gCPU->cr, gCPU->msr);
+        fprintf(stderr, "  srr0=%08x srr1=%08x current_opc=%08x code_base=%08x\n",
+            gCPU->srr[0], gCPU->srr[1], gCPU->current_opc, gCPU->current_code_base);
+        fprintf(stderr, "  gpr: r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x r9=%08x\n",
+            gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[2], gCPU->gpr[3],
+            gCPU->gpr[4], gCPU->gpr[5], gCPU->gpr[9]);
+    }
+}
+
+void jitc_dump_and_exit(int code)
+{
+    extern byte *gMemory;
+    extern uint32 gMemorySize;
+    if (gTraceLog) fflush(gTraceLog);
+    FILE *df = fopen("memdump_jit.bin", "wb");
+    if (df) {
+        fwrite(gMemory, 1, gMemorySize, df);
+        fclose(df);
+        fprintf(stderr, "[DUMP] wrote memdump_jit.bin (%u bytes)\n", gMemorySize);
+    }
+    exit(code);
+}
+
+extern "C" void jitc_fatal_gpr9_corrupt(PPC_CPU_State *cpu)
+{
+    fprintf(stderr, "[FATAL-GPR9] gpr[9]=%08x at pc=%08x ccb=%08x pc_ofs=%08x opc=%08x\n",
+        cpu->gpr[9], cpu->pc, cpu->current_code_base, cpu->pc_ofs, cpu->current_opc);
+    fprintf(stderr, "  npc=%08x lr=%08x msr=%08x r0=%08x r1=%08x r10=%08x\n",
+        cpu->npc, cpu->lr, cpu->msr, cpu->gpr[0], cpu->gpr[1], cpu->gpr[10]);
+    fprintf(stderr, "  temp=%08x temp2=%08x\n", cpu->temp, cpu->temp2);
+    if (gTraceLog) fflush(gTraceLog);
+    jitc_dump_and_exit(52);
+}
+
+// (duplicate removed — definition is above)
+
+extern "C" void jitc_log_prom_newpc(PPC_CPU_State *cpu, uint32 ea, uint32 npc, uint32 ccb, uint32 pc)
+{
+    fprintf(stderr, "[PROM-NEWPC] ea=%08x npc=%08x ccb=%08x pc=%08x lr=%08x msr=%08x opc=%08x\n",
+        ea, npc, ccb, pc, cpu->lr, cpu->msr, cpu->current_opc);
+    static int count = 0;
+    if (++count >= 3) {
+        // gTraceLog declared at file scope
+        if (gTraceLog) fflush(gTraceLog);
+        jitc_dump_and_exit(50);
+    }
+}
+
+extern "C" void jitc_fatal_npc_prom(PPC_CPU_State *cpu)
+{
+    fprintf(stderr, "[FATAL-NPC-PROM] npc=%08x pc=%08x ccb=%08x pc_ofs=%08x msr=%08x\n",
+        cpu->npc, cpu->pc, cpu->current_code_base, cpu->pc_ofs, cpu->msr);
+    fprintf(stderr, "  lr=%08x ctr=%08x opc=%08x r0=%08x r1=%08x r9=%08x\n",
+        cpu->lr, cpu->ctr, cpu->current_opc, cpu->gpr[0], cpu->gpr[1], cpu->gpr[9]);
+    if (gTraceLog) fflush(gTraceLog);
+    jitc_dump_and_exit(49);
+}
+
+extern "C" void jitc_fatal_prom_dispatch(uint32 ea)
+{
+    fprintf(stderr, "[FATAL-PROM] heartbeat called with PROM EA %08x!\n", ea);
+    fprintf(stderr, "  pc=%08x lr=%08x ctr=%08x msr=%08x ccb=%08x\n",
+        gCPU->pc, gCPU->lr, gCPU->ctr, gCPU->msr, gCPU->current_code_base);
+    fprintf(stderr, "  r0=%08x r1=%08x r3=%08x r9=%08x r31=%08x\n",
+        gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[3], gCPU->gpr[9], gCPU->gpr[31]);
+    if (gTraceLog) fflush(gTraceLog);
+    jitc_dump_and_exit(46);
+}
+
+extern "C" void jitc_fatal_thispage_prom(uint32 ea, uint32 ccb, uint32 offset)
+{
+    fprintf(stderr, "[FATAL-THISPAGE] computed PROM EA %08x = ccb %08x + offset %08x!\n",
+        ea, ccb, offset);
+    fprintf(stderr, "  pc=%08x lr=%08x ctr=%08x msr=%08x\n",
+        gCPU->pc, gCPU->lr, gCPU->ctr, gCPU->msr);
+    fprintf(stderr, "  r0=%08x r1=%08x r3=%08x r9=%08x r31=%08x\n",
+        gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[3], gCPU->gpr[9], gCPU->gpr[31]);
+    fprintf(stderr, "  npc=%08x pc_ofs=%08x\n", gCPU->npc, gCPU->pc_ofs);
+    if (gTraceLog) fflush(gTraceLog);
+    jitc_dump_and_exit(47);
+}
+
+extern "C" void jitc_tlb_validate_word_mismatch(uint32 fast, uint32 slow)
+{
+    fprintf(stderr, "[TLB-MISMATCH] word: fast=%08x slow=%08x pc=%08x ccb=%08x msr=%08x\n",
+        fast, slow, gCPU->pc, gCPU->current_code_base, gCPU->msr);
+    static int count = 0;
+    if (++count >= 5) {
+        fprintf(stderr, "[TLB-MISMATCH] too many mismatches, aborting\n");
+        // gTraceLog declared at file scope
+        if (gTraceLog) fflush(gTraceLog);
+        exit(43);
+    }
+}
 
 /*
  *  C wrapper for ppc_effective_to_physical_code.
@@ -64,10 +164,11 @@ extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea
         }
         return pa;
     }
-    if (r == PPC_MMU_EXC && ea >= 0xc0000000) {
-        fprintf(stderr, "[E2P-ISI] ea=%08x → ISI exception, returning ea=%08x\n", ea, ea);
-    }
     if (r == PPC_MMU_EXC) {
+        if (ea >= 0xBF000000) {
+            fprintf(stderr, "[E2P-ISI] ea=%08x msr=%08x pc=%08x lr=%08x ctr=%08x ccb=%08x\n",
+                ea, cpu->msr, cpu->pc, cpu->lr, cpu->ctr, cpu->current_code_base);
+        }
         // ppc_exception() already set up SRR0/SRR1, cleared MSR,
         // invalidated TLB, and set npc = 0x400 (ISI vector).
         // exception_pending is already true.
@@ -202,15 +303,6 @@ extern "C" int ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint
 {
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
-		// Trace writes to bh_task_vec / softirq / jiffies area
-		if (pa >= 0x0025abe0 && pa <= 0x0025ac10) {
-			fprintf(stderr, "[WRITE-SLOW] EA=%08x PA=%08x data=%08x pc=%08x lr=%08x\n",
-				ea, pa, data, cpu->pc, cpu->lr);
-		}
-		if (pa >= 0x002432e4 && pa <= 0x002432ec) {
-			fprintf(stderr, "[JIFFIES-SLOW] EA=%08x PA=%08x data=%08x pc=%08x lr=%08x\n",
-				ea, pa, data, cpu->pc, cpu->lr);
-		}
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_word(pa, data);
 		return 0;
@@ -588,18 +680,6 @@ int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
 
 int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
 {
-    // Trace writes to bh_task_vec / softirq / jiffies area
-    if (addr >= 0x0025abe0 && addr <= 0x0025ac10) {
-        extern PPC_CPU_State *gCPU;
-        fprintf(stderr, "[WRITE-TRACE] PA=%08x data=%08x pc=%08x lr=%08x msr=%08x\n",
-            addr, data, gCPU->pc, gCPU->lr, gCPU->msr);
-    }
-    // Trace writes to jiffies (PA 0x002432e8 - the REAL jiffies address)
-    if (addr >= 0x002432e4 && addr <= 0x002432ec) {
-        extern PPC_CPU_State *gCPU;
-        fprintf(stderr, "[JIFFIES-WRITE] PA=%08x data=%08x pc=%08x lr=%08x\n",
-            addr, data, gCPU->pc, gCPU->lr);
-    }
     if (addr < gMemorySize) {
         *((uint32 *)(gMemory + addr)) = ppc_word_to_BE(data);
         return PPC_MMU_OK;

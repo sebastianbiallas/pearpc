@@ -25,6 +25,9 @@
 #include <execinfo.h>
 #include <unistd.h>
 
+extern "C" void crash_dump_cpu_state();
+extern void jitc_dump_and_exit(int code);
+
 #include "info.h"
 #include "cpu/cpu.h"
 //#include "cpu_generic/ppc_tools.h"
@@ -217,15 +220,17 @@ static void crash_handler(int sig, siginfo_t *info, void *ctx)
 	}
 #endif
 
+	// Dump PPC CPU state
+	crash_dump_cpu_state();
+
 	// Stack trace
 	void *bt[64];
 	int n = backtrace(bt, 64);
 	fprintf(stderr, "  Backtrace (%d frames):\n", n);
 	backtrace_symbols_fd(bt, n, STDERR_FILENO);
 
-	fflush(stderr);
-
-	_exit(128 + sig);
+	// Dump memory for analysis
+	jitc_dump_and_exit(128 + sig);
 }
 
 int main(int argc, char *argv[])
