@@ -27,7 +27,7 @@ The binary is produced at `src/ppc`.
 
 ### Platform Notes
 
-- **macOS (Apple Silicon)**: Uses the generic CPU interpreter + SDL3. Builds and runs natively as arm64.
+- **macOS (Apple Silicon)**: Uses the aarch64 JIT compiler (`cpu_jitc_aarch64`) + SDL3. Builds and runs natively as arm64. Falls back to generic CPU interpreter if JIT is disabled.
 - **macOS (Intel)**: Can use either the generic interpreter or the x86_64 JIT compiler.
 - **Linux (x86_64)**: Can use x86_64 JIT for best performance. UI options: SDL, X11.
 - **Windows**: Win32 native UI, x86 or x86_64 JIT.

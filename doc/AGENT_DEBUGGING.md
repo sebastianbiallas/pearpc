@@ -61,7 +61,9 @@ Common patterns:
 
 | Pattern | Meaning |
 |---------|---------|
-| Same 2-3 PCs repeating, MSR has `0x0004xxxx` (MSR_POW) | Kernel idle loop -- boot completed |
+| Same 2-3 PCs repeating, MSR has `0x0004xxxx` (MSR_POW) | Kernel idle loop -- may be completed or stalled (check printk buffer) |
+| Same 2-3 PCs, DEC never changes | DEC timer not firing -- check `sys_set_timer` and `[DEC]` log count |
+| DEC fires but idle loop continues | Scheduler runs but never switches -- check if `sc` works (init thread may not exist) |
 | Same 2-3 PCs repeating, one is `__delay` (bdnz at `c000828c`) | Stuck in calibrate_delay or panic reboot countdown |
 | PC at `00000700` | Program exception -- check for unknown opcodes |
 | PC at `00000300` | DSI exception -- page fault, may be normal |
@@ -104,6 +106,32 @@ If the above steps don't reveal the issue, add tracing to the C code:
 
 ## Common JIT Bugs
 
+### Commented-out exception in interpreter function
+
+**Symptom:** Kernel stalls after a specific point. A PPC instruction that should trigger an exception (like `sc` for syscalls) silently does nothing.
+
+**Cause:** The interpreter function has the `ppc_exception()` call commented out. The opcode was registered with a `GEN_INTERPRET_BRANCH` or similar wrapper, but the interpreter body is a no-op. This is easy to miss because the gen_ wrapper looks correct.
+
+**How to find:** Check that the interpreter function for the stalling opcode actually calls `ppc_exception()`. Compare with the generic CPU's version in `src/cpu/cpu_generic/ppc_opc.cc`. Pay special attention to `sc`, `tw`, `twi`, and any opcode that can raise an exception.
+
+**Fix:** Enable the `ppc_exception()` call. For `sc`, note that SRR0 must be `npc` (next instruction), not `pc`. Check the generic CPU's `ppc_exc.cc` for the correct SRR0/SRR1 setup per exception type.
+
+### GCD dispatch_source leak (macOS timer)
+
+**Symptom:** DEC timer fires for a while (hundreds of ticks), then stops. Jiffies freeze. The idle loop spins forever even though MSR_EE is set. The `[DEC]` log messages stop appearing.
+
+**Cause:** `sys_set_timer()` in `systimer.cc` creates a new `dispatch_source_t` on each call but never releases the old one after cancellation. After many cycles, GCD resources are exhausted and new timers silently fail to fire.
+
+**Fix:** Call `dispatch_release(dsTimer)` after `dispatch_source_cancel(dsTimer)`.
+
+### Missing MSR_POW stripping
+
+**Symptom:** Idle loop behavior diverges from generic CPU. May cause subtle issues with MSR state after `rfi`.
+
+**Cause:** `ppc_set_msr()` in the aarch64 backend doesn't clear MSR_POW before storing to `aCPU.msr`. The generic and x86 backends both strip it. On real PPC hardware, POW is a transient hint that is consumed on use.
+
+**Fix:** Add `if (newmsr & MSR_POW) { newmsr &= ~MSR_POW; }` before `aCPU.msr = newmsr`.
+
 ### Missing opcodes in gen table
 
 **Symptom:** Kernel panics or hits an infinite loop. stderr shows `[JITC] WARNING: unknown opcode XXXXXXXX at pc_ofs=XXXX`.
@@ -138,6 +166,19 @@ If the above steps don't reveal the issue, add tracing to the C code:
 
 ## Debug Tool Reference
 
+### scripts/debug/memdump.py (primary tool)
+
+```sh
+python3 scripts/debug/memdump.py printk memdump_jit.bin [search-term]
+python3 scripts/debug/memdump.py oops memdump_jit.bin
+python3 scripts/debug/memdump.py find memdump_jit.bin bfedde60
+python3 scripts/debug/memdump.py read memdump_jit.bin c04835a0 8
+python3 scripts/debug/memdump.py diff memdump_generic.bin memdump_jit.bin 004835c0 16
+python3 scripts/debug/memdump.py regs memdump_jit.bin c04dfd50
+```
+
+Swiss-army knife for memory dump analysis. Subcommands: `printk` (extract kernel log), `oops` (find/decode Oops), `find` (search for 32-bit value), `read` (dump words at PA), `diff` (compare two dumps), `regs` (decode pt_regs). Accepts kernel VAs (auto-converts to PA).
+
 ### scripts/debug/dump_kernel_log.py
 
 ```sh
@@ -171,3 +212,34 @@ python3 scripts/debug/compare_dumps.py --scan 0x001c9000 0x001ca000 memdump_gene
 ```
 
 Compares two memory dumps at specific addresses or scans a range for differences.
+
+### scripts/debug/compare_traces.py
+
+```sh
+python3 scripts/debug/compare_traces.py trace_generic.log jitc_trace.log
+python3 scripts/debug/compare_traces.py trace_generic.log jitc_trace.log --pc 0xc0007b78
+```
+
+Compares generic CPU trace with JIT trace at matching effective addresses. Converts JIT physical addresses to kernel EAs. Useful for finding the first divergence point between generic and JIT execution.
+
+## Diagnosis Checklist for Idle Loop Stalls
+
+When the kernel reaches the idle loop but makes no further progress:
+
+1. **Check printk buffer** -- does it end at "POSIX conformance" or later?
+   - Ends at POSIX: init thread never ran `do_initcalls()`
+   - Has PCI/driver messages: init thread ran but crashed or stalled later
+
+2. **Check `[DEC]` count in boot log** -- is the DEC timer still firing?
+   - Stopped at ~400: GCD timer leak (dispatch_source not released)
+   - Keeps incrementing (#500, #600...): timer works, problem is elsewhere
+
+3. **Check for SC dispatches** -- `grep 'pa=00000c00' jitc_trace.log`
+   - Zero hits: `sc` instruction is broken, `kernel_thread()` never ran
+   - One or more hits: syscalls work, check if init thread is actually scheduled
+
+4. **Check `need_resched`** -- is the scheduler being triggered?
+   - `lost_ticks` cycling 0→1→0: timer handler runs, may not set `need_resched`
+   - `lost_ticks` accumulating (→2, →3): timer handler not fully processing ticks
+
+5. **Always compare with generic CPU** -- run the same config with generic and diff the printk buffers.
