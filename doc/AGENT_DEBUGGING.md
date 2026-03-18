@@ -96,7 +96,80 @@ python3 scripts/debug/disasm_ppc.py memdump_jit.bin 0x00007b78 32
 
 This decodes PPC instructions at the given physical address. Use it to understand what kernel code is doing at specific PCs from the trace.
 
-### 6. Add targeted tracing
+### 6. Diagnose native crashes (SIGSEGV/SIGBUS/SIGILL)
+
+When the emulator crashes with a signal, the crash handler in `src/main.cc` prints host registers, PPC state, and a backtrace. There are three distinct address spaces to understand:
+
+| Address range | What it is | How to identify |
+|---------------|-----------|-----------------|
+| `0x100000000`–`0x10006xxxx` (varies with ASLR) | Main `ppc` binary (C++ functions, asm stubs) | Has symbol names in backtrace |
+| `0x100xxxxxx` (large, contiguous) | JIT translation cache (MAP_JIT mmap'd) | Shows as `??? 0x...` in backtrace |
+| `0x0`–`0x7FFFFFF` | Emulated PPC RAM (128MB) | Never executed directly |
+
+**ASLR de-sliding:** macOS randomizes the binary load address on every run. To map a crash PC back to a symbol:
+
+1. Find a known function in both `nm` output and the crash backtrace:
+   ```sh
+   nm src/ppc | grep ppc_cpu_run
+   # Output: 0000000100037d00 T __Z11ppc_cpu_runv
+   ```
+2. From the backtrace, extract the function start (address minus offset):
+   ```
+   ppc  0x1002f7e30 _Z11ppc_cpu_runv + 304
+   # Function start: 0x1002f7e30 - 304 = 0x1002f7d00
+   ```
+3. Compute the ASLR slide: `0x1002f7d00 - 0x100037d00 = 0x2C0000`
+4. De-slide the crash PC: `crash_pc - slide = binary_address`
+5. Look up the de-slid address:
+   ```sh
+   nm -n src/ppc | grep " [Tt] " | python3 -c "
+   import sys
+   target = 0x100041270  # de-slid address
+   prev = ''
+   prev_addr = 0
+   for line in sys.stdin:
+       parts = line.strip().split()
+       if len(parts) < 3: continue
+       addr = int(parts[0], 16)
+       if addr > target:
+           print(f'{prev.strip()}  (offset +0x{target - prev_addr:x})')
+           break
+       prev = line
+       prev_addr = addr
+   "
+   ```
+
+**JIT cache addresses** do NOT need de-sliding — the MAP_JIT mmap region is not subject to ASLR the same way. JIT addresses in `jitc.log` correspond directly to runtime addresses *within the same run*. However, JIT cache addresses change between runs because the mmap base changes.
+
+**Key registers to check in a crash:**
+
+| Register | Meaning | If zero/wrong |
+|----------|---------|---------------|
+| X20 | PPC_CPU_State pointer | Catastrophic — all CPU access fails |
+| X19 | JITC pointer | Translation/dispatch will crash |
+| X0 | First argument to called function | Function was called with wrong args |
+| X16 | Function address loaded by `emitBLR` | Wrong function being called |
+| LR | Return address from last BLR | Shows which JIT code called the function |
+
+**Decoding the faulting instruction:** The crash handler prints `insn@pc: XXXXXXXX`. Decode it manually or with:
+```sh
+echo "XXXXXXXX" | python3 -c "
+v = int(input(), 16)
+if (v >> 24) == 0xb9:  # LDR/STR immediate
+    size = 4 if (v >> 30) == 2 else 8
+    is_load = ((v >> 22) & 3) == 1
+    imm12 = (v >> 10) & 0xFFF
+    offset = imm12 * size
+    rn = (v >> 5) & 0x1F
+    rd = v & 0x1F
+    op = 'LDR' if is_load else 'STR'
+    print(f'{op} W{rd}, [X{rn}, #{offset}]')
+"
+```
+
+**If the faulting address is a small number** (< 0x1000), it almost certainly means a NULL pointer dereference with a struct field offset. Compute `offsetof(PPC_CPU_State, field)` to identify which field — see `ppc_cpu.h` for the struct layout. Common offsets: 808 = `current_opc`, 900 = `pc_ofs`, 904 = `current_code_base`.
+
+### 7. Add targeted tracing
 
 If the above steps don't reveal the issue, add tracing to the C code:
 
@@ -163,6 +236,22 @@ If the above steps don't reveal the issue, add tracing to the C code:
 **Cause:** Native `lwz`/`stw` gen functions didn't set `npc = pc + 4` before calling the asm TLB stub. If a DSI occurs, the exception handler reads `npc` to find where to dispatch, but `npc` has a stale value.
 
 **Fix:** Always emit `npc = pc + 4` in the prologue of native load/store gen functions.
+
+### CBZ range overflow in GEN_INTERPRET_LOADSTORE
+
+**Symptom:** SIGSEGV at a small address (e.g. `0x328`, `0x384`) during kernel boot. The crash handler shows a valid X20 (CPU state pointer) but X0=0 when entering a C++ interpreter function. The crash is non-deterministic — it depends on which fragment boundaries the translation cache hits.
+
+**Cause:** `ppc_opc_gen_interpret_loadstore()` emitted a `CBZ W0, #skip` to branch over the exception-handling path (strb + ldr + blr = 6+ instructions). When these instructions crossed a translation cache fragment boundary, the forward distance from the CBZ to the target exceeded CBZ's ±1MB (19-bit signed immediate) range. The `& 0x7FFFF` mask silently truncated the offset, and because bit 18 was set, the CPU interpreted it as a large *negative* offset. The CBZ branched far backward into previously-compiled JIT code from a different PPC page, which eventually called an interpreter function with wrong arguments (X0=0 instead of X20).
+
+**How to diagnose:** The crash handler's register dump is essential — without all 31 registers, you can't distinguish "X20 corrupted" from "X0 not loaded from X20". Key steps:
+1. Print all host registers in the crash handler (x0-x28, fp, sp, lr, pc) plus the instruction word at PC.
+2. Use ASLR slide computation (`nm` symbol address vs crash address of a known function like `ppc_cpu_run`) to de-slide the faulting PC back to a binary symbol.
+3. The faulting address being a small number like `0x328` = `offsetof(PPC_CPU_State, current_opc)` or `0x384` = `offsetof(PPC_CPU_State, pc_ofs)` is the signature — it means `[X0 + field_offset]` where X0=0.
+4. Check jitc.log for fragment boundary crossings near the crash host address — look for gaps in sequential addresses (e.g. `100dd33f8` → `100ed4200`).
+
+**Fix:** Replace the single `CBZ W0, #far_target` with two instructions: `CBNZ W0, #exception_path` (short forward branch, always in range since the exception path starts just 2 instructions ahead) + `B #skip` (unconditional branch with ±128MB range via `resolveFixup`, handles fragment boundaries safely).
+
+**General rule:** Never use CBZ/CBNZ or B.cc for fixups that span emitted code containing `emitBLR` calls. Each `emitBLR` emits 4 instructions (movz+movk+movk+blr = 16 bytes), and fragment boundaries can add arbitrary distance. Use unconditional `B` (±128MB via `resolveFixup`) for any forward fixup that might cross fragments. Reserve CBZ/CBNZ/B.cc fixups for short, known-distance branches (≤ a few instructions).
 
 ## Debug Tool Reference
 

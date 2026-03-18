@@ -437,6 +437,10 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 
 12. **Fragment-based icache flush is necessary.** The JIT translation cache uses non-contiguous fragments linked by branch instructions. `__builtin___clear_cache(result, tcp)` crashes if the range spans a gap between fragments. Use `jitcFlushClientPage()` which walks the fragment chain and flushes each fragment individually.
 
+13. **AArch64 conditional branches have limited range — never use them for cross-fragment fixups.** CBZ/CBNZ have ±1MB range (19-bit signed immediate). B.cc has ±1MB. Unconditional B has ±128MB (26-bit). When a forward fixup in generated code spans emitted instructions that include `emitBLR` calls (16 bytes each), the total distance can exceed 1MB if a fragment boundary falls in between. The `& 0x7FFFF` mask silently wraps the offset, and bit 18 being set makes the CPU interpret it as a large negative offset — branching far backward into unrelated compiled code. The symptom is a SIGSEGV at a small address like `0x328` or `0x384` (field offsets in `PPC_CPU_State` accessed via a NULL pointer). Use unconditional `B` via `resolveFixup()` for any fixup that might cross a fragment boundary, and use CBZ/CBNZ only for short known-distance branches.
+
+14. **Print all host registers in the crash handler.** The default crash handler only printed pc/lr/sp, which made it impossible to distinguish "X20 corrupted" from "X0 not set from X20". Adding all x0-x28 registers plus the instruction word at the faulting PC immediately revealed the true bug: X20 was valid but X0 was 0. De-sliding the faulting PC with ASLR offset (`nm` address vs crash address of a known symbol) identified the exact C++ function being called with wrong arguments.
+
 ## Key Files
 
 ```
