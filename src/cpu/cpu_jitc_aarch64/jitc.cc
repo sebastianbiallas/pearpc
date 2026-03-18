@@ -26,6 +26,7 @@
 extern bool gValidateMode;
 byte *gTranslationCacheBase = NULL;
 extern "C" void jitcValidateAtDispatch(uint32 effectivePC);
+extern void jitc_dump_and_exit(int code);
 
 static TranslationCacheFragment *jitcAllocFragment(JITC &jitc);
 
@@ -118,6 +119,18 @@ void JITC::emit32(uint32 instr)
         currentPage->tcp >= translationCache + 64 * 1024 * 1024) {
         PPC_CPU_ERR("emit32 tcp=%p outside translation cache [%p, %p)\n",
                   currentPage->tcp, translationCache, translationCache + 64*1024*1024);
+    }
+    // Verify tcp + bytesLeft doesn't exceed the translation cache
+    // (accounts for contiguous fragment optimization where tcp may be
+    // before the current fragment's base)
+    {
+        NativeAddress end = currentPage->tcp + currentPage->bytesLeft;
+        TranslationCacheFragment *tcf = currentPage->tcf_current;
+        if (tcf && end > tcf->base + FRAGMENT_SIZE) {
+            fprintf(stderr, "[EMIT32-OOB] tcp=%p bytesLeft=%d end=%p fragment_end=%p\n",
+                currentPage->tcp, currentPage->bytesLeft, end, tcf->base + FRAGMENT_SIZE);
+            exit(53);
+        }
     }
     jitcDebugLogEmit(*this, (const byte *)&instr, 4);
     *(uint32 *)(currentPage->tcp) = instr;
@@ -213,6 +226,12 @@ void JITC::emitSTR64_cpu(NativeReg rs, uint32 offset)
     emit32(0xF9000000 | (uoff << 10) | (20 << 5) | rs);
 }
 
+void JITC::emitCMP32(NativeReg rn, NativeReg rm)
+{
+    // SUBS WZR, Wn, Wm (CMP is alias for SUBS with Rd=WZR)
+    emit32(0x6B000000 | (rm << 16) | (rn << 5) | 31);
+}
+
 void JITC::emitBLR(NativeAddress to)
 {
     // Ensure the entire MOVZ/MOVK/BLR sequence fits in one fragment
@@ -250,9 +269,28 @@ void JITC::resolveFixup(NativeAddress at, NativeAddress to)
     // Patch the B instruction at 'at' to branch to 'to' (or current tcp if to==0).
     if (to == 0) to = currentPage->tcp;
     sint64 offset = (sint64)(to - at);
-    // B instruction: imm26 field, offset in units of 4 bytes
     sint32 imm26 = (sint32)(offset / 4);
+    // B instruction: 26-bit signed offset = ±128MB range
+    if (imm26 > 0x1FFFFFF || imm26 < -0x2000000) {
+        PPC_CPU_ERR("resolveFixup: B offset %d out of range (±128MB) at %p → %p\n",
+            imm26, at, to);
+    }
     uint32 insn = 0x14000000 | (imm26 & 0x03FFFFFF);
+    *(uint32 *)at = insn;
+}
+
+void JITC::resolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond)
+{
+    // Patch the B.cc instruction at 'at' to branch to 'to' with condition 'cond'.
+    if (to == 0) to = currentPage->tcp;
+    sint64 offset = (sint64)(to - at);
+    sint32 imm19 = (sint32)(offset / 4);
+    // B.cc instruction: 19-bit signed offset = ±1MB range
+    if (imm19 > 0x3FFFF || imm19 < -0x40000) {
+        PPC_CPU_ERR("resolveCondFixup: B.cc offset %d out of range (±1MB) at %p → %p\n",
+            imm19, at, to);
+    }
+    uint32 insn = 0x54000000 | ((imm19 & 0x7FFFF) << 5) | cond;
     *(uint32 *)at = insn;
 }
 
@@ -640,30 +678,6 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
                 total, jitcHits, jitcNewTranslations, jitcNewEntries);
     }
-    // Watchpoint: monitor real jiffies (PA 002432e8) and lost_ticks (PA 0025abe4)
-    {
-        extern PPC_CPU_State *gCPU;
-        extern byte *gMemory;
-        static uint32 prev_jiffies = 0xDEAD;
-        static uint32 prev_lost = 0xDEAD;
-        static int watchCount = 0;
-        if (gMemory && 0x002432ec <= gMemorySize) {
-            uint32 jiffies_val = ppc_word_from_BE(*(uint32 *)(gMemory + 0x002432e8));
-            uint32 lost_val = ppc_word_from_BE(*(uint32 *)(gMemory + 0x0025abe4));
-            if (jiffies_val != prev_jiffies && watchCount < 500) {
-                fprintf(stderr, "[WATCH] jiffies @ PA 002432e8: %u -> %u (pc=%08x disp=%llu)\n",
-                    prev_jiffies, jiffies_val, gCPU->pc, total);
-                prev_jiffies = jiffies_val;
-                watchCount++;
-            }
-            if (lost_val != prev_lost && watchCount < 500) {
-                fprintf(stderr, "[WATCH] lost_ticks @ PA 0025abe4: %08x -> %08x (pc=%08x disp=%llu)\n",
-                    prev_lost, lost_val, gCPU->pc, total);
-                prev_lost = lost_val;
-                watchCount++;
-            }
-        }
-    }
     if (gTraceLog) {
         gTraceCount++;
         extern PPC_CPU_State *gCPU;
@@ -676,6 +690,46 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
                 gCPU->gpr[3], gCPU->gpr[4], gCPU->gpr[5],
                 gCPU->dec);
         if (gTraceCount % 100 == 0) fflush(gTraceLog);
+    }
+    // Catch dispatch from PROM address range
+    {
+        extern PPC_CPU_State *gCPU;
+        uint32 ccb = gCPU->current_code_base;
+        uint32 pc = gCPU->pc;
+        if (pc >= 0xBF000000 && pc < 0xC0000000) {
+            fprintf(stderr, "[PROM-DISPATCH] pc=%08x pa=%08x msr=%08x lr=%08x ccb=%08x\n",
+                pc, entry, gCPU->msr, gCPU->lr, ccb);
+            static int promCount = 0;
+            if (++promCount >= 3) {
+                if (gTraceLog) fflush(gTraceLog);
+                exit(45);
+            }
+        }
+    }
+    // Watch for CPU state corruption (aarch64 instructions in PPC registers)
+    {
+        extern PPC_CPU_State *gCPU;
+        // Check multiple fields for aarch64 instruction patterns
+        bool corrupt = false;
+        const char *field = "";
+        uint32 val = 0;
+        if (gCPU->gpr[9] == 0x0000FD69) { corrupt = true; field = "gpr[9]"; val = gCPU->gpr[9]; }
+        // Check if msr looks like an aarch64 instruction (top byte B9/AA/D6/F2/52)
+        uint8 msr_top = gCPU->msr >> 24;
+        if (msr_top == 0xB9 || msr_top == 0xAA || msr_top == 0xD6 || msr_top == 0xF2 || msr_top == 0x52) {
+            corrupt = true; field = "msr"; val = gCPU->msr;
+        }
+        // Check if current_code_base looks like MOV X0, X20 (0xAA1403E0)
+        if (gCPU->current_code_base == 0xAA1403E0) { corrupt = true; field = "ccb"; val = gCPU->current_code_base; }
+        if (corrupt) {
+            fprintf(stderr, "[CORRUPT] %s=%08x at dispatch pa=%08x\n", field, val, entry);
+            fprintf(stderr, "  pc=%08x npc=%08x ccb=%08x msr=%08x lr=%08x opc=%08x\n",
+                gCPU->pc, gCPU->npc, gCPU->current_code_base, gCPU->msr, gCPU->lr, gCPU->current_opc);
+            fprintf(stderr, "  r0=%08x r1=%08x r9=%08x r10=%08x temp=%08x\n",
+                gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[9], gCPU->gpr[10], gCPU->temp);
+            if (gTraceLog) fflush(gTraceLog);
+            jitc_dump_and_exit(51);
+        }
     }
     if (entry > gMemorySize) {
         ht_printf("entry not physical: %08x\n", entry);

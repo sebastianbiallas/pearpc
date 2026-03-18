@@ -334,6 +334,7 @@ public:
     // Fixup support
     NativeAddress emitBxxFixup(); // emit a placeholder branch, return address for fixup
     void resolveFixup(NativeAddress at, NativeAddress to = 0);
+    void resolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond);
 
     void floatRegisterClobberAll() {}
 };
