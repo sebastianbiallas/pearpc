@@ -141,6 +141,13 @@ void pic_read(uint32 addr, uint32 &data, int size)
 
 void pic_raise_interrupt(int intr)
 {
+	if (intr == 18) {
+		static int cuda_raise_count = 0;
+		cuda_raise_count++;
+		if (cuda_raise_count <= 20 || cuda_raise_count % 1000 == 0) {
+			fprintf(stderr, "[PIC] CUDA raise #%d\n", cuda_raise_count);
+		}
+	}
 	sys_lock_mutex(PIC_mutex);
 	uint32 mask, pending;
 	int intr_;

@@ -235,6 +235,8 @@ static void cuda_send_packet(uint8 type, int nb, ...)
 	gCUDA.rIFR |= SR_INT;
 	gCUDA.rB &= ~TREQ;
 	gCUDA.rB |= TIP;
+	{ static int c = 0; c++; if (c <= 20 || c % 1000 == 0)
+	  fprintf(stderr, "[CUDA-SEND] #%d state=%d left=%d\n", c, gCUDA.state, gCUDA.left); }
 	pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 }
 
@@ -610,7 +612,15 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				data &= ~TREQ;
 			}
 		}
-		pic_raise_interrupt(IO_PIC_IRQ_CUDA);
+		{ static int c = 0; c++; if (c <= 20 || c % 1000 == 0)
+		  fprintf(stderr, "[CUDA-REGB] #%d state=%d rB=%02x data=%02x ifr=%02x\n", c, gCUDA.state, gCUDA.rB, data, gCUDA.rIFR); }
+		// This pic_raise_interrupt is correct and required.
+		// The CUDA driver relies on the PIC interrupt to know when
+		// shift register transfers complete. Only raise when SR_INT
+		// is set in IFR (not unconditionally as the original code did).
+		// Removing this entirely breaks CUDA init on all backends.
+		if (gCUDA.rIFR & SR_INT)
+			pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 		if (!(gCUDA.rB & TIP) && (data & TIP)) {
 			gCUDA.rIFR |= SR_INT;
 //			IO_CUDA_TRACE2("v from: %08x %d\n", gCPU.pc, gCUDA.state);
@@ -732,9 +742,14 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		IO_CUDA_TRACE("A(%02x)->\n", gCUDA.rA);
 		data = gCUDA.rA;
 		break;
-	case B:
+	case B: {
 		IO_CUDA_TRACE("B(%02x)->\n", gCUDA.rB);
 		data = gCUDA.rB;
+		static int rb_read_count = 0;
+		rb_read_count++;
+		if (rb_read_count <= 30 || rb_read_count % 1000 == 0)
+			fprintf(stderr, "[CUDA-READB] #%d rB=%02x state=%d\n", rb_read_count, gCUDA.rB, gCUDA.state);
+		}
 		break;
 	case DIRB:
 		IO_CUDA_TRACE("DIRB(%02x)->\n", gCUDA.rDIRB);
