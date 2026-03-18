@@ -102,28 +102,11 @@ do_export EXTERN(ppc_start_jitc_asm)
 //
 .p2align 4
 do_export EXTERN(ppc_new_pc_asm)
-    // TRAP: log if W0 (EA) is in PROM range BEFORE heartbeat
-    lsr     w16, w0, #24
-    cmp     w16, #0xBF
-    b.ne    .Lnewpc_not_prom
-    // W0 is PROM EA — log it with npc and ccb
-    stp     x29, x30, [sp, #-16]!
-    mov     x29, sp
-    stp     x0, x1, [sp, #-16]!      // save W0
-    mov     w1, w0                     // w1 = EA
-    ldr     w2, [x20, #npc]           // w2 = npc
-    ldr     w3, [x20, #current_code_base] // w3 = ccb
-    ldr     w4, [x20, #pc]            // w4 = pc
-    mov     x0, x20
-    bl      EXTERN(jitc_log_prom_newpc)
-    ldp     x0, x1, [sp], #16        // restore W0
-    ldp     x29, x30, [sp], #16
-.Lnewpc_not_prom:
     // Call heartbeat (checks exceptions, sets current_code_base)
     // w0 = effective PC on entry and preserved through heartbeat
     bl  EXTERN(ppc_heartbeat_ext_asm)
 
-    // Store effective PC for validation
+    // Store effective PC (needed for exception handling — SRR0)
     str w0, [x20, #pc]
 
     // Save effective PC in w21 (callee-saved) for ISI handler
@@ -204,11 +187,6 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
     ldr     w1, [x20, #current_code_base]
     add     w0, w0, w1
 
-    // TRAP: if computed EA is in PROM range, abort
-    lsr     w16, w0, #24
-    cmp     w16, #0xBF
-    b.eq    .Lthispage_prom_trap
-
     // Translate EA to PA
     mov     w1, #0
     bl      EXTERN(ppc_effective_to_physical_code)
@@ -241,16 +219,6 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
 2:
     // Direct jump to translated code
     br      x5
-
-.Lthispage_prom_trap:
-    // w0 = EA in PROM range from this_page computation
-    // w21 = original offset, w1 = current_code_base
-    stp     x29, x30, [sp, #-16]!
-    mov     x29, sp
-    // pass: w0=EA, w1=ccb (already set), w2=offset
-    mov     w2, w21
-    bl      EXTERN(jitc_fatal_thispage_prom)
-    // does not return
 
 .Lthispage_isi:
     // ISI exception — ppc_exception() already set up SRR0/SRR1,
@@ -291,11 +259,6 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
     // Store current_code_base = w0 & 0xFFFFF000
     and w1, w0, #0xFFFFF000
     str w1, [x20, #current_code_base]
-
-    // TRAP: if EA is in PROM range (0xBF000000-0xBFFFFFFF), abort
-    lsr     w16, w0, #24
-    cmp     w16, #0xBF
-    b.eq    .Lheartbeat_prom_trap
 
     // Check exception_pending word (includes dec/ext/stop exception bytes)
     // Use acquire load to see writes from timer thread (GCD/signal handler)
@@ -346,13 +309,6 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
 
 .Lheartbeat_no_exception:
     ret
-
-.Lheartbeat_prom_trap:
-    // w0 = EA in PROM range. Fatal — dump state and exit.
-    stp     x29, x30, [sp, #-16]!
-    mov     x29, sp
-    bl      EXTERN(jitc_fatal_prom_dispatch)
-    // does not return
 
 .Lheartbeat_stop:
     b   ppc_stop_jitc_asm

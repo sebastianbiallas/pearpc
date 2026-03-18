@@ -87,66 +87,8 @@ extern "C" void jitc_fatal_gpr9_corrupt(PPC_CPU_State *cpu)
     jitc_dump_and_exit(52);
 }
 
-// (duplicate removed — definition is above)
 
-extern "C" void jitc_log_prom_newpc(PPC_CPU_State *cpu, uint32 ea, uint32 npc, uint32 ccb, uint32 pc)
-{
-    fprintf(stderr, "[PROM-NEWPC] ea=%08x npc=%08x ccb=%08x pc=%08x lr=%08x msr=%08x opc=%08x\n",
-        ea, npc, ccb, pc, cpu->lr, cpu->msr, cpu->current_opc);
-    static int count = 0;
-    if (++count >= 3) {
-        // gTraceLog declared at file scope
-        if (gTraceLog) fflush(gTraceLog);
-        jitc_dump_and_exit(50);
-    }
-}
 
-extern "C" void jitc_fatal_npc_prom(PPC_CPU_State *cpu)
-{
-    fprintf(stderr, "[FATAL-NPC-PROM] npc=%08x pc=%08x ccb=%08x pc_ofs=%08x msr=%08x\n",
-        cpu->npc, cpu->pc, cpu->current_code_base, cpu->pc_ofs, cpu->msr);
-    fprintf(stderr, "  lr=%08x ctr=%08x opc=%08x r0=%08x r1=%08x r9=%08x\n",
-        cpu->lr, cpu->ctr, cpu->current_opc, cpu->gpr[0], cpu->gpr[1], cpu->gpr[9]);
-    if (gTraceLog) fflush(gTraceLog);
-    jitc_dump_and_exit(49);
-}
-
-extern "C" void jitc_fatal_prom_dispatch(uint32 ea)
-{
-    fprintf(stderr, "[FATAL-PROM] heartbeat called with PROM EA %08x!\n", ea);
-    fprintf(stderr, "  pc=%08x lr=%08x ctr=%08x msr=%08x ccb=%08x\n",
-        gCPU->pc, gCPU->lr, gCPU->ctr, gCPU->msr, gCPU->current_code_base);
-    fprintf(stderr, "  r0=%08x r1=%08x r3=%08x r9=%08x r31=%08x\n",
-        gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[3], gCPU->gpr[9], gCPU->gpr[31]);
-    if (gTraceLog) fflush(gTraceLog);
-    jitc_dump_and_exit(46);
-}
-
-extern "C" void jitc_fatal_thispage_prom(uint32 ea, uint32 ccb, uint32 offset)
-{
-    fprintf(stderr, "[FATAL-THISPAGE] computed PROM EA %08x = ccb %08x + offset %08x!\n",
-        ea, ccb, offset);
-    fprintf(stderr, "  pc=%08x lr=%08x ctr=%08x msr=%08x\n",
-        gCPU->pc, gCPU->lr, gCPU->ctr, gCPU->msr);
-    fprintf(stderr, "  r0=%08x r1=%08x r3=%08x r9=%08x r31=%08x\n",
-        gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[3], gCPU->gpr[9], gCPU->gpr[31]);
-    fprintf(stderr, "  npc=%08x pc_ofs=%08x\n", gCPU->npc, gCPU->pc_ofs);
-    if (gTraceLog) fflush(gTraceLog);
-    jitc_dump_and_exit(47);
-}
-
-extern "C" void jitc_tlb_validate_word_mismatch(uint32 fast, uint32 slow)
-{
-    fprintf(stderr, "[TLB-MISMATCH] word: fast=%08x slow=%08x pc=%08x ccb=%08x msr=%08x\n",
-        fast, slow, gCPU->pc, gCPU->current_code_base, gCPU->msr);
-    static int count = 0;
-    if (++count >= 5) {
-        fprintf(stderr, "[TLB-MISMATCH] too many mismatches, aborting\n");
-        // gTraceLog declared at file scope
-        if (gTraceLog) fflush(gTraceLog);
-        exit(43);
-    }
-}
 
 /*
  *  C wrapper for ppc_effective_to_physical_code.
@@ -158,17 +100,9 @@ extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea
     uint32 pa;
     int r = ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ | PPC_MMU_CODE, pa);
     if (r == PPC_MMU_OK) {
-        if (ea >= 0xc0000000 && (pa & 0xfff) != (ea & 0xfff)) {
-            fprintf(stderr, "[E2P-BUG] ea=%08x pa=%08x offset mismatch! ea_ofs=%03x pa_ofs=%03x msr=%08x\n",
-                ea, pa, ea & 0xfff, pa & 0xfff, cpu->msr);
-        }
         return pa;
     }
     if (r == PPC_MMU_EXC) {
-        if (ea >= 0xBF000000) {
-            fprintf(stderr, "[E2P-ISI] ea=%08x msr=%08x pc=%08x lr=%08x ctr=%08x ccb=%08x\n",
-                ea, cpu->msr, cpu->pc, cpu->lr, cpu->ctr, cpu->current_code_base);
-        }
         // ppc_exception() already set up SRR0/SRR1, cleared MSR,
         // invalidated TLB, and set npc = 0x400 (ISI vector).
         // exception_pending is already true.

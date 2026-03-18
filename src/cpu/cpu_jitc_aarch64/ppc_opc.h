@@ -55,7 +55,6 @@ static inline void ppc_update_cr0(PPC_CPU_State &aCPU, uint32 r)
 // Per-instruction trace: logs pc and opcode to jitc_insn.log
 extern void ppc_opc_trace_insn(PPC_CPU_State &aCPU);
 
-extern "C" void jitc_fatal_npc_prom(PPC_CPU_State *cpu);
 extern "C" void jitc_fatal_gpr9_corrupt(PPC_CPU_State *cpu);
 
 static inline void ppc_opc_gen_interpret_prologue(JITC &jitc)
