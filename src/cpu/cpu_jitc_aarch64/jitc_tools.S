@@ -571,6 +571,8 @@ do_export EXTERN(ppc_sc_exception_asm)
     ldp     x29, x30, [sp], #16
     ret
 
+// Entry point for SC exception without OSI check (called from inline gen code)
+do_export EXTERN(ppc_sc_raise_asm)
 1:  // SC exception
     str w0, [x20, #pc_ofs]
     ldr w3, [x20, #msr]

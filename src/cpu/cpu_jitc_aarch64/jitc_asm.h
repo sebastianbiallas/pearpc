@@ -48,6 +48,7 @@ extern "C" void ppc_program_exception_asm();
 extern "C" void ppc_no_fpu_exception_asm();
 extern "C" void ppc_no_vec_exception_asm();
 extern "C" void ppc_sc_exception_asm();
+extern "C" void ppc_sc_raise_asm();
 extern "C" void ppc_flush_flags_asm();
 extern "C" void ppc_flush_flags_signed_even_asm();
 extern "C" void ppc_flush_flags_signed_odd_asm();

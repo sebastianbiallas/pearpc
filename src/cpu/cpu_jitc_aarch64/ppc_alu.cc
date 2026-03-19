@@ -2694,12 +2694,47 @@ int ppc_opc_sc(PPC_CPU_State &aCPU)
 JITCFlow ppc_opc_gen_sc(JITC &jitc)
 {
     jitc.clobberAll();
-    // W0 = pc_ofs of next instruction (SRR0 for SC exception)
+
+    // Inline OSI check (matches x86 JIT approach).
+    // If not OSI: jump to SC exception (never returns).
+    // If OSI: call gcard_osi(0), fall through (flowEndBlock).
+
+    uint osi_call_size = 4 /* MOV W0, #0 */
+                       + a64_bl_size((uint64)gcard_osi);
+    uint sc_exc_size = 4 /* MOV W0, pc_ofs+4 */
+                     + a64_bl_size((uint64)ppc_sc_raise_asm);
+    uint check2_size = 4 /* LDR gpr[4] */ + 8 /* MOV 0x77810f9b */
+                     + 4 /* CMP */ + 4 /* B.NE */;
+    uint skip1 = check2_size + osi_call_size + 4 /* B forward */;
+    uint skip2 = osi_call_size + 4 /* B forward */;
+
+    uint total = 4 /* LDR gpr[3] */ + 8 /* MOV 0x113724fa */
+               + 4 /* CMP */ + 4 /* B.NE */
+               + check2_size + osi_call_size
+               + 4 /* B forward */ + sc_exc_size;
+    jitc.emitAssure(total);
+
+    // Check gpr[3] == 0x113724fa
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, gpr[3]));
+    jitc.asmMOV(W2, 0x113724fa);
+    jitc.asmCMPw(W1, W2);
+    jitc.asmBccForward(A64_NE, skip1);
+
+    // Check gpr[4] == 0x77810f9b
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, gpr[4]));
+    jitc.asmMOV(W2, 0x77810f9b);
+    jitc.asmCMPw(W1, W2);
+    jitc.asmBccForward(A64_NE, skip2);
+
+    // OSI match: call gcard_osi(0), fall through to next instruction
+    jitc.asmMOV(W0, (uint32)0);
+    jitc.asmCALL((NativeAddress)gcard_osi);
+    jitc.asmBForward(sc_exc_size);
+
+    // SC exception (not OSI) — never returns
     jitc.asmMOV(W0, jitc.pc + 4);
-    // ppc_sc_exception_asm checks OSI magic and either:
-    //   - OSI match: calls gcard_osi(0), returns here → flowEndBlock
-    //   - Otherwise: raises SC exception (vector 0xC00), does not return
-    jitc.asmCALL((NativeAddress)ppc_sc_exception_asm);
+    jitc.asmCALL((NativeAddress)ppc_sc_raise_asm);
+
     return flowEndBlock;
 }
 
