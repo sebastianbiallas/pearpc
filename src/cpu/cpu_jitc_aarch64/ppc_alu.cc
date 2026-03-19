@@ -504,6 +504,8 @@ int ppc_opc_srawx(PPC_CPU_State &);
 int ppc_opc_orcx(PPC_CPU_State &);
 int ppc_opc_norx(PPC_CPU_State &);
 int ppc_opc_cntlzwx(PPC_CPU_State &);
+int ppc_opc_divwux(PPC_CPU_State &);
+int ppc_opc_divwx(PPC_CPU_State &);
 
 #define RC_FALLBACK(interp_func) \
     if (jitc.current_opc & PPC_OPC_Rc) { \
@@ -612,17 +614,41 @@ JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
     return flowContinue;
 }
 
-/* slw rA, rS, rB  (shift left word) — interpreter fallback for shift >= 32 */
+/*
+ *  slw rA, rS, rB  (shift left word)
+ *  shift = rB & 0x3F; rA = (shift >= 32) ? 0 : rS << shift
+ *  Use 64-bit LSLV: zero-extended 32-bit value shifted left, low 32 bits = correct result.
+ */
 JITCFlow ppc_opc_gen_slwx(JITC &jitc)
 {
-    ppc_opc_gen_interpret(jitc, ppc_opc_slwx);
+    RC_FALLBACK(ppc_opc_slwx);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));     // X16 = zero-extend(gpr[rS])
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmANDw_imm(W17, W17, 0, 5);       // AND W17, W17, #0x3F (6-bit shift)
+    // LSLV X16, X16, X17 (64-bit shift — handles >= 32 correctly)
+    jitc.emit32(0x9AC02000 | (X17 << 16) | (X16 << 5) | X16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));      // store low 32 bits
     return flowContinue;
 }
 
-/* srw rA, rS, rB  (shift right word) */
+/*
+ *  srw rA, rS, rB  (shift right word)
+ *  shift = rB & 0x3F; rA = (shift >= 32) ? 0 : rS >> shift
+ *  Use 64-bit LSRV: zero-extended 32-bit value shifted right, low 32 bits = correct result.
+ */
 JITCFlow ppc_opc_gen_srwx(JITC &jitc)
 {
-    ppc_opc_gen_interpret(jitc, ppc_opc_srwx);
+    RC_FALLBACK(ppc_opc_srwx);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));     // X16 = zero-extend(gpr[rS])
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmANDw_imm(W17, W17, 0, 5);       // AND W17, W17, #0x3F (6-bit shift)
+    // LSRV X16, X16, X17 (64-bit shift — handles >= 32 correctly)
+    jitc.emit32(0x9AC02400 | (X17 << 16) | (X16 << 5) | X16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));      // store low 32 bits
     return flowContinue;
 }
 
@@ -837,10 +863,42 @@ JITCFlow ppc_opc_gen_rlwimix(JITC &jitc)
     return flowContinue;
 }
 
-/* srawx rA, rS, rB — Shift Right Algebraic Word */
+/* srawx rA, rS, rB — Shift Right Algebraic Word (sets XER[CA]) */
 JITCFlow ppc_opc_gen_srawx(JITC &jitc)
 {
     ppc_opc_gen_interpret(jitc, ppc_opc_srawx);
+    return flowContinue;
+}
+
+/* divwux rD, rA, rB — Divide Word Unsigned
+ * AArch64 UDIV returns 0 on division by zero (no trap), matching PPC behavior.
+ */
+JITCFlow ppc_opc_gen_divwux(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_divwux);
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    // UDIV Wd, Wn, Wm: 0 00 11010110 Rm 000010 Rn Rd
+    jitc.emit32(0x1AC00800 | (W17 << 16) | (W16 << 5) | W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    return flowContinue;
+}
+
+/* divwx rD, rA, rB — Divide Word Signed
+ * AArch64 SDIV returns 0 on division by zero, matching PPC behavior.
+ */
+JITCFlow ppc_opc_gen_divwx(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_divwx);
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    // SDIV Wd, Wn, Wm: 0 00 11010110 Rm 000011 Rn Rd
+    jitc.emit32(0x1AC00C00 | (W17 << 16) | (W16 << 5) | W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
 }
 

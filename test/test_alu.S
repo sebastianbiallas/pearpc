@@ -36,6 +36,19 @@
 77:
 .endm
 
+.macro CHECK32 expected
+    lis     11, \expected >> 16
+    ori     11, 11, \expected & 0xFFFF
+    cmpw    0, 3, 11
+    beq     88f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       77f
+88:
+    PRINT   .Lok, 3
+77:
+.endm
+
 _start:
     /* r30 = fail counter */
     li      30, 0
@@ -457,6 +470,51 @@ _start:
 77:
 
     /*
+     * Test 36: srw (shift right word)
+     */
+    PRINT   .Ltest36, (.Ltest36_end - .Ltest36)
+    lis     3, 0x8000         /* r3 = 0x80000000 */
+    li      4, 16
+    srw     3, 3, 4           /* 0x80000000 >> 16 = 0x8000 */
+    CHECK32 0x00008000
+
+    /*
+     * Test 37: srw with shift >= 32 → must return 0
+     */
+    PRINT   .Ltest37, (.Ltest37_end - .Ltest37)
+    li      3, -1             /* 0xFFFFFFFF */
+    li      4, 32
+    srw     3, 3, 4
+    CHECK   0
+
+    /*
+     * Test 38: slw (shift left word)
+     */
+    PRINT   .Ltest38, (.Ltest38_end - .Ltest38)
+    li      3, 1
+    li      4, 20
+    slw     3, 3, 4           /* 1 << 20 = 0x100000 */
+    CHECK32 0x00100000
+
+    /*
+     * Test 39: slw with shift >= 32 → must return 0
+     */
+    PRINT   .Ltest39, (.Ltest39_end - .Ltest39)
+    li      3, -1
+    li      4, 33
+    slw     3, 3, 4
+    CHECK   0
+
+    /*
+     * Test 40: divwu (unsigned divide)
+     */
+    PRINT   .Ltest40, (.Ltest40_end - .Ltest40)
+    li      3, 100
+    li      4, 7
+    divwu   3, 3, 4           /* 100 / 7 = 14 */
+    CHECK   14
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -585,6 +643,21 @@ _start:
 .Ltest35:
     .ascii  "test 35 mulhwu big:  "
 .Ltest35_end:
+.Ltest36:
+    .ascii  "test 36 srw:         "
+.Ltest36_end:
+.Ltest37:
+    .ascii  "test 37 srw >=32:    "
+.Ltest37_end:
+.Ltest38:
+    .ascii  "test 38 slw:         "
+.Ltest38_end:
+.Ltest39:
+    .ascii  "test 39 slw >=32:    "
+.Ltest39_end:
+.Ltest40:
+    .ascii  "test 40 divwu:       "
+.Ltest40_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
