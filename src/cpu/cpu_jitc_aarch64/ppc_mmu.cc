@@ -2502,3 +2502,62 @@ JITCFlow ppc_opc_gen_sthux(JITC &jitc)
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
 }
+
+/*
+ *  === Byte-reversed load/store ===
+ *  Call the normal asm stub (which byte-swaps BE→LE), then REV the result
+ *  to get the byte-reversed value (or REV before storing).
+ */
+
+JITCFlow ppc_opc_gen_lwbrx(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmREVw(W0, W0);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhbrx(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	// Half stub returns zero-extended 16-bit value, byte-swap the low 16 bits
+	jitc.emit32(0x5AC00400 | (W0 << 5) | W0);  // REV16 W0, W0
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stwbrx(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmREVw(W1, W1);
+	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_sthbrx(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.emit32(0x5AC00400 | (W1 << 5) | W1);  // REV16 W1, W1
+	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	return flowContinue;
+}

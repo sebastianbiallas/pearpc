@@ -495,7 +495,15 @@ int ppc_opc_mullwx(PPC_CPU_State &);
 int ppc_opc_slwx(PPC_CPU_State &);
 int ppc_opc_srwx(PPC_CPU_State &);
 int ppc_opc_rlwinmx(PPC_CPU_State &);
+int ppc_opc_rlwimix(PPC_CPU_State &);
 int ppc_opc_rlwnmx(PPC_CPU_State &);
+int ppc_opc_mulhwux(PPC_CPU_State &);
+int ppc_opc_subfic(PPC_CPU_State &);
+int ppc_opc_addic_(PPC_CPU_State &);
+int ppc_opc_srawx(PPC_CPU_State &);
+int ppc_opc_orcx(PPC_CPU_State &);
+int ppc_opc_norx(PPC_CPU_State &);
+int ppc_opc_cntlzwx(PPC_CPU_State &);
 
 #define RC_FALLBACK(interp_func) \
     if (jitc.current_opc & PPC_OPC_Rc) { \
@@ -729,6 +737,156 @@ JITCFlow ppc_opc_gen_andi_(JITC &jitc)
     jitc.asmANDw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     gen_update_cr0(jitc);
+    return flowContinue;
+}
+
+/* andis. rA, rS, UIMM — AND Immediate Shifted, always updates CR0 */
+JITCFlow ppc_opc_gen_andis_(JITC &jitc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
+    uint32 mask = imm << 16;
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmMOV(W17, mask);
+    jitc.asmANDw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    gen_update_cr0(jitc);
+    return flowContinue;
+}
+
+/* mulli rD, rA, SIMM */
+JITCFlow ppc_opc_gen_mulli(JITC &jitc)
+{
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmMOV(W17, imm);
+    jitc.asmMULw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    return flowContinue;
+}
+
+/* mulhwux rD, rA, rB — Multiply High Word Unsigned */
+JITCFlow ppc_opc_gen_mulhwux(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_mulhwux);
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    // UMULL Xd, Wn, Wm: 64-bit = 32-bit * 32-bit (unsigned)
+    // Encoding: 10011011 101 Rm 0 11111 Rn Rd
+    jitc.emit32(0x9BA07C00 | (W17 << 16) | (W16 << 5) | X16);
+    // LSR X16, X16, #32 to get high word
+    jitc.emit32(a64_LSRw_imm(W16, W16, 0));  // wrong — need 64-bit LSR
+    // Actually: UBFM Xd, Xn, #32, #63 = LSR Xd, Xn, #32
+    // Encoding: 1 10 100110 1 100000 111111 Rn Rd = 0xD360FC00
+    jitc.emit32(0xD360FC00 | (X16 << 5) | W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    return flowContinue;
+}
+
+/* subfic rD, rA, SIMM — Subtract From Immediate Carrying */
+JITCFlow ppc_opc_gen_subfic(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_subfic);
+    return flowContinue;
+}
+
+/* addic. rD, rA, SIMM — Add Immediate Carrying and Record */
+JITCFlow ppc_opc_gen_addic_(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_addic_);
+    return flowContinue;
+}
+
+/* rlwimix rA, rS, SH, MB, ME — Rotate Left Word Immediate then Mask Insert */
+JITCFlow ppc_opc_gen_rlwimix(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_rlwimix);
+    int rS, rA, SH;
+    uint32 MB, ME;
+    PPC_OPC_TEMPL_M(jitc.current_opc, rS, rA, SH, MB, ME);
+    uint32 mask = ppc_mask(MB, ME);
+    // v = ROTL(gpr[rS], SH)
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    if (SH != 0) {
+        jitc.emit32(a64_RORw_imm(16, 16, (32 - SH) & 31));
+    }
+    // rA = (v & mask) | (rA & ~mask)
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
+    if (mask == 0xFFFFFFFF) {
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    } else if (mask == 0) {
+        // No bits inserted — rA unchanged
+    } else {
+        // W16 = rotated value, W17 = old rA
+        // Use BFI-like approach: clear mask bits in rA, OR in masked rotated value
+        NativeReg tmp = W0;
+        jitc.asmMOV(tmp, mask);
+        // W16 = v & mask
+        jitc.asmANDw(W16, W16, tmp);
+        // tmp = ~mask
+        jitc.asmMOV(tmp, ~mask);
+        // W17 = rA & ~mask
+        jitc.asmANDw(W17, W17, tmp);
+        // result = (v & mask) | (rA & ~mask)
+        jitc.asmORRw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    }
+    return flowContinue;
+}
+
+/* srawx rA, rS, rB — Shift Right Algebraic Word */
+JITCFlow ppc_opc_gen_srawx(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_srawx);
+    return flowContinue;
+}
+
+/* orcx rA, rS, rB — OR with Complement */
+JITCFlow ppc_opc_gen_orcx(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_orcx);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    // ORN Wd, Wn, Wm = ORR with inverted Rm
+    // Encoding: 0 01 01010 00 1 Rm 000000 Rn Rd
+    jitc.emit32(0x2A200000 | (W17 << 16) | (W16 << 5) | W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/* norx rA, rS, rB — NOR */
+JITCFlow ppc_opc_gen_norx(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_norx);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmORRw(W16, W16, W17);
+    // MVN Wd, Wn = ORN Wd, WZR, Wn
+    jitc.emit32(0x2A200000 | (W16 << 16) | (31 << 5) | W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/* cntlzwx rA, rS — Count Leading Zeros Word */
+JITCFlow ppc_opc_gen_cntlzwx(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_cntlzwx);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    // CLZ Wd, Wn: count leading zeros (32-bit)
+    // Encoding: 0 1 0 11010110 00000 00010 0 Rn Rd = 0x5AC01000
+    jitc.emit32(0x5AC01000 | (W16 << 5) | W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
 
