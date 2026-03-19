@@ -694,10 +694,39 @@ static JITCFlow ppc_opc_gen_group_2(JITC &aJITC)
     return ppc_opc_table_gen_group2[ext](aJITC);
 }
 
+/*
+ *  Emit a FPU check: if MSR_FP is clear, jump to
+ *  ppc_no_fpu_exception_asm (which never returns).
+ *  Uses checkedFloat to skip redundant checks within
+ *  the same block (same as x86 JIT).
+ */
+static void ppc_opc_gen_check_fpu(JITC &jitc)
+{
+    if (!jitc.checkedFloat) {
+        jitc.clobberAll();
+        // Load MSR, test MSR_FP (bit 13)
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
+        // TST W0, #(1<<13) = ANDS WZR, W0, #0x2000 (MSR_FP)
+        // Logical immediate encoding for (1<<13): immr=19, imms=0
+        jitc.asmTSTw(W0, 19, 0);
+        NativeAddress skip = jitc.asmJxxFixup(); // B.NE skip (FP enabled)
+
+        // FP disabled: raise NO_FPU exception
+        jitc.asmMOV(W0, jitc.pc);
+        jitc.asmCALL((NativeAddress)ppc_no_fpu_exception_asm);
+        // ppc_no_fpu_exception_asm does not return
+
+        // Patch B.NE to skip here
+        jitc.asmResolveCondFixup(skip, jitc.asmHERE(), A64_NE);
+        jitc.checkedFloat = true;
+    }
+}
+
 // main opcode 59
 static int ppc_opc_group_f1(PPC_CPU_State &aCPU)
 {
     if ((aCPU.msr & MSR_FP) == 0) {
+        ppc_exception(aCPU, PPC_EXC_NO_FPU, 0, 0);
         return 0;
     }
     uint32 ext = PPC_OPC_EXT(aCPU.current_opc);
@@ -718,6 +747,7 @@ static int ppc_opc_group_f1(PPC_CPU_State &aCPU)
 }
 static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
 {
+    ppc_opc_gen_check_fpu(aJITC);
     uint32 ext = PPC_OPC_EXT(aJITC.current_opc);
     switch (ext & 0x1f) {
     case 18: return ppc_opc_gen_fdivsx(aJITC);
@@ -738,6 +768,7 @@ static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
 static int ppc_opc_group_f2(PPC_CPU_State &aCPU)
 {
     if ((aCPU.msr & MSR_FP) == 0) {
+        ppc_exception(aCPU, PPC_EXC_NO_FPU, 0, 0);
         return 0;
     }
     uint32 ext = PPC_OPC_EXT(aCPU.current_opc);
@@ -779,6 +810,7 @@ static int ppc_opc_group_f2(PPC_CPU_State &aCPU)
 }
 static JITCFlow ppc_opc_gen_group_f2(JITC &aJITC)
 {
+    ppc_opc_gen_check_fpu(aJITC);
     uint32 ext = PPC_OPC_EXT(aJITC.current_opc);
     if (ext & 16) {
         switch (ext & 0x1f) {
