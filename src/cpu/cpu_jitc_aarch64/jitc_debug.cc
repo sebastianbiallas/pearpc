@@ -876,6 +876,127 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         return;
     }
 
+    // EXTR / ROR (immediate): sf 00 100111 N 0 rm imms rn rd
+    if ((insn & 0x1F800000) == 0x13800000) {
+        int sf = (insn >> 31) & 1;
+        int imms = (insn >> 10) & 0x3F;
+        if (rm == rn) {
+            // ROR alias
+            snprintf(result, 256, "ror %s, %s, #%d",
+                    sf ? xreg_or_zr(rd) : wreg_or_zr(rd),
+                    sf ? xreg_or_zr(rn) : wreg_or_zr(rn),
+                    imms);
+        } else {
+            snprintf(result, 256, "extr %s, %s, %s, #%d",
+                    sf ? xreg_or_zr(rd) : wreg_or_zr(rd),
+                    sf ? xreg_or_zr(rn) : wreg_or_zr(rn),
+                    sf ? xreg_or_zr(rm) : wreg_or_zr(rm),
+                    imms);
+        }
+        movTrackReg = -1;
+        return;
+    }
+
+    // Data processing (2 source): shifts, divides
+    // sf 0 0 11010110 rm opcode2 rn rd
+    if ((insn & 0x1FE00000) == 0x1AC00000) {
+        int sf = (insn >> 31) & 1;
+        int opc2 = (insn >> 10) & 0x3F;
+        const char *op;
+        switch (opc2) {
+        case 0x02: op = "udiv"; break;
+        case 0x03: op = "sdiv"; break;
+        case 0x08: op = "lslv"; break;
+        case 0x09: op = "lsrv"; break;
+        case 0x0A: op = "asrv"; break;
+        case 0x0B: op = "rorv"; break;
+        default:   op = "dp2?"; break;
+        }
+        snprintf(result, 256, "%s %s, %s, %s", op,
+                sf ? xreg(rd) : wreg(rd),
+                sf ? xreg(rn) : wreg(rn),
+                sf ? xreg(rm) : wreg(rm));
+        movTrackReg = -1;
+        return;
+    }
+
+    // Conditional select: CSEL / CSINC / CSINV / CSNEG
+    // sf 0 0 11010100 rm cond 0 0 rn rd  (CSEL)
+    // sf 0 0 11010100 rm cond 0 1 rn rd  (CSINC)
+    // sf 1 0 11010100 rm cond 0 0 rn rd  (CSINV)
+    // sf 1 0 11010100 rm cond 0 1 rn rd  (CSNEG)
+    if ((insn & 0x1FE00000) == 0x1A800000) {
+        int sf = (insn >> 31) & 1;
+        int op = (insn >> 30) & 1;
+        int S = (insn >> 29) & 1;
+        int o2 = (insn >> 10) & 1;
+        int cond = (insn >> 12) & 0xF;
+        const char *mn;
+        if (!S && !op) mn = o2 ? "csinc" : "csel";
+        else if (!S && op) mn = o2 ? "csneg" : "csinv";
+        else mn = "cs???";
+        snprintf(result, 256, "%s %s, %s, %s, %s",
+                mn,
+                sf ? xreg_or_zr(rd) : wreg_or_zr(rd),
+                sf ? xreg_or_zr(rn) : wreg_or_zr(rn),
+                sf ? xreg_or_zr(rm) : wreg_or_zr(rm),
+                condName(cond));
+        movTrackReg = -1;
+        return;
+    }
+
+    // Data processing (1 source): CLZ, RBIT, REV, etc.
+    // sf 1 0 11010110 00000 opcode2 rn rd
+    // CLZ: opcode2 = 000100
+    if ((insn & 0x7FFFFC00) == 0x5AC01000) {
+        int sf = (insn >> 31) & 1;
+        snprintf(result, 256, "clz %s, %s",
+                sf ? xreg(rd) : wreg(rd),
+                sf ? xreg(rn) : wreg(rn));
+        movTrackReg = -1;
+        return;
+    }
+
+    // UMULL / SMULL (widening multiply): UMADDL / SMADDL with Ra=XZR
+    // 1 00 11011 U 01 rm 0 ra rn rd
+    // UMULL: U=1, ra=11111
+    // SMULL: U=0, ra=11111
+    if ((insn & 0xFFE0FC00) == 0x9BA07C00) {
+        snprintf(result, 256, "umull %s, %s, %s", xreg(rd), wreg(rn), wreg(rm));
+        movTrackReg = -1;
+        return;
+    }
+    if ((insn & 0xFFE0FC00) == 0x9B207C00) {
+        snprintf(result, 256, "smull %s, %s, %s", xreg(rd), wreg(rn), wreg(rm));
+        movTrackReg = -1;
+        return;
+    }
+
+    // MADD / MSUB (multiply-add/sub)
+    // sf 00 11011 000 rm 0 ra rn rd (MADD)
+    // sf 00 11011 000 rm 1 ra rn rd (MSUB)
+    // MUL alias: MADD with Ra=WZR/XZR
+    if ((insn & 0x1F800000) == 0x1B000000) {
+        int sf = (insn >> 31) & 1;
+        int o0 = (insn >> 15) & 1;
+        int ra = (insn >> 10) & 0x1F;
+        if (ra == 31 && !o0) {
+            snprintf(result, 256, "mul %s, %s, %s",
+                    sf ? xreg(rd) : wreg(rd),
+                    sf ? xreg(rn) : wreg(rn),
+                    sf ? xreg(rm) : wreg(rm));
+        } else {
+            const char *mn = o0 ? "msub" : "madd";
+            snprintf(result, 256, "%s %s, %s, %s, %s", mn,
+                    sf ? xreg(rd) : wreg(rd),
+                    sf ? xreg(rn) : wreg(rn),
+                    sf ? xreg(rm) : wreg(rm),
+                    sf ? xreg(ra) : wreg(ra));
+        }
+        movTrackReg = -1;
+        return;
+    }
+
     // Fallback: unknown instruction
     snprintf(result, 256, "??? 0x%08x", insn);
     movTrackReg = -1;

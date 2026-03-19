@@ -780,9 +780,7 @@ JITCFlow ppc_opc_gen_mulhwux(JITC &jitc)
     // Encoding: 10011011 101 Rm 0 11111 Rn Rd
     jitc.emit32(0x9BA07C00 | (W17 << 16) | (W16 << 5) | X16);
     // LSR X16, X16, #32 to get high word
-    jitc.emit32(a64_LSRw_imm(W16, W16, 0));  // wrong — need 64-bit LSR
-    // Actually: UBFM Xd, Xn, #32, #63 = LSR Xd, Xn, #32
-    // Encoding: 1 10 100110 1 100000 111111 Rn Rd = 0xD360FC00
+    // UBFM Xd, Xn, #32, #63 = LSR Xd, Xn, #32
     jitc.emit32(0xD360FC00 | (X16 << 5) | W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
