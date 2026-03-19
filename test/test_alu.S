@@ -315,6 +315,148 @@ _start:
 .Lt25_end:
 
     /*
+     * Test 26: mulli (multiply low immediate)
+     */
+    PRINT   .Ltest26, (.Ltest26_end - .Ltest26)
+    li      3, 7
+    mulli   3, 3, 100
+    CHECK   700
+
+    /*
+     * Test 27: mulhwu (multiply high word unsigned)
+     * 0x80000000 * 4 = 0x200000000 → high word = 2
+     */
+    PRINT   .Ltest27, (.Ltest27_end - .Ltest27)
+    lis     3, 0x8000        /* r3 = 0x80000000 */
+    li      4, 4
+    mulhwu  3, 3, 4
+    CHECK   2
+
+    /*
+     * Test 28: rlwimi (rotate left word immediate then mask insert)
+     * Insert bits 24-27 of rotated rS into rA
+     * rS=0xFF, SH=24 → rotated=0xFF000000, MB=4, ME=7 → mask=0x0F000000
+     * rA=0x12345678 → result = 0x1F345678
+     */
+    PRINT   .Ltest28, (.Ltest28_end - .Ltest28)
+    lis     3, 0x1234
+    ori     3, 3, 0x5678     /* r3 = 0x12345678 */
+    li      4, 0xFF
+    rlwimi  3, 4, 24, 4, 7   /* insert nibble */
+    lis     11, 0x1F34
+    ori     11, 11, 0x5678
+    cmpw    0, 3, 11
+    beq     88f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       77f
+88:
+    PRINT   .Lok, 3
+77:
+
+    /*
+     * Test 29: nor (NOR)
+     * nor r3, r3, r3 = NOT r3
+     */
+    PRINT   .Ltest29, (.Ltest29_end - .Ltest29)
+    li      3, 0
+    nor     3, 3, 3           /* ~0 = 0xFFFFFFFF = -1 */
+    CHECK   -1
+
+    /*
+     * Test 30: orc (OR with Complement)
+     * orc r3, r3, r4 = r3 | ~r4
+     */
+    PRINT   .Ltest30, (.Ltest30_end - .Ltest30)
+    li      3, 0x0F
+    li      4, 0x0F
+    orc     3, 3, 4          /* 0x0F | ~0x0F = 0x0F | 0xFFFFFFF0 = 0xFFFFFFFF = -1 */
+    CHECK   -1
+
+    /*
+     * Test 31: cntlzw (count leading zeros)
+     */
+    PRINT   .Ltest31, (.Ltest31_end - .Ltest31)
+    li      3, 1              /* leading zeros = 31 */
+    cntlzw  3, 3
+    CHECK   31
+
+    /*
+     * Test 32: subfic (subtract from immediate carrying)
+     * subfic r3, r3, 100 → r3 = 100 - 10 = 90
+     */
+    PRINT   .Ltest32, (.Ltest32_end - .Ltest32)
+    li      3, 10
+    subfic  3, 3, 100
+    CHECK   90
+
+    /*
+     * Test 33: lwbrx/stwbrx (byte-reversed load/store)
+     * Store 0x12345678, load byte-reversed → 0x78563412
+     */
+    PRINT   .Ltest33, (.Ltest33_end - .Ltest33)
+    lis     3, 0x1234
+    ori     3, 3, 0x5678     /* r3 = 0x12345678 */
+    stw     3, -16(1)        /* store normally */
+    lwbrx   3, 0, 1          /* load byte-reversed from r1+0... */
+    /* Actually lwbrx needs EA = (rA|0)+rB, use stack-relative */
+    li      4, -16
+    add     5, 1, 4          /* r5 = &stack[-16] */
+    li      4, 0
+    lwbrx   3, 4, 5          /* r3 = byte-reversed load */
+    lis     11, 0x7856
+    ori     11, 11, 0x3412
+    cmpw    0, 3, 11
+    beq     88f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       77f
+88:
+    PRINT   .Lok, 3
+77:
+
+    /*
+     * Test 34: stwbrx (store byte-reversed, then load normally)
+     */
+    PRINT   .Ltest34, (.Ltest34_end - .Ltest34)
+    lis     3, 0x1234
+    ori     3, 3, 0x5678     /* r3 = 0x12345678 */
+    li      4, -16
+    add     5, 1, 4
+    li      4, 0
+    stwbrx  3, 4, 5          /* store byte-reversed */
+    lwz     3, -16(1)        /* load normally → should be 0x78563412 */
+    lis     11, 0x7856
+    ori     11, 11, 0x3412
+    cmpw    0, 3, 11
+    beq     88f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       77f
+88:
+    PRINT   .Lok, 3
+77:
+
+    /*
+     * Test 35: mulhwu edge case (large values)
+     * 0xFFFFFFFF * 0xFFFFFFFF → high word = 0xFFFFFFFE
+     */
+    PRINT   .Ltest35, (.Ltest35_end - .Ltest35)
+    li      3, -1             /* r3 = 0xFFFFFFFF */
+    li      4, -1             /* r4 = 0xFFFFFFFF */
+    mulhwu  3, 3, 4
+    lis     11, 0xFFFF
+    ori     11, 11, 0xFFFE
+    cmpw    0, 3, 11
+    beq     88f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       77f
+88:
+    PRINT   .Lok, 3
+77:
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -413,6 +555,36 @@ _start:
 .Ltest25:
     .ascii  "test 25 mfmsr !PR:   "
 .Ltest25_end:
+.Ltest26:
+    .ascii  "test 26 mulli:       "
+.Ltest26_end:
+.Ltest27:
+    .ascii  "test 27 mulhwu:      "
+.Ltest27_end:
+.Ltest28:
+    .ascii  "test 28 rlwimi:      "
+.Ltest28_end:
+.Ltest29:
+    .ascii  "test 29 nor:         "
+.Ltest29_end:
+.Ltest30:
+    .ascii  "test 30 orc:         "
+.Ltest30_end:
+.Ltest31:
+    .ascii  "test 31 cntlzw:      "
+.Ltest31_end:
+.Ltest32:
+    .ascii  "test 32 subfic:      "
+.Ltest32_end:
+.Ltest33:
+    .ascii  "test 33 lwbrx:       "
+.Ltest33_end:
+.Ltest34:
+    .ascii  "test 34 stwbrx:      "
+.Ltest34_end:
+.Ltest35:
+    .ascii  "test 35 mulhwu big:  "
+.Ltest35_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
