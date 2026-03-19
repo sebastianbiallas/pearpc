@@ -467,6 +467,29 @@ A64Instr a64_STRHw(int rt, int rn, int offset)
     return 0x79000000 | (uoff << 10) | (rn << 5) | rt;
 }
 
+/* Load/Store register-indexed */
+A64Instr a64_LDRw_reg(int rt, int rn, int rm, bool shift)
+{
+    A64_ASSERT_REG(rt, "LDRw_reg");
+    A64_ASSERT_REG(rn, "LDRw_reg");
+    A64_ASSERT_REG(rm, "LDRw_reg");
+    // LDR Wt, [Xn, Xm{, LSL #2}]
+    // 10 111000 011 Rm option(011) S 10 Rn Rt
+    uint32 S = shift ? 1 : 0;
+    return 0xB8606800 | (S << 12) | (rm << 16) | (rn << 5) | rt;
+}
+
+A64Instr a64_LDR_reg(int rt, int rn, int rm, bool shift)
+{
+    A64_ASSERT_REG(rt, "LDR_reg");
+    A64_ASSERT_REG(rn, "LDR_reg");
+    A64_ASSERT_REG(rm, "LDR_reg");
+    // LDR Xt, [Xn, Xm{, LSL #3}]
+    // 11 111000 011 Rm option(011) S 10 Rn Rt
+    uint32 S = shift ? 1 : 0;
+    return 0xF8606800 | (S << 12) | (rm << 16) | (rn << 5) | rt;
+}
+
 /* Load/Store pair (pre-index / post-index) */
 A64Instr a64_STP_pre(int rt1, int rt2, int rn, int offset)
 {

@@ -351,6 +351,22 @@ public:
     void asmCMPw(NativeReg rn, uint32 imm12);
     void asmTSTw(NativeReg rn, int immr, int imms);  // TST Wn, #bitmask
 
+    // ALU immediate (logical bitmask)
+    void asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms);  // AND Wn, Wm, #bitmask
+
+    // Shift immediate
+    void asmLSRw_imm(NativeReg rd, NativeReg rn, int shift);  // LSR Wd, Wn, #shift
+
+    // 64-bit ADD immediate
+    void asmADD(NativeReg rd, NativeReg rn, uint32 imm12);  // ADD Xd, Xn, #imm12
+
+    // Load register-indexed
+    void asmLDRw_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift);  // LDR Wt, [Xn, Xm{, LSL #2}]
+    void asmLDR_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift);   // LDR Xt, [Xn, Xm{, LSL #3}]
+
+    // Byte reverse
+    void asmREVw(NativeReg rd, NativeReg rn);  // REV Wd, Wn
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)

@@ -617,6 +617,121 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         return;
     }
 
+    // Logical immediate: AND / ORR / EOR / ANDS
+    // sf opc 100100 N immr imms rn rd
+    // opc: 00=AND, 01=ORR, 10=EOR, 11=ANDS
+    if ((insn & 0x1F800000) == 0x12000000) {
+        int sf = (insn >> 31) & 1;
+        int opc = (insn >> 29) & 3;
+        int N = (insn >> 22) & 1;
+        int immr = (insn >> 16) & 0x3F;
+        int imms = (insn >> 10) & 0x3F;
+        int regsize = sf ? 64 : 32;
+
+        // Decode bitmask immediate (ARM ARM DecodeBitMasks algorithm)
+        int combined = (N << 6) | (~imms & 0x3F);
+        int len = 0;
+        for (int i = 6; i >= 0; i--) {
+            if (combined & (1 << i)) { len = i; break; }
+        }
+        int esize = 1 << len;
+        int levels = (1 << len) - 1;
+        int S = imms & levels;
+        int R = immr & levels;
+        uint64 welem = (1ULL << (S + 1)) - 1;
+        if (R != 0)
+            welem = ((welem >> R) | (welem << (esize - R))) & ((1ULL << esize) - 1);
+        uint64 bitmask = 0;
+        for (int i = 0; i < regsize; i += esize)
+            bitmask |= welem << i;
+        if (regsize == 32) bitmask &= 0xFFFFFFFF;
+
+        const char *op;
+        switch (opc) {
+        case 0: op = "and"; break;
+        case 1: op = "orr"; break;
+        case 2: op = "eor"; break;
+        case 3: op = "ands"; break;
+        default: op = "???"; break;
+        }
+
+        // TST alias: ANDS with rd=XZR/WZR
+        if (opc == 3 && rd == 31) {
+            if (regsize == 32)
+                snprintf(result, 256, "tst %s, #0x%x", wreg(rn), (uint32)bitmask);
+            else
+                snprintf(result, 256, "tst %s, #0x%llx", xreg(rn), (unsigned long long)bitmask);
+        }
+        // MOV alias: ORR with rn=XZR/WZR
+        else if (opc == 1 && rn == 31) {
+            if (regsize == 32)
+                snprintf(result, 256, "mov %s, #0x%x", wreg_or_zr(rd), (uint32)bitmask);
+            else
+                snprintf(result, 256, "mov %s, #0x%llx", xreg_or_zr(rd), (unsigned long long)bitmask);
+        } else {
+            const char *rdn = sf ? xreg_or_zr(rd) : wreg_or_zr(rd);
+            const char *rnn = sf ? xreg_or_zr(rn) : wreg_or_zr(rn);
+            if (regsize == 32)
+                snprintf(result, 256, "%s %s, %s, #0x%x", op, rdn, rnn, (uint32)bitmask);
+            else
+                snprintf(result, 256, "%s %s, %s, #0x%llx", op, rdn, rnn, (unsigned long long)bitmask);
+        }
+        movTrackReg = -1;
+        return;
+    }
+
+    // Load/Store register (register offset)
+    // size 111000 opc 1 rm option S 10 rn rt
+    // V=0 (not SIMD)
+    if ((insn & 0x3F200C00) == 0x38200800) {
+        int size = (insn >> 30) & 3;
+        int opc2 = (insn >> 22) & 3;
+        int option = (insn >> 13) & 7;
+        int S = (insn >> 12) & 1;
+
+        const char *op;
+        const char *rname;
+        switch (opc2) {
+        case 0: // STR
+            op = (size == 0) ? "strb" : (size == 1) ? "strh" : "str";
+            rname = (size >= 3) ? xreg_or_zr(rd) : wreg_or_zr(rd);
+            break;
+        case 1: // LDR
+            op = (size == 0) ? "ldrb" : (size == 1) ? "ldrh" : "ldr";
+            rname = (size >= 3) ? xreg_or_zr(rd) : wreg_or_zr(rd);
+            break;
+        default:
+            op = "ldr?";
+            rname = wreg_or_zr(rd);
+            break;
+        }
+
+        const char *ext;
+        bool rm_is_32;
+        switch (option) {
+        case 2: ext = "uxtw"; rm_is_32 = true; break;
+        case 3: ext = "lsl";  rm_is_32 = false; break;
+        case 6: ext = "sxtw"; rm_is_32 = true; break;
+        case 7: ext = "sxtx"; rm_is_32 = false; break;
+        default: ext = "???"; rm_is_32 = false; break;
+        }
+        const char *rmname = rm_is_32 ? wreg(rm) : xreg(rm);
+
+        if (S) {
+            snprintf(result, 256, "%s %s, [%s, %s, %s #%d]",
+                    op, rname, xreg(rn), rmname, ext, size);
+        } else if (option == 3) {
+            // LSL #0 is implicit — just show [Xn, Xm]
+            snprintf(result, 256, "%s %s, [%s, %s]",
+                    op, rname, xreg(rn), rmname);
+        } else {
+            snprintf(result, 256, "%s %s, [%s, %s, %s]",
+                    op, rname, xreg(rn), rmname, ext);
+        }
+        movTrackReg = -1;
+        return;
+    }
+
     // Load/Store unsigned offset
     // size opc 11 1 0 01 opc2 imm12 rn rt
     // size: 00=byte, 01=half, 10=word, 11=dword

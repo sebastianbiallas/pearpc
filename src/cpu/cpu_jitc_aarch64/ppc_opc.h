@@ -73,10 +73,6 @@ static inline void ppc_opc_gen_interpret_prologue(JITC &jitc)
     // Store npc = pc + 4
     jitc.asmADDw(W16, W16, (uint32)4);
     jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
-    // Per-instruction trace (disabled — causes SIGSEGV due to code size overflow)
-    // jitc.asmMOV(X0, X20);
-    // jitc.asmCALL((NativeAddress)ppc_opc_trace_insn);
 }
 
 static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &))

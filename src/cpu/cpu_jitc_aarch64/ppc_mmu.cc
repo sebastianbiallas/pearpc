@@ -166,6 +166,20 @@ extern "C" int ppc_read_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea)
 
 extern "C" int ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
 {
+	if ((ea & 0xFFF) > 0xFFE) {
+		// Access spans two pages — read byte-by-byte
+		uint32 result = 0;
+		for (int i = 0; i < 2; i++) {
+			uint32 pa;
+			if (ppc_effective_to_physical(*cpu, ea + i, PPC_MMU_READ, pa) != PPC_MMU_OK)
+				return 1;
+			uint8 b;
+			ppc_read_physical_byte(pa, b);
+			result = (result << 8) | b;
+		}
+		cpu->temp = result;
+		return 0;
+	}
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
@@ -174,12 +188,25 @@ extern "C" int ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
 		cpu->temp = result;
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
 extern "C" int ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
 {
+	if ((ea & 0xFFF) > 0xFFC) {
+		// Access spans two pages — read byte-by-byte
+		uint32 result = 0;
+		for (int i = 0; i < 4; i++) {
+			uint32 pa;
+			if (ppc_effective_to_physical(*cpu, ea + i, PPC_MMU_READ, pa) != PPC_MMU_OK)
+				return 1;
+			uint8 b;
+			ppc_read_physical_byte(pa, b);
+			result = (result << 8) | b;
+		}
+		cpu->temp = result;
+		return 0;
+	}
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
@@ -188,23 +215,35 @@ extern "C" int ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
 		cpu->temp = result;
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
 extern "C" int ppc_read_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea)
 {
+	if ((ea & 0xFFF) > 0xFF8) {
+		// Access spans two pages — read byte-by-byte
+		uint64 result = 0;
+		for (int i = 0; i < 8; i++) {
+			uint32 pa;
+			if (ppc_effective_to_physical(*cpu, ea + i, PPC_MMU_READ, pa) != PPC_MMU_OK)
+				return 1;
+			uint8 b;
+			ppc_read_physical_byte(pa, b);
+			result = (result << 8) | b;
+		}
+		cpu->temp = (uint32)(result >> 32);
+		cpu->temp2 = (uint32)(result);
+		return 0;
+	}
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_READ, pa) == PPC_MMU_OK) {
 		tlb_fill_data_read(cpu, ea, pa);
 		uint64 result;
 		ppc_read_physical_dword(pa, result);
-		// Store 64-bit result in temp/temp2
 		cpu->temp = (uint32)(result >> 32);
 		cpu->temp2 = (uint32)(result);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -222,18 +261,37 @@ extern "C" int ppc_write_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea, uint
 
 extern "C" int ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
 {
+	if ((ea & 0xFFF) > 0xFFE) {
+		// Access spans two pages — write byte-by-byte (big-endian order)
+		for (int i = 0; i < 2; i++) {
+			uint32 pa;
+			if (ppc_effective_to_physical(*cpu, ea + i, PPC_MMU_WRITE, pa) != PPC_MMU_OK)
+				return 1;
+			ppc_write_physical_byte(pa, (data >> (8 * (1 - i))) & 0xFF);
+		}
+		return 0;
+	}
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_half(pa, data);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
 extern "C" int ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint32 data)
 {
+	if ((ea & 0xFFF) > 0xFFC) {
+		// Access spans two pages — write byte-by-byte (big-endian order)
+		for (int i = 0; i < 4; i++) {
+			uint32 pa;
+			if (ppc_effective_to_physical(*cpu, ea + i, PPC_MMU_WRITE, pa) != PPC_MMU_OK)
+				return 1;
+			ppc_write_physical_byte(pa, (data >> (8 * (3 - i))) & 0xFF);
+		}
+		return 0;
+	}
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
@@ -245,13 +303,22 @@ extern "C" int ppc_write_effective_word_slow(PPC_CPU_State *cpu, uint32 ea, uint
 
 extern "C" int ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, uint64 data)
 {
+	if ((ea & 0xFFF) > 0xFF8) {
+		// Access spans two pages — write byte-by-byte (big-endian order)
+		for (int i = 0; i < 8; i++) {
+			uint32 pa;
+			if (ppc_effective_to_physical(*cpu, ea + i, PPC_MMU_WRITE, pa) != PPC_MMU_OK)
+				return 1;
+			ppc_write_physical_byte(pa, (data >> (8 * (7 - i))) & 0xFF);
+		}
+		return 0;
+	}
 	uint32 pa;
 	if (ppc_effective_to_physical(*cpu, ea, PPC_MMU_WRITE, pa) == PPC_MMU_OK) {
 		tlb_fill_data_write(cpu, ea, pa);
 		ppc_write_physical_dword(pa, data);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -551,6 +618,19 @@ int FASTCALL ppc_read_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 &
     uint32 p;
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        if ((addr & 0xFFF) > 0xFF8) {
+            // Access spans two pages — read byte-by-byte
+            result = 0;
+            for (int i = 0; i < 8; i++) {
+                uint32 pa;
+                if (ppc_effective_to_physical(aCPU, addr + i, PPC_MMU_READ, pa) != PPC_MMU_OK)
+                    return PPC_MMU_EXC;
+                uint8 b;
+                ppc_read_physical_byte(pa, b);
+                result = (result << 8) | b;
+            }
+            return PPC_MMU_OK;
+        }
         return ppc_read_physical_dword(p, result);
     }
     if (r == PPC_MMU_FATAL) {
@@ -564,6 +644,19 @@ int FASTCALL ppc_read_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 &r
     uint32 p;
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        if ((addr & 0xFFF) > 0xFFC) {
+            // Access spans two pages — read byte-by-byte
+            result = 0;
+            for (int i = 0; i < 4; i++) {
+                uint32 pa;
+                if (ppc_effective_to_physical(aCPU, addr + i, PPC_MMU_READ, pa) != PPC_MMU_OK)
+                    return PPC_MMU_EXC;
+                uint8 b;
+                ppc_read_physical_byte(pa, b);
+                result = (result << 8) | b;
+            }
+            return PPC_MMU_OK;
+        }
         return ppc_read_physical_word(p, result);
     }
     if (r == PPC_MMU_FATAL) {
@@ -577,6 +670,20 @@ int FASTCALL ppc_read_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 &r
     uint32 p;
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_READ, p)))) {
+        if ((addr & 0xFFF) > 0xFFE) {
+            // Access spans two pages — read byte-by-byte
+            uint32 tmp = 0;
+            for (int i = 0; i < 2; i++) {
+                uint32 pa;
+                if (ppc_effective_to_physical(aCPU, addr + i, PPC_MMU_READ, pa) != PPC_MMU_OK)
+                    return PPC_MMU_EXC;
+                uint8 b;
+                ppc_read_physical_byte(pa, b);
+                tmp = (tmp << 8) | b;
+            }
+            result = (uint16)tmp;
+            return PPC_MMU_OK;
+        }
         return ppc_read_physical_half(p, result);
     }
     if (r == PPC_MMU_FATAL) {
@@ -639,6 +746,16 @@ int FASTCALL ppc_write_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 
     uint32 p;
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        if ((addr & 0xFFF) > 0xFF8) {
+            // Access spans two pages — write byte-by-byte (big-endian order)
+            for (int i = 0; i < 8; i++) {
+                uint32 pa;
+                if (ppc_effective_to_physical(aCPU, addr + i, PPC_MMU_WRITE, pa) != PPC_MMU_OK)
+                    return PPC_MMU_EXC;
+                ppc_write_physical_byte(pa, (data >> (8 * (7 - i))) & 0xFF);
+            }
+            return PPC_MMU_OK;
+        }
         return ppc_write_physical_dword(p, data);
     }
     if (r == PPC_MMU_FATAL) {
@@ -652,6 +769,16 @@ int FASTCALL ppc_write_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 d
     uint32 p;
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        if ((addr & 0xFFF) > 0xFFC) {
+            // Access spans two pages — write byte-by-byte (big-endian order)
+            for (int i = 0; i < 4; i++) {
+                uint32 pa;
+                if (ppc_effective_to_physical(aCPU, addr + i, PPC_MMU_WRITE, pa) != PPC_MMU_OK)
+                    return PPC_MMU_EXC;
+                ppc_write_physical_byte(pa, (data >> (8 * (3 - i))) & 0xFF);
+            }
+            return PPC_MMU_OK;
+        }
         return ppc_write_physical_word(p, data);
     }
     if (r == PPC_MMU_FATAL) {
@@ -665,6 +792,16 @@ int FASTCALL ppc_write_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 d
     uint32 p;
     int r;
     if (!((r = ppc_effective_to_physical(aCPU, addr, PPC_MMU_WRITE, p)))) {
+        if ((addr & 0xFFF) > 0xFFE) {
+            // Access spans two pages — write byte-by-byte (big-endian order)
+            for (int i = 0; i < 2; i++) {
+                uint32 pa;
+                if (ppc_effective_to_physical(aCPU, addr + i, PPC_MMU_WRITE, pa) != PPC_MMU_OK)
+                    return PPC_MMU_EXC;
+                ppc_write_physical_byte(pa, (data >> (8 * (1 - i))) & 0xFF);
+            }
+            return PPC_MMU_OK;
+        }
         return ppc_write_physical_half(p, data);
     }
     if (r == PPC_MMU_FATAL) {
@@ -1905,160 +2042,463 @@ static void gen_ea_D(JITC &jitc, int rA, sint32 simm)
 	}
 }
 
+
 /*
- *  lwz rD, d(rA)
- *  rD = MEM[EA, 4]  where EA = (rA|0) + d
+ *  Helpers for load/store codegen.
  */
+
+// Emit pc_ofs, pc, npc stores needed for DSI exception handling.
+static void gen_prologue(JITC &jitc)
+{
+	jitc.asmMOV(W16, jitc.pc);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
+	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
+	jitc.asmADDw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
+	jitc.asmADDw(W16, W16, (uint32)4);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
+}
+
+// Compute EA = (rA ? gpr[rA] : 0) + gpr[rB] into W0  (X-form)
+static void gen_ea_X(JITC &jitc, int rA, int rB)
+{
+	if (rA == 0) {
+		jitc.asmLDRw_cpu(W0, GPR_OFS(rB));
+	} else {
+		jitc.asmLDRw_cpu(W0, GPR_OFS(rA));
+		jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+		jitc.asmADDw(W0, W0, W17);
+	}
+}
+
+/*
+ *  === D-form loads ===
+ */
+
 JITCFlow ppc_opc_gen_lwz(JITC &jitc)
 {
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
-
-	// Store pc_ofs and full pc for exception handling
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-
-	// Store npc = pc + 4
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
+	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
-	// W0 = result (asm handles DSI internally, never returns on DSI)
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
 
-/*
- *  stw rS, d(rA)
- *  MEM[EA, 4] = rS  where EA = (rA|0) + d
- */
-JITCFlow ppc_opc_gen_stw(JITC &jitc)
-{
-	int rS, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
-	jitc.clobberAll();
-
-	// Store pc_ofs and full pc for exception handling
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-
-	// Store npc = pc + 4
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
-	gen_ea_D(jitc, rA, (sint32)imm);
-	// W1 = value to store
-	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
-	return flowContinue;
-}
-
-/*
- *  lbz rD, d(rA)
- *  rD = MEM[EA, 1]  (zero-extended)
- */
 JITCFlow ppc_opc_gen_lbz(JITC &jitc)
 {
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
-
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
+	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
 
-/*
- *  stb rS, d(rA)
- *  MEM[EA, 1] = rS[24:31]
- */
-JITCFlow ppc_opc_gen_stb(JITC &jitc)
-{
-	int rS, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
-	jitc.clobberAll();
-
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
-	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
-	return flowContinue;
-}
-
-/*
- *  lhz rD, d(rA)
- *  rD = MEM[EA, 2]  (zero-extended)
- */
 JITCFlow ppc_opc_gen_lhz(JITC &jitc)
 {
 	int rD, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
 	jitc.clobberAll();
-
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
+	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
 
+JITCFlow ppc_opc_gen_lha(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
 /*
- *  sth rS, d(rA)
- *  MEM[EA, 2] = rS[16:31]
+ *  === D-form stores ===
  */
+
+JITCFlow ppc_opc_gen_stw(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stb(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	return flowContinue;
+}
+
 JITCFlow ppc_opc_gen_sth(JITC &jitc)
 {
 	int rS, rA;
 	uint32 imm;
 	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
 	jitc.clobberAll();
-
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
-
+	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
 	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	return flowContinue;
+}
+
+/*
+ *  === D-form loads with update ===
+ *  EA = gpr[rA] + d, rD = MEM[EA], rA = EA
+ *  EA is saved to temp2 before the call since the asm stub clobbers W0.
+ *  If DSI occurs, the stub never returns, so rA is not modified.
+ */
+
+JITCFlow ppc_opc_gen_lwzu(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lbzu(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhzu(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhau(JITC &jitc)
+{
+	int rD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+/*
+ *  === D-form stores with update ===
+ *  EA = gpr[rA] + d, MEM[EA] = rS, rA = EA
+ */
+
+JITCFlow ppc_opc_gen_stwu(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stbu(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_sthu(JITC &jitc)
+{
+	int rS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+/*
+ *  === X-form indexed loads ===
+ *  EA = (rA|0) + gpr[rB], rD = MEM[EA]
+ */
+
+JITCFlow ppc_opc_gen_lwzx(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lbzx(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhzx(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhax(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	return flowContinue;
+}
+
+/*
+ *  === X-form indexed stores ===
+ *  EA = (rA|0) + gpr[rB], MEM[EA] = rS
+ */
+
+JITCFlow ppc_opc_gen_stwx(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stbx(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_sthx(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	return flowContinue;
+}
+
+/*
+ *  === X-form indexed loads with update ===
+ *  EA = gpr[rA] + gpr[rB], rD = MEM[EA], rA = EA
+ */
+
+JITCFlow ppc_opc_gen_lwzux(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lbzux(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhzux(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lhaux(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+/*
+ *  === X-form indexed stores with update ===
+ *  EA = gpr[rA] + gpr[rB], MEM[EA] = rS, rA = EA
+ */
+
+JITCFlow ppc_opc_gen_stwux(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stbux(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_sthux(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
 }

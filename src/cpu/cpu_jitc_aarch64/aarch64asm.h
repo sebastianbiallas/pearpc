@@ -120,6 +120,10 @@ A64Instr a64_STRBw(int rt, int rn, int offset); // STRB Wt, [Xn, #offset]
 A64Instr a64_LDRHw(int rt, int rn, int offset); // LDRH Wt, [Xn, #offset]
 A64Instr a64_STRHw(int rt, int rn, int offset); // STRH Wt, [Xn, #offset]
 
+/* Load/Store register-indexed */
+A64Instr a64_LDRw_reg(int rt, int rn, int rm, bool shift); // LDR Wt, [Xn, Xm{, LSL #2}]
+A64Instr a64_LDR_reg(int rt, int rn, int rm, bool shift);  // LDR Xt, [Xn, Xm{, LSL #3}]
+
 /* Load/Store pair (for push/pop) */
 A64Instr a64_STP_pre(int rt1, int rt2, int rn, int offset);  // STP Xt1, Xt2, [Xn, #offset]!
 A64Instr a64_LDP_post(int rt1, int rt2, int rn, int offset); // LDP Xt1, Xt2, [Xn], #offset
