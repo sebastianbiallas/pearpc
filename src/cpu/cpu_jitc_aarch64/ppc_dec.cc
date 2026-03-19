@@ -86,9 +86,8 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
         return flowEndBlockUnreachable;                                                                                \
     }
 
-/* Load/store: check return value instead of exception_pending.
- * Avoids race where concurrent DEC/ext sets exception_pending
- * during the interpreter call, consuming the async exception. */
+/* Load/store: check return value for DSI/ISI and dispatch to
+ * exception vector on fault. */
 #define GEN_INTERPRET_LOADSTORE(name)                                                                                  \
     JITCFlow ppc_opc_gen_##name(JITC &jitc)                                                                            \
     {                                                                                                                  \

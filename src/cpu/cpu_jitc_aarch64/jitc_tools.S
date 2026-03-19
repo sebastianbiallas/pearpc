@@ -117,9 +117,8 @@ do_export EXTERN(ppc_new_pc_asm)
     mov w1, #0
     bl  EXTERN(ppc_effective_to_physical_code)
 
-    // Check for ISI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Lnewpc_isi
+    // Check for ISI exception (w0 == 0 means ISI)
+    cbz     w0, .Lnewpc_isi
 
     // Call jitcNewPC(jitc, physical_addr)
     // x0 = jitc, w1 = physical address from translation
@@ -142,8 +141,7 @@ do_export EXTERN(ppc_new_pc_asm)
 .Lnewpc_isi:
     // ISI exception — ppc_exception() already set up SRR0/SRR1,
     // cleared MSR, invalidated TLB, and set npc = exception vector.
-    // Just clear exception_pending and dispatch to npc.
-    strb    wzr, [x20, #exception_pending]
+    // Dispatch to npc.
     ldr     w0, [x20, #npc]
     b       EXTERN(ppc_new_pc_asm)
 
@@ -192,9 +190,8 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
     bl      EXTERN(ppc_effective_to_physical_code)
     // w0 = physical address (or EA on ISI)
 
-    // Check for ISI exception
-    ldrb    w16, [x20, #exception_pending]
-    tbnz    w16, #0, .Lthispage_isi
+    // Check for ISI exception (w0 == 0 means ISI)
+    cbz     w0, .Lthispage_isi
 
     // Look up ClientPage: clientPages[PA >> 12]
     // X19 = JITC pointer, clientPages is at offset 0
@@ -222,9 +219,8 @@ do_export EXTERN(ppc_new_pc_this_page_asm)
 
 .Lthispage_isi:
     // ISI exception — ppc_exception() already set up SRR0/SRR1,
-    // cleared MSR, invalidated TLB, and set npc = 0x400.
-    // Clear exception_pending and dispatch to npc.
-    strb    wzr, [x20, #exception_pending]
+    // cleared MSR, invalidated TLB, and set npc = ISI vector.
+    // Dispatch to npc.
     ldr     w0, [x20, #npc]
     b       EXTERN(ppc_new_pc_asm)
 
@@ -290,22 +286,8 @@ do_export EXTERN(ppc_heartbeat_ext_asm)
     b.eq    2f
     b   EXTERN(ppc_dec_exception_asm)
 2:
-    // Check for DSI (page fault) — raised by TLB slow path
-    ldr     w2, [x20, #dsisr]
-    cbnz    w2, .Lheartbeat_dsi
-    // Unknown exception
+    // No other exception sources — should not get here
     b   EXTERN(jitc_error_unknown_exception)
-
-.Lheartbeat_dsi:
-    // DSI exception: DAR and DSISR already set by slow path.
-    // Clear exception_pending flag.
-    strb    wzr, [x20, #exception_pending]
-    // Load DAR and DSISR for the handler
-    ldr     w0, [x20, #dar]
-    ldr     w1, [x20, #dsisr]
-    // Clear DSISR so we don't re-trigger
-    str     wzr, [x20, #dsisr]
-    b   EXTERN(ppc_dsi_exception_asm)
 
 .Lheartbeat_no_exception:
     ret
@@ -356,17 +338,8 @@ do_export EXTERN(ppc_heartbeat_ext_rel_asm)
     b.eq    4f
     b   EXTERN(ppc_dec_exception_asm)
 4:
-    // Check for DSI
-    ldr     w2, [x20, #dsisr]
-    cbnz    w2, .Lheartbeat_rel_dsi
+    // No other exception sources — should not get here
     b   EXTERN(jitc_error_unknown_exception)
-
-.Lheartbeat_rel_dsi:
-    strb    wzr, [x20, #exception_pending]
-    ldr     w0, [x20, #dar]
-    ldr     w1, [x20, #dsisr]
-    str     wzr, [x20, #dsisr]
-    b   EXTERN(ppc_dsi_exception_asm)
 
 .Lheartbeat_rel_no_exception:
     ret

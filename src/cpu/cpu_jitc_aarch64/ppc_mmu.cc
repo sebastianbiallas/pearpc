@@ -104,15 +104,14 @@ extern "C" uint32 ppc_effective_to_physical_code_c(PPC_CPU_State *cpu, uint32 ea
     }
     if (r == PPC_MMU_EXC) {
         // ppc_exception() already set up SRR0/SRR1, cleared MSR,
-        // invalidated TLB, and set npc = 0x400 (ISI vector).
-        // exception_pending is already true.
-        return ea;
+        // invalidated TLB, and set npc = ISI vector.
+        // Return 0 to signal ISI to the caller.
+        return 0;
     }
     // PPC_MMU_FATAL — should not happen since ppc_effective_to_physical
     // now calls ppc_exception, but handle defensively.
     PPC_MMU_ERR("ISI FATAL for EA %08x (r=%d)\n", ea, r);
-    cpu->exception_pending = true;
-    return ea;
+    return 0;
 }
 
 byte *gMemory = NULL;
@@ -126,8 +125,8 @@ uint32 gMemorySize;
  *  2. Fills the TLB for the accessed page (RAM only, not IO)
  *  3. Performs the actual read/write
  *
- *  On MMU failure: sets DAR, DSISR and returns with cpu->exception_pending
- *  set. The asm stub checks exception_pending and jumps to the DSI handler.
+ *  On MMU failure: returns nonzero. ppc_exception() has already set
+ *  DAR, DSISR, SRR0/1, MSR, npc. The asm stub dispatches to npc.
  */
 
 
@@ -161,7 +160,7 @@ extern "C" int ppc_read_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea)
 		cpu->temp = result;
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -175,7 +174,7 @@ extern "C" int ppc_read_effective_half_z_slow(PPC_CPU_State *cpu, uint32 ea)
 		cpu->temp = result;
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -189,7 +188,7 @@ extern "C" int ppc_read_effective_word_slow(PPC_CPU_State *cpu, uint32 ea)
 		cpu->temp = result;
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -205,7 +204,7 @@ extern "C" int ppc_read_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea)
 		cpu->temp2 = (uint32)(result);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -217,7 +216,7 @@ extern "C" int ppc_write_effective_byte_slow(PPC_CPU_State *cpu, uint32 ea, uint
 		ppc_write_physical_byte(pa, data);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -229,7 +228,7 @@ extern "C" int ppc_write_effective_half_slow(PPC_CPU_State *cpu, uint32 ea, uint
 		ppc_write_physical_half(pa, data);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 
@@ -252,7 +251,7 @@ extern "C" int ppc_write_effective_dword_slow(PPC_CPU_State *cpu, uint32 ea, uin
 		ppc_write_physical_dword(pa, data);
 		return 0;
 	}
-	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc, exception_pending)
+	// ppc_exception() already set up DSI (DAR, DSISR, SRR0/1, MSR, npc)
 	return 1;
 }
 

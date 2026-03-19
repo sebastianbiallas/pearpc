@@ -47,9 +47,8 @@
  *
  *  All slow-path helpers return int: 0 = OK, nonzero = DSI exception.
  *  Read helpers store the result in cpu->temp (word) or
- *  cpu->temp/temp2 (dword). This avoids a race where a concurrent
- *  DEC/ext interrupt sets exception_pending during the slow-path call,
- *  which would be mistaken for a DSI if we checked exception_pending.
+ *  cpu->temp/temp2 (dword). The return value is the sole signal for
+ *  DSI — no exception_pending flag is involved.
  */
 
 #ifndef PREFIX
@@ -469,14 +468,12 @@ do_export EXTERN(ppc_opc_icbi_asm)
 //  DSI exception from slow path
 //
 //  Called when a TLB slow-path function returns nonzero (DSI).
-//  ppc_exception() already set DAR, DSISR, SRR0/SRR1, MSR, npc,
-//  and exception_pending.
+//  ppc_exception() already set DAR, DSISR, SRR0/SRR1, MSR, npc.
 //  Clean up the slow-path stack frame and dispatch to npc.
 //
 .Ldsi_from_slow:
     // Clean up the slow-path stack frame (stp x29, x30 was pushed)
     ldp     x29, x30, [sp], #16
-    // Clear exception_pending and dispatch to npc (exception vector).
-    strb    wzr, [x20, #exception_pending]
+    // Dispatch to npc (exception vector).
     ldr     w0, [x20, #npc]
     b       EXTERN(ppc_new_pc_asm)

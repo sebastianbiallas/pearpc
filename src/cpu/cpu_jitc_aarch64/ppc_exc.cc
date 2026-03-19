@@ -41,8 +41,8 @@ extern PPC_CPU_State *gCPU;
  * and sets npc to the exception vector address.
  *
  * For the JIT interpreter path (GEN_INTERPRET), this modifies
- * CPU state inline. The generated code checks exception_pending
- * after the interpreter returns and dispatches to npc.
+ * CPU state inline. The generated code checks the return value
+ * of the interpreter function and dispatches to npc on exception.
  */
 bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint32 a)
 {
@@ -52,19 +52,7 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
     // functions store pc before calling the asm stub. For ISI,
     // ppc_new_pc_asm stores pc directly.
 
-    fprintf(stderr, "[EXC] ppc_exception type=%03x pc=%08x msr=%08x flags=%08x addr=%08x\n",
-        type, aCPU.pc, aCPU.msr, flags, a);
-
-    // Catch NULL pointer DSI from CUDA handler (the primary crash)
-    if (type == PPC_EXC_DSI && a < 0x100 && aCPU.pc >= 0xC00D8000 && aCPU.pc < 0xC00D9000) {
-        fprintf(stderr, "[FATAL-DSI] pc=%08x dar=%08x lr=%08x ctr=%08x ccb=%08x\n",
-            aCPU.pc, a, aCPU.lr, aCPU.ctr, aCPU.current_code_base);
-        fprintf(stderr, "[FATAL-DSI] r0=%08x r1=%08x r3=%08x r7=%08x r8=%08x r9=%08x r10=%08x r30=%08x\n",
-            aCPU.gpr[0], aCPU.gpr[1], aCPU.gpr[3], aCPU.gpr[7],
-            aCPU.gpr[8], aCPU.gpr[9], aCPU.gpr[10], aCPU.gpr[30]);
-        PPC_EXC_ERR("NULL pointer DSI: pc=%08x dar=%08x\n", aCPU.pc, a);
-    }
-
+    if (type != PPC_EXC_DEC) PPC_EXC_TRACE("@%08x: type = %08x (%08x, %08x)\n", aCPU.pc, type, flags, a);
     switch (type) {
     case PPC_EXC_DSI:
         aCPU.srr[0] = aCPU.pc;
@@ -73,8 +61,20 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
         aCPU.dsisr = flags;
         break;
     case PPC_EXC_ISI:
+        if (aCPU.pc == 0) {
+            PPC_EXC_WARN("pc == 0 in ISI\n");
+            SINGLESTEP("");
+        }
         aCPU.srr[0] = aCPU.pc;
         aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | flags;
+        break;
+    case PPC_EXC_DEC:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
+        break;
+    case PPC_EXC_EXT_INT:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
         break;
     case PPC_EXC_SC:
         aCPU.srr[0] = aCPU.npc;
@@ -84,9 +84,17 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
         aCPU.srr[0] = aCPU.pc;
         aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
         break;
+    case PPC_EXC_NO_VEC:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x0000ff73;
+        break;
     case PPC_EXC_PROGRAM:
         aCPU.srr[0] = (flags & PPC_EXC_PROGRAM_NEXT) ? aCPU.npc : aCPU.pc;
         aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | (flags & ~PPC_EXC_PROGRAM_NEXT);
+        break;
+    case PPC_EXC_FLOAT_ASSIST:
+        aCPU.srr[0] = aCPU.pc;
+        aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
         break;
     case PPC_EXC_MACHINE_CHECK:
         if (!(aCPU.msr & MSR_ME)) {
@@ -95,15 +103,17 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
         aCPU.srr[0] = aCPU.pc;
         aCPU.srr[1] = (aCPU.msr & 0x87c0ffff) | MSR_RI;
         break;
-    default:
+    case PPC_EXC_TRACE2:
         aCPU.srr[0] = aCPU.pc;
         aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
         break;
+    default:
+        PPC_EXC_ERR("unknown\n");
+        return false;
     }
     ppc_mmu_tlb_invalidate(aCPU);
     aCPU.msr = 0;
     aCPU.npc = type;
-    aCPU.exception_pending = true; // signal to JIT generated code
     return true;
 }
 

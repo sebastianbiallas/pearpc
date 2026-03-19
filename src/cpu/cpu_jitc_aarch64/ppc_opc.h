@@ -89,8 +89,8 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &
     jitc.asmCALL((NativeAddress)func);
 
     // No exception check here. Non-load/store opcodes don't trigger DSI.
-    // Async interrupts (DEC/ext) that set exception_pending are handled
-    // by the heartbeat at the next page dispatch (ppc_new_pc_asm).
+    // Async interrupts (DEC/ext) are handled by the heartbeat at the
+    // next page dispatch (ppc_new_pc_asm).
     // Opcodes that can trigger synchronous exceptions (sc, rfi, mtmsr,
     // load/store) use GEN_INTERPRET_ENDBLOCK, GEN_INTERPRET_BRANCH,
     // or GEN_INTERPRET_LOADSTORE instead.
@@ -98,15 +98,11 @@ static inline void ppc_opc_gen_interpret(JITC &jitc, int (*func)(PPC_CPU_State &
 
 /*
  * Wrapper for load/store interpreter functions that return int.
- * Unlike ppc_opc_gen_interpret(), this checks the RETURN VALUE (W0)
- * instead of exception_pending. This avoids a race where a concurrent
- * DEC/ext interrupt sets exception_pending during the BLR call, causing
- * the wrapper to consume the async exception instead of letting the
- * heartbeat handle it.
  *
  * The interpreter function returns 0 (PPC_MMU_OK) on success, nonzero
  * on DSI/ISI. When nonzero, ppc_exception() has already set up
- * SRR0/SRR1/npc and exception_pending.
+ * SRR0/SRR1/npc. We dispatch to npc on exception, or fall through
+ * on success.
  */
 static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_CPU_State &))
 {
@@ -117,31 +113,19 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     // Call interpreter function — returns int in W0
     jitc.asmCALL((NativeAddress)func);
 
-    // Check return value: W0 != 0 means synchronous exception (DSI/ISI).
-    // ppc_exception() already set SRR0/SRR1/npc and exception_pending.
-    // Clear exception_pending and dispatch to npc.
-    // If W0 == 0: no exception, continue normally.
-    // Any pending DEC/ext stays in dec_exception/ext_exception and will
-    // be handled by the heartbeat at the next page dispatch.
+    // W0 != 0 means synchronous exception (DSI/ISI).
+    // ppc_exception() already set SRR0/SRR1/npc.
+    // W0 == 0: no exception, continue normally.
     //
-    // Use CBNZ W0, #exception (short forward branch)
-    // + B #skip (unconditional, ±128MB range, handles fragment boundaries).
-    //
-    // Reserve enough contiguous space so that no fragment boundary can
-    // be crossed between excBranch and the exception path target.
-    // NOP(4) + B(4) + STRBw(4) + LDRw(4) + asmBL(20) = 36 bytes.
-    jitc.emitAssure(36);
-    NativeAddress excBranch = jitc.asmHERE();
-    jitc.asmNOP(); // placeholder for CBNZ W0, #exception
+    // Layout: CBNZ +8 | B skip | LDR npc | BL ppc_new_pc_asm
+    // CBNZ(4) + B(4) + LDR(4) + asmBL(20) = 32 bytes.
+    jitc.emitAssure(32);
+    jitc.emit32(a64_CBNZw(W0, 8)); // CBNZ W0, #exception (+8 = skip B)
     NativeAddress skipBranch = jitc.asmJxxFixup(); // B #skip (placeholder)
-    // Exception path: clear exception_pending, dispatch to npc
-    NativeAddress excTarget = jitc.asmHERE();
-    jitc.emit32(a64_STRBw(WZR, X20, offsetof(PPC_CPU_State, exception_pending)));
+    // Exception path: dispatch to npc
     jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
     jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
-    // Patch CBNZ W0, #exception (short forward branch to excTarget)
-    *(uint32 *)excBranch = a64_CBNZw(W0, (sint32)(excTarget - excBranch));
-    // Patch B #skip (unconditional branch past exception path, ±128MB range)
+    // Patch B #skip past exception path
     jitc.asmResolveFixup(skipBranch);
 }
 
