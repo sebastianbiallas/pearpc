@@ -7,7 +7,15 @@
  *  AArch64 instruction encoding.
  */
 
+#include <cstdio>
+#include <cstdlib>
 #include "aarch64asm.h"
+
+#define A64_ASSERT_RANGE(val, lo, hi, name) \
+    do { if ((val) < (lo) || (val) > (hi)) { \
+        fprintf(stderr, "[A64] %s: offset %d out of range [%d, %d]\n", name, (int)(val), (int)(lo), (int)(hi)); \
+        abort(); \
+    } } while(0)
 
 /*
  *  Move wide (immediate)
@@ -326,14 +334,16 @@ A64Instr a64_LDP_post(int rt1, int rt2, int rn, int offset)
  */
 A64Instr a64_B(sint32 offset)
 {
-    uint32 imm26 = ((uint32)(offset / 4)) & 0x03FFFFFF;
-    return 0x14000000 | imm26;
+    sint32 imm26 = offset / 4;
+    A64_ASSERT_RANGE(imm26, -0x2000000, 0x1FFFFFF, "B");
+    return 0x14000000 | ((uint32)imm26 & 0x03FFFFFF);
 }
 
 A64Instr a64_BL(sint32 offset)
 {
-    uint32 imm26 = ((uint32)(offset / 4)) & 0x03FFFFFF;
-    return 0x94000000 | imm26;
+    sint32 imm26 = offset / 4;
+    A64_ASSERT_RANGE(imm26, -0x2000000, 0x1FFFFFF, "BL");
+    return 0x94000000 | ((uint32)imm26 & 0x03FFFFFF);
 }
 
 A64Instr a64_BR(int rn)
@@ -354,48 +364,55 @@ A64Instr a64_RET(int rn)
 /* Conditional branch */
 A64Instr a64_Bcc(A64Cond cond, sint32 offset)
 {
-    uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
-    return 0x54000000 | (imm19 << 5) | (uint32)cond;
+    sint32 imm19 = offset / 4;
+    A64_ASSERT_RANGE(imm19, -0x40000, 0x3FFFF, "B.cc");
+    return 0x54000000 | (((uint32)imm19 & 0x7FFFF) << 5) | (uint32)cond;
 }
 
 A64Instr a64_CBZ(int rt, sint32 offset)
 {
-    uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
-    return 0xB4000000 | (imm19 << 5) | rt;
+    sint32 imm19 = offset / 4;
+    A64_ASSERT_RANGE(imm19, -0x40000, 0x3FFFF, "CBZ");
+    return 0xB4000000 | (((uint32)imm19 & 0x7FFFF) << 5) | rt;
 }
 
 A64Instr a64_CBNZ(int rt, sint32 offset)
 {
-    uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
-    return 0xB5000000 | (imm19 << 5) | rt;
+    sint32 imm19 = offset / 4;
+    A64_ASSERT_RANGE(imm19, -0x40000, 0x3FFFF, "CBNZ");
+    return 0xB5000000 | (((uint32)imm19 & 0x7FFFF) << 5) | rt;
 }
 
 A64Instr a64_CBZw(int rt, sint32 offset)
 {
-    uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
-    return 0x34000000 | (imm19 << 5) | rt;
+    sint32 imm19 = offset / 4;
+    A64_ASSERT_RANGE(imm19, -0x40000, 0x3FFFF, "CBZw");
+    return 0x34000000 | (((uint32)imm19 & 0x7FFFF) << 5) | rt;
 }
 
 A64Instr a64_CBNZw(int rt, sint32 offset)
 {
-    uint32 imm19 = ((uint32)(offset / 4)) & 0x7FFFF;
-    return 0x35000000 | (imm19 << 5) | rt;
+    sint32 imm19 = offset / 4;
+    A64_ASSERT_RANGE(imm19, -0x40000, 0x3FFFF, "CBNZw");
+    return 0x35000000 | (((uint32)imm19 & 0x7FFFF) << 5) | rt;
 }
 
 A64Instr a64_TBZ(int rt, int bit, sint32 offset)
 {
-    uint32 imm14 = ((uint32)(offset / 4)) & 0x3FFF;
+    sint32 imm14 = offset / 4;
+    A64_ASSERT_RANGE(imm14, -0x2000, 0x1FFF, "TBZ");
     uint32 b5 = (bit >> 5) & 1;
     uint32 b40 = bit & 0x1F;
-    return 0x36000000 | (b5 << 31) | (b40 << 19) | (imm14 << 5) | rt;
+    return 0x36000000 | (b5 << 31) | (b40 << 19) | (((uint32)imm14 & 0x3FFF) << 5) | rt;
 }
 
 A64Instr a64_TBNZ(int rt, int bit, sint32 offset)
 {
-    uint32 imm14 = ((uint32)(offset / 4)) & 0x3FFF;
+    sint32 imm14 = offset / 4;
+    A64_ASSERT_RANGE(imm14, -0x2000, 0x1FFF, "TBNZ");
     uint32 b5 = (bit >> 5) & 1;
     uint32 b40 = bit & 0x1F;
-    return 0x37000000 | (b5 << 31) | (b40 << 19) | (imm14 << 5) | rt;
+    return 0x37000000 | (b5 << 31) | (b40 << 19) | (((uint32)imm14 & 0x3FFF) << 5) | rt;
 }
 
 /* Misc */
