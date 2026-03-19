@@ -47,8 +47,8 @@ static int ppc_opc_invalid(PPC_CPU_State &aCPU)
 
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 {
-    fprintf(stderr, "[JITC] WARNING: unknown opcode %08x at pc_ofs=%04x (base+ofs)\n",
-        jitc.current_opc, jitc.pc);
+    fprintf(stderr, "[JITC] WARNING: unknown opcode %08x at pa=%08x+%04x\n",
+        jitc.current_opc, jitc.currentPage->baseaddress, jitc.pc);
     jitc.clobberAll();
     // Store pc_ofs for exception handler
     jitc.asmMOV(W0, jitc.pc);
