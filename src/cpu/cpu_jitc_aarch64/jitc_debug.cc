@@ -32,6 +32,34 @@
 #include "jitc.h"
 #include "jitc_asm.h"
 #include "jitc_debug.h"
+#include "ppc_alu.h"
+#include "ppc_fpu.h"
+#include "ppc_mmu.h"
+
+// Forward declarations for interpreter functions declared in ppc_opc.h
+// that are not visible due to circular include dependencies.
+struct PPC_CPU_State;
+int ppc_opc_mfcr(PPC_CPU_State &); int ppc_opc_mtcrf(PPC_CPU_State &);
+int ppc_opc_mcrxr(PPC_CPU_State &); int ppc_opc_mfspr(PPC_CPU_State &);
+int ppc_opc_mtspr(PPC_CPU_State &); int ppc_opc_mftb(PPC_CPU_State &);
+int ppc_opc_mcrf(PPC_CPU_State &);
+int ppc_opc_eciwx(PPC_CPU_State &); int ppc_opc_ecowx(PPC_CPU_State &);
+int ppc_opc_isync(PPC_CPU_State &); int ppc_opc_sync(PPC_CPU_State &);
+int ppc_opc_eieio(PPC_CPU_State &);
+int ppc_opc_dcba(PPC_CPU_State &); int ppc_opc_dcbf(PPC_CPU_State &);
+int ppc_opc_dcbi(PPC_CPU_State &); int ppc_opc_dcbst(PPC_CPU_State &);
+int ppc_opc_dcbt(PPC_CPU_State &); int ppc_opc_dcbtst(PPC_CPU_State &);
+int ppc_opc_rfi(PPC_CPU_State &); int ppc_opc_mtmsr(PPC_CPU_State &);
+int ppc_opc_icbi(PPC_CPU_State &); int ppc_opc_sc(PPC_CPU_State &);
+int ppc_opc_tw(PPC_CPU_State &); int ppc_opc_twi(PPC_CPU_State &);
+int ppc_opc_mfmsr(PPC_CPU_State &);
+int ppc_opc_mfsr(PPC_CPU_State &); int ppc_opc_mtsr(PPC_CPU_State &);
+int ppc_opc_mfsrin(PPC_CPU_State &); int ppc_opc_mtsrin(PPC_CPU_State &);
+int ppc_opc_tlbie(PPC_CPU_State &); int ppc_opc_tlbia(PPC_CPU_State &);
+int ppc_opc_tlbsync(PPC_CPU_State &);
+int ppc_opc_mffsx(PPC_CPU_State &); int ppc_opc_mcrfs(PPC_CPU_State &);
+int ppc_opc_mtfsb0x(PPC_CPU_State &); int ppc_opc_mtfsb1x(PPC_CPU_State &);
+int ppc_opc_mtfsfx(PPC_CPU_State &); int ppc_opc_mtfsfix(PPC_CPU_State &);
 
 #ifdef JITC_DEBUG
 
@@ -65,143 +93,50 @@ static const char *symbolLookup(uint64 addr)
  */
 static const char *cpuFieldName(int offset, char *buf, int buflen)
 {
-    // Use offsetof-style knowledge from jitc_common.h / ppc_cpu.h
-    // jitc pointer at 0 (8 bytes)
+#define F(field) if (offset == (int)offsetof(PPC_CPU_State, field)) return #field
+#define A(arr, n) do { \
+    int base = (int)offsetof(PPC_CPU_State, arr); \
+    int sz = (int)sizeof(((PPC_CPU_State *)0)->arr[0]); \
+    if (offset >= base && offset < base + (n) * sz) { \
+        snprintf(buf, buflen, #arr "[%d]", (offset - base) / sz); \
+        return buf; \
+    } \
+} while (0)
+
     if (offset == 0) return "jitc";
 
-    // gpr[32] at offset 8, each 4 bytes
-    if (offset >= 8 && offset < 8 + 32 * 4) {
-        int idx = (offset - 8) / 4;
-        snprintf(buf, buflen, "r%d", idx);
+    A(gpr, 32);
+    if (offset >= (int)offsetof(PPC_CPU_State, fpr) &&
+        offset < (int)offsetof(PPC_CPU_State, fpr) + 32 * 8) {
+        int idx = (offset - (int)offsetof(PPC_CPU_State, fpr)) / 8;
+        snprintf(buf, buflen, "fr%d", idx);
         return buf;
     }
+    F(cr); F(fpscr); F(xer); F(xer_ca); F(lr); F(ctr);
+    F(msr); F(pvr);
+    A(ibatu, 4); A(ibatl, 4); A(ibat_bl, 4); A(ibat_nbl, 4); A(ibat_bepi, 4); A(ibat_brpn, 4);
+    A(dbatu, 4); A(dbatl, 4); A(dbat_bl, 4); A(dbat_nbl, 4); A(dbat_bepi, 4); A(dbat_brpn, 4);
+    F(sdr1);
+    A(sr, 16);
+    F(dar); F(dsisr);
+    A(sprg, 4);
+    if (offset == (int)offsetof(PPC_CPU_State, srr[0])) return "srr0";
+    if (offset == (int)offsetof(PPC_CPU_State, srr[1])) return "srr1";
+    F(dec); F(ear); F(pir);
+    if (offset == (int)offsetof(PPC_CPU_State, tb)) return "tb";
+    A(hid, 16);
+    F(pc); F(npc); F(current_opc);
+    F(exception_pending); F(dec_exception); F(ext_exception); F(stop_exception);
+    F(pagetable_base); F(pagetable_hashmask); F(reserve); F(have_reservation);
+    F(tlb_last);
+    A(tlb_pa, 4); A(tlb_va, 4);
+    F(temp); F(temp2);
+    F(pc_ofs); F(current_code_base);
+    A(tlb_code_eff, TLB_ENTRIES); A(tlb_data_read_eff, TLB_ENTRIES); A(tlb_data_write_eff, TLB_ENTRIES);
+    A(tlb_code_phys, TLB_ENTRIES); A(tlb_data_read_phys, TLB_ENTRIES); A(tlb_data_write_phys, TLB_ENTRIES);
 
-    // fpr[32] at offset 136, each 8 bytes
-    int fpr_base = 8 + 32 * 4;
-    if (offset >= fpr_base && offset < fpr_base + 32 * 8) {
-        int idx = (offset - fpr_base) / 8;
-        int rem = (offset - fpr_base) % 8;
-        if (rem == 0)
-            snprintf(buf, buflen, "fr%d", idx);
-        else
-            snprintf(buf, buflen, "fr%d+%d", idx, rem);
-        return buf;
-    }
-
-    int cr_ofs = fpr_base + 32 * 8;          // 392
-    if (offset == cr_ofs) return "cr";
-
-    int fpscr_ofs = cr_ofs + 4;              // 396
-    if (offset == fpscr_ofs) return "fpscr";
-
-    int xer_ofs = fpscr_ofs + 4;             // 400
-    if (offset == xer_ofs) return "xer";
-
-    int xer_ca_ofs = xer_ofs + 4;            // 404
-    if (offset == xer_ca_ofs) return "xer_ca";
-
-    int lr_ofs = xer_ca_ofs + 4;             // 408
-    if (offset == lr_ofs) return "lr";
-
-    int ctr_ofs = lr_ofs + 4;                // 412
-    if (offset == ctr_ofs) return "ctr";
-
-    int msr_ofs = ctr_ofs + 4;               // 416
-    if (offset == msr_ofs) return "msr";
-
-    int pvr_ofs = msr_ofs + 4;               // 420
-    if (offset == pvr_ofs) return "pvr";
-
-    // BATs: ibatu[4], ibatl[4], ibat_bl[4], ibat_nbl[4], ibat_bepi[4], ibat_brpn[4]
-    int ibatu_ofs = pvr_ofs + 4;             // 424
-    if (offset >= ibatu_ofs && offset < ibatu_ofs + 16) {
-        snprintf(buf, buflen, "ibatu%d", (offset - ibatu_ofs) / 4);
-        return buf;
-    }
-    int ibatl_ofs = ibatu_ofs + 16;
-    if (offset >= ibatl_ofs && offset < ibatl_ofs + 16) {
-        snprintf(buf, buflen, "ibatl%d", (offset - ibatl_ofs) / 4);
-        return buf;
-    }
-    int ibat_brpn_end = ibatl_ofs + 4 * 16;  // skip bl, nbl, bepi, brpn
-
-    // dbatu[4] ... dbat_brpn[4]
-    int dbatu_ofs = ibat_brpn_end;
-    int dbatl_ofs = dbatu_ofs + 16;
-    if (offset >= dbatu_ofs && offset < dbatu_ofs + 16) {
-        snprintf(buf, buflen, "dbatu%d", (offset - dbatu_ofs) / 4);
-        return buf;
-    }
-    if (offset >= dbatl_ofs && offset < dbatl_ofs + 16) {
-        snprintf(buf, buflen, "dbatl%d", (offset - dbatl_ofs) / 4);
-        return buf;
-    }
-    int dbat_brpn_end = dbatl_ofs + 4 * 16;
-
-    int sdr1_ofs = dbat_brpn_end;
-    if (offset == sdr1_ofs) return "sdr1";
-
-    int sr_ofs = sdr1_ofs + 4;
-    if (offset >= sr_ofs && offset < sr_ofs + 64) {
-        snprintf(buf, buflen, "sr%d", (offset - sr_ofs) / 4);
-        return buf;
-    }
-
-    int dar_ofs = sr_ofs + 64;
-    if (offset == dar_ofs) return "dar";
-
-    int dsisr_ofs = dar_ofs + 4;
-    if (offset == dsisr_ofs) return "dsisr";
-
-    int sprg_ofs = dsisr_ofs + 4;
-    if (offset >= sprg_ofs && offset < sprg_ofs + 16) {
-        snprintf(buf, buflen, "sprg%d", (offset - sprg_ofs) / 4);
-        return buf;
-    }
-
-    int srr0_ofs = sprg_ofs + 16;
-    if (offset == srr0_ofs) return "srr0";
-    if (offset == srr0_ofs + 4) return "srr1";
-
-    int dec_ofs = srr0_ofs + 8;
-    if (offset == dec_ofs) return "dec";
-
-    int ear_ofs = dec_ofs + 4;
-    if (offset == ear_ofs) return "ear";
-
-    int pir_ofs = ear_ofs + 4;
-    if (offset == pir_ofs) return "pir";
-
-    int tb_ofs = pir_ofs + 4;
-    if (offset == tb_ofs) return "tb";
-    if (offset == tb_ofs + 4) return "tb+4";
-
-    int hid_ofs = tb_ofs + 8;
-    if (offset >= hid_ofs && offset < hid_ofs + 64) {
-        snprintf(buf, buflen, "hid%d", (offset - hid_ofs) / 4);
-        return buf;
-    }
-
-    int pc_ofs = hid_ofs + 64;
-    if (offset == pc_ofs) return "pc";
-
-    int npc_ofs = pc_ofs + 4;
-    if (offset == npc_ofs) return "npc";
-
-    int current_opc_ofs = npc_ofs + 4;
-    if (offset == current_opc_ofs) return "current_opc";
-
-    int exc_pending_ofs = current_opc_ofs + 4;
-    if (offset == exc_pending_ofs) return "exception_pending";
-
-    // Skip to jitc internal fields
-    // pagetable_base, hashmask, reserve, have_reservation, tlb_last, etc.
-    // pc_ofs (the field), current_code_base
-    int pt_base_ofs = exc_pending_ofs + 8;
-    if (offset == pt_base_ofs) return "pagetable_base";
-    if (offset == pt_base_ofs + 4) return "pagetable_hashmask";
-    if (offset == pt_base_ofs + 8) return "reserve";
-
+#undef F
+#undef A
     return NULL;
 }
 
@@ -929,6 +864,187 @@ void jitcDebugInit()
 
     // PROM
     ADD_SYM(call_prom_osi);
+
+    // Interpreter functions called via GEN_INTERPRET
+    ADD_SYM(ppc_opc_addi);
+    ADD_SYM(ppc_opc_addis);
+    ADD_SYM(ppc_opc_ori);
+    ADD_SYM(ppc_opc_oris);
+    ADD_SYM(ppc_opc_xori);
+    ADD_SYM(ppc_opc_xoris);
+    ADD_SYM(ppc_opc_cmpi);
+    ADD_SYM(ppc_opc_addx);
+    ADD_SYM(ppc_opc_subfx);
+    ADD_SYM(ppc_opc_andx);
+    ADD_SYM(ppc_opc_orx);
+    ADD_SYM(ppc_opc_xorx);
+    ADD_SYM(ppc_opc_negx);
+    ADD_SYM(ppc_opc_mullwx);
+    ADD_SYM(ppc_opc_slwx);
+    ADD_SYM(ppc_opc_srwx);
+    ADD_SYM(ppc_opc_rlwinmx);
+    ADD_SYM(ppc_opc_addic);
+    ADD_SYM(ppc_opc_addic_);
+    ADD_SYM(ppc_opc_subfic);
+    ADD_SYM(ppc_opc_mulli);
+    ADD_SYM(ppc_opc_andi_);
+    ADD_SYM(ppc_opc_andis_);
+    ADD_SYM(ppc_opc_cmpli);
+    ADD_SYM(ppc_opc_rlwimix);
+    ADD_SYM(ppc_opc_rlwnmx);
+    ADD_SYM(ppc_opc_cmp);
+    ADD_SYM(ppc_opc_cmpl);
+    ADD_SYM(ppc_opc_addcx);
+    ADD_SYM(ppc_opc_addex);
+    ADD_SYM(ppc_opc_addzex);
+    ADD_SYM(ppc_opc_addmex);
+    ADD_SYM(ppc_opc_subfcx);
+    ADD_SYM(ppc_opc_subfex);
+    ADD_SYM(ppc_opc_subfzex);
+    ADD_SYM(ppc_opc_subfmex);
+    ADD_SYM(ppc_opc_mulhwx);
+    ADD_SYM(ppc_opc_mulhwux);
+    ADD_SYM(ppc_opc_divwx);
+    ADD_SYM(ppc_opc_divwux);
+    ADD_SYM(ppc_opc_andcx);
+    ADD_SYM(ppc_opc_orcx);
+    ADD_SYM(ppc_opc_norx);
+    ADD_SYM(ppc_opc_nandx);
+    ADD_SYM(ppc_opc_eqvx);
+    ADD_SYM(ppc_opc_srawx);
+    ADD_SYM(ppc_opc_srawix);
+    ADD_SYM(ppc_opc_cntlzwx);
+    ADD_SYM(ppc_opc_extsbx);
+    ADD_SYM(ppc_opc_extshx);
+    ADD_SYM(ppc_opc_mfcr);
+    ADD_SYM(ppc_opc_mtcrf);
+    ADD_SYM(ppc_opc_mcrxr);
+    ADD_SYM(ppc_opc_mfspr);
+    ADD_SYM(ppc_opc_mtspr);
+    ADD_SYM(ppc_opc_mftb);
+    ADD_SYM(ppc_opc_mcrf);
+    ADD_SYM(ppc_opc_crand);
+    ADD_SYM(ppc_opc_crandc);
+    ADD_SYM(ppc_opc_creqv);
+    ADD_SYM(ppc_opc_crnand);
+    ADD_SYM(ppc_opc_crnor);
+    ADD_SYM(ppc_opc_cror);
+    ADD_SYM(ppc_opc_crorc);
+    ADD_SYM(ppc_opc_crxor);
+    ADD_SYM(ppc_opc_dss);
+    ADD_SYM(ppc_opc_dstst);
+    ADD_SYM(ppc_opc_eciwx);
+    ADD_SYM(ppc_opc_ecowx);
+    ADD_SYM(ppc_opc_isync);
+    ADD_SYM(ppc_opc_sync);
+    ADD_SYM(ppc_opc_eieio);
+    ADD_SYM(ppc_opc_dcba);
+    ADD_SYM(ppc_opc_dcbf);
+    ADD_SYM(ppc_opc_dcbi);
+    ADD_SYM(ppc_opc_dcbst);
+    ADD_SYM(ppc_opc_dcbt);
+    ADD_SYM(ppc_opc_dcbtst);
+
+    // Branch interpreter functions (GEN_INTERPRET_BRANCH)
+    ADD_SYM(ppc_opc_rfi);
+
+    // Endblock interpreter functions (GEN_INTERPRET_ENDBLOCK)
+    ADD_SYM(ppc_opc_mtmsr);
+    ADD_SYM(ppc_opc_icbi);
+
+    // Load/store interpreter functions (GEN_INTERPRET_LOADSTORE)
+    ADD_SYM(ppc_opc_lwzu);
+    ADD_SYM(ppc_opc_lwzx);
+    ADD_SYM(ppc_opc_lwzux);
+    ADD_SYM(ppc_opc_lbzu);
+    ADD_SYM(ppc_opc_lbzx);
+    ADD_SYM(ppc_opc_lbzux);
+    ADD_SYM(ppc_opc_lhzu);
+    ADD_SYM(ppc_opc_lhzx);
+    ADD_SYM(ppc_opc_lhzux);
+    ADD_SYM(ppc_opc_lha);
+    ADD_SYM(ppc_opc_lhau);
+    ADD_SYM(ppc_opc_lhax);
+    ADD_SYM(ppc_opc_lhaux);
+    ADD_SYM(ppc_opc_stwu);
+    ADD_SYM(ppc_opc_stwx);
+    ADD_SYM(ppc_opc_stwux);
+    ADD_SYM(ppc_opc_stbu);
+    ADD_SYM(ppc_opc_stbx);
+    ADD_SYM(ppc_opc_stbux);
+    ADD_SYM(ppc_opc_sthu);
+    ADD_SYM(ppc_opc_sthx);
+    ADD_SYM(ppc_opc_sthux);
+    ADD_SYM(ppc_opc_lmw);
+    ADD_SYM(ppc_opc_stmw);
+    ADD_SYM(ppc_opc_lwarx);
+    ADD_SYM(ppc_opc_stwcx_);
+    ADD_SYM(ppc_opc_lswi);
+    ADD_SYM(ppc_opc_lswx);
+    ADD_SYM(ppc_opc_stswi);
+    ADD_SYM(ppc_opc_stswx);
+    ADD_SYM(ppc_opc_lwbrx);
+    ADD_SYM(ppc_opc_lhbrx);
+    ADD_SYM(ppc_opc_stwbrx);
+    ADD_SYM(ppc_opc_sthbrx);
+    ADD_SYM(ppc_opc_dcbz);
+
+    // FP load/store interpreter functions
+    ADD_SYM(ppc_opc_lfs);
+    ADD_SYM(ppc_opc_lfsu);
+    ADD_SYM(ppc_opc_lfsx);
+    ADD_SYM(ppc_opc_lfsux);
+    ADD_SYM(ppc_opc_lfd);
+    ADD_SYM(ppc_opc_lfdu);
+    ADD_SYM(ppc_opc_lfdx);
+    ADD_SYM(ppc_opc_lfdux);
+    ADD_SYM(ppc_opc_stfs);
+    ADD_SYM(ppc_opc_stfsu);
+    ADD_SYM(ppc_opc_stfsx);
+    ADD_SYM(ppc_opc_stfsux);
+    ADD_SYM(ppc_opc_stfd);
+    ADD_SYM(ppc_opc_stfdu);
+    ADD_SYM(ppc_opc_stfdx);
+    ADD_SYM(ppc_opc_stfdux);
+    ADD_SYM(ppc_opc_stfiwx);
+
+    // FP arithmetic interpreter functions
+    ADD_SYM(ppc_opc_fdivx);
+    ADD_SYM(ppc_opc_fdivsx);
+    ADD_SYM(ppc_opc_fsubx);
+    ADD_SYM(ppc_opc_fsubsx);
+    ADD_SYM(ppc_opc_faddx);
+    ADD_SYM(ppc_opc_faddsx);
+    ADD_SYM(ppc_opc_fsqrtx);
+    ADD_SYM(ppc_opc_fsqrtsx);
+    ADD_SYM(ppc_opc_fresx);
+    ADD_SYM(ppc_opc_fmulx);
+    ADD_SYM(ppc_opc_fmulsx);
+    ADD_SYM(ppc_opc_frsqrtex);
+    ADD_SYM(ppc_opc_fmsubx);
+    ADD_SYM(ppc_opc_fmsubsx);
+    ADD_SYM(ppc_opc_fmaddx);
+    ADD_SYM(ppc_opc_fmaddsx);
+    ADD_SYM(ppc_opc_fnmsubx);
+    ADD_SYM(ppc_opc_fnmsubsx);
+    ADD_SYM(ppc_opc_fnmaddx);
+    ADD_SYM(ppc_opc_fnmaddsx);
+    ADD_SYM(ppc_opc_fselx);
+    ADD_SYM(ppc_opc_fcmpu);
+    ADD_SYM(ppc_opc_fcmpo);
+    ADD_SYM(ppc_opc_frspx);
+    ADD_SYM(ppc_opc_fctiwx);
+    ADD_SYM(ppc_opc_fctiwzx);
+    ADD_SYM(ppc_opc_fabsx);
+    ADD_SYM(ppc_opc_fnabsx);
+    ADD_SYM(ppc_opc_fnegx);
+    ADD_SYM(ppc_opc_fmrx);
+    ADD_SYM(ppc_opc_mffsx);
+    ADD_SYM(ppc_opc_mcrfs);
+    ADD_SYM(ppc_opc_mtfsb0x);
+    ADD_SYM(ppc_opc_mtfsb1x);
+    ADD_SYM(ppc_opc_mtfsfx);
+    ADD_SYM(ppc_opc_mtfsfix);
 }
 
 #undef ADD_SYM
