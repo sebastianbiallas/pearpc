@@ -38,8 +38,18 @@ else
 fi
 
 if test "x$enable_fpo" = "xyes"; then
-	PPC_CFLAGS="$PPC_CFLAGS -fomit-frame-pointer"
-	PPC_CXXFLAGS="$PPC_CXXFLAGS -fomit-frame-pointer"
+	case "$target" in
+	aarch64*|arm64*)
+		dnl On aarch64, x29 is the dedicated frame pointer; omitting it
+		dnl saves nothing but breaks backtrace().
+		PPC_CFLAGS="$PPC_CFLAGS -fno-omit-frame-pointer"
+		PPC_CXXFLAGS="$PPC_CXXFLAGS -fno-omit-frame-pointer"
+	;;
+	*)
+		PPC_CFLAGS="$PPC_CFLAGS -fomit-frame-pointer"
+		PPC_CXXFLAGS="$PPC_CXXFLAGS -fomit-frame-pointer"
+	;;
+	esac
 fi
 
 if test "x$enable_profiling" = "xyes"; then
