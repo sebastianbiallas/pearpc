@@ -292,6 +292,37 @@ _start:
     CHECK   0x34
 
     /*
+     * Test 16: stmw/lmw (3 registers: r29-r31)
+     * Store r29-r31 to memory, clobber them, load back, verify.
+     */
+    PRINT   .Lt16, (.Lt16e - .Lt16)
+    li      29, 111
+    li      31, 333
+    addi    6, 1, -80
+    stmw    29, 0(6)          /* store r29,r30,r31 to [sp-80] */
+    /* clobber */
+    li      29, 0
+    li      31, 0
+    lmw     29, 0(6)          /* load back */
+    mr      3, 29
+    CHECK   111
+
+    PRINT   .Lt17, (.Lt17e - .Lt17)
+    mr      3, 31
+    CHECK   333
+
+    /*
+     * Test 18: stmw/lmw (single register: r31 only)
+     */
+    PRINT   .Lt18, (.Lt18e - .Lt18)
+    li      31, 999
+    stmw    31, 0(6)
+    li      31, 0
+    lmw     31, 0(6)
+    mr      3, 31
+    CHECK   999
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -366,6 +397,15 @@ _start:
 .Lt15:
     .ascii  "test 15 half->byte[lo]:    "
 .Lt15e:
+.Lt16:
+    .ascii  "test 16 stmw/lmw r29:      "
+.Lt16e:
+.Lt17:
+    .ascii  "test 17 lmw r31 verify:    "
+.Lt17e:
+.Lt18:
+    .ascii  "test 18 stmw/lmw r31 only: "
+.Lt18e:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:

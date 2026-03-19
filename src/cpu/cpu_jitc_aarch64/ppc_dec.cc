@@ -172,8 +172,7 @@ GEN_INTERPRET(crxor)
  *   lwz, stw, lbz, stb, lhz, sth
  */
 /* lwzu..sthux now have native codegen in ppc_mmu.cc */
-GEN_INTERPRET_LOADSTORE(lmw)
-GEN_INTERPRET_LOADSTORE(stmw)
+/* lmw/stmw now have native codegen in ppc_mmu.cc (unrolled for ≤4 regs) */
 GEN_INTERPRET_LOADSTORE(lwarx)
 GEN_INTERPRET_LOADSTORE(stwcx_)
 GEN_INTERPRET_LOADSTORE(lswi)
