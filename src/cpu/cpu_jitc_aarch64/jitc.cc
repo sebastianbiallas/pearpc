@@ -55,14 +55,11 @@ static inline void jitcFlushIcache(void *start, size_t size)
 
 /*
  *  Emit a B (unconditional branch) instruction to link fragments.
- *  AArch64 B instruction: 0x14000000 | (imm26)
- *  offset is in bytes, divided by 4 for encoding.
  */
 static inline void jitcEmitBranch(NativeAddress from, NativeAddress to)
 {
     sint32 offset = (sint32)(to - from);
-    uint32 instr = 0x14000000 | (((uint32)(offset / 4)) & 0x03FFFFFF);
-    *(uint32 *)from = instr;
+    *(uint32 *)from = a64_B(offset);
 }
 
 /*
