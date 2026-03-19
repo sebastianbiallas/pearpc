@@ -20,9 +20,20 @@ The emulator produces several debug outputs during a run:
 
 ## Step-by-Step Methodology
 
+### 0. Run the stub audit
+
+**Always do this first.** A silent no-op stub is the most common root cause of JIT behavior differences. The dcbz no-op stub caused `do_wp_page: bogus page` corruption because `clear_page()` silently did nothing.
+
+```sh
+python3 scripts/debug/stub_audit.py           # full scan
+python3 scripts/debug/stub_audit.py dcbz      # check specific opcode
+```
+
+Any function flagged as `NO-OP STUB` where the generic CPU has a real implementation is almost certainly a bug. Fix it before investigating further.
+
 ### 1. Check jitc.log for unknown opcodes
 
-**Always do this first.** Unknown opcodes compile to `ppc_opc_gen_invalid` which prints `[JITC] WARNING: unknown opcode XXXXXXXX at pc_ofs=XXXX` to stderr at JIT compile time, then generates a program exception (vector 0x700) at runtime. The warning is now automatic, but you should still check for it in the boot log.
+Unknown opcodes compile to `ppc_opc_gen_invalid` which prints `[JITC] WARNING: unknown opcode XXXXXXXX at pc_ofs=XXXX` to stderr at JIT compile time, then generates a program exception (vector 0x700) at runtime. The warning is now automatic, but you should still check for it in the boot log.
 
 ```sh
 grep '\[JITC\] WARNING' boot_log.log
@@ -179,6 +190,18 @@ If the above steps don't reveal the issue, add tracing to the C code:
 
 ## Common JIT Bugs
 
+### No-op dcbz stub (page table corruption)
+
+**Symptom:** `do_wp_page: bogus page at address 7fxxxxxx` repeated for every user stack access. `VM: killing process linuxrc`. Kernel panic: VFS unable to mount root. The generic CPU works fine.
+
+**Cause:** `ppc_opc_dcbz()` was a no-op (`return PPC_MMU_OK`). The kernel's `clear_page()` uses `dcbz` in a loop to zero newly allocated pages. Without it, page table pages contain stale data from previous allocations, so PTEs have garbage physical frame numbers.
+
+**How to find:** Run `python3 scripts/debug/stub_audit.py dcbz` — immediately shows the JIT version is a no-op while the generic writes 32 bytes of zeros. Or run `memdump.py pte` on the faulting VA to see that the entire PTE page is garbage (996/1024 entries bogus, 0 zeroed).
+
+**Fix:** Implement `dcbz` to align the address to a 32-byte boundary and write four 64-bit zeros via `ppc_write_effective_dword()`.
+
+**General rule:** Run `stub_audit.py` (step 0 in the methodology) before any other investigation. A no-op stub is the most common and easiest-to-miss JIT bug.
+
 ### Commented-out exception in interpreter function
 
 **Symptom:** Kernel stalls after a specific point. A PPC instruction that should trigger an exception (like `sc` for syscalls) silently does nothing.
@@ -264,9 +287,19 @@ python3 scripts/debug/memdump.py find memdump_jit.bin bfedde60
 python3 scripts/debug/memdump.py read memdump_jit.bin c04835a0 8
 python3 scripts/debug/memdump.py diff memdump_generic.bin memdump_jit.bin 004835c0 16
 python3 scripts/debug/memdump.py regs memdump_jit.bin c04dfd50
+python3 scripts/debug/memdump.py pte memdump_jit.bin 0x7FFFF000 0x07851000
 ```
 
-Swiss-army knife for memory dump analysis. Subcommands: `printk` (extract kernel log), `oops` (find/decode Oops), `find` (search for 32-bit value), `read` (dump words at PA), `diff` (compare two dumps), `regs` (decode pt_regs). Accepts kernel VAs (auto-converts to PA).
+Swiss-army knife for memory dump analysis. Subcommands: `printk` (extract kernel log), `oops` (find/decode Oops), `find` (search for 32-bit value), `read` (dump words at PA), `diff` (compare two dumps), `regs` (decode pt_regs), `pte` (walk Linux PGD→PTE chain for a VA, decode flags, audit page for corruption). Accepts kernel VAs (auto-converts to PA).
+
+### scripts/debug/stub_audit.py
+
+```sh
+python3 scripts/debug/stub_audit.py              # scan all: find no-op stubs
+python3 scripts/debug/stub_audit.py dcbz          # side-by-side diff for one opcode
+```
+
+Compares JIT interpreter functions against generic CPU implementations. Flags functions that are no-op stubs in the JIT but have real implementations in the generic CPU. **Run this first** when the JIT produces different behavior — a silent no-op stub is the most common root cause.
 
 ### scripts/debug/dump_kernel_log.py
 

@@ -2,13 +2,21 @@
 name: check-parity
 description: Check that aarch64 JIT interpreter functions match generic CPU behavior
 allowed-tools: Bash, Read, Grep
+argument-hint: [opcode-name]
 ---
 
 # Check Interpreter Parity
 
-Run the interpreter parity check and analyze results.
+Run the interpreter parity check and analyze results. If an opcode name is given, show a side-by-side diff for that specific opcode.
 
 ## Steps
+
+0. **Always run the stub audit first** — this catches no-op stubs (the #1 bug source):
+   ```
+   python3 scripts/debug/stub_audit.py $ARGUMENTS
+   ```
+   If an opcode name was given, this shows a side-by-side generic vs JIT diff.
+   If no arguments, it scans all functions and reports no-op stubs.
 
 1. Run `./scripts/debug/check_interpreter_parity.sh`
 2. For any issues found:

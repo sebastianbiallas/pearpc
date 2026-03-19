@@ -54,12 +54,18 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
 
     if (type != PPC_EXC_DEC) PPC_EXC_TRACE("@%08x: type = %08x (%08x, %08x)\n", aCPU.pc, type, flags, a);
     switch (type) {
-    case PPC_EXC_DSI:
+    case PPC_EXC_DSI: {
         aCPU.srr[0] = aCPU.pc;
         aCPU.srr[1] = aCPU.msr & 0x87c0ffff;
         aCPU.dar = a;
         aCPU.dsisr = flags;
+        PPC_EXC_TRACE("DSI @%08x DAR=%08x DSISR=%08x [%s%s%s]\n",
+            aCPU.pc, a, flags,
+            (flags & PPC_EXC_DSISR_PAGE) ? "PAGE " : "",
+            (flags & PPC_EXC_DSISR_PROT) ? "PROT " : "",
+            (flags & PPC_EXC_DSISR_STORE) ? "STORE" : "LOAD");
         break;
+    }
     case PPC_EXC_ISI:
         if (aCPU.pc == 0) {
             PPC_EXC_WARN("pc == 0 in ISI\n");

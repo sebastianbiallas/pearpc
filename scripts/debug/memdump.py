@@ -8,6 +8,7 @@ Subcommands:
   diff    [dump1] [dump2] [pa] [count] - Compare words between two dumps
   regs    [dump] [pa]         - Decode Linux 2.4 PPC pt_regs at physical address
   oops    [dump]              - Find and decode kernel Oops from printk buffer
+  pte     [dump] [va] [pgd]   - Walk Linux PGD→PTE for a VA, decode flags, audit page
 
 All addresses are in hex (0x prefix optional). PPC data is big-endian.
 Kernel VA to PA: PA = VA - 0xC0000000 (for VA >= 0xC0000000).
@@ -225,6 +226,96 @@ def cmd_oops(args):
     return 0
 
 
+def cmd_pte(args):
+    """Walk Linux 2.4 PPC page table: PGD → PTE for a virtual address."""
+    data = read_dump(args.dump)
+    va = parse_hex(args.va)
+    pgd_pa = va_to_pa(parse_hex(args.pgd))
+
+    RAM_SIZE = len(data)
+    pgd_idx = (va >> 22) & 0x3FF
+    pgd_entry_pa = pgd_pa + pgd_idx * 4
+    pgd_val = read_u32(data, pgd_entry_pa)
+
+    print(f'VA:  0x{va:08x}')
+    print(f'PGD: PA 0x{pgd_pa:08x}  index={pgd_idx}')
+    print(f'PGD[{pgd_idx}] at PA 0x{pgd_entry_pa:08x} = 0x{pgd_val:08x}')
+
+    if pgd_val == 0:
+        print('  → NULL — no page table for this VA')
+        # Show neighbors
+        print('Nearby PGD entries:')
+        for off in range(-3, 4):
+            idx = pgd_idx + off
+            if 0 <= idx < 1024:
+                v = read_u32(data, pgd_pa + idx * 4)
+                tag = ' ←' if off == 0 else ''
+                print(f'  PGD[{idx:4d}] = 0x{v:08x}{tag}')
+        return 1
+
+    pte_table_va = pgd_val & 0xFFFFF000
+    pte_table_pa = va_to_pa(pte_table_va)
+    pte_idx = (va >> 12) & 0x3FF
+    pte_pa = pte_table_pa + pte_idx * 4
+    pte_val = read_u32(data, pte_pa)
+
+    print(f'PTE table: VA 0x{pte_table_va:08x} → PA 0x{pte_table_pa:08x}')
+    print(f'PTE[{pte_idx}] at PA 0x{pte_pa:08x} = 0x{pte_val:08x}')
+
+    if pte_val == 0:
+        print('  → NOT PRESENT')
+    else:
+        rpn = pte_val & 0xFFFFF000
+        flags = pte_val & 0xFFF
+        flag_names = []
+        if flags & 0x001: flag_names.append('PRESENT')
+        if flags & 0x002: flag_names.append('RW')
+        if flags & 0x004: flag_names.append('USER')
+        if flags & 0x008: flag_names.append('WRITETHRU')
+        if flags & 0x010: flag_names.append('NOCACHE')
+        if flags & 0x020: flag_names.append('ACCESSED')
+        if flags & 0x040: flag_names.append('DIRTY')
+        if flags & 0x080: flag_names.append('DIRTY2')
+        if flags & 0x100: flag_names.append('HWACCESSED')
+        if flags & 0x200: flag_names.append('HASHPTE')
+        if flags & 0x400: flag_names.append('EXEC')
+        print(f'  RPN = 0x{rpn:08x}  flags = 0x{flags:03x} [{" ".join(flag_names)}]')
+        if rpn >= RAM_SIZE:
+            print(f'  *** BOGUS: RPN 0x{rpn:08x} outside RAM ({RAM_SIZE // (1024*1024)}MB)')
+        else:
+            print(f'  Valid: maps to PA 0x{rpn | (va & 0xFFF):08x}')
+
+    # Audit entire PTE page
+    zero = valid = bogus = 0
+    for i in range(1024):
+        v = read_u32(data, pte_table_pa + i * 4)
+        if v == 0:
+            zero += 1
+        elif (v & 0xFFFFF000) < RAM_SIZE:
+            valid += 1
+        else:
+            bogus += 1
+    print(f'\nPTE page audit: {zero} zero, {valid} valid, {bogus} bogus (of 1024)')
+    if bogus > 0:
+        print('  *** PAGE TABLE CORRUPTION — bogus entries indicate unzeroed page (dcbz bug?)')
+
+    # Show neighbors
+    print(f'\nNearby PTEs:')
+    for off in range(-3, 4):
+        idx = pte_idx + off
+        if 0 <= idx < 1024:
+            v = read_u32(data, pte_table_pa + idx * 4)
+            page_va = (va & 0xFFC00000) | (idx << 12)
+            tag = ' ←' if off == 0 else ''
+            status = ''
+            if v == 0:
+                status = 'NOT_PRESENT'
+            elif (v & 0xFFFFF000) >= RAM_SIZE:
+                status = 'BOGUS'
+            print(f'  PTE[{idx:4d}] (VA 0x{page_va:08x}) = 0x{v:08x} {status}{tag}')
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description='PearPC memory dump analysis tool')
     sub = parser.add_subparsers(dest='cmd')
@@ -257,6 +348,11 @@ def main():
     p = sub.add_parser('oops', help='Find and decode kernel Oops')
     p.add_argument('dump', help='Memory dump file')
 
+    p = sub.add_parser('pte', help='Walk Linux PGD→PTE chain for a virtual address')
+    p.add_argument('dump', help='Memory dump file')
+    p.add_argument('va', help='Virtual address to look up (hex)')
+    p.add_argument('pgd', help='PGD physical address (hex) — find via task_struct→mm→pgd')
+
     args = parser.parse_args()
     if not args.cmd:
         parser.print_help()
@@ -265,6 +361,7 @@ def main():
     cmds = {
         'printk': cmd_printk, 'find': cmd_find, 'read': cmd_read,
         'diff': cmd_diff, 'regs': cmd_regs, 'oops': cmd_oops,
+        'pte': cmd_pte,
     }
     return cmds[args.cmd](args)
 
