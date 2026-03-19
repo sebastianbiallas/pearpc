@@ -67,14 +67,16 @@
 
 #include "jitc_common.h"
 
-// Define to disable TLB fast path (force all accesses through slow path)
-#define DISABLE_TLB 1
+// Uncomment to disable TLB fast path (force all accesses through slow path)
+//#define DISABLE_TLB 1
 
+.macro TLB_MISS_BRANCH target
 #ifdef DISABLE_TLB
-#define TLB_MISS_BRANCH b
+    b       \target
 #else
-#define TLB_MISS_BRANCH b.ne
+    b.ne    \target
 #endif
+.endm
 
 .text
 
