@@ -100,6 +100,15 @@ A64Instr a64_NEGw(int rd, int rm); // NEG Wd, Wm = SUB Wd, WZR, Wm
 A64Instr a64_LSLw_imm(int rd, int rn, int shift);
 A64Instr a64_LSRw_imm(int rd, int rn, int shift);
 A64Instr a64_ASRw_imm(int rd, int rn, int shift);
+A64Instr a64_RORw_imm(int rd, int rn, int shift); // ROR Wd, Wn, #shift = EXTR Wd, Wn, Wn, #shift
+A64Instr a64_LSLw_reg(int rd, int rn, int rm);     // LSL Wd, Wn, Wm = LSLV
+A64Instr a64_LSRw_reg(int rd, int rn, int rm);     // LSR Wd, Wn, Wm = LSRV
+A64Instr a64_RORw_reg(int rd, int rn, int rm);     // ROR Wd, Wn, Wm = RORV
+
+/* Logical (immediate) */
+A64Instr a64_ORRw_imm(int rd, int rn, int immr, int imms); // ORR Wd, Wn, #bitmask
+A64Instr a64_ANDw_imm(int rd, int rn, int immr, int imms); // AND Wd, Wn, #bitmask
+A64Instr a64_EORw_imm(int rd, int rn, int immr, int imms); // EOR Wd, Wn, #bitmask
 
 /* Load/Store */
 A64Instr a64_LDR(int rt, int rn, int offset);   // LDR Xt, [Xn, #offset]

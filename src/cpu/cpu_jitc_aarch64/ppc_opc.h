@@ -182,6 +182,32 @@ int ppc_opc_tlbsync(PPC_CPU_State &aCPU);
 int ppc_opc_tw(PPC_CPU_State &aCPU);
 int ppc_opc_twi(PPC_CPU_State &aCPU);
 
+/* Native ALU codegen (ppc_alu.cc) */
+JITCFlow ppc_opc_gen_addi(JITC &aJITC);
+JITCFlow ppc_opc_gen_addis(JITC &aJITC);
+JITCFlow ppc_opc_gen_ori(JITC &aJITC);
+JITCFlow ppc_opc_gen_oris(JITC &aJITC);
+JITCFlow ppc_opc_gen_xori(JITC &aJITC);
+JITCFlow ppc_opc_gen_xoris(JITC &aJITC);
+JITCFlow ppc_opc_gen_cmpi(JITC &aJITC);
+JITCFlow ppc_opc_gen_cmp(JITC &aJITC);
+JITCFlow ppc_opc_gen_cmpl(JITC &aJITC);
+JITCFlow ppc_opc_gen_cmpli(JITC &aJITC);
+JITCFlow ppc_opc_gen_addx(JITC &aJITC);
+JITCFlow ppc_opc_gen_subfx(JITC &aJITC);
+JITCFlow ppc_opc_gen_andx(JITC &aJITC);
+JITCFlow ppc_opc_gen_orx(JITC &aJITC);
+JITCFlow ppc_opc_gen_xorx(JITC &aJITC);
+JITCFlow ppc_opc_gen_negx(JITC &aJITC);
+JITCFlow ppc_opc_gen_mullwx(JITC &aJITC);
+JITCFlow ppc_opc_gen_slwx(JITC &aJITC);
+JITCFlow ppc_opc_gen_srwx(JITC &aJITC);
+JITCFlow ppc_opc_gen_rlwinmx(JITC &aJITC);
+JITCFlow ppc_opc_gen_rlwnmx(JITC &aJITC);
+JITCFlow ppc_opc_gen_andi_(JITC &aJITC);
+JITCFlow ppc_opc_gen_mtspr(JITC &aJITC);
+JITCFlow ppc_opc_gen_mfspr(JITC &aJITC);
+
 JITCFlow ppc_opc_gen_bx(JITC &aJITC);
 JITCFlow ppc_opc_gen_bcx(JITC &aJITC);
 JITCFlow ppc_opc_gen_bcctrx(JITC &aJITC);

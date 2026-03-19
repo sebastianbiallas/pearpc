@@ -110,37 +110,19 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
  *   slwx, srwx, rlwinmx
  */
 
-GEN_INTERPRET(addi)
-GEN_INTERPRET(addis)
-GEN_INTERPRET(ori)
-GEN_INTERPRET(oris)
-GEN_INTERPRET(xori)
-GEN_INTERPRET(xoris)
-GEN_INTERPRET(cmpi)
-GEN_INTERPRET(addx)
-GEN_INTERPRET(subfx)
-GEN_INTERPRET(andx)
-GEN_INTERPRET(orx)
-GEN_INTERPRET(xorx)
-GEN_INTERPRET(negx)
-GEN_INTERPRET(mullwx)
-GEN_INTERPRET(slwx)
-GEN_INTERPRET(srwx)
-GEN_INTERPRET(rlwinmx)
+/* Native ALU codegen — defined in ppc_alu.cc */
+/* addi, addis, ori, oris, xori, xoris, cmpi — D-form immediates */
+/* addx, subfx, andx, orx, xorx, negx, mullwx — register-register */
+/* slwx, srwx — interpreter fallback */
+/* rlwinmx, rlwnmx — rotate and mask */
+/* cmp, cmpl, cmpli, andi_ — with CR update */
 
 GEN_INTERPRET(addic)
 GEN_INTERPRET(addic_)
 GEN_INTERPRET(subfic)
 GEN_INTERPRET(mulli)
-GEN_INTERPRET(andi_)
 GEN_INTERPRET(andis_)
-GEN_INTERPRET(cmpli)
 GEN_INTERPRET(rlwimix)
-GEN_INTERPRET(rlwnmx)
-
-/* Group 2 ALU - native: addx, subfx, andx, orx, xorx, negx, mullwx */
-GEN_INTERPRET(cmp)
-GEN_INTERPRET(cmpl)
 GEN_INTERPRET(addcx)
 GEN_INTERPRET(addex)
 GEN_INTERPRET(addzex)
@@ -167,9 +149,7 @@ GEN_INTERPRET(mfcr)
 GEN_INTERPRET(mtcrf)
 GEN_INTERPRET(mcrxr)
 
-/* SPR */
-GEN_INTERPRET(mfspr)
-GEN_INTERPRET(mtspr)
+/* SPR — mfspr/mtspr native gen_ for LR/CTR in ppc_alu.cc */
 GEN_INTERPRET(mftb)
 /* mfmsr has native gen_ in ppc_alu.cc */
 GEN_INTERPRET_ENDBLOCK(mtmsr)

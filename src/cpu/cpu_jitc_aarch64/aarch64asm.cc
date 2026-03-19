@@ -323,6 +323,67 @@ A64Instr a64_ASRw_imm(int rd, int rn, int shift)
     return 0x13000000 | (shift << 16) | (31 << 10) | (rn << 5) | rd;
 }
 
+A64Instr a64_RORw_imm(int rd, int rn, int shift)
+{
+    A64_ASSERT_REG(rd, "RORw_imm");
+    A64_ASSERT_REG(rn, "RORw_imm");
+    A64_ASSERT_RANGE(shift, 0, 31, "RORw_imm shift");
+    // ROR Wd, Wn, #shift = EXTR Wd, Wn, Wn, #shift
+    return 0x13800000 | (rn << 16) | (shift << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_LSLw_reg(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "LSLw_reg");
+    A64_ASSERT_REG(rn, "LSLw_reg");
+    A64_ASSERT_REG(rm, "LSLw_reg");
+    // LSLV Wd, Wn, Wm
+    return 0x1AC02000 | (rm << 16) | (rn << 5) | rd;
+}
+
+A64Instr a64_LSRw_reg(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "LSRw_reg");
+    A64_ASSERT_REG(rn, "LSRw_reg");
+    A64_ASSERT_REG(rm, "LSRw_reg");
+    // LSRV Wd, Wn, Wm
+    return 0x1AC02400 | (rm << 16) | (rn << 5) | rd;
+}
+
+A64Instr a64_RORw_reg(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "RORw_reg");
+    A64_ASSERT_REG(rn, "RORw_reg");
+    A64_ASSERT_REG(rm, "RORw_reg");
+    // RORV Wd, Wn, Wm
+    return 0x1AC02C00 | (rm << 16) | (rn << 5) | rd;
+}
+
+/* Logical (immediate) — uses bitmask immediate encoding */
+A64Instr a64_ORRw_imm(int rd, int rn, int immr, int imms)
+{
+    A64_ASSERT_REG(rd, "ORRw_imm");
+    A64_ASSERT_REG(rn, "ORRw_imm");
+    // ORR Wd, Wn, #bitmask  (N=0 for 32-bit)
+    return 0x32000000 | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_ANDw_imm(int rd, int rn, int immr, int imms)
+{
+    A64_ASSERT_REG(rd, "ANDw_imm");
+    A64_ASSERT_REG(rn, "ANDw_imm");
+    // AND Wd, Wn, #bitmask  (N=0 for 32-bit)
+    return 0x12000000 | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_EORw_imm(int rd, int rn, int immr, int imms)
+{
+    A64_ASSERT_REG(rd, "EORw_imm");
+    A64_ASSERT_REG(rn, "EORw_imm");
+    // EOR Wd, Wn, #bitmask  (N=0 for 32-bit)
+    return 0x52000000 | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
 /*
  *  Load/Store (unsigned offset)
  *  LDR Xt, [Xn, #offset]  -- offset must be 8-byte aligned, divided by 8

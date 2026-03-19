@@ -53,6 +53,22 @@
 
 #define GPR_OFS(n) (offsetof(PPC_CPU_State, gpr) + (n) * 4)
 
+/* Precompute PPC rotate-and-mask for rlwinm/rlwnm at JIT time */
+static inline uint32 ppc_mask(int MB, int ME)
+{
+    uint32 mask;
+    if (MB <= ME) {
+        if (ME - MB == 31) {
+            mask = 0xffffffff;
+        } else {
+            mask = ((1 << (ME - MB + 1)) - 1) << (31 - ME);
+        }
+    } else {
+        mask = ppc_word_rotl((1 << (32 - MB + ME + 1)) - 1, 31 - ME);
+    }
+    return mask;
+}
+
 /*
  *  Emit a privilege check: if MSR_PR is set, jump to
  *  ppc_program_exception_asm (which never returns).
@@ -88,8 +104,125 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
     }
 }
 
-// Native ALU gen_ functions - disabled, using GEN_INTERPRET in ppc_dec.cc instead
-#if 0
+/*
+ *  Native AArch64 codegen for ALU opcodes.
+ *
+ *  Helper: emit inline CR field update for signed compare.
+ *  W16 = value a, W17 = value b.  Clobbers W0, W1, W2.
+ *  Sets CR field crfD = (7 - field_number) to: LT(8) GT(4) EQ(2) | SO(1)
+ */
+static void gen_cmp_cr_update(JITC &jitc, int crfD)
+{
+    // CMP W16, W17  (sets NZCV)
+    jitc.asmCMPw(W16, W17);
+
+    // Build CR nibble in W0:
+    //   LT → 8, GT → 4, EQ → 2, then OR in SO from XER
+    // Use conditional select chain:
+    //   W0 = (LT) ? 8 : ((GT) ? 4 : 2)
+    jitc.asmMOV(W0, (uint32)8);      // LT value
+    jitc.asmMOV(W1, (uint32)4);      // GT value
+    jitc.asmMOV(W2, (uint32)2);      // EQ value
+
+    // CSEL Wd, Wn, Wm, cond = 0x1A800000 | (Wm<<16) | (cond<<12) | (Wn<<5) | Wd
+    // CSEL W1, W1, W2, GT → W1 = (signed GT) ? 4 : 2
+    jitc.emit32(0x1A800000 | (2 << 16) | (A64_GT << 12) | (1 << 5) | 1);
+    // CSEL W0, W0, W1, LT → W0 = (signed LT) ? 8 : W1
+    jitc.emit32(0x1A800000 | (1 << 16) | (A64_LT << 12) | (0 << 5) | 0);
+
+    // OR in SO bit from XER: if (xer & XER_SO) c |= 1
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, xer));
+    // TST W1, #(1<<31) — XER_SO is bit 31
+    jitc.asmTSTw(W1, 1, 0); // immr=1, imms=0 encodes bit 31
+    // CSINC W0, W0, W0, EQ → W0 = (Z==1) ? W0 : W0+1  (i.e. if SO set, W0++)
+    // CSINC Wd, Wn, Wm, cond = 0x1A800400 | (Wm<<16) | (cond<<12) | (Wn<<5) | Wd
+    jitc.emit32(0x1A800400 | (0 << 16) | (A64_EQ << 12) | (0 << 5) | 0); // CSINC W0, W0, W0, EQ
+
+    // Now merge into CR: cr = (cr & mask) | (c << shift)
+    int cr_field = 7 - crfD;
+    int cr_shift = cr_field * 4;
+
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+    // Clear the 4-bit field: AND with ~(0xF << shift)
+    uint32 mask = ~(0xFu << cr_shift);
+    jitc.asmMOV(W2, mask);
+    jitc.asmANDw(W1, W1, W2);
+    // Shift result nibble and OR in
+    if (cr_shift > 0) {
+        jitc.emit32(a64_LSLw_imm(0, 0, cr_shift)); // LSL W0, W0, #shift
+    }
+    jitc.asmORRw(W1, W1, W0);
+    jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+}
+
+/*
+ *  Same as gen_cmp_cr_update but for unsigned comparison.
+ */
+static void gen_cmpl_cr_update(JITC &jitc, int crfD)
+{
+    // CMP W16, W17 (unsigned — same instruction, different condition codes)
+    jitc.asmCMPw(W16, W17);
+
+    jitc.asmMOV(W0, (uint32)8);      // LT value
+    jitc.asmMOV(W1, (uint32)4);      // GT value
+    jitc.asmMOV(W2, (uint32)2);      // EQ value
+
+    // CSEL W1, W1, W2, HI → W1 = (unsigned >) ? 4 : 2
+    jitc.emit32(0x1A800000 | (2 << 16) | (A64_HI << 12) | (1 << 5) | 1);
+    // CSEL W0, W0, W1, CC → W0 = (unsigned <) ? 8 : W1
+    jitc.emit32(0x1A800000 | (1 << 16) | (A64_CC << 12) | (0 << 5) | 0);
+
+    // OR in SO
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, xer));
+    jitc.asmTSTw(W1, 1, 0);
+    jitc.emit32(0x1A800400 | (0 << 16) | (A64_EQ << 12) | (0 << 5) | 0);
+
+    int cr_field = 7 - crfD;
+    int cr_shift = cr_field * 4;
+
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+    uint32 mask = ~(0xFu << cr_shift);
+    jitc.asmMOV(W2, mask);
+    jitc.asmANDw(W1, W1, W2);
+    if (cr_shift > 0) {
+        jitc.emit32(a64_LSLw_imm(0, 0, cr_shift));
+    }
+    jitc.asmORRw(W1, W1, W0);
+    jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+}
+
+/*
+ *  Helper: emit CR0 update for result in W16.
+ *  CR0 = bits [31:28] of cr register.
+ *  LT(8) if result < 0, GT(4) if > 0, EQ(2) if == 0, SO(1) from XER.
+ */
+static void gen_update_cr0(JITC &jitc)
+{
+    // CMP W16, #0
+    jitc.asmCMPw(W16, (uint32)0);
+
+    jitc.asmMOV(W0, (uint32)8);
+    jitc.asmMOV(W1, (uint32)4);
+    jitc.asmMOV(W2, (uint32)2);
+
+    // CSEL W1, W1, W2, GT (signed >)
+    jitc.emit32(0x1A800000 | (2 << 16) | (A64_GT << 12) | (1 << 5) | 1);
+    // CSEL W0, W0, W1, LT (signed <)
+    jitc.emit32(0x1A800000 | (1 << 16) | (A64_LT << 12) | (0 << 5) | 0);
+
+    // OR in SO
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, xer));
+    jitc.asmTSTw(W1, 1, 0);
+    jitc.emit32(0x1A800400 | (0 << 16) | (A64_EQ << 12) | (0 << 5) | 0);
+
+    // CR0 is field 7, shift = 28
+    jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+    jitc.asmMOV(W2, (uint32)0x0FFFFFFFu);
+    jitc.asmANDw(W1, W1, W2);
+    jitc.emit32(a64_LSLw_imm(0, 0, 28));
+    jitc.asmORRw(W1, W1, W0);
+    jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+}
 
 /*
  *  addi rD, rA, SIMM  (opcode 14)
@@ -104,16 +237,14 @@ JITCFlow ppc_opc_gen_addi(JITC &jitc)
     sint32 simm = (sint32)imm;
 
     if (rA == 0) {
-        // rD = SIMM
         jitc.asmMOV(W16, (uint32)simm);
         jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     } else {
-        // rD = gpr[rA] + SIMM
         jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
         if (simm >= 0 && simm < 4096) {
-            jitc.asmADDw(W16, W16, simm));
+            jitc.asmADDw(W16, W16, (uint32)simm);
         } else if (simm < 0 && (-simm) < 4096) {
-            jitc.asmSUBw(W16, W16, -simm));
+            jitc.asmSUBw(W16, W16, (uint32)(-simm));
         } else {
             jitc.asmMOV(W17, (uint32)simm);
             jitc.asmADDw(W16, W16, W17);
@@ -158,7 +289,6 @@ JITCFlow ppc_opc_gen_ori(JITC &jitc)
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
 
     if (imm == 0 && rS == rA) {
-        // nop (ori 0,0,0)
         return flowContinue;
     }
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
@@ -172,31 +302,20 @@ JITCFlow ppc_opc_gen_ori(JITC &jitc)
 
 /*
  *  cmpi crfD, rA, SIMM  (opcode 11)
- *  Compare rA with sign-extended immediate, set CR field crfD.
- *
- *  CR field layout (4 bits): LT GT EQ SO
+ *  Signed compare, set CR field.
  */
 JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
 {
     int crfD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, crfD, rA, imm);
-    crfD >>= 2; // field number (0-7)
-    sint32 simm = (sint32)imm;
+    crfD >>= 2;
 
-    // Load gpr[rA]
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
-    // Load SIMM into W17
-    jitc.asmMOV(W17, (uint32)simm);
-
-    // For now, fall back to interpreter for CR update (complex bit packing)
-    // TODO: generate native CR update
-    extern void ppc_opc_cmpi(PPC_CPU_State &);
-    ppc_opc_gen_interpret(jitc, ppc_opc_cmpi);
+    jitc.asmMOV(W17, (uint32)imm);
+    gen_cmp_cr_update(jitc, crfD);
     return flowContinue;
 }
-
-#endif // native ALU part 1
 
 /*
  *  b/bl target  (opcode 18)
@@ -311,8 +430,6 @@ JITCFlow ppc_opc_gen_bcctrx(JITC &jitc)
     return flowEndBlockUnreachable;
 }
 
-#if 0 // native ALU part 2
-
 /*
  *  oris rA, rS, UIMM  (opcode 25)
  */
@@ -366,14 +483,8 @@ JITCFlow ppc_opc_gen_xoris(JITC &jitc)
 
 /*
  *  Register-register ALU helpers.
- *  Pattern: rD = gpr[rA] OP gpr[rB], store to gpr[rD]
+ *  Rc check: if Rc=1, fall back to interpreter for CR0 update.
  */
-/*
- * Rc check: if the PPC opcode has Rc=1 (bit 0), it must update CR0.
- * Our native gen_ functions don't handle CR0 update yet, so fall back
- * to the interpreter when Rc is set.
- */
-/* Forward declarations for interpreter functions used by RC_FALLBACK */
 int ppc_opc_addx(PPC_CPU_State &);
 int ppc_opc_subfx(PPC_CPU_State &);
 int ppc_opc_andx(PPC_CPU_State &);
@@ -381,6 +492,10 @@ int ppc_opc_orx(PPC_CPU_State &);
 int ppc_opc_xorx(PPC_CPU_State &);
 int ppc_opc_negx(PPC_CPU_State &);
 int ppc_opc_mullwx(PPC_CPU_State &);
+int ppc_opc_slwx(PPC_CPU_State &);
+int ppc_opc_srwx(PPC_CPU_State &);
+int ppc_opc_rlwinmx(PPC_CPU_State &);
+int ppc_opc_rlwnmx(PPC_CPU_State &);
 
 #define RC_FALLBACK(interp_func) \
     if (jitc.current_opc & PPC_OPC_Rc) { \
@@ -429,16 +544,25 @@ JITCFlow ppc_opc_gen_andx(JITC &jitc)
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
 }
-/* or rA, rS, rB */
+/* or rA, rS, rB (also: mr rA, rS when rS == rB) */
 JITCFlow ppc_opc_gen_orx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_orx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
-    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.asmORRw(W16, W16, W17);
-    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    if (rS == rB) {
+        // mr rA, rS — just copy
+        jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    } else {
+        jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+        jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+        jitc.asmORRw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    }
+    if (jitc.current_opc & PPC_OPC_Rc) {
+        // Result is in W16 (either copied or OR'd)
+        gen_update_cr0(jitc);
+    }
     return flowContinue;
 }
 /* xor rA, rS, rB */
@@ -454,60 +578,20 @@ JITCFlow ppc_opc_gen_xorx(JITC &jitc)
     return flowContinue;
 }
 
-/*
- *  neg rD, rA
- */
+/* neg rD, rA */
 JITCFlow ppc_opc_gen_negx(JITC &jitc)
 {
     RC_FALLBACK(ppc_opc_negx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    (void)rB;
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
-    // NEG Wd, Wn = SUB Wd, WZR, Wn
     jitc.asmNEGw(W16, W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     return flowContinue;
 }
 
-/*
- *  slw rA, rS, rB  (shift left word)
- */
-JITCFlow ppc_opc_gen_slwx(JITC &jitc)
-{
-    int rA, rS, rB;
-    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    // PPC slw: result = (rS << (rB & 0x3F)), zeroed if shift >= 32
-    // Use interpreter for correctness (handles shift >= 32)
-    extern void ppc_opc_slwx(PPC_CPU_State &);
-    ppc_opc_gen_interpret(jitc, ppc_opc_slwx);
-    return flowContinue;
-}
-
-/*
- *  srw rA, rS, rB  (shift right word)
- */
-JITCFlow ppc_opc_gen_srwx(JITC &jitc)
-{
-    int rA, rS, rB;
-    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    extern void ppc_opc_srwx(PPC_CPU_State &);
-    ppc_opc_gen_interpret(jitc, ppc_opc_srwx);
-    return flowContinue;
-}
-
-/*
- *  rlwinm rA, rS, SH, MB, ME  (rotate left word then AND with mask)
- */
-JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
-{
-    extern void ppc_opc_rlwinmx(PPC_CPU_State &);
-    ppc_opc_gen_interpret(jitc, ppc_opc_rlwinmx);
-    return flowContinue;
-}
-
-/*
- *  mullw rD, rA, rB
- */
+/* mullw rD, rA, rB */
 JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
 {
     RC_FALLBACK(ppc_opc_mullwx);
@@ -520,7 +604,189 @@ JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
     return flowContinue;
 }
 
-#endif // native ALU part 2
+/* slw rA, rS, rB  (shift left word) — interpreter fallback for shift >= 32 */
+JITCFlow ppc_opc_gen_slwx(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_slwx);
+    return flowContinue;
+}
+
+/* srw rA, rS, rB  (shift right word) */
+JITCFlow ppc_opc_gen_srwx(JITC &jitc)
+{
+    ppc_opc_gen_interpret(jitc, ppc_opc_srwx);
+    return flowContinue;
+}
+
+/*
+ *  rlwinm rA, rS, SH, MB, ME  (rotate left word then AND with mask)
+ *  Mask and shift amount known at JIT time → precompute mask.
+ */
+JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_rlwinmx);
+    int rS, rA, SH;
+    uint32 MB, ME;
+    PPC_OPC_TEMPL_M(jitc.current_opc, rS, rA, SH, MB, ME);
+
+    uint32 mask = ppc_mask(MB, ME);
+
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    if (SH != 0) {
+        // PPC rotate left by SH = AArch64 ROR by (32 - SH)
+        jitc.emit32(a64_RORw_imm(16, 16, (32 - SH) & 31));
+    }
+    if (mask == 0xFFFFFFFF) {
+        // No masking needed
+    } else {
+        jitc.asmMOV(W17, mask);
+        jitc.asmANDw(W16, W16, W17);
+    }
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  rlwnm rA, rS, rB, MB, ME  (rotate left word then AND with mask, variable)
+ */
+JITCFlow ppc_opc_gen_rlwnmx(JITC &jitc)
+{
+    RC_FALLBACK(ppc_opc_rlwnmx);
+    int rS, rA, rB, MB, ME;
+    PPC_OPC_TEMPL_M(jitc.current_opc, rS, rA, rB, MB, ME);
+
+    uint32 mask = ppc_mask(MB, ME);
+
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    // PPC rotl by rB = negate rB for ROR
+    jitc.asmNEGw(W17, W17);
+    jitc.emit32(a64_RORw_reg(16, 16, 17));
+    if (mask != 0xFFFFFFFF) {
+        jitc.asmMOV(W17, mask);
+        jitc.asmANDw(W16, W16, W17);
+    }
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  cmp crfD, rA, rB  (signed register compare)
+ */
+JITCFlow ppc_opc_gen_cmp(JITC &jitc)
+{
+    uint32 cr;
+    int rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, cr, rA, rB);
+    cr >>= 2;
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    gen_cmp_cr_update(jitc, cr);
+    return flowContinue;
+}
+
+/*
+ *  cmpl crfD, rA, rB  (unsigned register compare)
+ */
+JITCFlow ppc_opc_gen_cmpl(JITC &jitc)
+{
+    uint32 cr;
+    int rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, cr, rA, rB);
+    cr >>= 2;
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    gen_cmpl_cr_update(jitc, cr);
+    return flowContinue;
+}
+
+/*
+ *  cmpli crfD, rA, UIMM  (unsigned immediate compare)
+ */
+JITCFlow ppc_opc_gen_cmpli(JITC &jitc)
+{
+    uint32 cr;
+    int rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, cr, rA, imm);
+    cr >>= 2;
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmMOV(W17, imm);
+    gen_cmpl_cr_update(jitc, cr);
+    return flowContinue;
+}
+
+/*
+ *  andi. rA, rS, UIMM — always updates CR0
+ */
+JITCFlow ppc_opc_gen_andi_(JITC &jitc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmMOV(W17, imm);
+    jitc.asmANDw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    gen_update_cr0(jitc);
+    return flowContinue;
+}
+
+/*
+ *  mtspr SPR, rS — Move To Special Purpose Register
+ *  Handle LR/CTR natively, fall back to interpreter for others.
+ */
+JITCFlow ppc_opc_gen_mtspr(JITC &jitc)
+{
+    int rS, spr1, spr2;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, spr1, spr2);
+
+    if (spr2 == 0) {
+        if (spr1 == 8) {
+            // mtlr rS
+            jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+            return flowContinue;
+        }
+        if (spr1 == 9) {
+            // mtctr rS
+            jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
+            return flowContinue;
+        }
+    }
+    // All other SPRs: fall back to interpreter
+    ppc_opc_gen_interpret(jitc, ppc_opc_mtspr);
+    return flowContinue;
+}
+
+/*
+ *  mfspr rD, SPR — Move From Special Purpose Register
+ *  Handle LR/CTR natively, fall back to interpreter for others.
+ */
+JITCFlow ppc_opc_gen_mfspr(JITC &jitc)
+{
+    int rD, spr1, spr2;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, spr1, spr2);
+
+    if (spr2 == 0) {
+        if (spr1 == 8) {
+            // mflr rD
+            jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+            jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+            return flowContinue;
+        }
+        if (spr1 == 9) {
+            // mfctr rD
+            jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
+            jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+            return flowContinue;
+        }
+    }
+    // All other SPRs: fall back to interpreter
+    ppc_opc_gen_interpret(jitc, ppc_opc_mfspr);
+    return flowContinue;
+}
 
 // Forward declarations for functions defined in ppc_opc.cc
 extern void ppc_set_msr(PPC_CPU_State &aCPU, uint32 newmsr);
@@ -554,21 +820,6 @@ static inline void ppc_opc_batl_helper(PPC_CPU_State &aCPU, bool dbat, int idx)
 static uint32 ppc_cmp_and_mask[8] = {
     0xfffffff0, 0xffffff0f, 0xfffff0ff, 0xffff0fff, 0xfff0ffff, 0xff0fffff, 0xf0ffffff, 0x0fffffff,
 };
-
-static inline uint32 ppc_mask(int MB, int ME)
-{
-    uint32 mask;
-    if (MB <= ME) {
-        if (ME - MB == 31) {
-            mask = 0xffffffff;
-        } else {
-            mask = ((1 << (ME - MB + 1)) - 1) << (31 - ME);
-        }
-    } else {
-        mask = ppc_word_rotl((1 << (32 - MB + ME + 1)) - 1, 31 - ME);
-    }
-    return mask;
-}
 
 /*
  *	addx		Add
