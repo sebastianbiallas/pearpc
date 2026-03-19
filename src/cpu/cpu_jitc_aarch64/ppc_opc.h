@@ -124,10 +124,13 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     // Any pending DEC/ext stays in dec_exception/ext_exception and will
     // be handled by the heartbeat at the next page dispatch.
     //
-    // Use CBNZ W0, #exception (short forward branch, always in range)
+    // Use CBNZ W0, #exception (short forward branch)
     // + B #skip (unconditional, ±128MB range, handles fragment boundaries).
-    // This avoids the CBZ ±1MB range overflow that occurs when the exception
-    // path crosses a fragment boundary.
+    //
+    // Reserve enough contiguous space so that no fragment boundary can
+    // be crossed between excBranch and the exception path target.
+    // NOP(4) + B(4) + STRBw(4) + LDRw(4) + asmBL(20) = 36 bytes.
+    jitc.emitAssure(36);
     NativeAddress excBranch = jitc.asmHERE();
     jitc.asmNOP(); // placeholder for CBNZ W0, #exception
     NativeAddress skipBranch = jitc.asmJxxFixup(); // B #skip (placeholder)
