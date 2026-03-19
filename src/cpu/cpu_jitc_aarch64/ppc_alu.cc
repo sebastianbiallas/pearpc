@@ -244,31 +244,7 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_bcx(JITC &jitc)
 {
-    uint32 BO, BI, BD;
-    PPC_OPC_TEMPL_B(jitc.current_opc, BO, BI, BD);
-
-    bool lk = jitc.current_opc & PPC_OPC_LK;
-    bool aa = jitc.current_opc & PPC_OPC_AA;
-
-    // Fast path for "bdnz self" (BO=16: decrement CTR, branch if CTR!=0, BD=0: target=self)
-    // This is __delay()'s tight loop. Generate a native CTR countdown instead of
-    // going through the interpreter on every iteration.
-    if (!lk && !aa && BO == 16 && BD == 0) {
-        // LDR W0, [X20, #ctr]
-        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, ctr));
-        // loop: SUBS W0, W0, #1
-        NativeAddress loop = jitc.asmHERE();
-        jitc.emit32(a64_SUBSw_imm(W0, W0, 1));
-        // CBNZ W0, loop  (offset = loop - here)
-        NativeAddress cbnz_pos = jitc.asmHERE();
-        sint32 cbnz_off = (sint32)(loop - cbnz_pos);
-        jitc.emit32(a64_CBNZw(W0, cbnz_off));
-        // STR W0, [X20, #ctr]  (CTR = 0)
-        jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, ctr));
-        return flowContinue;
-    }
-
-    // For all other cases, use the interpreter to evaluate the branch condition.
+    // Use the interpreter to evaluate the branch condition.
     // This correctly handles CTR decrement, all BO variants, and LK.
     // The optimization is in how we dispatch to the target afterwards.
     ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
