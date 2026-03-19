@@ -158,4 +158,18 @@ A64Instr a64_REVw(int rd, int rn); // byte swap 32-bit
 A64Instr a64_ADRP(int rd, sint64 offset);
 A64Instr a64_ADR(int rd, sint32 offset);
 
+/* Instruction size computation for precomputed branch offsets */
+static inline uint a64_movw_size(uint32 imm) { return (imm >> 16) ? 8 : 4; }
+
+static inline uint a64_mov64_size(uint64 imm)
+{
+    uint s = 4;
+    if (imm >> 16) s += 4;
+    if (imm >> 32) s += 4;
+    if (imm >> 48) s += 4;
+    return s;
+}
+
+static inline uint a64_bl_size(uint64 addr) { return a64_mov64_size(addr) + 4; }
+
 #endif

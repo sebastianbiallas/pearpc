@@ -799,7 +799,18 @@ bool ppc_prom_page_free(uint32 ea)
  *	from the x86_64 version. For now, minimal stubs are provided.
  */
 
-int ppc_opc_dcbz(PPC_CPU_State &aCPU) { return PPC_MMU_OK; }
+int ppc_opc_dcbz(PPC_CPU_State &aCPU)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
+	uint32 a = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+	a &= ~0x1f; // align to 32-byte cache line
+	if (ppc_write_effective_dword(aCPU, a, 0)) return PPC_MMU_EXC;
+	if (ppc_write_effective_dword(aCPU, a + 8, 0)) return PPC_MMU_EXC;
+	if (ppc_write_effective_dword(aCPU, a + 16, 0)) return PPC_MMU_EXC;
+	if (ppc_write_effective_dword(aCPU, a + 24, 0)) return PPC_MMU_EXC;
+	return PPC_MMU_OK;
+}
 int ppc_opc_dcba(PPC_CPU_State &aCPU) { return 0; }
 int ppc_opc_dcbf(PPC_CPU_State &aCPU) { return 0; }
 int ppc_opc_dcbi(PPC_CPU_State &aCPU) { return 0; }

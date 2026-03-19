@@ -709,15 +709,20 @@ static void ppc_opc_gen_check_fpu(JITC &jitc)
         // TST W0, #(1<<13) = ANDS WZR, W0, #0x2000 (MSR_FP)
         // Logical immediate encoding for (1<<13): immr=19, imms=0
         jitc.asmTSTw(W0, 19, 0);
-        NativeAddress skip = jitc.asmJxxFixup(); // B.NE skip (FP enabled)
+
+        // Precompute body size: MOV(pc) + BL(exception)
+        uint body = a64_movw_size(jitc.pc)
+                  + a64_bl_size((uint64)ppc_no_fpu_exception_asm);
+        jitc.emitAssure(4 + body);
+        NativeAddress target = jitc.asmHERE() + 4 + body;
+        jitc.asmBccForward(A64_NE, body); // B.NE skip (FP enabled)
 
         // FP disabled: raise NO_FPU exception
         jitc.asmMOV(W0, jitc.pc);
         jitc.asmCALL((NativeAddress)ppc_no_fpu_exception_asm);
         // ppc_no_fpu_exception_asm does not return
 
-        // Patch B.NE to skip here
-        jitc.asmResolveCondFixup(skip, jitc.asmHERE(), A64_NE);
+        jitc.asmAssertHERE(target, "check_fpu");
         jitc.checkedFloat = true;
     }
 }

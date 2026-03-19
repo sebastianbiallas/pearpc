@@ -24,6 +24,8 @@
 
 #include "ppc_cpu.h"
 #include "jitc_types.h"
+#include "aarch64asm.h"
+#include "debug/tracers.h"
 
 /*
  * AArch64 general-purpose registers
@@ -349,10 +351,26 @@ public:
     void asmCMPw(NativeReg rn, uint32 imm12);
     void asmTSTw(NativeReg rn, int immr, int imms);  // TST Wn, #bitmask
 
-    // Fixup support
-    NativeAddress asmJxxFixup();  // emit placeholder B, return address for fixup
-    void asmResolveFixup(NativeAddress at, NativeAddress to = 0);
-    void asmResolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond);
+    // Forward branch helpers (precomputed offsets)
+    // skip_bytes = bytes of code after this instruction to jump over
+    void asmBccForward(A64Cond cond, uint skip_bytes)
+    {
+        emit32(a64_Bcc(cond, (sint32)(skip_bytes + 4)));
+    }
+
+    void asmBForward(uint skip_bytes)
+    {
+        emit32(a64_B((sint32)(skip_bytes + 4)));
+    }
+
+    void asmAssertHERE(NativeAddress expected, const char *label)
+    {
+        if (currentPage->tcp != expected) {
+            PPC_CPU_ERR("[A64] %s: expected tcp=%p, got %p (delta=%d)\n",
+                label, expected, currentPage->tcp,
+                (int)(currentPage->tcp - expected));
+        }
+    }
 
     // Compatibility aliases for old names (to be removed incrementally)
     void emitNOP()                                              { asmNOP(); }
@@ -374,9 +392,6 @@ public:
     void emitEOR32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmEORw(rd, rn, rm); }
     void emitCMP32(NativeReg rn, NativeReg rm)                 { asmCMPw(rn, rm); }
     void emitCMP32_imm(NativeReg rn, uint32 imm12)             { asmCMPw(rn, imm12); }
-    NativeAddress emitBxxFixup()                                { return asmJxxFixup(); }
-    void resolveFixup(NativeAddress at, NativeAddress to = 0)   { asmResolveFixup(at, to); }
-    void resolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond) { asmResolveCondFixup(at, to, cond); }
 
     void floatRegisterClobberAll() {}
 };

@@ -118,15 +118,19 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     // W0 == 0: no exception, continue normally.
     //
     // Layout: CBNZ +8 | B skip | LDR npc | BL ppc_new_pc_asm
-    // CBNZ(4) + B(4) + LDR(4) + asmBL(20) = 32 bytes.
-    jitc.emitAssure(32);
-    jitc.emit32(a64_CBNZw(W0, 8)); // CBNZ W0, #exception (+8 = skip B)
-    NativeAddress skipBranch = jitc.asmJxxFixup(); // B #skip (placeholder)
+    uint call_size = a64_bl_size((uint64)ppc_new_pc_asm);
+    uint exc_path = 4 + call_size;  // LDR + CALL
+    jitc.emitAssure(4 + 4 + exc_path);  // CBNZ + B + exc_path
+
+    jitc.emit32(a64_CBNZw(W0, 8));     // CBNZ W0, +8 (skip B, land on exc path)
+    NativeAddress target = jitc.asmHERE() + 4 + exc_path;
+    jitc.asmBForward(exc_path);         // B skip exception path
+
     // Exception path: dispatch to npc
     jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
     jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
-    // Patch B #skip past exception path
-    jitc.asmResolveFixup(skipBranch);
+
+    jitc.asmAssertHERE(target, "interpret_loadstore");
 }
 
 

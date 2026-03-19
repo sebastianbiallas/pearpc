@@ -68,7 +68,14 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
         // TST W0, #(1<<14) = ANDS WZR, W0, #0x4000 (MSR_PR)
         // Logical immediate encoding for (1<<14): immr=18, imms=0
         jitc.asmTSTw(W0, 18, 0);
-        NativeAddress skip = jitc.asmJxxFixup(); // B.EQ skip (not user mode)
+
+        // Precompute body size: MOV(pc) + MOV(PRIV) + BL(exception)
+        uint body = a64_movw_size(jitc.pc)
+                  + a64_movw_size(PPC_EXC_PROGRAM_PRIV)
+                  + a64_bl_size((uint64)ppc_program_exception_asm);
+        jitc.emitAssure(4 + body);
+        NativeAddress target = jitc.asmHERE() + 4 + body;
+        jitc.asmBccForward(A64_EQ, body); // B.EQ skip (not user mode)
 
         // User mode: raise privilege exception
         jitc.asmMOV(W0, jitc.pc);
@@ -76,8 +83,7 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
         jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
         // ppc_program_exception_asm does not return
 
-        // Patch B.EQ to skip here
-        jitc.asmResolveCondFixup(skip, jitc.asmHERE(), A64_EQ);
+        jitc.asmAssertHERE(target, "check_privilege");
         jitc.checkedPriviledge = true;
     }
 }
@@ -251,17 +257,21 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
 
     // The interpreter set npc: branch target if taken, pc+4 if not taken.
     // Compare npc to pc+4 to detect the not-taken case and fall through.
-    // Ensure entire sequence fits in one fragment to avoid conditional branch overflow.
     uint32 next_pc = jitc.pc + 4;
-    jitc.emitAssure(40); // LDR + MOV32 + CMP + B.EQ + emitBLR = max 40 bytes
+    uint call_size = a64_bl_size((uint64)ppc_new_pc_asm);
+    //           LDR   MOV(next_pc)            CMP  B.EQ  CALL
+    uint total = 4 + a64_movw_size(next_pc) + 4 + 4 + call_size;
+    jitc.emitAssure(total);
+
     jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
     jitc.asmMOV(W1, next_pc);
     jitc.asmCMPw(W0, W1);
-    NativeAddress fixup = jitc.asmJxxFixup(); // placeholder for B.EQ
+    NativeAddress target = jitc.asmHERE() + 4 + call_size;
+    jitc.asmBccForward(A64_EQ, call_size); // B.EQ skip dispatch
     // Taken: full dispatch
     jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
     // Not taken: land here, continue compiling next instruction
-    jitc.asmResolveCondFixup(fixup, 0, 0x0); // 0x0 = EQ
+    jitc.asmAssertHERE(target, "bcx");
     return flowContinue;
 }
 
@@ -2893,32 +2903,36 @@ JITCFlow ppc_opc_gen_tw(JITC &jitc)
     }
 
     // Conditional trap: branch to exception if any TO condition matches
-    // Emit conditional branches to the trap path
-    NativeAddress trap1 = NULL, trap2 = NULL, trap3 = NULL, trap4 = NULL, trap5 = NULL;
-    if (TO & 16) trap1 = jitc.asmJxxFixup(); // B.LT
-    if (TO & 8)  trap2 = jitc.asmJxxFixup(); // B.GT
-    if (TO & 4)  trap3 = jitc.asmJxxFixup(); // B.EQ
-    if (TO & 2)  trap4 = jitc.asmJxxFixup(); // B.LO (unsigned <)
-    if (TO & 1)  trap5 = jitc.asmJxxFixup(); // B.HI (unsigned >)
+    int nconds = __builtin_popcount(TO & 0x1f);
+    uint trap_body = a64_movw_size(jitc.pc)
+                   + a64_movw_size(PPC_EXC_PROGRAM_TRAP)
+                   + a64_bl_size((uint64)ppc_program_exception_asm);
+    jitc.emitAssure(nconds * 4 + 4 + trap_body);
 
-    // No trap: skip over exception code
-    NativeAddress noTrap = jitc.asmJxxFixup(); // B skip
+    // Emit conditional branches to trap path
+    struct { int bit; A64Cond cond; } conds[] = {
+        {16, A64_LT}, {8, A64_GT}, {4, A64_EQ}, {2, A64_CC}, {1, A64_HI}
+    };
+    int idx = 0;
+    for (auto &c : conds) {
+        if (TO & c.bit) {
+            // Skip remaining conds + B to reach trap path
+            uint skip = (nconds - 1 - idx) * 4 + 4;
+            jitc.asmBccForward(c.cond, skip);
+            idx++;
+        }
+    }
+
+    // B forward over trap body (no-trap path)
+    NativeAddress end = jitc.asmHERE() + 4 + trap_body;
+    jitc.asmBForward(trap_body);
 
     // Trap path
-    NativeAddress trapPath = jitc.asmHERE();
     jitc.asmMOV(W0, jitc.pc);
     jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
     jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
 
-    // Patch conditional branches to trapPath
-    if (trap1) jitc.asmResolveCondFixup(trap1, trapPath, A64_LT);
-    if (trap2) jitc.asmResolveCondFixup(trap2, trapPath, A64_GT);
-    if (trap3) jitc.asmResolveCondFixup(trap3, trapPath, A64_EQ);
-    if (trap4) jitc.asmResolveCondFixup(trap4, trapPath, A64_CC);
-    if (trap5) jitc.asmResolveCondFixup(trap5, trapPath, A64_HI);
-
-    // Patch noTrap to skip here
-    jitc.asmResolveFixup(noTrap, 0);
+    jitc.asmAssertHERE(end, "tw");
 
     return flowContinue;
 }
@@ -2946,27 +2960,33 @@ JITCFlow ppc_opc_gen_twi(JITC &jitc)
         return flowEndBlockUnreachable;
     }
 
-    NativeAddress trap1 = NULL, trap2 = NULL, trap3 = NULL, trap4 = NULL, trap5 = NULL;
-    if (TO & 16) trap1 = jitc.asmJxxFixup();
-    if (TO & 8)  trap2 = jitc.asmJxxFixup();
-    if (TO & 4)  trap3 = jitc.asmJxxFixup();
-    if (TO & 2)  trap4 = jitc.asmJxxFixup();
-    if (TO & 1)  trap5 = jitc.asmJxxFixup();
+    // Conditional trap: branch to exception if any TO condition matches
+    int nconds = __builtin_popcount(TO & 0x1f);
+    uint trap_body = a64_movw_size(jitc.pc)
+                   + a64_movw_size(PPC_EXC_PROGRAM_TRAP)
+                   + a64_bl_size((uint64)ppc_program_exception_asm);
+    jitc.emitAssure(nconds * 4 + 4 + trap_body);
 
-    NativeAddress noTrap = jitc.asmJxxFixup();
+    struct { int bit; A64Cond cond; } conds[] = {
+        {16, A64_LT}, {8, A64_GT}, {4, A64_EQ}, {2, A64_CC}, {1, A64_HI}
+    };
+    int idx = 0;
+    for (auto &c : conds) {
+        if (TO & c.bit) {
+            uint skip = (nconds - 1 - idx) * 4 + 4;
+            jitc.asmBccForward(c.cond, skip);
+            idx++;
+        }
+    }
 
-    NativeAddress trapPath = jitc.asmHERE();
+    NativeAddress end = jitc.asmHERE() + 4 + trap_body;
+    jitc.asmBForward(trap_body);
+
     jitc.asmMOV(W0, jitc.pc);
     jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
     jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
 
-    if (trap1) jitc.asmResolveCondFixup(trap1, trapPath, A64_LT);
-    if (trap2) jitc.asmResolveCondFixup(trap2, trapPath, A64_GT);
-    if (trap3) jitc.asmResolveCondFixup(trap3, trapPath, A64_EQ);
-    if (trap4) jitc.asmResolveCondFixup(trap4, trapPath, A64_CC);
-    if (trap5) jitc.asmResolveCondFixup(trap5, trapPath, A64_HI);
-
-    jitc.asmResolveFixup(noTrap, 0);
+    jitc.asmAssertHERE(end, "twi");
 
     return flowContinue;
 }

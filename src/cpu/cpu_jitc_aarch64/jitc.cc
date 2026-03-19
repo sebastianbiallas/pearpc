@@ -216,7 +216,7 @@ void JITC::asmSTR_cpu(NativeReg rs, uint32 offset)
 
 void JITC::asmBL(NativeAddress to)
 {
-    emitAssure(20);
+    emitAssure(a64_bl_size((uint64)to));
     asmMOV64(X16, (uint64)to);
     emit32(a64_BLR(X16));
 }
@@ -228,7 +228,7 @@ void JITC::asmB(NativeAddress to)
     if (imm26 <= 0x1FFFFFF && imm26 >= -0x2000000) {
         emit32(a64_B(offset));
     } else {
-        emitAssure(20);
+        emitAssure(a64_mov64_size((uint64)to) + 4);
         asmMOV64(X16, (uint64)to);
         asmBR(X16);
     }
@@ -307,43 +307,6 @@ void JITC::asmCMPw(NativeReg rn, uint32 imm12)
 void JITC::asmTSTw(NativeReg rn, int immr, int imms)
 {
     emit32(a64_TSTw_imm(rn, immr, imms));
-}
-
-NativeAddress JITC::asmJxxFixup()
-{
-    // Emit a placeholder B instruction (unconditional, offset 0).
-    // Returns the address of the instruction so it can be patched later.
-    //
-    // IMPORTANT: emit32() may trigger a fragment overflow, which emits a
-    // linking branch at the old tcp and moves tcp to a new fragment.
-    // We must capture the address AFTER emit32, not before, to get the
-    // actual location of the placeholder instruction.
-    emit32(a64_B(0)); // placeholder, will be patched
-    return currentPage->tcp - 4;
-}
-
-void JITC::asmResolveFixup(NativeAddress at, NativeAddress to)
-{
-    if (to == 0) to = currentPage->tcp;
-    sint64 offset = (sint64)(to - at);
-    sint32 imm26 = (sint32)(offset / 4);
-    if (imm26 > 0x1FFFFFF || imm26 < -0x2000000) {
-        PPC_CPU_ERR("asmResolveFixup: B offset %d out of range (±128MB) at %p → %p\n",
-            imm26, at, to);
-    }
-    *(uint32 *)at = a64_B(offset);
-}
-
-void JITC::asmResolveCondFixup(NativeAddress at, NativeAddress to, uint8 cond)
-{
-    if (to == 0) to = currentPage->tcp;
-    sint64 offset = (sint64)(to - at);
-    sint32 imm19 = (sint32)(offset / 4);
-    if (imm19 > 0x3FFFF || imm19 < -0x40000) {
-        PPC_CPU_ERR("asmResolveCondFixup: B.cc offset %d out of range (±1MB) at %p → %p\n",
-            imm19, at, to);
-    }
-    *(uint32 *)at = a64_Bcc((A64Cond)cond, offset);
 }
 
 static void jitcEmitAlign(JITC &jitc, uint align)
