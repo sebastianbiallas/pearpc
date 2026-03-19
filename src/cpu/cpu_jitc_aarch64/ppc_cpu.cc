@@ -20,12 +20,14 @@
 
 #include <cerrno>
 #include <csignal>
+#include <cstdarg>
 #include <cstring>
 #include <cstdlib>
 #include <unistd.h>
 
 #include "debug/tracers.h"
 #include "system/sys.h"
+#include "system/sysbt.h"
 #include "system/sysclk.h"
 #include "system/systhread.h"
 #include "system/systimer.h"
@@ -120,8 +122,7 @@ void ppc_cpu_run()
     jitcDebugInit();
 
     if (!sys_create_timer(&gDECtimer, decTimerCB)) {
-        ht_printf("Unable to create timer\n");
-        exit(1);
+        PPC_CPU_ERR("unable to create DEC timer\n");
     }
     // Ensure SIGALRM is not blocked on this thread
     {
@@ -135,8 +136,8 @@ void ppc_cpu_run()
         }
     }
     if ((sizeof *gCPU) % 16) {
-        ht_printf("compilation problem: sizeof gCPU is not multiple of 16 (aarch64 alignment)\n");
-        exit(1);
+        PPC_CPU_ERR("sizeof gCPU (%d) is not multiple of 16 (aarch64 alignment)\n",
+                  (int)(sizeof *gCPU));
     }
     ht_printf("*** &gCPU: %p, &gJITC: %p\n", gCPU, gCPU->jitc);
     ht_printf("sizeof cpu: %d\n", int(sizeof(*gCPU)));
@@ -173,9 +174,26 @@ void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)
 extern "C" void crash_dump_cpu_state();
 extern void jitc_dump_and_exit(int code);
 
+void ppc_fatal(const char *fmt, ...)
+{
+    static bool already_crashing = false;
+    if (already_crashing) _exit(1);
+    already_crashing = true;
+
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "\n*** FATAL: ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+
+    ppc_cpu_crash_dump(1);
+}
+
 void ppc_cpu_crash_dump(int code)
 {
     crash_dump_cpu_state();
+    sys_print_backtrace(64);
     jitc_dump_and_exit(code);
 }
 

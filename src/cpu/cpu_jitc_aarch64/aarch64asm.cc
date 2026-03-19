@@ -10,11 +10,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include "aarch64asm.h"
+#include "debug/tracers.h"
 
 #define A64_ASSERT_RANGE(val, lo, hi, name) \
     do { if ((val) < (lo) || (val) > (hi)) { \
-        fprintf(stderr, "[A64] %s: offset %d out of range [%d, %d]\n", name, (int)(val), (int)(lo), (int)(hi)); \
-        abort(); \
+        PPC_CPU_ERR("[A64] %s: offset %d out of range [%d, %d]\n", name, (int)(val), (int)(lo), (int)(hi)); \
     } } while(0)
 
 /*

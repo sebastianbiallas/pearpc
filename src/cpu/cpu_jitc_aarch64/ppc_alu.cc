@@ -1989,11 +1989,8 @@ int ppc_opc_bclrx(PPC_CPU_State &aCPU)
                 aCPU.lr, aCPU.pc, BD);
         }
         if (BD >= 0xBF000000 && BD < 0xC0000000) {
-            fprintf(stderr, "[BCLRX-PROM] npc=%08x lr=%08x pc=%08x msr=%08x\n",
+            PPC_ALU_ERR("BCLRX PROM dispatch: npc=%08x lr=%08x pc=%08x msr=%08x\n",
                 BD, aCPU.lr, aCPU.pc, aCPU.msr);
-            extern FILE *gTraceLog;
-            if (gTraceLog) fflush(gTraceLog);
-            exit(48);
         }
     }
 	return 0;

@@ -122,9 +122,8 @@ void JITC::emit32(uint32 instr)
         NativeAddress end = currentPage->tcp + currentPage->bytesLeft;
         TranslationCacheFragment *tcf = currentPage->tcf_current;
         if (tcf && end > tcf->base + FRAGMENT_SIZE) {
-            fprintf(stderr, "[EMIT32-OOB] tcp=%p bytesLeft=%d end=%p fragment_end=%p\n",
+            PPC_CPU_ERR("emit32 OOB: tcp=%p bytesLeft=%d end=%p fragment_end=%p\n",
                 currentPage->tcp, currentPage->bytesLeft, end, tcf->base + FRAGMENT_SIZE);
-            exit(53);
         }
     }
     jitcDebugLogEmit(*this, (const byte *)&instr, 4);
@@ -529,9 +528,8 @@ static inline void jitcCreateEntrypoint(ClientPage *cp, uint32 ofs)
     extern byte *gTranslationCacheBase;
     if (gTranslationCacheBase && ((byte *)cp->tcp < gTranslationCacheBase ||
         (byte *)cp->tcp >= gTranslationCacheBase + 64 * 1024 * 1024)) {
-        fprintf(stderr, "[JITC] BUG: entrypoint tcp=%p outside cache for ofs=%x\n",
+        PPC_CPU_ERR("entrypoint tcp=%p outside cache for ofs=%x\n",
             cp->tcp, ofs);
-        exit(1);
     }
     cp->entrypoints[ofs >> 2] = cp->tcp;
 }
@@ -629,9 +627,8 @@ extern "C" NativeAddress jitcStartTranslation(JITC &jitc, ClientPage *cp, uint32
     // Sanity check: tcp must be within translation cache
     if ((byte *)cp->tcp < jitc.translationCache ||
         (byte *)cp->tcp >= jitc.translationCache + 64 * 1024 * 1024) {
-        fprintf(stderr, "[JITC] BUG: fragment base %p outside cache [%p, +64MB)\n",
+        PPC_CPU_ERR("fragment base %p outside cache [%p, +64MB)\n",
             cp->tcp, jitc.translationCache);
-        abort();
     }
 
     return jitcNewEntrypoint(jitc, cp, baseaddr, ofs);
@@ -722,7 +719,8 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
             static int promCount = 0;
             if (++promCount >= 3) {
                 if (gTraceLog) fflush(gTraceLog);
-                exit(45);
+                PPC_CPU_ERR("repeated PROM dispatch: pc=%08x pa=%08x msr=%08x\n",
+                    pc, entry, gCPU->msr);
             }
         }
     }
@@ -748,12 +746,12 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
             fprintf(stderr, "  r0=%08x r1=%08x r9=%08x r10=%08x temp=%08x\n",
                 gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[9], gCPU->gpr[10], gCPU->temp);
             if (gTraceLog) fflush(gTraceLog);
-            jitc_dump_and_exit(51);
+            PPC_CPU_ERR("CPU state corrupt: %s=%08x at dispatch pa=%08x\n",
+                field, val, entry);
         }
     }
     if (entry > gMemorySize) {
-        ht_printf("entry not physical: %08x\n", entry);
-        exit(-1);
+        PPC_CPU_ERR("entry not physical: %08x (memsize=%08x)\n", entry, gMemorySize);
     }
     uint32 baseaddr = entry & 0xfffff000;
     ClientPage *cp = jitcGetOrCreateClientPage(jitc, baseaddr);
@@ -786,9 +784,8 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     // Sanity check: result must be in the translation cache
     if ((byte *)result < jitc.translationCache ||
         (byte *)result >= jitc.translationCache + 64 * 1024 * 1024) {
-        fprintf(stderr, "[JITC] BUG: jitcNewPC returning %p outside cache [%p, +64MB) for PA %08x\n",
+        PPC_CPU_ERR("jitcNewPC returning %p outside cache [%p, +64MB) for PA %08x\n",
             result, jitc.translationCache, entry);
-        exit(1);
     }
 
     return result;
@@ -797,43 +794,37 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 extern "C" void jitc_error_bad_native_address()
 {
     extern PPC_CPU_State *gCPU;
-    ht_printf("[JITC] BUG: jitcNewPC returned a guest address, not native code!\n");
-    ht_printf("  pc=%08x msr=%08x current_code_base=%08x pc_ofs=%08x\n",
+    PPC_CPU_ERR("jitcNewPC returned a guest address, not native code! "
+        "pc=%08x msr=%08x ccb=%08x pc_ofs=%08x\n",
         gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
-    exit(1);
 }
 
 extern "C" void jitc_error_bad_entrypoint(uint64 addr)
 {
     extern PPC_CPU_State *gCPU;
-    ht_printf("[JITC] BUG: entrypoint %p is not native code!\n", (void *)addr);
-    ht_printf("  pc=%08x msr=%08x current_code_base=%08x pc_ofs=%08x\n",
-        gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
-    exit(1);
+    PPC_CPU_ERR("entrypoint %p is not native code! "
+        "pc=%08x msr=%08x ccb=%08x pc_ofs=%08x\n",
+        (void *)addr, gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
 }
 
 extern "C" void jitc_error_msr_unsupported_bits(uint32 a)
 {
-    ht_printf("JITC msr Error: %08x\n", a);
-    exit(1);
+    PPC_CPU_ERR("unsupported MSR bits: %08x\n", a);
 }
 
 extern "C" void jitc_error(const char *error)
 {
-    ht_printf("JITC Error: %s\n", error);
-    exit(1);
+    PPC_CPU_ERR("%s\n", error);
 }
 
 extern "C" void FASTCALL jitc_error_singlestep()
 {
-    ht_printf("JITC Error: Singlestep not supported yet\n");
-    exit(1);
+    PPC_CPU_ERR("singlestep not supported yet\n");
 }
 
 extern "C" void FASTCALL jitc_error_unknown_exception()
 {
-    ht_printf("JITC Error: Unknown exception signaled\n");
-    exit(1);
+    PPC_CPU_ERR("unknown exception signaled\n");
 }
 
 extern "C" void jitc_error_program(uint32 a, uint32 b)
@@ -864,8 +855,7 @@ void JITC::invalidateAll()
 
 extern "C" void jitc_error_stack_align()
 {
-    ht_printf("JITC Error: Stack is not aligned.\n");
-    exit(1);
+    PPC_CPU_ERR("stack is not aligned\n");
 }
 
 bool JITC::init(uint maxClientPages, uint32 tcSize)

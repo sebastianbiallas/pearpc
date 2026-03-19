@@ -62,8 +62,7 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
         fprintf(stderr, "[FATAL-DSI] r0=%08x r1=%08x r3=%08x r7=%08x r8=%08x r9=%08x r10=%08x r30=%08x\n",
             aCPU.gpr[0], aCPU.gpr[1], aCPU.gpr[3], aCPU.gpr[7],
             aCPU.gpr[8], aCPU.gpr[9], aCPU.gpr[10], aCPU.gpr[30]);
-        extern void jitc_dump_and_exit(int);
-        jitc_dump_and_exit(44);
+        PPC_EXC_ERR("NULL pointer DSI: pc=%08x dar=%08x\n", aCPU.pc, a);
     }
 
     switch (type) {

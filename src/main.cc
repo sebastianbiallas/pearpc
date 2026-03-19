@@ -231,13 +231,7 @@ static void crash_handler(int sig, siginfo_t *info, void *ctx)
 	fprintf(stderr, "  insn@pc: %08x\n", *(uint32 *)ss->__pc);
 #endif
 
-	// Stack trace
-	void *bt[64];
-	int n = backtrace(bt, 64);
-	fprintf(stderr, "  Backtrace (%d frames):\n", n);
-	backtrace_symbols_fd(bt, n, STDERR_FILENO);
-
-	// Dump CPU state and memory, then exit
+	// Dump CPU state, backtrace, and memory, then exit
 	ppc_cpu_crash_dump(128 + sig);
 }
 

@@ -34,6 +34,7 @@ void	ppc_cpu_stop();
 void	ppc_cpu_wakeup();
 
 void	ppc_cpu_crash_dump(int code);
+void	ppc_fatal(const char *fmt, ...);
 
 void	ppc_machine_check_exception();
 

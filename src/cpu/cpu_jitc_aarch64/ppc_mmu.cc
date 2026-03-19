@@ -84,7 +84,7 @@ extern "C" void jitc_fatal_gpr9_corrupt(PPC_CPU_State *cpu)
         cpu->npc, cpu->lr, cpu->msr, cpu->gpr[0], cpu->gpr[1], cpu->gpr[10]);
     fprintf(stderr, "  temp=%08x temp2=%08x\n", cpu->temp, cpu->temp2);
     if (gTraceLog) fflush(gTraceLog);
-    jitc_dump_and_exit(52);
+    PPC_CPU_ERR("gpr[9] corrupt: %08x at pc=%08x\n", cpu->gpr[9], cpu->pc);
 }
 
 
@@ -555,8 +555,7 @@ int FASTCALL ppc_read_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 &
         return ppc_read_physical_dword(p, result);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -569,8 +568,7 @@ int FASTCALL ppc_read_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 &r
         return ppc_read_physical_word(p, result);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -583,8 +581,7 @@ int FASTCALL ppc_read_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 &r
         return ppc_read_physical_half(p, result);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -597,8 +594,7 @@ int FASTCALL ppc_read_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 &re
         return ppc_read_physical_byte(p, result);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -647,8 +643,7 @@ int FASTCALL ppc_write_effective_dword(PPC_CPU_State &aCPU, uint32 addr, uint64 
         return ppc_write_physical_dword(p, data);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -661,8 +656,7 @@ int FASTCALL ppc_write_effective_word(PPC_CPU_State &aCPU, uint32 addr, uint32 d
         return ppc_write_physical_word(p, data);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -675,8 +669,7 @@ int FASTCALL ppc_write_effective_half(PPC_CPU_State &aCPU, uint32 addr, uint16 d
         return ppc_write_physical_half(p, data);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
@@ -689,8 +682,7 @@ int FASTCALL ppc_write_effective_byte(PPC_CPU_State &aCPU, uint32 addr, uint8 da
         return ppc_write_physical_byte(p, data);
     }
     if (r == PPC_MMU_FATAL) {
-        fprintf(stderr, "[FATAL] MMU fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
-        exit(1);
+        PPC_MMU_ERR("fatal at ea=%08x pc=%08x msr=%08x\n", addr, aCPU.pc, aCPU.msr);
     }
     return r;
 }
