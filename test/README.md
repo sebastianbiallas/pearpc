@@ -64,6 +64,7 @@ Exit code 0 = all tests passed. Nonzero = number of failures.
 | `test_dsi.S` | `test_dsi.cfg` | DSI exception handling: installs handler at vector 0x300, accesses unmapped pages to trigger DSI, handler creates PTE and returns via rfi, verifies retry succeeds. Tests lwz/stw/sth/stb/lhz/lbz through DSI-mapped pages. |
 | `test_branch_loop.S` | `test_branch_loop.cfg` | Branch loop patterns: counted loops with `bl` calls inside (same-page `ble` + `bl` dispatch). Tests the exact pattern from the kernel's softirq init loop. Also tests `bdnz`, accumulator loops, and multi-register loop state. |
 | `test_fpu_exc.S` | `test_fpu_exc.cfg` | FPU exception handling: installs NO_FPU handler at vector 0x800, verifies FP arithmetic/load/store work with MSR_FP=1, then clears MSR_FP and verifies lfd/fadd/stfd/fdivs/lfs/stfs all raise NO_FPU. Checks SRR0/SRR1 correctness. Handler sets MSR_FP and retries via rfi. |
+| `test_altivec.S` | `test_altivec.cfg` | 12 AltiVec tests: MSR_VEC enable via rfi, vxor, vspltisw, vspltisb, vadduwm, vsubuwm, vand, vaddubm, vmrghw, vcmpequw. (with CR6), lvx/stvx round-trip, vspltw. |
 
 ## Writing a new test
 

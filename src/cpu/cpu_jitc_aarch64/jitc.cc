@@ -508,10 +508,12 @@ static uint64 gTraceCount = 0;
 
 static void traceInit()
 {
-    if (!gTraceLog) {
-        gTraceLog = fopen("jitc_trace.log", "w");
-        if (gTraceLog) setvbuf(gTraceLog, NULL, _IOFBF, 256 * 1024);
-    }
+    // Dispatch trace disabled — too large for normal runs.
+    // Uncomment to re-enable for debugging:
+    // if (!gTraceLog) {
+    //     gTraceLog = fopen("jitc_trace.log", "w");
+    //     if (gTraceLog) setvbuf(gTraceLog, NULL, _IOFBF, 256 * 1024);
+    // }
 }
 
 static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 baseaddr, uint32 ofs)
@@ -694,7 +696,7 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         bool corrupt = false;
         const char *field = "";
         uint32 val = 0;
-        if (gCPU->gpr[9] == 0x0000FD69) { corrupt = true; field = "gpr[9]"; val = gCPU->gpr[9]; }
+        // gpr[9]==0xFD69 check removed — was a false positive (normal user-mode value)
         // Check if msr looks like an aarch64 instruction (top byte B9/AA/D6/F2/52)
         uint8 msr_top = gCPU->msr >> 24;
         if (msr_top == 0xB9 || msr_top == 0xAA || msr_top == 0xD6 || msr_top == 0xF2 || msr_top == 0x52) {

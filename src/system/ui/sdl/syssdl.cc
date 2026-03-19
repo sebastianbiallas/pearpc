@@ -45,8 +45,6 @@
 SDL_Window *	gSDLWindow = NULL;
 SDL_Renderer *	gSDLRenderer = NULL;
 SDL_Texture *	gSDLTexture = NULL;
-static bool	gSDLVideoExposePending = false;
-SDL_TimerID SDL_RedrawTimerID = 0;
 
 SDLSystemDisplay *sd;
 
@@ -86,7 +84,6 @@ static bool handleSDLEvent(const SDL_Event &event)
 	}
 	case SDL_EVENT_WINDOW_EXPOSED:
 		gDisplay->displayShow();
-		gSDLVideoExposePending = false;
 		return true;
 	case SDL_EVENT_KEY_UP: {
 		int sc = event.key.scancode;
@@ -195,21 +192,9 @@ static bool handleSDLEvent(const SDL_Event &event)
 	return true;
 }
 
-static Uint32 SDL_redrawCallback(void *param, SDL_TimerID timerID, Uint32 interval)
-{
-	SDL_Event event;
-
-	if (!gSDLVideoExposePending) {
-		SDL_zero(event);
-		event.type = SDL_EVENT_WINDOW_EXPOSED;
-		if (gSDLWindow) {
-			event.window.windowID = SDL_GetWindowID(gSDLWindow);
-		}
-		SDL_PushEvent(&event);
-		gSDLVideoExposePending = true;
-	}
-	return interval;
-}
+// Redraw timer removed — SDL3 on macOS doesn't reliably deliver
+// cross-thread events to SDL_WaitEvent. The event loop now uses
+// SDL_WaitEventTimeout for periodic redraws instead.
 
 SystemDisplay *allocSystemDisplay(const char *title, const DisplayCharacteristics &chr, int redraw_ms);
 SystemKeyboard *allocSystemKeyboard();
@@ -248,20 +233,23 @@ void initUI(const char *title, const DisplayCharacteristics &aCharacteristics, i
 void runUI()
 {
 	// This runs on the main thread -- the SDL event loop
-	gSDLVideoExposePending = false;
-	SDL_RedrawTimerID = SDL_AddTimer(gDisplay->mRedraw_ms, SDL_redrawCallback, NULL);
-
 	sd->setFullscreenMode(sd->mFullscreen);
 
 	SDL_Event event;
-	do {
-		SDL_WaitEvent(&event);
-	} while (handleSDLEvent(event));
+	bool running = true;
+	while (running) {
+		if (SDL_WaitEventTimeout(&event, gDisplay->mRedraw_ms)) {
+			running = handleSDLEvent(event);
+			// Drain any additional pending events
+			while (running && SDL_PollEvent(&event)) {
+				running = handleSDLEvent(event);
+			}
+		}
+		// Periodic redraw regardless of events
+		gDisplay->displayShow();
+	}
 
 	gDisplay->setMouseGrab(false);
-
-	if (SDL_RedrawTimerID)
-		SDL_RemoveTimer(SDL_RedrawTimerID);
 
 	ppc_cpu_stop();
 }

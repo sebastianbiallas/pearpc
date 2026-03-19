@@ -1567,58 +1567,291 @@ int ppc_opc_stfsx(PPC_CPU_State &aCPU)
 	return ppc_write_effective_word(aCPU, (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB], s);
 }
 
-/* Altivec load/store stubs */
+/*
+ *	AltiVec load/store operations
+ */
+
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+static byte lvsl_helper[] = {
+	0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19, 0x18,
+	0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11, 0x10,
+	0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08,
+	0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00
+};
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+static byte lvsl_helper[] = {
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+	0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+};
+#else
+#error Endianess not supported!
+#endif
+
+/*      lvx         Load Vector Indexed
+ *      v.127
+ */
 int ppc_opc_lvx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrD, rA, rB);
+
+	uint32 ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]) & ~0x0f;
+
+	uint64 hi, lo;
+	int ret = ppc_read_effective_dword(aCPU, ea, hi);
+	if (ret) return ret;
+	ret = ppc_read_effective_dword(aCPU, ea + 8, lo);
+	if (ret) return ret;
+	VECT_D(aCPU.vr[vrD], 0) = hi;
+	VECT_D(aCPU.vr[vrD], 1) = lo;
+	return 0;
 }
+
+/*      lvxl        Load Vector Index LRU
+ *      v.128
+ */
 int ppc_opc_lvxl(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	return ppc_opc_lvx(aCPU);
+	/* This instruction should hint to the cache that the value won't be
+	 *   needed again in memory anytime soon.  We don't emulate the cache,
+	 *   so this is effectively exactly the same as lvx.
+	 */
 }
+
+/*      lvebx       Load Vector Element Byte Indexed
+ *      v.119
+ */
 int ppc_opc_lvebx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint8 r;
+	ea = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+	int ret = ppc_read_effective_byte(aCPU, ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_B(aCPU.vr[vrD], ea & 0xf) = r;
+	}
+	return ret;
 }
+
+/*      lvehx       Load Vector Element Half Word Indexed
+ *      v.121
+ */
 int ppc_opc_lvehx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint16 r;
+	ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]) & ~1;
+	int ret = ppc_read_effective_half(aCPU, ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_H(aCPU.vr[vrD], (ea & 0xf) >> 1) = r;
+	}
+	return ret;
 }
+
+/*      lvewx       Load Vector Element Word Indexed
+ *      v.122
+ */
 int ppc_opc_lvewx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	uint32 r;
+	ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]) & ~3;
+	int ret = ppc_read_effective_word(aCPU, ea, r);
+	if (ret == PPC_MMU_OK) {
+		VECT_W(aCPU.vr[vrD], (ea & 0xf) >> 2) = r;
+	}
+	return ret;
 }
+
+/*      lvsl        Load Vector for Shift Left
+ *      v.123
+ */
 int ppc_opc_lvsl(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]);
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	memmove(&aCPU.vr[vrD], lvsl_helper + 0x10 - (ea & 0xf), 16);
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(&aCPU.vr[vrD], lvsl_helper + (ea & 0xf), 16);
+#else
+#error Endianess not supported!
+#endif
+	return 0;
 }
+
+/*      lvsr        Load Vector for Shift Right
+ *      v.125
+ */
 int ppc_opc_lvsr(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrD, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrD, rA, rB);
+	uint32 ea;
+	ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]);
+#if HOST_ENDIANESS == HOST_ENDIANESS_LE
+	memmove(&aCPU.vr[vrD], lvsl_helper + (ea & 0xf), 16);
+#elif HOST_ENDIANESS == HOST_ENDIANESS_BE
+	memmove(&aCPU.vr[vrD], lvsl_helper + 0x10 - (ea & 0xf), 16);
+#else
+#error Endianess not supported!
+#endif
+	return 0;
 }
+
+/*      dst         Data Stream Touch
+ *      v.115
+ */
 int ppc_opc_dst(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	VECTOR_DEBUG;
+	/* Since we are not emulating the cache, this is a nop */
+	return 0;
 }
+
+/*      stvx        Store Vector Indexed
+ *      v.134
+ */
 int ppc_opc_stvx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrS, rA, rB);
+
+	uint32 ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]) & ~0x0f;
+
+	int ret = ppc_write_effective_dword(aCPU, ea, VECT_D(aCPU.vr[vrS], 0));
+	if (ret) return ret;
+	ret = ppc_write_effective_dword(aCPU, ea + 8, VECT_D(aCPU.vr[vrS], 1));
+	return ret;
 }
+
+/*      stvxl       Store Vector Indexed LRU
+ *      v.135
+ */
 int ppc_opc_stvxl(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+	return ppc_opc_stvx(aCPU);
+	/* This instruction should hint to the cache that the value won't be
+	 *   needed again in memory anytime soon.  We don't emulate the cache,
+	 *   so this is effectively exactly the same as stvx.
+	 */
 }
+
+/*      stvebx      Store Vector Element Byte Indexed
+ *      v.131
+ */
 int ppc_opc_stvebx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = (rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB];
+	return ppc_write_effective_byte(aCPU, ea, VECT_B(aCPU.vr[vrS], ea & 0xf));
 }
+
+/*      stvehx      Store Vector Element Half Word Indexed
+ *      v.132
+ */
 int ppc_opc_stvehx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]) & ~1;
+	return ppc_write_effective_half(aCPU, ea, VECT_H(aCPU.vr[vrS], (ea & 0xf) >> 1));
 }
+
+/*      stvewx      Store Vector Element Word Indexed
+ *      v.133
+ */
 int ppc_opc_stvewx(PPC_CPU_State &aCPU)
 {
-	PPC_MMU_ERR("UNIMPLEMENTED opcode %08x at pc=%08x\n", aCPU.current_opc, aCPU.pc);
+#ifndef __VEC_EXC_OFF__
+	if ((aCPU.msr & MSR_VEC) == 0) {
+		ppc_exception(aCPU, PPC_EXC_NO_VEC);
+		return 1;
+	}
+#endif
+	VECTOR_DEBUG;
+	int rA, vrS, rB;
+	PPC_OPC_TEMPL_X(aCPU.current_opc, vrS, rA, rB);
+	uint32 ea;
+	ea = ((rA ? aCPU.gpr[rA] : 0) + aCPU.gpr[rB]) & ~3;
+	return ppc_write_effective_word(aCPU, ea, VECT_W(aCPU.vr[vrS], (ea & 0xf) >> 2));
 }
 int ppc_opc_dstst(PPC_CPU_State &aCPU)
 {
