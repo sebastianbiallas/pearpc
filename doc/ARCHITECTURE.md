@@ -133,7 +133,7 @@ Same architecture as the x86 JIT but targeting x86_64. Takes advantage of 16 GPR
 
 ### AArch64 JIT Compiler (`cpu_jitc_aarch64/`)
 
-JIT compiler targeting AArch64 (ARM64), primarily for macOS on Apple Silicon. Uses MAP_JIT + pthread_jit_write_protect_np for W^X compliance. ALU/compare/rotate/SPR/CR ops, branches (b/bl/bc with native TBZ/TBNZ/CBZ codegen), and all integer load/store variants (D-form, X-form, update, byte-reversed, multiple, lwarx/stwcx.) have native code generation. FPU and AltiVec opcodes use GEN_INTERPRET (calling the C++ interpreter via BLR). See `doc/AARCH64_JIT_PORT.md` for details.
+JIT compiler targeting AArch64 (ARM64), primarily for macOS on Apple Silicon. Uses MAP_JIT + pthread_jit_write_protect_np for W^X compliance. Native code generation for: ALU/compare/rotate/SPR/CR ops, branches (b/bl/bc with native TBZ/TBNZ/CBZ codegen), all integer load/store variants (D-form, X-form, update, byte-reversed, multiple, lwarx/stwcx.), all FP load/store (lfd/stfd/lfs/stfs and variants with hardware IEEE single↔double conversion), and FP arithmetic (fadd/fsub/fmul/fdiv/fsqrt/fmadd/fmsub/fnmadd/fnmsub plus single-precision variants, frsp, fctiwz, fsel, with rounding-mode guard falling back to interpreter for non-default FPSCR[RN]). AltiVec opcodes use GEN_INTERPRET. See `doc/AARCH64_JIT_PORT.md` for details.
 
 ### CPU Interface (`cpu.h`)
 

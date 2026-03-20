@@ -244,21 +244,30 @@ Replace interpreter calls with actual AArch64 instructions. Each native gen_ fun
 - Saves 2 instructions at ~58 call sites across the translation cache
 - Precomputed size calculations updated to use `JITC::asmCALL_cpu_size` (8 bytes)
 
-**FPU load/store (needed for yaboot):**
+**Done - FP load/store (native codegen via TLB stubs):**
 
-Yaboot uses FPU load/store in function prologues to save/restore callee-saved FP registers. No actual FP computation — just memory transfers. The opcodes are:
+All FP load/store variants have native codegen:
+- Double: `lfd`/`lfdu`/`lfdx`/`lfdux` — 64-bit load via `PPC_STUB_READ_DWORD`, store to FPR
+- Double stores: `stfd`/`stfdu`/`stfdx`/`stfdux` — load FPR, 64-bit write via `PPC_STUB_WRITE_DWORD`
+- Single loads: `lfs`/`lfsu`/`lfsx`/`lfsux` — 32-bit read via `PPC_STUB_READ_WORD` + `FMOV S0,W0` + `FCVT D0,S0` for IEEE single→double
+- Single stores: `stfs`/`stfsu`/`stfsx`/`stfsux` — load FPR + `FCVT S0,D0` + `FMOV W1,S0` + 32-bit write via `PPC_STUB_WRITE_WORD`
 
-- `stfd`/`stfdu` - store float double (8 bytes from fpr[] to memory)
-- `lfd`/`lfdu` - load float double (8 bytes from memory to fpr[])
-- `stfs`/`stfsu` - store float single (convert double→single, store 4 bytes)
-- `lfs`/`lfsu` - load float single (load 4 bytes, convert single→double)
-- Indexed variants: `stfdx`, `lfdx`, `stfsx`, `lfsx`, etc.
+All do `gen_check_fpu()` (MSR_FP check). The `checkedFloat` flag prevents redundant MSR checks across consecutive FP instructions in the same block.
 
-Implementation: copy from the generic CPU's `ppc_mmu.cc`. The functions are simple — check MSR_FP (raise exception if FPU disabled), compute EA, read/write memory via `ppc_read/write_effective_dword/word`. The double values are stored in the `fpr[32]` array as host `uint64` (raw IEEE 754 bits). All go through `GEN_INTERPRET`.
+**Done - FPU arithmetic (native with rounding-mode guard):**
 
-**FPU arithmetic (not needed for yaboot, needed for kernel):**
+AArch64 FADD/FSUB/FMUL/FDIV operate on IEEE 754 binary64 with exactly 53-bit mantissa — no extended precision mode (unlike x87). IEEE 754 guarantees correctly-rounded results, so PPC and AArch64 hardware produce bit-identical results for the same inputs and rounding mode. AArch64 FMADD is genuinely fused (single rounding), matching PPC fmadd semantics.
 
-All FPU arithmetic opcodes (fadd, fmul, fdiv, fsqrt, fmadd, etc.) are implemented in `ppc_fpu.cc` using host `double` arithmetic. These already exist in the aarch64 port but are only reachable through the interpreter.
+**Strategy:** When FPSCR[RN] == 0 (round-to-nearest, ~99.9% of code), use AArch64 FP instructions directly. When rounding mode != 0 or Rc=1, fall back to the C++ interpreter. FPSCR exception flags (XX, OX, UX, VX*) are skipped on the native path — these are sticky and rarely checked.
+
+Native codegen in `ppc_fpu.cc`:
+- Bit ops: `fmr`, `fneg`, `fabs`, `fnabs` — integer load, bit manipulation, store (always native, no FPSCR dependency)
+- Double: `fadd`, `fsub`, `fmul`, `fdiv`, `fsqrt` — with rounding-mode guard
+- Single: `fadds`, `fsubs`, `fmuls`, `fdivs` — double op + `FCVT S,D` + `FCVT D,S` sandwich
+- FMA: `fmadd`→`FMADD`, `fmsub`→`FNMSUB`, `fnmadd`→`FNMADD`, `fnmsub`→`FMSUB` (PPC↔AArch64 mapping accounts for negation differences), plus single variants
+- Convert: `frsp` (FCVT S,D + FCVT D,S), `fctiwz` (FCVTZS W,D + FMOV D,X)
+- Select: `fsel` (FCMP D,#0 + FCSEL D,D,D,GE — no rounding dependency)
+- Compare: `fcmpu`, `fcmpo` — still interpreter (complex CR/FPSCR update with NaN handling)
 
 **AltiVec:** All use interpreter calls. Not needed for boot.
 
@@ -487,7 +496,8 @@ The test infrastructure is described in `test/README.md`. Tests are bare-metal P
 | `test_mem.S` | Word/half/byte load/store, multi-page stride, lmw/stmw |
 | `test_dsi.S` | DSI exception handling through lwz/stw/sth/stb/lhz/lbz |
 | `test_branch_loop.S` | b/bl/blr/bctr/bctrl/blrl, conditional branches (beq/bne/blt/bgt/ble/bge), bdnz/bdz |
-| `test_fpu_exc.S` | FPU exception handling, fmr, fneg |
+| `test_fpu_arith.S` | 48 tests: fabs, fnabs, fadd/fsub/fmul/fdiv (double+single), fmadd/fmsub/fnmadd/fnmsub (double+single), fsqrt, fcmpu, frsp, fctiwz, fsel, lfs/stfs/lfsu/stfsu, FPSCR rounding modes (mffs, mtfsfi, all 4 RN modes) |
+| `test_fpu_exc.S` | FPU exception handling (NO_FPU when MSR_FP=0), fmr, fneg |
 | `test_altivec.S` | AltiVec enable, vector ALU/compare/splat/merge/load/store |
 | `test_crlogical.S` | crand/crandc/cror/crorc/crxor/crnand/crnor/creqv |
 
@@ -495,7 +505,7 @@ The test infrastructure is described in `test/README.md`. Tests are bare-metal P
 
 **ALU:** andc, eqv, nand, extsb, extsh, mulhw, rlwnm, addc, addze, addme, subfc, subfze, subfme, cmpl, cmpli
 
-**Load/store:** All update variants (lwzu, stwu, lbzu, stbu, lhzu, sthu, lhau and their X-form equivalents), lha/lhax, lhbrx, sthbrx, FP indexed/update variants (lfdx, stfdx, lfdu, stfdu, etc.)
+**Load/store:** All update variants (lwzu, stwu, lbzu, stbu, lhzu, sthu, lhau and their X-form equivalents), lha/lhax, lhbrx, sthbrx, FP indexed variants (lfdx, stfdx, lfdu, stfdu, lfsx, stfsx, etc.)
 
 **Branch:** bc with LK=1 + CR condition, bc with combined CTR+CR
 
