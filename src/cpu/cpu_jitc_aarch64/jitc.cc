@@ -86,8 +86,7 @@ static bool jitcEmitNextFragment(JITC &jitc)
         jitc.currentPage->bytesLeft = FRAGMENT_SIZE;
         // emit B instruction from old to new fragment
         if (jitc.currentPage->bytesLeft < 4) {
-            PPC_CPU_ERR("no space for linking branch (bytesLeft was %d)\n",
-                      (int)(tcp_old - tcf_old->base));
+            PPC_CPU_ERR("no space for linking branch (bytesLeft was %d)\n", (int)(tcp_old - tcf_old->base));
         }
         jitcEmitBranch(tcp_old, jitc.currentPage->tcp);
         return true;
@@ -110,10 +109,9 @@ void JITC::emit32(uint32 instr)
         PPC_CPU_ERR("emit32 bytesLeft=%d after fragment chain\n", currentPage->bytesLeft);
     }
     // Verify tcp is within the translation cache
-    if (currentPage->tcp < translationCache ||
-        currentPage->tcp >= translationCache + 64 * 1024 * 1024) {
-        PPC_CPU_ERR("emit32 tcp=%p outside translation cache [%p, %p)\n",
-                  currentPage->tcp, translationCache, translationCache + 64*1024*1024);
+    if (currentPage->tcp < translationCache || currentPage->tcp >= translationCache + 64 * 1024 * 1024) {
+        PPC_CPU_ERR("emit32 tcp=%p outside translation cache [%p, %p)\n", currentPage->tcp, translationCache,
+                    translationCache + 64 * 1024 * 1024);
     }
     // Verify tcp + bytesLeft doesn't exceed the translation cache
     // (accounts for contiguous fragment optimization where tcp may be
@@ -122,8 +120,8 @@ void JITC::emit32(uint32 instr)
         NativeAddress end = currentPage->tcp + currentPage->bytesLeft;
         TranslationCacheFragment *tcf = currentPage->tcf_current;
         if (tcf && end > tcf->base + FRAGMENT_SIZE) {
-            PPC_CPU_ERR("emit32 OOB: tcp=%p bytesLeft=%d end=%p fragment_end=%p\n",
-                currentPage->tcp, currentPage->bytesLeft, end, tcf->base + FRAGMENT_SIZE);
+            PPC_CPU_ERR("emit32 OOB: tcp=%p bytesLeft=%d end=%p fragment_end=%p\n", currentPage->tcp,
+                        currentPage->bytesLeft, end, tcf->base + FRAGMENT_SIZE);
         }
     }
     jitcDebugLogEmit(*this, (const byte *)&instr, 4);
@@ -304,6 +302,31 @@ void JITC::asmCMPw(NativeReg rn, uint32 imm12)
     emit32(a64_CMPw_imm(rn, imm12));
 }
 
+void JITC::asmSUBSw(NativeReg rd, NativeReg rn, uint32 imm12)
+{
+    emit32(a64_SUBSw_imm(rd, rn, imm12));
+}
+
+void JITC::asmTBZ(NativeReg rt, int bit, sint32 offset)
+{
+    emit32(a64_TBZ(rt, bit, offset));
+}
+
+void JITC::asmTBNZ(NativeReg rt, int bit, sint32 offset)
+{
+    emit32(a64_TBNZ(rt, bit, offset));
+}
+
+void JITC::asmCBZw(NativeReg rt, sint32 offset)
+{
+    emit32(a64_CBZw(rt, offset));
+}
+
+void JITC::asmCBNZw(NativeReg rt, sint32 offset)
+{
+    emit32(a64_CBNZw(rt, offset));
+}
+
 void JITC::asmTSTw(NativeReg rn, int immr, int imms)
 {
     emit32(a64_TSTw_imm(rn, immr, imms));
@@ -365,14 +388,38 @@ void JITC::asmCSETw(NativeReg rd, A64Cond cond)
     emit32(a64_CSINCw(rd, WZR, WZR, (A64Cond)((int)cond ^ 1)));
 }
 
-void JITC::asmUDIVw(NativeReg rd, NativeReg rn, NativeReg rm)  { emit32(a64_UDIVw(rd, rn, rm)); }
-void JITC::asmSDIVw(NativeReg rd, NativeReg rn, NativeReg rm)  { emit32(a64_SDIVw(rd, rn, rm)); }
-void JITC::asmLSLV(NativeReg rd, NativeReg rn, NativeReg rm)   { emit32(a64_LSLV(rd, rn, rm)); }
-void JITC::asmLSRV(NativeReg rd, NativeReg rn, NativeReg rm)   { emit32(a64_LSRV(rd, rn, rm)); }
-void JITC::asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm)  { emit32(a64_UMULL(rd, rn, rm)); }
-void JITC::asmORNw(NativeReg rd, NativeReg rn, NativeReg rm)   { emit32(a64_ORNw(rd, rn, rm)); }
-void JITC::asmMVNw(NativeReg rd, NativeReg rm)                  { emit32(a64_MVNw(rd, rm)); }
-void JITC::asmCLZw(NativeReg rd, NativeReg rn)                  { emit32(a64_CLZw(rd, rn)); }
+void JITC::asmUDIVw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_UDIVw(rd, rn, rm));
+}
+void JITC::asmSDIVw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_SDIVw(rd, rn, rm));
+}
+void JITC::asmLSLV(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_LSLV(rd, rn, rm));
+}
+void JITC::asmLSRV(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_LSRV(rd, rn, rm));
+}
+void JITC::asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_UMULL(rd, rn, rm));
+}
+void JITC::asmORNw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_ORNw(rd, rn, rm));
+}
+void JITC::asmMVNw(NativeReg rd, NativeReg rm)
+{
+    emit32(a64_MVNw(rd, rm));
+}
+void JITC::asmCLZw(NativeReg rd, NativeReg rn)
+{
+    emit32(a64_CLZw(rd, rn));
+}
 
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
@@ -381,8 +428,9 @@ static void jitcEmitAlign(JITC &jitc, uint align)
         if (missalign) {
             int bytes = align - missalign;
             if (jitc.currentPage->bytesLeft - bytes < 4) {
-                if (jitcEmitNextFragment(jitc))
+                if (jitcEmitNextFragment(jitc)) {
                     continue;
+                }
             }
             // Fill with NOP instructions (4 bytes each)
             while (bytes >= 4) {
@@ -528,14 +576,18 @@ static ClientPage *jitcCreateClientPage(JITC &jitc, uint32 baseaddr)
     } else {
         cp = jitc.LRUpage;
         jitcDestroyAndTouchClientPage(jitc, cp);
-        if (jitc.LRUpage)
+        if (jitc.LRUpage) {
             jitcDestroyAndTouchClientPage(jitc, jitc.LRUpage);
-        if (jitc.LRUpage)
+        }
+        if (jitc.LRUpage) {
             jitcDestroyAndTouchClientPage(jitc, jitc.LRUpage);
-        if (jitc.LRUpage)
+        }
+        if (jitc.LRUpage) {
             jitcDestroyAndTouchClientPage(jitc, jitc.LRUpage);
-        if (jitc.LRUpage)
+        }
+        if (jitc.LRUpage) {
             jitcDestroyAndTouchClientPage(jitc, jitc.LRUpage);
+        }
     }
     jitcMapClientPage(jitc, baseaddr, cp);
     return cp;
@@ -554,10 +606,9 @@ static ClientPage *jitcGetOrCreateClientPage(JITC &jitc, uint32 baseaddr)
 static inline void jitcCreateEntrypoint(ClientPage *cp, uint32 ofs)
 {
     extern byte *gTranslationCacheBase;
-    if (gTranslationCacheBase && ((byte *)cp->tcp < gTranslationCacheBase ||
-        (byte *)cp->tcp >= gTranslationCacheBase + 64 * 1024 * 1024)) {
-        PPC_CPU_ERR("entrypoint tcp=%p outside cache for ofs=%x\n",
-            cp->tcp, ofs);
+    if (gTranslationCacheBase &&
+        ((byte *)cp->tcp < gTranslationCacheBase || (byte *)cp->tcp >= gTranslationCacheBase + 64 * 1024 * 1024)) {
+        PPC_CPU_ERR("entrypoint tcp=%p outside cache for ofs=%x\n", cp->tcp, ofs);
     }
     cp->entrypoints[ofs >> 2] = cp->tcp;
 }
@@ -655,10 +706,8 @@ extern "C" NativeAddress jitcStartTranslation(JITC &jitc, ClientPage *cp, uint32
     cp->bytesLeft = FRAGMENT_SIZE;
 
     // Sanity check: tcp must be within translation cache
-    if ((byte *)cp->tcp < jitc.translationCache ||
-        (byte *)cp->tcp >= jitc.translationCache + 64 * 1024 * 1024) {
-        PPC_CPU_ERR("fragment base %p outside cache [%p, +64MB)\n",
-            cp->tcp, jitc.translationCache);
+    if ((byte *)cp->tcp < jitc.translationCache || (byte *)cp->tcp >= jitc.translationCache + 64 * 1024 * 1024) {
+        PPC_CPU_ERR("fragment base %p outside cache [%p, +64MB)\n", cp->tcp, jitc.translationCache);
     }
 
     return jitcNewEntrypoint(jitc, cp, baseaddr, ofs);
@@ -693,11 +742,12 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     if (entry >= 0x01400000 && entry < 0x02000000) {
         extern PPC_CPU_State *gCPU;
         extern byte *gMemory;
-        static int kernelDisp = 0; kernelDisp++;
+        static int kernelDisp = 0;
+        kernelDisp++;
         static uint32 lastEntry = 0;
         if (kernelDisp <= 20 || (entry != lastEntry && kernelDisp <= 100)) {
-            fprintf(stderr, "[JITC] kernel dispatch #%d: ea=%08x pa=%08x msr=%08x r8=%08x\n",
-                kernelDisp, gCPU->pc, entry, gCPU->msr, gCPU->gpr[8]);
+            fprintf(stderr, "[JITC] kernel dispatch #%d: ea=%08x pa=%08x msr=%08x r8=%08x\n", kernelDisp, gCPU->pc,
+                    entry, gCPU->msr, gCPU->gpr[8]);
         }
         // The hang loop at offset 0xcd8 within some page
         uint32 ofs = entry & 0xfff;
@@ -705,38 +755,39 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
             uint32 r29 = gCPU->gpr[29];
             uint32 watchAddr = r29 + 0x35b4;
             uint32 val = 0;
-            if (watchAddr < 0x08000000)
+            if (watchAddr < 0x08000000) {
                 val = ppc_word_from_BE(*(uint32 *)(gMemory + watchAddr));
-            fprintf(stderr, "[HANG] r29=%08x [r29+35b4]=%08x (%08x) msr=%08x\n",
-                r29, val, watchAddr, gCPU->msr);
+            }
+            fprintf(stderr, "[HANG] r29=%08x [r29+35b4]=%08x (%08x) msr=%08x\n", r29, val, watchAddr, gCPU->msr);
         }
         if (entry == 0x01408360 && kernelDisp <= 25) {
             // Dump what r8 points to
             uint32 r8 = gCPU->gpr[8];
             uint32 val = 0;
-            if (r8 < 0x08000000)
+            if (r8 < 0x08000000) {
                 val = ppc_word_from_BE(*(uint32 *)(gMemory + r8));
-            fprintf(stderr, "[LOOP] r8=%08x [r8]=%08x r5=%08x r3=%08x r4=%08x\n",
-                r8, val, gCPU->gpr[5], gCPU->gpr[3], gCPU->gpr[4]);
+            }
+            fprintf(stderr, "[LOOP] r8=%08x [r8]=%08x r5=%08x r3=%08x r4=%08x\n", r8, val, gCPU->gpr[5], gCPU->gpr[3],
+                    gCPU->gpr[4]);
         }
         lastEntry = entry;
     }
     if (total % 10000000 == 0) {
-        fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
-                total, jitcHits, jitcNewTranslations, jitcNewEntries);
+        fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n", total, jitcHits,
+                jitcNewTranslations, jitcNewEntries);
     }
     if (gTraceLog) {
         gTraceCount++;
         extern PPC_CPU_State *gCPU;
-        fprintf(gTraceLog, "%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x "
+        fprintf(gTraceLog,
+                "%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x "
                 "r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x "
                 "dec=%08x\n",
-                gTraceCount, entry, gCPU->msr,
-                gCPU->cr, gCPU->lr, gCPU->ctr,
-                gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[2],
-                gCPU->gpr[3], gCPU->gpr[4], gCPU->gpr[5],
-                gCPU->dec);
-        if (gTraceCount % 100 == 0) fflush(gTraceLog);
+                gTraceCount, entry, gCPU->msr, gCPU->cr, gCPU->lr, gCPU->ctr, gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[2],
+                gCPU->gpr[3], gCPU->gpr[4], gCPU->gpr[5], gCPU->dec);
+        if (gTraceCount % 100 == 0) {
+            fflush(gTraceLog);
+        }
     }
     // Catch dispatch from PROM address range
     {
@@ -744,13 +795,14 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         uint32 ccb = gCPU->current_code_base;
         uint32 pc = gCPU->pc;
         if (pc >= 0xBF000000 && pc < 0xC0000000) {
-            fprintf(stderr, "[PROM-DISPATCH] pc=%08x pa=%08x msr=%08x lr=%08x ccb=%08x\n",
-                pc, entry, gCPU->msr, gCPU->lr, ccb);
+            fprintf(stderr, "[PROM-DISPATCH] pc=%08x pa=%08x msr=%08x lr=%08x ccb=%08x\n", pc, entry, gCPU->msr,
+                    gCPU->lr, ccb);
             static int promCount = 0;
             if (++promCount >= 3) {
-                if (gTraceLog) fflush(gTraceLog);
-                PPC_CPU_ERR("repeated PROM dispatch: pc=%08x pa=%08x msr=%08x\n",
-                    pc, entry, gCPU->msr);
+                if (gTraceLog) {
+                    fflush(gTraceLog);
+                }
+                PPC_CPU_ERR("repeated PROM dispatch: pc=%08x pa=%08x msr=%08x\n", pc, entry, gCPU->msr);
             }
         }
     }
@@ -765,19 +817,26 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         // Check if msr looks like an aarch64 instruction (top byte B9/AA/D6/F2/52)
         uint8 msr_top = gCPU->msr >> 24;
         if (msr_top == 0xB9 || msr_top == 0xAA || msr_top == 0xD6 || msr_top == 0xF2 || msr_top == 0x52) {
-            corrupt = true; field = "msr"; val = gCPU->msr;
+            corrupt = true;
+            field = "msr";
+            val = gCPU->msr;
         }
         // Check if current_code_base looks like MOV X0, X20 (0xAA1403E0)
-        if (gCPU->current_code_base == 0xAA1403E0) { corrupt = true; field = "ccb"; val = gCPU->current_code_base; }
+        if (gCPU->current_code_base == 0xAA1403E0) {
+            corrupt = true;
+            field = "ccb";
+            val = gCPU->current_code_base;
+        }
         if (corrupt) {
             fprintf(stderr, "[CORRUPT] %s=%08x at dispatch pa=%08x\n", field, val, entry);
-            fprintf(stderr, "  pc=%08x npc=%08x ccb=%08x msr=%08x lr=%08x opc=%08x\n",
-                gCPU->pc, gCPU->npc, gCPU->current_code_base, gCPU->msr, gCPU->lr, gCPU->current_opc);
-            fprintf(stderr, "  r0=%08x r1=%08x r9=%08x r10=%08x temp=%08x\n",
-                gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[9], gCPU->gpr[10], gCPU->temp);
-            if (gTraceLog) fflush(gTraceLog);
-            PPC_CPU_ERR("CPU state corrupt: %s=%08x at dispatch pa=%08x\n",
-                field, val, entry);
+            fprintf(stderr, "  pc=%08x npc=%08x ccb=%08x msr=%08x lr=%08x opc=%08x\n", gCPU->pc, gCPU->npc,
+                    gCPU->current_code_base, gCPU->msr, gCPU->lr, gCPU->current_opc);
+            fprintf(stderr, "  r0=%08x r1=%08x r9=%08x r10=%08x temp=%08x\n", gCPU->gpr[0], gCPU->gpr[1], gCPU->gpr[9],
+                    gCPU->gpr[10], gCPU->temp);
+            if (gTraceLog) {
+                fflush(gTraceLog);
+            }
+            PPC_CPU_ERR("CPU state corrupt: %s=%08x at dispatch pa=%08x\n", field, val, entry);
         }
     }
     if (entry > gMemorySize) {
@@ -812,10 +871,9 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
     }
 
     // Sanity check: result must be in the translation cache
-    if ((byte *)result < jitc.translationCache ||
-        (byte *)result >= jitc.translationCache + 64 * 1024 * 1024) {
-        PPC_CPU_ERR("jitcNewPC returning %p outside cache [%p, +64MB) for PA %08x\n",
-            result, jitc.translationCache, entry);
+    if ((byte *)result < jitc.translationCache || (byte *)result >= jitc.translationCache + 64 * 1024 * 1024) {
+        PPC_CPU_ERR("jitcNewPC returning %p outside cache [%p, +64MB) for PA %08x\n", result, jitc.translationCache,
+                    entry);
     }
 
     return result;
@@ -825,16 +883,16 @@ extern "C" void jitc_error_bad_native_address()
 {
     extern PPC_CPU_State *gCPU;
     PPC_CPU_ERR("jitcNewPC returned a guest address, not native code! "
-        "pc=%08x msr=%08x ccb=%08x pc_ofs=%08x\n",
-        gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
+                "pc=%08x msr=%08x ccb=%08x pc_ofs=%08x\n",
+                gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
 }
 
 extern "C" void jitc_error_bad_entrypoint(uint64 addr)
 {
     extern PPC_CPU_State *gCPU;
     PPC_CPU_ERR("entrypoint %p is not native code! "
-        "pc=%08x msr=%08x ccb=%08x pc_ofs=%08x\n",
-        (void *)addr, gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
+                "pc=%08x msr=%08x ccb=%08x pc_ofs=%08x\n",
+                (void *)addr, gCPU->pc, gCPU->msr, gCPU->current_code_base, gCPU->pc_ofs);
 }
 
 extern "C" void jitc_error_msr_unsupported_bits(uint32 a)
@@ -906,8 +964,9 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 
     ht_printf("translation cache: %p (aarch64 JIT)\n", translationCache);
 
-    if (!translationCache)
+    if (!translationCache) {
         return false;
+    }
     int maxPages = gMemorySize / 4096;
     clientPages = ppc_malloc(maxPages * sizeof(ClientPage *));
     memset(clientPages, 0, maxPages * sizeof(ClientPage *));
@@ -975,6 +1034,7 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 
 void JITC::done()
 {
-    if (translationCache)
+    if (translationCache) {
         sys_free_read_write_execute(translationCache);
+    }
 }

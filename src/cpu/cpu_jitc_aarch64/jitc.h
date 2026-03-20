@@ -75,11 +75,37 @@ enum NativeReg {
     REG_NO = 0xff,
 
     // W-register aliases (same encoding, for readability in 32-bit ops)
-    W0 = 0, W1 = 1, W2 = 2, W3 = 3, W4 = 4, W5 = 5, W6 = 6, W7 = 7,
-    W8 = 8, W9 = 9, W10 = 10, W11 = 11, W12 = 12, W13 = 13, W14 = 14, W15 = 15,
-    W16 = 16, W17 = 17, W18 = 18, W19 = 19, W20 = 20,
-    W21 = 21, W22 = 22, W23 = 23, W24 = 24, W25 = 25,
-    W26 = 26, W27 = 27, W28 = 28, W29 = 29, W30 = 30,
+    W0 = 0,
+    W1 = 1,
+    W2 = 2,
+    W3 = 3,
+    W4 = 4,
+    W5 = 5,
+    W6 = 6,
+    W7 = 7,
+    W8 = 8,
+    W9 = 9,
+    W10 = 10,
+    W11 = 11,
+    W12 = 12,
+    W13 = 13,
+    W14 = 14,
+    W15 = 15,
+    W16 = 16,
+    W17 = 17,
+    W18 = 18,
+    W19 = 19,
+    W20 = 20,
+    W21 = 21,
+    W22 = 22,
+    W23 = 23,
+    W24 = 24,
+    W25 = 25,
+    W26 = 26,
+    W27 = 27,
+    W28 = 28,
+    W29 = 29,
+    W30 = 30,
     WZR = 31,
     XZR = 31,
 };
@@ -316,21 +342,21 @@ public:
     void asmNOP();
 
     // MOV immediate (using MOVZ/MOVK sequence)
-    void asmMOV(NativeReg rd, uint32 imm);     // MOV Wd, #imm32
-    void asmMOV64(NativeReg rd, uint64 imm);    // MOV Xd, #imm64
-    void asmMOV(NativeReg rd, NativeReg rs);    // MOV Xd, Xs (register)
+    void asmMOV(NativeReg rd, uint32 imm);   // MOV Wd, #imm32
+    void asmMOV64(NativeReg rd, uint64 imm); // MOV Xd, #imm64
+    void asmMOV(NativeReg rd, NativeReg rs); // MOV Xd, Xs (register)
 
     // Load/store from CPU state (X20-relative)
-    void asmLDRw_cpu(NativeReg rd, uint32 offset);  // LDR Wd, [X20, #offset]
-    void asmSTRw_cpu(NativeReg rs, uint32 offset);  // STR Ws, [X20, #offset]
-    void asmLDR_cpu(NativeReg rd, uint32 offset);   // LDR Xd, [X20, #offset]
-    void asmSTR_cpu(NativeReg rs, uint32 offset);   // STR Xs, [X20, #offset]
+    void asmLDRw_cpu(NativeReg rd, uint32 offset); // LDR Wd, [X20, #offset]
+    void asmSTRw_cpu(NativeReg rs, uint32 offset); // STR Ws, [X20, #offset]
+    void asmLDR_cpu(NativeReg rd, uint32 offset);  // LDR Xd, [X20, #offset]
+    void asmSTR_cpu(NativeReg rs, uint32 offset);  // STR Xs, [X20, #offset]
 
     // Branch helpers
     void asmB(NativeAddress to);
-    void asmBL(NativeAddress to);       // BL via BLR X16 (far call)
-    void asmBR(NativeReg rn);           // BR Xn
-    void asmCALL(NativeAddress to);     // alias for asmBL (x86 compat name)
+    void asmBL(NativeAddress to);   // BL via BLR X16 (far call)
+    void asmBR(NativeReg rn);       // BR Xn
+    void asmCALL(NativeAddress to); // alias for asmBL (x86 compat name)
     void asmRET();
 
     // ALU 32-bit register-register
@@ -349,50 +375,61 @@ public:
     // Compare
     void asmCMPw(NativeReg rn, NativeReg rm);
     void asmCMPw(NativeReg rn, uint32 imm12);
-    void asmTSTw(NativeReg rn, int immr, int imms);  // TST Wn, #bitmask
+    void asmTSTw(NativeReg rn, int immr, int imms); // TST Wn, #bitmask
+
+    // Subtract with flags (32-bit immediate)
+    void asmSUBSw(NativeReg rd, NativeReg rn, uint32 imm12); // SUBS Wd, Wn, #imm12
+
+    // Test and branch
+    void asmTBZ(NativeReg rt, int bit, sint32 offset);  // TBZ Rt, #bit, #offset
+    void asmTBNZ(NativeReg rt, int bit, sint32 offset); // TBNZ Rt, #bit, #offset
+
+    // Compare and branch (32-bit)
+    void asmCBZw(NativeReg rt, sint32 offset);  // CBZ Wt, #offset
+    void asmCBNZw(NativeReg rt, sint32 offset); // CBNZ Wt, #offset
 
     // ALU immediate (logical bitmask)
-    void asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms);  // AND Wn, Wm, #bitmask
+    void asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms); // AND Wn, Wm, #bitmask
 
     // Shift immediate
-    void asmLSRw_imm(NativeReg rd, NativeReg rn, int shift);  // LSR Wd, Wn, #shift
+    void asmLSRw_imm(NativeReg rd, NativeReg rn, int shift); // LSR Wd, Wn, #shift
 
     // 64-bit ADD immediate
-    void asmADD(NativeReg rd, NativeReg rn, uint32 imm12);  // ADD Xd, Xn, #imm12
+    void asmADD(NativeReg rd, NativeReg rn, uint32 imm12); // ADD Xd, Xn, #imm12
 
     // Load register-indexed
-    void asmLDRw_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift);  // LDR Wt, [Xn, Xm{, LSL #2}]
-    void asmLDR_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift);   // LDR Xt, [Xn, Xm{, LSL #3}]
+    void asmLDRw_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift); // LDR Wt, [Xn, Xm{, LSL #2}]
+    void asmLDR_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift);  // LDR Xt, [Xn, Xm{, LSL #3}]
 
     // Byte reverse
-    void asmREVw(NativeReg rd, NativeReg rn);    // REV Wd, Wn
-    void asmREV16w(NativeReg rd, NativeReg rn);  // REV16 Wd, Wn
+    void asmREVw(NativeReg rd, NativeReg rn);   // REV Wd, Wn
+    void asmREV16w(NativeReg rd, NativeReg rn); // REV16 Wd, Wn
 
     // Bit field insert
-    void asmBFIw(NativeReg rd, NativeReg rn, int lsb, int width);  // BFI Wd, Wn, #lsb, #width
+    void asmBFIw(NativeReg rd, NativeReg rn, int lsb, int width); // BFI Wd, Wn, #lsb, #width
 
     // Conditional select
     void asmCSELw(NativeReg rd, NativeReg rn, NativeReg rm, A64Cond cond);
     void asmCSINCw(NativeReg rd, NativeReg rn, NativeReg rm, A64Cond cond);
-    void asmCSETw(NativeReg rd, A64Cond cond);  // CSET Wd, cond = CSINC Wd, WZR, WZR, invert(cond)
+    void asmCSETw(NativeReg rd, A64Cond cond); // CSET Wd, cond = CSINC Wd, WZR, WZR, invert(cond)
 
     // Data processing (2 source)
     void asmUDIVw(NativeReg rd, NativeReg rn, NativeReg rm);
     void asmSDIVw(NativeReg rd, NativeReg rn, NativeReg rm);
 
     // 64-bit shift variable (for 6-bit shift amounts)
-    void asmLSLV(NativeReg rd, NativeReg rn, NativeReg rm);   // LSLV Xd, Xn, Xm
-    void asmLSRV(NativeReg rd, NativeReg rn, NativeReg rm);   // LSRV Xd, Xn, Xm
+    void asmLSLV(NativeReg rd, NativeReg rn, NativeReg rm); // LSLV Xd, Xn, Xm
+    void asmLSRV(NativeReg rd, NativeReg rn, NativeReg rm); // LSRV Xd, Xn, Xm
 
     // Widening multiply
-    void asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm);  // UMULL Xd, Wn, Wm
+    void asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm); // UMULL Xd, Wn, Wm
 
     // Logical with invert
-    void asmORNw(NativeReg rd, NativeReg rn, NativeReg rm);   // ORN Wd, Wn, Wm
-    void asmMVNw(NativeReg rd, NativeReg rm);                  // MVN Wd, Wm
+    void asmORNw(NativeReg rd, NativeReg rn, NativeReg rm); // ORN Wd, Wn, Wm
+    void asmMVNw(NativeReg rd, NativeReg rm);               // MVN Wd, Wm
 
     // Count leading zeros
-    void asmCLZw(NativeReg rd, NativeReg rn);                  // CLZ Wd, Wn
+    void asmCLZw(NativeReg rd, NativeReg rn); // CLZ Wd, Wn
 
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
@@ -409,32 +446,88 @@ public:
     void asmAssertHERE(NativeAddress expected, const char *label)
     {
         if (currentPage->tcp != expected) {
-            PPC_CPU_ERR("[A64] %s: expected tcp=%p, got %p (delta=%d)\n",
-                label, expected, currentPage->tcp,
-                (int)(currentPage->tcp - expected));
+            PPC_CPU_ERR("[A64] %s: expected tcp=%p, got %p (delta=%d)\n", label, expected, currentPage->tcp,
+                        (int)(currentPage->tcp - expected));
         }
     }
 
     // Compatibility aliases for old names (to be removed incrementally)
-    void emitNOP()                                              { asmNOP(); }
-    void emitMOV32(NativeReg rd, uint32 imm)                   { asmMOV(rd, imm); }
-    void emitMOV64(NativeReg rd, uint64 imm)                   { asmMOV64(rd, imm); }
-    void emitLDR32_cpu(NativeReg rd, uint32 offset)             { asmLDRw_cpu(rd, offset); }
-    void emitSTR32_cpu(NativeReg rs, uint32 offset)             { asmSTRw_cpu(rs, offset); }
-    void emitLDR64_cpu(NativeReg rd, uint32 offset)             { asmLDR_cpu(rd, offset); }
-    void emitSTR64_cpu(NativeReg rs, uint32 offset)             { asmSTR_cpu(rs, offset); }
-    void emitBL(NativeAddress to)                               { asmBL(to); }
-    void emitB(NativeAddress to)                                { asmB(to); }
-    void emitBR(NativeReg rn)                                   { asmBR(rn); }
-    void emitBLR(NativeAddress to)                              { asmBL(to); }
-    void emitRET()                                              { asmRET(); }
-    void emitADD32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmADDw(rd, rn, rm); }
-    void emitSUB32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmSUBw(rd, rn, rm); }
-    void emitAND32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmANDw(rd, rn, rm); }
-    void emitORR32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmORRw(rd, rn, rm); }
-    void emitEOR32(NativeReg rd, NativeReg rn, NativeReg rm)   { asmEORw(rd, rn, rm); }
-    void emitCMP32(NativeReg rn, NativeReg rm)                 { asmCMPw(rn, rm); }
-    void emitCMP32_imm(NativeReg rn, uint32 imm12)             { asmCMPw(rn, imm12); }
+    void emitNOP()
+    {
+        asmNOP();
+    }
+    void emitMOV32(NativeReg rd, uint32 imm)
+    {
+        asmMOV(rd, imm);
+    }
+    void emitMOV64(NativeReg rd, uint64 imm)
+    {
+        asmMOV64(rd, imm);
+    }
+    void emitLDR32_cpu(NativeReg rd, uint32 offset)
+    {
+        asmLDRw_cpu(rd, offset);
+    }
+    void emitSTR32_cpu(NativeReg rs, uint32 offset)
+    {
+        asmSTRw_cpu(rs, offset);
+    }
+    void emitLDR64_cpu(NativeReg rd, uint32 offset)
+    {
+        asmLDR_cpu(rd, offset);
+    }
+    void emitSTR64_cpu(NativeReg rs, uint32 offset)
+    {
+        asmSTR_cpu(rs, offset);
+    }
+    void emitBL(NativeAddress to)
+    {
+        asmBL(to);
+    }
+    void emitB(NativeAddress to)
+    {
+        asmB(to);
+    }
+    void emitBR(NativeReg rn)
+    {
+        asmBR(rn);
+    }
+    void emitBLR(NativeAddress to)
+    {
+        asmBL(to);
+    }
+    void emitRET()
+    {
+        asmRET();
+    }
+    void emitADD32(NativeReg rd, NativeReg rn, NativeReg rm)
+    {
+        asmADDw(rd, rn, rm);
+    }
+    void emitSUB32(NativeReg rd, NativeReg rn, NativeReg rm)
+    {
+        asmSUBw(rd, rn, rm);
+    }
+    void emitAND32(NativeReg rd, NativeReg rn, NativeReg rm)
+    {
+        asmANDw(rd, rn, rm);
+    }
+    void emitORR32(NativeReg rd, NativeReg rn, NativeReg rm)
+    {
+        asmORRw(rd, rn, rm);
+    }
+    void emitEOR32(NativeReg rd, NativeReg rn, NativeReg rm)
+    {
+        asmEORw(rd, rn, rm);
+    }
+    void emitCMP32(NativeReg rn, NativeReg rm)
+    {
+        asmCMPw(rn, rm);
+    }
+    void emitCMP32_imm(NativeReg rn, uint32 imm12)
+    {
+        asmCMPw(rn, imm12);
+    }
 
     void floatRegisterClobberAll() {}
 };

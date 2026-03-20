@@ -86,9 +86,8 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
         jitc.asmTSTw(W0, 18, 0);
 
         // Precompute body size: MOV(pc) + MOV(PRIV) + BL(exception)
-        uint body = a64_movw_size(jitc.pc)
-                  + a64_movw_size(PPC_EXC_PROGRAM_PRIV)
-                  + a64_bl_size((uint64)ppc_program_exception_asm);
+        uint body = a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_PRIV) +
+                    a64_bl_size((uint64)ppc_program_exception_asm);
         jitc.emitAssure(4 + body);
         NativeAddress target = jitc.asmHERE() + 4 + body;
         jitc.asmBccForward(A64_EQ, body); // B.EQ skip (not user mode)
@@ -120,9 +119,9 @@ static void gen_cmp_cr_update(JITC &jitc, int crfD)
     //   LT → 8, GT → 4, EQ → 2, then OR in SO from XER
     // Use conditional select chain:
     //   W0 = (LT) ? 8 : ((GT) ? 4 : 2)
-    jitc.asmMOV(W0, (uint32)8);      // LT value
-    jitc.asmMOV(W1, (uint32)4);      // GT value
-    jitc.asmMOV(W2, (uint32)2);      // EQ value
+    jitc.asmMOV(W0, (uint32)8); // LT value
+    jitc.asmMOV(W1, (uint32)4); // GT value
+    jitc.asmMOV(W2, (uint32)2); // EQ value
 
     // CSEL Wd, Wn, Wm, cond = 0x1A800000 | (Wm<<16) | (cond<<12) | (Wn<<5) | Wd
     // CSEL W1, W1, W2, GT → W1 = (signed GT) ? 4 : 2
@@ -154,9 +153,9 @@ static void gen_cmpl_cr_update(JITC &jitc, int crfD)
     // CMP W16, W17 (unsigned — same instruction, different condition codes)
     jitc.asmCMPw(W16, W17);
 
-    jitc.asmMOV(W0, (uint32)8);      // LT value
-    jitc.asmMOV(W1, (uint32)4);      // GT value
-    jitc.asmMOV(W2, (uint32)2);      // EQ value
+    jitc.asmMOV(W0, (uint32)8); // LT value
+    jitc.asmMOV(W1, (uint32)4); // GT value
+    jitc.asmMOV(W2, (uint32)2); // EQ value
 
     // CSEL W1, W1, W2, HI → W1 = (unsigned >) ? 4 : 2
     jitc.asmCSELw(W1, W1, W2, A64_HI);
@@ -187,15 +186,15 @@ static void gen_update_cr0(JITC &jitc)
     jitc.asmCMPw(W16, (uint32)0);
 
     // Build 4-bit CR0 field: {LT, GT, EQ, SO}
-    jitc.asmMOV(W0, (uint32)8);     // LT value
-    jitc.asmMOV(W1, (uint32)4);     // GT value
-    jitc.asmMOV(W2, (uint32)2);     // EQ value
+    jitc.asmMOV(W0, (uint32)8); // LT value
+    jitc.asmMOV(W1, (uint32)4); // GT value
+    jitc.asmMOV(W2, (uint32)2); // EQ value
     jitc.asmCSELw(W1, W1, W2, A64_GT);
     jitc.asmCSELw(W0, W0, W1, A64_LT);
 
     // OR in SO bit from XER
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, xer));
-    jitc.asmTSTw(W1, 1, 0);         // TST W1, #0x80000000
+    jitc.asmTSTw(W1, 1, 0); // TST W1, #0x80000000
     // CSINC W0, W0, W0, EQ → if SO set (NE), W0 = W0+1
     jitc.asmCSINCw(W0, W0, W0, A64_EQ);
 
@@ -342,40 +341,6 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
 }
 
 /*
- *  bcx - Branch Conditional  (opcode 16)
- *
- *  Handles the common case (BO & 4: condition-only, no CTR decrement)
- *  by testing the CR bit inline and emitting a conditional skip.
- *  Falls back to interpreter for CTR-decrement variants and bcl.
- */
-JITCFlow ppc_opc_gen_bcx(JITC &jitc)
-{
-    // Use the interpreter to evaluate the branch condition.
-    // This correctly handles CTR decrement, all BO variants, and LK.
-    // The optimization is in how we dispatch to the target afterwards.
-    ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
-
-    // The interpreter set npc: branch target if taken, pc+4 if not taken.
-    // Compare npc to pc+4 to detect the not-taken case and fall through.
-    uint32 next_pc = jitc.pc + 4;
-    uint call_size = a64_bl_size((uint64)ppc_new_pc_asm);
-    //           LDR   MOV(next_pc)            CMP  B.EQ  CALL
-    uint total = 4 + a64_movw_size(next_pc) + 4 + 4 + call_size;
-    jitc.emitAssure(total);
-
-    jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
-    jitc.asmMOV(W1, next_pc);
-    jitc.asmCMPw(W0, W1);
-    NativeAddress target = jitc.asmHERE() + 4 + call_size;
-    jitc.asmBccForward(A64_EQ, call_size); // B.EQ skip dispatch
-    // Taken: full dispatch
-    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
-    // Not taken: land here, continue compiling next instruction
-    jitc.asmAssertHERE(target, "bcx");
-    return flowContinue;
-}
-
-/*
  *  Helper: emit dispatch for npc with same-page optimization.
  *  Loads npc from CPU state. If npc is on the current page
  *  (same current_code_base), uses the fast ppc_new_pc_this_page_asm
@@ -388,6 +353,155 @@ static void gen_dispatch_npc(JITC &jitc)
     // This avoids conditional branch range overflow when fragments are far apart.
     jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
     jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+}
+
+/*
+ *  bcx - Branch Conditional  (opcode 16)
+ *
+ *  Native codegen for conditional branches.  Decodes BO/BI/BD/LK/AA
+ *  at JIT compile time and emits minimal AArch64 code:
+ *
+ *  Case A (CR-only, ~90%):  TBZ/TBNZ on CR bit → 7-9 insn
+ *  Case B (CTR-only, bdnz/bdz):  SUBS+CBZ/CBNZ  → 9-11 insn
+ *  Case C (unconditional via BO):  dispatch only  → 4-5 insn
+ *  Fallback: LK=1 or combined CTR+CR → interpreter (22 insn)
+ */
+JITCFlow ppc_opc_gen_bcx(JITC &jitc)
+{
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_B(jitc.current_opc, BO, BI, BD);
+    bool lk = jitc.current_opc & PPC_OPC_LK;
+    bool aa = jitc.current_opc & PPC_OPC_AA;
+    bool ctr_ok_always = (BO & 4);   // bit 2: skip CTR test
+    bool cond_ok_always = (BO & 16); // bit 4: skip CR test
+
+    // Fallback to interpreter for rare/complex cases:
+    // - LK=1 (branch-and-link conditional)
+    // - Both CTR decrement AND CR test
+    if (lk || (!ctr_ok_always && !cond_ok_always)) {
+        ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
+        gen_dispatch_npc(jitc);
+        return flowEndBlockUnreachable;
+    }
+
+    jitc.clobberAll();
+
+    // Case C: unconditional (BO & 0x14 == 0x14)
+    if (ctr_ok_always && cond_ok_always) {
+        if (aa) {
+            jitc.asmMOV(W0, (uint32)BD);
+        } else {
+            jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
+            jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
+            jitc.asmADDw(W0, W0, W17);
+        }
+        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+        return flowEndBlockUnreachable;
+    }
+
+    // Case B: CTR-only (bdnz/bdz) — ctr_ok_always=false, cond_ok_always=true
+    if (!ctr_ok_always && cond_ok_always) {
+        // Compute dispatch size for the taken path (after the skip branch)
+        uint dispatch_size;
+        if (aa) {
+            dispatch_size = a64_movw_size((uint32)BD) + a64_bl_size((uint64)ppc_new_pc_asm);
+        } else {
+            dispatch_size = 4                                           // LDR W0, [X20, #ccb]
+                            + a64_movw_size((uint32)(jitc.pc + BD)) + 4 // ADD W0, W0, W17
+                            + a64_bl_size((uint64)ppc_new_pc_asm);
+        }
+
+        //  LDR W16, [X20, #ctr]        ; 4
+        //  SUBS W16, W16, #1            ; 4
+        //  STR W16, [X20, #ctr]         ; 4
+        //  CBZ/CBNZ W16, not_taken      ; 4  (skip dispatch)
+        //  <dispatch>                   ; dispatch_size
+        // not_taken:
+        uint total = 4 + 4 + 4 + 4 + dispatch_size;
+        jitc.emitAssure(total);
+
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
+        jitc.asmSUBSw(W16, W16, 1);
+        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
+
+        // bdnz (BO & 2 == 0): taken when CTR != 0 → CBZ skips to not_taken
+        // bdz  (BO & 2 == 1): taken when CTR == 0 → CBNZ skips to not_taken
+        // The skip offset is +4 (past CBZ/CBNZ itself) + dispatch_size
+        sint32 skip_offset = 4 + dispatch_size;
+        if (BO & 2) {
+            jitc.asmCBNZw(W16, skip_offset);
+        } else {
+            jitc.asmCBZw(W16, skip_offset);
+        }
+
+        NativeAddress not_taken = jitc.asmHERE() + dispatch_size;
+
+        // Taken: dispatch to target
+        if (aa) {
+            jitc.asmMOV(W0, (uint32)BD);
+        } else {
+            jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
+            jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
+            jitc.asmADDw(W0, W0, W17);
+        }
+        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+
+        jitc.asmAssertHERE(not_taken, "bcx_ctr");
+        return flowContinue;
+    }
+
+    // Case A: CR-only (beq, bne, blt, bgt, ble, bge, etc.)
+    // ctr_ok_always=true, cond_ok_always=false
+    {
+        uint dispatch_size;
+        if (aa) {
+            dispatch_size = a64_movw_size((uint32)BD) + a64_bl_size((uint64)ppc_new_pc_asm);
+        } else {
+            dispatch_size = 4                                           // LDR W0, [X20, #ccb]
+                            + a64_movw_size((uint32)(jitc.pc + BD)) + 4 // ADD W0, W0, W17
+                            + a64_bl_size((uint64)ppc_new_pc_asm);
+        }
+
+        //  LDR W16, [X20, #cr]          ; 4
+        //  TBZ/TBNZ W16, #bit, not_taken ; 4  (skip dispatch)
+        //  <dispatch>                    ; dispatch_size
+        // not_taken:
+        uint total = 4 + 4 + dispatch_size;
+        jitc.emitAssure(total);
+
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+
+        // CR bit position: PPC uses MSB-first, bit 0 = bit 31 in a 32-bit word
+        int aarch64_bit = 31 - BI;
+
+        // BO bit 3 (value 8): branch sense
+        //   BO & 8: branch when CR bit is SET   → TBZ to skip (not taken when clear)
+        //   !(BO & 8): branch when CR bit CLEAR → TBNZ to skip (not taken when set)
+        // TBZ/TBNZ offset: +4 (past TBZ itself) + dispatch_size
+        sint32 skip_offset = 4 + dispatch_size;
+        if (BO & 8) {
+            // Branch when CR bit set → skip (not taken) when clear
+            jitc.asmTBZ(W16, aarch64_bit, skip_offset);
+        } else {
+            // Branch when CR bit clear → skip (not taken) when set
+            jitc.asmTBNZ(W16, aarch64_bit, skip_offset);
+        }
+
+        NativeAddress not_taken = jitc.asmHERE() + dispatch_size;
+
+        // Taken: dispatch to target
+        if (aa) {
+            jitc.asmMOV(W0, (uint32)BD);
+        } else {
+            jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
+            jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
+            jitc.asmADDw(W0, W0, W17);
+        }
+        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+
+        jitc.asmAssertHERE(not_taken, "bcx_cr");
+        return flowContinue;
+    }
 }
 
 /*
@@ -493,10 +607,10 @@ int ppc_opc_addcx(PPC_CPU_State &);
 int ppc_opc_subfcx(PPC_CPU_State &);
 int ppc_opc_srawix(PPC_CPU_State &);
 
-#define RC_FALLBACK(interp_func) \
-    if (jitc.current_opc & PPC_OPC_Rc) { \
-        ppc_opc_gen_interpret(jitc, interp_func); \
-        return flowContinue; \
+#define RC_FALLBACK(interp_func)                                                                                       \
+    if (jitc.current_opc & PPC_OPC_Rc) {                                                                               \
+        ppc_opc_gen_interpret(jitc, interp_func);                                                                      \
+        return flowContinue;                                                                                           \
     }
 
 static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
@@ -610,11 +724,11 @@ JITCFlow ppc_opc_gen_slwx(JITC &jitc)
     RC_FALLBACK(ppc_opc_slwx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));     // X16 = zero-extend(gpr[rS])
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS)); // X16 = zero-extend(gpr[rS])
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.asmANDw_imm(W17, W17, 0, 5);       // AND W17, W17, #0x3F (6-bit shift)
+    jitc.asmANDw_imm(W17, W17, 0, 5); // AND W17, W17, #0x3F (6-bit shift)
     jitc.asmLSLV(X16, X16, X17);
-    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));      // store low 32 bits
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA)); // store low 32 bits
     return flowContinue;
 }
 
@@ -628,11 +742,11 @@ JITCFlow ppc_opc_gen_srwx(JITC &jitc)
     RC_FALLBACK(ppc_opc_srwx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
-    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));     // X16 = zero-extend(gpr[rS])
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS)); // X16 = zero-extend(gpr[rS])
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.asmANDw_imm(W17, W17, 0, 5);       // AND W17, W17, #0x3F (6-bit shift)
+    jitc.asmANDw_imm(W17, W17, 0, 5); // AND W17, W17, #0x3F (6-bit shift)
     jitc.asmLSRV(X16, X16, X17);
-    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));      // store low 32 bits
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA)); // store low 32 bits
     return flowContinue;
 }
 
@@ -1041,9 +1155,8 @@ JITCFlow ppc_opc_gen_mtcrf(JITC &jitc)
     uint32 crm;
     PPC_OPC_TEMPL_XFX(jitc.current_opc, rS, crm);
     // Build CRM mask: each bit in crm selects a 4-bit CR field
-    uint32 CRM = ((crm & 0x80) ? 0xf0000000 : 0) | ((crm & 0x40) ? 0x0f000000 : 0) |
-                 ((crm & 0x20) ? 0x00f00000 : 0) | ((crm & 0x10) ? 0x000f0000 : 0) |
-                 ((crm & 0x08) ? 0x0000f000 : 0) | ((crm & 0x04) ? 0x00000f00 : 0) |
+    uint32 CRM = ((crm & 0x80) ? 0xf0000000 : 0) | ((crm & 0x40) ? 0x0f000000 : 0) | ((crm & 0x20) ? 0x00f00000 : 0) |
+                 ((crm & 0x10) ? 0x000f0000 : 0) | ((crm & 0x08) ? 0x0000f000 : 0) | ((crm & 0x04) ? 0x00000f00 : 0) |
                  ((crm & 0x02) ? 0x000000f0 : 0) | ((crm & 0x01) ? 0x0000000f : 0);
     if (CRM == 0xFFFFFFFF) {
         // All fields — just copy
@@ -1240,7 +1353,7 @@ int ppc_opc_addx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1257,7 +1370,7 @@ int ppc_opc_addox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1274,7 +1387,7 @@ int ppc_opc_addcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1293,7 +1406,7 @@ int ppc_opc_addcox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addcox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1312,7 +1425,7 @@ int ppc_opc_addex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1333,7 +1446,7 @@ int ppc_opc_addeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addeox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1346,7 +1459,7 @@ int ppc_opc_addi(PPC_CPU_State &aCPU)
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     aCPU.gpr[rD] = (rA ? aCPU.gpr[rA] : 0) + imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -1361,7 +1474,7 @@ int ppc_opc_addic(PPC_CPU_State &aCPU)
     uint32 a = aCPU.gpr[rA];
     aCPU.gpr[rD] = a + imm;
     aCPU.xer_ca = (aCPU.gpr[rD] < a);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1377,7 +1490,7 @@ int ppc_opc_addic_(PPC_CPU_State &aCPU)
     aCPU.gpr[rD] = a + imm;
     aCPU.xer_ca = (aCPU.gpr[rD] < a);
     ppc_update_cr0(aCPU, aCPU.gpr[rD]);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1390,7 +1503,7 @@ int ppc_opc_addis(PPC_CPU_State &aCPU)
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rD, rA, imm);
     aCPU.gpr[rD] = (rA ? aCPU.gpr[rA] : 0) + imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -1409,7 +1522,7 @@ int ppc_opc_addmex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1430,7 +1543,7 @@ int ppc_opc_addmeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addmeox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1449,7 +1562,7 @@ int ppc_opc_addzex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1470,7 +1583,7 @@ int ppc_opc_addzeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("addzeox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1485,7 +1598,7 @@ int ppc_opc_andx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1500,7 +1613,7 @@ int ppc_opc_andcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1514,7 +1627,7 @@ int ppc_opc_andi_(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_D_UImm(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] & imm;
     ppc_update_cr0(aCPU, aCPU.gpr[rA]);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1528,7 +1641,7 @@ int ppc_opc_andis_(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] & imm;
     ppc_update_cr0(aCPU, aCPU.gpr[rA]);
-	return 0;
+    return 0;
 }
 
 int ppc_opc_cmp(PPC_CPU_State &aCPU)
@@ -1553,7 +1666,7 @@ int ppc_opc_cmp(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1583,7 +1696,7 @@ int ppc_opc_cmpi(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1612,7 +1725,7 @@ int ppc_opc_cmpl(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1642,7 +1755,7 @@ int ppc_opc_cmpli(PPC_CPU_State &aCPU)
     cr = 7 - cr;
     aCPU.cr &= ppc_cmp_and_mask[cr];
     aCPU.cr |= c << (cr * 4);
-	return 0;
+    return 0;
 }
 
 /*
@@ -1668,7 +1781,7 @@ int ppc_opc_cntlzwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1684,7 +1797,7 @@ int ppc_opc_crand(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1700,7 +1813,7 @@ int ppc_opc_crandc(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1717,7 +1830,7 @@ int ppc_opc_creqv(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1733,7 +1846,7 @@ int ppc_opc_crnand(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1750,7 +1863,7 @@ int ppc_opc_crnor(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1767,7 +1880,7 @@ int ppc_opc_cror(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1783,7 +1896,7 @@ int ppc_opc_crorc(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1800,7 +1913,7 @@ int ppc_opc_crxor(PPC_CPU_State &aCPU)
     } else {
         aCPU.cr &= ~(1 << (31 - crD));
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1822,7 +1935,7 @@ int ppc_opc_divwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1845,7 +1958,7 @@ int ppc_opc_divwox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("divwox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1865,7 +1978,7 @@ int ppc_opc_divwux(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1886,7 +1999,7 @@ int ppc_opc_divwuox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("divwuox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -1901,7 +2014,7 @@ int ppc_opc_eqvx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1922,7 +2035,7 @@ int ppc_opc_extsbx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1943,7 +2056,7 @@ int ppc_opc_extshx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1961,7 +2074,7 @@ int ppc_opc_mulhwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1979,7 +2092,7 @@ int ppc_opc_mulhwux(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -1993,7 +2106,7 @@ int ppc_opc_mulli(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
     // FIXME: signed / unsigned correct?
     aCPU.gpr[rD] = aCPU.gpr[rA] * imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2012,7 +2125,7 @@ int ppc_opc_mullwx(PPC_CPU_State &aCPU)
         // update XER flags
         PPC_ALU_ERR("mullwox unimplemented\n");
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2027,7 +2140,7 @@ int ppc_opc_nandx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2043,7 +2156,7 @@ int ppc_opc_negx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2061,7 +2174,7 @@ int ppc_opc_negox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("negox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2076,7 +2189,7 @@ int ppc_opc_norx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2091,7 +2204,7 @@ int ppc_opc_orx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2106,7 +2219,7 @@ int ppc_opc_orcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2119,7 +2232,7 @@ int ppc_opc_ori(PPC_CPU_State &aCPU)
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] | imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2132,7 +2245,7 @@ int ppc_opc_oris(PPC_CPU_State &aCPU)
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] | imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2149,7 +2262,7 @@ int ppc_opc_rlwimix(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2167,7 +2280,7 @@ int ppc_opc_rlwinmx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2184,7 +2297,7 @@ int ppc_opc_rlwnmx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2204,7 +2317,7 @@ int ppc_opc_slwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2240,7 +2353,7 @@ int ppc_opc_srawx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2272,7 +2385,7 @@ int ppc_opc_srawix(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2292,7 +2405,7 @@ int ppc_opc_srwx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2307,7 +2420,7 @@ int ppc_opc_subfx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2324,7 +2437,7 @@ int ppc_opc_subfox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2342,7 +2455,7 @@ int ppc_opc_subfcx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2362,7 +2475,7 @@ int ppc_opc_subfcox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfcox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2381,7 +2494,7 @@ int ppc_opc_subfex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2402,7 +2515,7 @@ int ppc_opc_subfeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfeox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2417,7 +2530,7 @@ int ppc_opc_subfic(PPC_CPU_State &aCPU)
     uint32 a = aCPU.gpr[rA];
     aCPU.gpr[rD] = ~a + imm + 1;
     aCPU.xer_ca = (ppc_carry_3(~a, imm, 1));
-	return 0;
+    return 0;
 }
 
 /*
@@ -2436,7 +2549,7 @@ int ppc_opc_subfmex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2457,7 +2570,7 @@ int ppc_opc_subfmeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfmeox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2476,7 +2589,7 @@ int ppc_opc_subfzex(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rD]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2497,7 +2610,7 @@ int ppc_opc_subfzeox(PPC_CPU_State &aCPU)
     }
     // update XER flags
     PPC_ALU_ERR("subfzeox unimplemented\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2512,7 +2625,7 @@ int ppc_opc_xorx(PPC_CPU_State &aCPU)
     if (aCPU.current_opc & PPC_OPC_Rc) {
         ppc_update_cr0(aCPU, aCPU.gpr[rA]);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2525,7 +2638,7 @@ int ppc_opc_xori(PPC_CPU_State &aCPU)
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] ^ imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2538,7 +2651,7 @@ int ppc_opc_xoris(PPC_CPU_State &aCPU)
     uint32 imm;
     PPC_OPC_TEMPL_D_Shift16(aCPU.current_opc, rS, rA, imm);
     aCPU.gpr[rA] = aCPU.gpr[rS] ^ imm;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2556,7 +2669,7 @@ int ppc_opc_bx(PPC_CPU_State &aCPU)
         aCPU.lr = aCPU.pc + 4;
     }
     aCPU.npc = li;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2583,7 +2696,7 @@ int ppc_opc_bcx(PPC_CPU_State &aCPU)
         }
         aCPU.npc = BD;
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2604,7 +2717,7 @@ int ppc_opc_bcctrx(PPC_CPU_State &aCPU)
         }
         aCPU.npc = aCPU.ctr & 0xfffffffc;
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2629,15 +2742,13 @@ int ppc_opc_bclrx(PPC_CPU_State &aCPU)
         }
         aCPU.npc = BD;
         if (aCPU.lr & 3) {
-            fprintf(stderr, "[BCLRX-ALIGN] LR=%08x not aligned! pc=%08x npc=%08x\n",
-                aCPU.lr, aCPU.pc, BD);
+            fprintf(stderr, "[BCLRX-ALIGN] LR=%08x not aligned! pc=%08x npc=%08x\n", aCPU.lr, aCPU.pc, BD);
         }
         if (BD >= 0xBF000000 && BD < 0xC0000000) {
-            PPC_ALU_ERR("BCLRX PROM dispatch: npc=%08x lr=%08x pc=%08x msr=%08x\n",
-                BD, aCPU.lr, aCPU.pc, aCPU.msr);
+            PPC_ALU_ERR("BCLRX PROM dispatch: npc=%08x lr=%08x pc=%08x msr=%08x\n", BD, aCPU.lr, aCPU.pc, aCPU.msr);
         }
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2672,7 +2783,7 @@ int ppc_opc_bclrx(PPC_CPU_State &aCPU)
 int ppc_opc_eciwx(PPC_CPU_State &aCPU)
 {
     PPC_OPC_ERR("eciwx unimplemented.\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2682,7 +2793,7 @@ int ppc_opc_eciwx(PPC_CPU_State &aCPU)
 int ppc_opc_ecowx(PPC_CPU_State &aCPU)
 {
     PPC_OPC_ERR("ecowx unimplemented.\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2692,7 +2803,7 @@ int ppc_opc_ecowx(PPC_CPU_State &aCPU)
 int ppc_opc_eieio(PPC_CPU_State &aCPU)
 {
     // NO-OP
-	return 0;
+    return 0;
 }
 
 /*
@@ -2708,15 +2819,19 @@ int ppc_opc_icbi(PPC_CPU_State &aCPU)
     if (ppc_effective_to_physical(aCPU, ea, PPC_MMU_READ | PPC_MMU_NO_EXC, pa) != PPC_MMU_OK) {
         return 0;
     }
-    if (pa >= gMemorySize) return 0;
-    if (!aCPU.jitc) return 0;
+    if (pa >= gMemorySize) {
+        return 0;
+    }
+    if (!aCPU.jitc) {
+        return 0;
+    }
     uint32 pageIndex = pa >> 12;
     JITC &jitc = *aCPU.jitc;
     ClientPage *cp = jitc.clientPages[pageIndex];
     if (cp) {
         jitcDestroyAndFreeClientPage(jitc, cp);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2726,7 +2841,7 @@ int ppc_opc_icbi(PPC_CPU_State &aCPU)
 int ppc_opc_isync(PPC_CPU_State &aCPU)
 {
     // NO-OP
-	return 0;
+    return 0;
 }
 
 /*
@@ -2745,7 +2860,7 @@ int ppc_opc_mcrf(PPC_CPU_State &aCPU)
     uint32 c = (aCPU.cr >> (crS * 4)) & 0xf;
     aCPU.cr &= ppc_cmp_and_mask[crD];
     aCPU.cr |= c << (crD * 4);
-	return 0;
+    return 0;
 }
 
 /*
@@ -2755,7 +2870,7 @@ int ppc_opc_mcrf(PPC_CPU_State &aCPU)
 int ppc_opc_mcrfs(PPC_CPU_State &aCPU)
 {
     PPC_OPC_ERR("mcrfs unimplemented.\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2772,7 +2887,7 @@ int ppc_opc_mcrxr(PPC_CPU_State &aCPU)
     aCPU.cr |= (((aCPU.xer & 0xf0000000) | (aCPU.xer_ca ? XER_CA : 0)) >> 28) << (crD * 4);
     aCPU.xer = ~0xf0000000;
     aCPU.xer_ca = 0;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2785,7 +2900,7 @@ int ppc_opc_mfcr(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     PPC_OPC_ASSERT(rA == 0 && rB == 0);
     aCPU.gpr[rD] = aCPU.cr;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2802,7 +2917,7 @@ int ppc_opc_mffsx(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mffs. unimplemented.\n");
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -2819,7 +2934,7 @@ int ppc_opc_mfmsr(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     PPC_OPC_ASSERT((rA == 0) && (rB == 0));
     aCPU.gpr[rD] = aCPU.msr;
-	return 0;
+    return 0;
 }
 
 /*
@@ -2853,10 +2968,13 @@ int ppc_opc_mfspr(PPC_CPU_State &aCPU)
         case 18: aCPU.gpr[rD] = aCPU.dsisr; return 0;
         case 19: aCPU.gpr[rD] = aCPU.dar; return 0;
         case 22: {
-            readDEC(aCPU); aCPU.gpr[rD] = aCPU.dec;
-            static int rc = 0; rc++;
-            if (rc <= 100 || rc % 1000 == 0)
+            readDEC(aCPU);
+            aCPU.gpr[rD] = aCPU.dec;
+            static int rc = 0;
+            rc++;
+            if (rc <= 100 || rc % 1000 == 0) {
                 fprintf(stderr, "[SPR] mfspr DEC #%d: dec=%08x pc=%08x\n", rc, aCPU.dec, aCPU.pc);
+            }
             return 0;
         }
         case 25: aCPU.gpr[rD] = aCPU.sdr1; return 0;
@@ -2948,7 +3066,7 @@ int ppc_opc_mfspr(PPC_CPU_State &aCPU)
     }
     fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
     SINGLESTEP("invalid mfspr\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -2965,7 +3083,7 @@ int ppc_opc_mfsr(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, SR, rB);
     // FIXME: check insn
     aCPU.gpr[rD] = aCPU.sr[SR & 0xf];
-	return 0;
+    return 0;
 }
 
 /*
@@ -2982,7 +3100,7 @@ int ppc_opc_mfsrin(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
     // FIXME: check insn
     aCPU.gpr[rD] = aCPU.sr[aCPU.gpr[rB] >> 28];
-	return 0;
+    return 0;
 }
 
 /*
@@ -3006,7 +3124,7 @@ int ppc_opc_mftb(PPC_CPU_State &aCPU)
         break;
     }
     SINGLESTEP("unknown mftb\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -3023,7 +3141,7 @@ int ppc_opc_mtcrf(PPC_CPU_State &aCPU)
           ((crm & 0x10) ? 0x000f0000 : 0) | ((crm & 0x08) ? 0x0000f000 : 0) | ((crm & 0x04) ? 0x00000f00 : 0) |
           ((crm & 0x02) ? 0x000000f0 : 0) | ((crm & 0x01) ? 0x0000000f : 0);
     aCPU.cr = (aCPU.gpr[rS] & CRM) | (aCPU.cr & ~CRM);
-	return 0;
+    return 0;
 }
 
 /*
@@ -3041,7 +3159,7 @@ int ppc_opc_mtfsb0x(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsb0. unimplemented.\n");
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -3059,7 +3177,7 @@ int ppc_opc_mtfsb1x(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsb1. unimplemented.\n");
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -3079,7 +3197,7 @@ int ppc_opc_mtfsfx(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsf. unimplemented.\n");
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -3100,7 +3218,7 @@ int ppc_opc_mtfsfix(PPC_CPU_State &aCPU)
         // update cr1 flags
         PPC_OPC_ERR("mtfsfi. unimplemented.\n");
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -3117,7 +3235,7 @@ int ppc_opc_mtmsr(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     PPC_OPC_ASSERT((rA == 0) && (rB == 0));
     ppc_set_msr(aCPU, aCPU.gpr[rS]);
-	return 0;
+    return 0;
 }
 
 /*
@@ -3154,9 +3272,11 @@ int ppc_opc_mtspr(PPC_CPU_State &aCPU)
             /*		case 18: aCPU.gpr[rD] = aCPU.dsisr; return 0;
 		case 19: aCPU.gpr[rD] = aCPU.dar; return 0;*/
         case 22: {
-            static int wc = 0; wc++;
-            if (wc <= 100 || wc % 1000 == 0)
+            static int wc = 0;
+            wc++;
+            if (wc <= 100 || wc % 1000 == 0) {
                 fprintf(stderr, "[SPR] mtspr DEC #%d: val=%08x pc=%08x\n", wc, aCPU.gpr[rS], aCPU.pc);
+            }
             writeDEC(aCPU, aCPU.gpr[rS]);
             return 0;
         }
@@ -3287,7 +3407,7 @@ int ppc_opc_mtspr(PPC_CPU_State &aCPU)
     }
     fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
     SINGLESTEP("unknown mtspr\n");
-	return 0;
+    return 0;
 }
 
 /*
@@ -3304,7 +3424,7 @@ int ppc_opc_mtsr(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, SR, rB);
     // FIXME: check insn
     aCPU.sr[SR & 0xf] = aCPU.gpr[rS];
-	return 0;
+    return 0;
 }
 
 /*
@@ -3321,7 +3441,7 @@ int ppc_opc_mtsrin(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check insn
     aCPU.sr[aCPU.gpr[rB] >> 28] = aCPU.gpr[rS];
-	return 0;
+    return 0;
 }
 
 /*
@@ -3336,7 +3456,7 @@ int ppc_opc_rfi(PPC_CPU_State &aCPU)
     }
     ppc_set_msr(aCPU, aCPU.srr[1] & MSR_RFI_SAVE_MASK);
     aCPU.npc = aCPU.srr[0] & 0xfffffffc;
-	return 0;
+    return 0;
 }
 
 int ppc_opc_sc(PPC_CPU_State &aCPU)
@@ -3346,7 +3466,7 @@ int ppc_opc_sc(PPC_CPU_State &aCPU)
         return 0;
     }
     ppc_exception(aCPU, PPC_EXC_SC);
-	return 0;
+    return 0;
 }
 
 JITCFlow ppc_opc_gen_sc(JITC &jitc)
@@ -3358,18 +3478,17 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
     // If OSI: call gcard_osi(0), fall through (flowEndBlock).
 
     uint osi_call_size = 4 /* MOV W0, #0 */
-                       + a64_bl_size((uint64)gcard_osi);
+                         + a64_bl_size((uint64)gcard_osi);
     uint sc_exc_size = 4 /* MOV W0, pc_ofs+4 */
-                     + a64_bl_size((uint64)ppc_sc_raise_asm);
+                       + a64_bl_size((uint64)ppc_sc_raise_asm);
     uint check2_size = 4 /* LDR gpr[4] */ + 8 /* MOV 0x77810f9b */
-                     + 4 /* CMP */ + 4 /* B.NE */;
+                       + 4 /* CMP */ + 4 /* B.NE */;
     uint skip1 = check2_size + osi_call_size + 4 /* B forward */;
     uint skip2 = osi_call_size + 4 /* B forward */;
 
     uint total = 4 /* LDR gpr[3] */ + 8 /* MOV 0x113724fa */
-               + 4 /* CMP */ + 4 /* B.NE */
-               + check2_size + osi_call_size
-               + 4 /* B forward */ + sc_exc_size;
+                 + 4 /* CMP */ + 4      /* B.NE */
+                 + check2_size + osi_call_size + 4 /* B forward */ + sc_exc_size;
     jitc.emitAssure(total);
 
     // Check gpr[3] == 0x113724fa
@@ -3403,7 +3522,7 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
 int ppc_opc_sync(PPC_CPU_State &aCPU)
 {
     // NO-OP
-	return 0;
+    return 0;
 }
 
 /*
@@ -3420,7 +3539,7 @@ int ppc_opc_tlbia(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check rS.. for 0
     ppc_mmu_tlb_invalidate(aCPU);
-	return 0;
+    return 0;
 }
 
 /*
@@ -3437,7 +3556,7 @@ int ppc_opc_tlbie(PPC_CPU_State &aCPU)
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check rS.. for 0
     ppc_mmu_tlb_invalidate(aCPU);
-	return 0;
+    return 0;
 }
 
 /*
@@ -3453,7 +3572,7 @@ int ppc_opc_tlbsync(PPC_CPU_State &aCPU)
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(aCPU.current_opc, rS, rA, rB);
     // FIXME: check rS.. for 0
-	return 0;
+    return 0;
 }
 
 /*
@@ -3470,7 +3589,7 @@ int ppc_opc_tw(PPC_CPU_State &aCPU)
         ((TO & 2) && (a < b)) || ((TO & 1) && (a > b))) {
         ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -3487,7 +3606,7 @@ int ppc_opc_twi(PPC_CPU_State &aCPU)
         ((TO & 4) && (a == imm)) || ((TO & 2) && (a < imm)) || ((TO & 1) && (a > imm))) {
         ppc_exception(aCPU, PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
     }
-	return 0;
+    return 0;
 }
 
 /*
@@ -3597,15 +3716,15 @@ JITCFlow ppc_opc_gen_tw(JITC &jitc)
 
     // Conditional trap: branch to exception if any TO condition matches
     int nconds = __builtin_popcount(TO & 0x1f);
-    uint trap_body = a64_movw_size(jitc.pc)
-                   + a64_movw_size(PPC_EXC_PROGRAM_TRAP)
-                   + a64_bl_size((uint64)ppc_program_exception_asm);
+    uint trap_body =
+        a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_TRAP) + a64_bl_size((uint64)ppc_program_exception_asm);
     jitc.emitAssure(nconds * 4 + 4 + trap_body);
 
     // Emit conditional branches to trap path
-    struct { int bit; A64Cond cond; } conds[] = {
-        {16, A64_LT}, {8, A64_GT}, {4, A64_EQ}, {2, A64_CC}, {1, A64_HI}
-    };
+    struct {
+        int bit;
+        A64Cond cond;
+    } conds[] = {{16, A64_LT}, {8, A64_GT}, {4, A64_EQ}, {2, A64_CC}, {1, A64_HI}};
     int idx = 0;
     for (auto &c : conds) {
         if (TO & c.bit) {
@@ -3655,14 +3774,14 @@ JITCFlow ppc_opc_gen_twi(JITC &jitc)
 
     // Conditional trap: branch to exception if any TO condition matches
     int nconds = __builtin_popcount(TO & 0x1f);
-    uint trap_body = a64_movw_size(jitc.pc)
-                   + a64_movw_size(PPC_EXC_PROGRAM_TRAP)
-                   + a64_bl_size((uint64)ppc_program_exception_asm);
+    uint trap_body =
+        a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_TRAP) + a64_bl_size((uint64)ppc_program_exception_asm);
     jitc.emitAssure(nconds * 4 + 4 + trap_body);
 
-    struct { int bit; A64Cond cond; } conds[] = {
-        {16, A64_LT}, {8, A64_GT}, {4, A64_EQ}, {2, A64_CC}, {1, A64_HI}
-    };
+    struct {
+        int bit;
+        A64Cond cond;
+    } conds[] = {{16, A64_LT}, {8, A64_GT}, {4, A64_EQ}, {2, A64_CC}, {1, A64_HI}};
     int idx = 0;
     for (auto &c : conds) {
         if (TO & c.bit) {
