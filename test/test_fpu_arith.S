@@ -391,6 +391,110 @@ _start:
     subf    3, 8, 9
     CHECK   32
 
+    /*
+     * ====== FPSCR rounding mode tests ======
+     *
+     * These tests verify:
+     * - mffs reads FPSCR correctly
+     * - mtfsfi changes rounding mode
+     * - fdiv 10/3 gives different results under different rounding modes
+     * - Restoring RN=0 gives the default (round-to-nearest) result
+     *
+     * RN values: 0=nearest, 1=zero, 2=+inf, 3=-inf
+     *
+     * fdiv 10.0/3.0:
+     *   RN_NEAR (0): 0x400AAAAA_AAAAAAAB (rounds up)
+     *   RN_ZERO (1): 0x400AAAAA_AAAAAAAA (truncates)
+     *   RN_PINF (2): 0x400AAAAA_AAAAAAAB (rounds toward +inf = up for positive)
+     *   RN_MINF (3): 0x400AAAAA_AAAAAAAA (rounds toward -inf = down for positive)
+     */
+
+    /* ====== Test 41: mffs reads FPSCR ====== */
+    PRINT   .Lt41, (.Lt41e - .Lt41)
+    /* FPSCR should have RN=0 (default) and no exception flags */
+    mffs    0                       /* f0 = FPSCR (in low 32 bits of double) */
+    stfd    0, 0(8)
+    lwz     3, 4(8)                 /* low word = FPSCR value */
+    andi.   3, 3, 3                 /* mask RN bits */
+    CHECK   0                       /* RN should be 0 (round-to-nearest) */
+
+    /* ====== Test 42: fdiv 10/3 with RN=0 (nearest) ====== */
+    PRINT   .Lt42, (.Lt42e - .Lt42)
+    LOAD_DBL 1, 0x40240000, 0x00000000  /* 10.0 */
+    LOAD_DBL 2, 0x40080000, 0x00000000  /* 3.0 */
+    fdiv    3, 1, 2
+    /* Check low word — this is the distinguishing word */
+    stfd    3, 0(8)
+    lwz     3, 0(8)
+    CHECK32 0x400AAAAA
+    PRINT   .Lt42b, (.Lt42be - .Lt42b)
+    lwz     3, 4(8)
+    CHECK32 0xAAAAAAAB             /* rounds UP in round-to-nearest */
+
+    /* ====== Test 43: mtfsfi sets RN=1 (round-to-zero) ====== */
+    PRINT   .Lt43, (.Lt43e - .Lt43)
+    mtfsfi  7, 1                    /* set FPSCR field 7 = 0001 → RN=1 */
+    mffs    0
+    stfd    0, 0(8)
+    lwz     3, 4(8)
+    andi.   3, 3, 3
+    CHECK   1                       /* RN should now be 1 */
+
+    /* ====== Test 44: fdiv 10/3 with RN=1 (toward zero) ====== */
+    PRINT   .Lt44, (.Lt44e - .Lt44)
+    LOAD_DBL 1, 0x40240000, 0x00000000  /* 10.0 */
+    LOAD_DBL 2, 0x40080000, 0x00000000  /* 3.0 */
+    fdiv    3, 1, 2
+    stfd    3, 0(8)
+    lwz     3, 0(8)
+    CHECK32 0x400AAAAA
+    PRINT   .Lt44b, (.Lt44be - .Lt44b)
+    lwz     3, 4(8)
+    CHECK32 0xAAAAAAAA             /* truncates in round-to-zero */
+
+    /* ====== Test 45: mtfsfi sets RN=2 (toward +inf) ====== */
+    PRINT   .Lt45, (.Lt45e - .Lt45)
+    mtfsfi  7, 2                    /* RN=2 */
+    LOAD_DBL 1, 0x40240000, 0x00000000
+    LOAD_DBL 2, 0x40080000, 0x00000000
+    fdiv    3, 1, 2
+    stfd    3, 0(8)
+    lwz     3, 4(8)
+    CHECK32 0xAAAAAAAB             /* positive → rounds UP toward +inf */
+
+    /* ====== Test 46: RN=3 (toward -inf) with positive value ====== */
+    PRINT   .Lt46, (.Lt46e - .Lt46)
+    mtfsfi  7, 3                    /* RN=3 */
+    LOAD_DBL 1, 0x40240000, 0x00000000
+    LOAD_DBL 2, 0x40080000, 0x00000000
+    fdiv    3, 1, 2
+    stfd    3, 0(8)
+    lwz     3, 4(8)
+    CHECK32 0xAAAAAAAA             /* positive → rounds DOWN toward -inf */
+
+    /* ====== Test 47: RN=3 (toward -inf) with negative value ====== */
+    PRINT   .Lt47, (.Lt47e - .Lt47)
+    /* -10.0 / 3.0 = -3.333... should round AWAY from zero toward -inf */
+    LOAD_DBL 1, 0xC0240000, 0x00000000  /* -10.0 */
+    LOAD_DBL 2, 0x40080000, 0x00000000  /* 3.0 */
+    fdiv    3, 1, 2
+    stfd    3, 0(8)
+    lwz     3, 0(8)
+    CHECK32 0xC00AAAAA             /* sign bit set */
+    PRINT   .Lt47b, (.Lt47be - .Lt47b)
+    lwz     3, 4(8)
+    CHECK32 0xAAAAAAAB             /* negative → rounds AWAY from zero toward -inf */
+
+    /* ====== Test 48: restore RN=0, verify fdiv gives nearest result again ====== */
+    PRINT   .Lt48, (.Lt48e - .Lt48)
+    mtfsfi  7, 0                    /* restore RN=0 */
+    LOAD_DBL 1, 0x40240000, 0x00000000
+    LOAD_DBL 2, 0x40080000, 0x00000000
+    fdiv    3, 1, 2
+    stfd    3, 0(8)
+    lwz     3, 4(8)
+    CHECK32 0xAAAAAAAB             /* back to round-to-nearest */
+
     /* ====== Summary ====== */
     PRINT   .Lsummary, (.Lsummarye - .Lsummary)
     cmpwi   0, 30, 0
@@ -539,11 +643,44 @@ _start:
 .Lt40b:
     .ascii  "test 40b stfsu rA:       "
 .Lt40be:
+.Lt41:
+    .ascii  "test 41 mffs RN=0:       "
+.Lt41e:
+.Lt42:
+    .ascii  "test 42a fdiv RN=0 hi:   "
+.Lt42e:
+.Lt42b:
+    .ascii  "test 42b fdiv RN=0 lo:   "
+.Lt42be:
+.Lt43:
+    .ascii  "test 43 mtfsfi RN=1:     "
+.Lt43e:
+.Lt44:
+    .ascii  "test 44a fdiv RN=1 hi:   "
+.Lt44e:
+.Lt44b:
+    .ascii  "test 44b fdiv RN=1 lo:   "
+.Lt44be:
+.Lt45:
+    .ascii  "test 45 fdiv RN=2 lo:    "
+.Lt45e:
+.Lt46:
+    .ascii  "test 46 fdiv RN=3+ lo:   "
+.Lt46e:
+.Lt47:
+    .ascii  "test 47a fdiv RN=3- hi:  "
+.Lt47e:
+.Lt47b:
+    .ascii  "test 47b fdiv RN=3- lo:  "
+.Lt47be:
+.Lt48:
+    .ascii  "test 48 fdiv RN=0 again: "
+.Lt48e:
 .Lsummary:
     .ascii  "\n=== FPU Arith Summary ===\n"
 .Lsummarye:
 .Lpass:
-    .ascii  "All 40 tests passed!\n"
+    .ascii  "All 48 tests passed!\n"
 .Lpasse:
 .Lfailcount:
     .ascii  " test(s) failed\n"
