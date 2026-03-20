@@ -455,6 +455,29 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_bclrx(JITC &jitc)
 {
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_XL(jitc.current_opc, BO, BI, BD);
+    bool lk = jitc.current_opc & PPC_OPC_LK;
+    bool ctr_ok_always = (BO & 4);
+    bool cond_ok_always = (BO & 16);
+
+    // Unconditional blr / blrl (BO=0x14)
+    if (ctr_ok_always && cond_ok_always) {
+        jitc.clobberAll();
+        // Must read old LR before overwriting
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, lr));
+        if (lk) {
+            // blrl: new LR = ccb + pc + 4, then jump to old LR
+            jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+            jitc.asmMOV(W17, jitc.pc + 4);
+            jitc.asmADDw(W16, W16, W17);
+            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+        }
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+        return flowEndBlockUnreachable;
+    }
+
+    // Conditional bclr — fall back to interpreter
     ppc_opc_gen_interpret(jitc, ppc_opc_bclrx);
     gen_dispatch_npc(jitc);
     return flowEndBlockUnreachable;
@@ -462,6 +485,28 @@ JITCFlow ppc_opc_gen_bclrx(JITC &jitc)
 
 JITCFlow ppc_opc_gen_bcctrx(JITC &jitc)
 {
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_XL(jitc.current_opc, BO, BI, BD);
+    bool lk = jitc.current_opc & PPC_OPC_LK;
+    bool cond_ok_always = (BO & 16);
+    // Note: bcctr never decrements CTR (BO bit 2 must be set)
+
+    // Unconditional bctr / bctrl (BO=0x14)
+    if (cond_ok_always) {
+        jitc.clobberAll();
+        if (lk) {
+            // bctrl: LR = ccb + pc + 4
+            jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+            jitc.asmMOV(W17, jitc.pc + 4);
+            jitc.asmADDw(W16, W16, W17);
+            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+        }
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, ctr));
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+        return flowEndBlockUnreachable;
+    }
+
+    // Conditional bcctr — fall back to interpreter
     ppc_opc_gen_interpret(jitc, ppc_opc_bcctrx);
     gen_dispatch_npc(jitc);
     return flowEndBlockUnreachable;
