@@ -219,6 +219,16 @@ void JITC::asmSTR_cpu(NativeReg rs, uint32 offset)
     emit32(a64_STR(rs, X20, offset));
 }
 
+void JITC::asmLDR_D_cpu(int dd, uint32 offset)
+{
+    emit32(a64_LDR_D(dd, X20, offset));
+}
+
+void JITC::asmSTR_D_cpu(int dd, uint32 offset)
+{
+    emit32(a64_STR_D(dd, X20, offset));
+}
+
 void JITC::asmBL(NativeAddress to)
 {
     emitAssure(a64_bl_size((uint64)to));

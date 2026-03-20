@@ -1454,3 +1454,522 @@ JITCFlow ppc_opc_gen_fnegx(JITC &jitc)
 	return flowContinue;
 }
 
+/* Helper: emit AND Xd, Xn, #0x7FFFFFFFFFFFFFFF (clear sign bit) */
+static void gen_clear_sign_bit(JITC &jitc, int rd, int rn)
+{
+	// 64-bit AND immediate: 1 00 100100 N immr imms Rn Rd
+	// #0x7FFFFFFFFFFFFFFF: N=1, immr=0, imms=62
+	uint32 insn = 0x92400000 | (0 << 16) | (62 << 10) | (rn << 5) | rd;
+	jitc.emit32(insn);
+}
+
+/* Helper: emit ORR Xd, Xn, #0x8000000000000000 (set sign bit) */
+static void gen_set_sign_bit(JITC &jitc, int rd, int rn)
+{
+	// 64-bit ORR immediate: 1 01 100100 N immr imms Rn Rd
+	// #0x8000000000000000: N=1, immr=1, imms=0
+	uint32 insn = 0xB2400000 | (1 << 16) | (0 << 10) | (rn << 5) | rd;
+	jitc.emit32(insn);
+}
+
+/*
+ * Helper: Check FPSCR rounding mode == RN_NEAR (bits 0-1 == 0).
+ * If not, fall back to interpreter.
+ * Returns the fixup address of the B.NE (to be resolved to the interpreter path).
+ * The caller must arrange the interpreter fallback and resolve the fixup.
+ *
+ * Pattern:
+ *   LDR W0, [X20, #fpscr]
+ *   TST W0, #3
+ *   B.NE interpreter_fallback
+ *   ... native path ...
+ *   B done
+ *   interpreter_fallback:
+ *   ... GEN_INTERPRET ...
+ *   done:
+ */
+
+/* fabs frD, frB — clear sign bit */
+JITCFlow ppc_opc_gen_fabsx(JITC &jitc)
+{
+	int frD, rA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, frB);
+	(void)rA;
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_fabsx);
+		return flowContinue;
+	}
+	jitc.asmLDR_cpu(X16, FPR_OFS(frB));
+	gen_clear_sign_bit(jitc, X16, X16);
+	jitc.asmSTR_cpu(X16, FPR_OFS(frD));
+	return flowContinue;
+}
+
+/* fnabs frD, frB — set sign bit */
+JITCFlow ppc_opc_gen_fnabsx(JITC &jitc)
+{
+	int frD, rA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, frB);
+	(void)rA;
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_fnabsx);
+		return flowContinue;
+	}
+	jitc.asmLDR_cpu(X16, FPR_OFS(frB));
+	gen_set_sign_bit(jitc, X16, X16);
+	jitc.asmSTR_cpu(X16, FPR_OFS(frD));
+	return flowContinue;
+}
+
+/*
+ * === FP arithmetic with rounding mode guard ===
+ *
+ * Pattern for double-precision binary ops (fadd, fsub, fmul, fdiv):
+ *   gen_check_fpu
+ *   if Rc: fallback to interpret
+ *   LDR W0, [X20, #fpscr]   // check rounding mode
+ *   TST W0, #3
+ *   B.NE fallback
+ *   <native FP>
+ *   B done
+ *   fallback: GEN_INTERPRET
+ *   done:
+ */
+
+/* Emit rounding-mode check + native double-precision binary op.
+ * op_fn = interpreter function for fallback
+ * Returns flowContinue. */
+static JITCFlow gen_fp_binop_double(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
+                                     uint32 fp_insn_opcode,
+                                     int frD, int frA, int frB_or_frC, bool use_frC)
+{
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, op_fn);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	// Check FPSCR rounding mode == 0 (round to nearest)
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1); // TST W0, #3 (immr=0, imms=1 encodes bitmask 0x3)
+
+	// B.NE → interpreter fallback
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+
+	// Native path
+	int src1 = frA;
+	int src2 = frB_or_frC;
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(src1));
+	jitc.asmLDR_D_cpu(V1, FPR_OFS(src2));
+	jitc.emit32(fp_insn_opcode); // e.g. FADD D0, D0, D1
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	// B → done (skip fallback)
+	NativeAddress b_fixup = jitc.asmBFixup();
+
+	// Interpreter fallback
+	jitc.asmResolveFixup(bne_fixup);
+	ppc_opc_gen_interpret(jitc, op_fn);
+
+	// done:
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
+/* Same but for single-precision: compute in double, round to single, extend back */
+static JITCFlow gen_fp_binop_single(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
+                                     uint32 fp_insn_opcode,
+                                     int frD, int frA, int frB_or_frC, bool use_frC)
+{
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, op_fn);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1); // TST W0, #3
+
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+
+	int src1 = frA;
+	int src2 = frB_or_frC;
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(src1));
+	jitc.asmLDR_D_cpu(V1, FPR_OFS(src2));
+	jitc.emit32(fp_insn_opcode); // double-precision op
+	jitc.emit32(a64_FCVT_S_D(V0, V0)); // round to single
+	jitc.emit32(a64_FCVT_D_S(V0, V0)); // extend back to double
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	NativeAddress b_fixup = jitc.asmBFixup();
+
+	jitc.asmResolveFixup(bne_fixup);
+	ppc_opc_gen_interpret(jitc, op_fn);
+
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
+/* fadd frD, frA, frB */
+JITCFlow ppc_opc_gen_faddx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_double(jitc, ppc_opc_faddx,
+		a64_FADD_D(V0, V0, V1), frD, frA, frB, false);
+}
+
+/* fsub frD, frA, frB */
+JITCFlow ppc_opc_gen_fsubx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_double(jitc, ppc_opc_fsubx,
+		a64_FSUB_D(V0, V0, V1), frD, frA, frB, false);
+}
+
+/* fmul frD, frA, frC (note: uses frC, not frB!) */
+JITCFlow ppc_opc_gen_fmulx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_double(jitc, ppc_opc_fmulx,
+		a64_FMUL_D(V0, V0, V1), frD, frA, frC, true);
+}
+
+/* fdiv frD, frA, frB */
+JITCFlow ppc_opc_gen_fdivx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_double(jitc, ppc_opc_fdivx,
+		a64_FDIV_D(V0, V0, V1), frD, frA, frB, false);
+}
+
+/* fadds frD, frA, frB */
+JITCFlow ppc_opc_gen_faddsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_single(jitc, ppc_opc_faddsx,
+		a64_FADD_D(V0, V0, V1), frD, frA, frB, false);
+}
+
+/* fsubs frD, frA, frB */
+JITCFlow ppc_opc_gen_fsubsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_single(jitc, ppc_opc_fsubsx,
+		a64_FSUB_D(V0, V0, V1), frD, frA, frB, false);
+}
+
+/* fmuls frD, frA, frC */
+JITCFlow ppc_opc_gen_fmulsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_single(jitc, ppc_opc_fmulsx,
+		a64_FMUL_D(V0, V0, V1), frD, frA, frC, true);
+}
+
+/* fdivs frD, frA, frB */
+JITCFlow ppc_opc_gen_fdivsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_binop_single(jitc, ppc_opc_fdivsx,
+		a64_FDIV_D(V0, V0, V1), frD, frA, frB, false);
+}
+
+/*
+ * === Fused multiply-add family ===
+ *
+ * PPC fmadd:  frD = frA * frC + frB   → AArch64 FMADD D0, D0, D1, D2  (D2 + D0*D1)
+ * PPC fmsub:  frD = frA * frC - frB   → AArch64 FNMSUB D0, D0, D1, D2 (D0*D1 - D2)
+ * PPC fnmadd: frD = -(frA * frC + frB)→ AArch64 FNMADD D0, D0, D1, D2 (-(D2 + D0*D1))
+ * PPC fnmsub: frD = -(frA * frC - frB)→ AArch64 FMSUB D0, D0, D1, D2  (D2 - D0*D1)
+ */
+static JITCFlow gen_fp_fma_double(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
+                                   uint32 fma_insn, int frD, int frA, int frB, int frC)
+{
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, op_fn);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1);
+
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+
+	// D0=frA (Dn), D1=frC (Dm), D2=frB (Da)
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
+	jitc.asmLDR_D_cpu(V1, FPR_OFS(frC));
+	jitc.asmLDR_D_cpu(V2, FPR_OFS(frB));
+	jitc.emit32(fma_insn);
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	NativeAddress b_fixup = jitc.asmBFixup();
+
+	jitc.asmResolveFixup(bne_fixup);
+	ppc_opc_gen_interpret(jitc, op_fn);
+
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
+static JITCFlow gen_fp_fma_single(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
+                                   uint32 fma_insn, int frD, int frA, int frB, int frC)
+{
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, op_fn);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1);
+
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
+	jitc.asmLDR_D_cpu(V1, FPR_OFS(frC));
+	jitc.asmLDR_D_cpu(V2, FPR_OFS(frB));
+	jitc.emit32(fma_insn);
+	jitc.emit32(a64_FCVT_S_D(V0, V0));
+	jitc.emit32(a64_FCVT_D_S(V0, V0));
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	NativeAddress b_fixup = jitc.asmBFixup();
+
+	jitc.asmResolveFixup(bne_fixup);
+	ppc_opc_gen_interpret(jitc, op_fn);
+
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_fmaddx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	// PPC: frA*frC + frB → FMADD Dd, Dn, Dm, Da = Da + Dn*Dm
+	return gen_fp_fma_double(jitc, ppc_opc_fmaddx,
+		a64_FMADD_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fmsubx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	// PPC: frA*frC - frB → FNMSUB Dd, Dn, Dm, Da = Dn*Dm - Da
+	return gen_fp_fma_double(jitc, ppc_opc_fmsubx,
+		a64_FNMSUB_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fnmaddx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	// PPC: -(frA*frC + frB) → FNMADD Dd, Dn, Dm, Da = -(Da + Dn*Dm)
+	return gen_fp_fma_double(jitc, ppc_opc_fnmaddx,
+		a64_FNMADD_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fnmsubx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	// PPC: -(frA*frC - frB) → FMSUB Dd, Dn, Dm, Da = Da - Dn*Dm
+	return gen_fp_fma_double(jitc, ppc_opc_fnmsubx,
+		a64_FMSUB_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fmaddsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_fma_single(jitc, ppc_opc_fmaddsx,
+		a64_FMADD_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fmsubsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_fma_single(jitc, ppc_opc_fmsubsx,
+		a64_FNMSUB_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fnmaddsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_fma_single(jitc, ppc_opc_fnmaddsx,
+		a64_FNMADD_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+JITCFlow ppc_opc_gen_fnmsubsx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	return gen_fp_fma_single(jitc, ppc_opc_fnmsubsx,
+		a64_FMSUB_D(V0, V0, V1, V2), frD, frA, frB, frC);
+}
+
+/*
+ * === Other FP ops ===
+ */
+
+/* fsqrt frD, frB */
+JITCFlow ppc_opc_gen_fsqrtx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_fsqrtx);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1);
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frB));
+	jitc.emit32(a64_FSQRT_D(V0, V0));
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	NativeAddress b_fixup = jitc.asmBFixup();
+	jitc.asmResolveFixup(bne_fixup);
+	ppc_opc_gen_interpret(jitc, ppc_opc_fsqrtx);
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
+/* frsp frD, frB — round double to single precision */
+JITCFlow ppc_opc_gen_frspx(JITC &jitc)
+{
+	int frD, frA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, frA, frB);
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_frspx);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1);
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frB));
+	jitc.emit32(a64_FCVT_S_D(V0, V0)); // double → single (rounds)
+	jitc.emit32(a64_FCVT_D_S(V0, V0)); // single → double (extend)
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	NativeAddress b_fixup = jitc.asmBFixup();
+	jitc.asmResolveFixup(bne_fixup);
+	ppc_opc_gen_interpret(jitc, ppc_opc_frspx);
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
+/* fctiwz frD, frB — convert double to int32, round toward zero */
+JITCFlow ppc_opc_gen_fctiwzx(JITC &jitc)
+{
+	int frD, frA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, frA, frB);
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_fctiwzx);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	// fctiwz always rounds toward zero regardless of FPSCR — no rounding mode check needed
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frB));
+	jitc.emit32(a64_FCVTZS_W_D(W0, V0)); // W0 = (int32)D0
+	// Store as 64-bit with int32 in low word (PPC convention: bits 32-63)
+	// PPC stores the result in FPR as: [undefined_32bits | int32_result]
+	// The integer is in the low 32 bits of the 64-bit FPR
+	jitc.emit32(a64_FMOV_D_X(V0, X0)); // Zero-extend W0 to X0 already (32-bit ops zero upper)
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	return flowContinue;
+}
+
+/* fsel frD, frA, frC, frB — if frA >= 0.0 then frC else frB */
+JITCFlow ppc_opc_gen_fselx(JITC &jitc)
+{
+	int frD, frA, frB, frC;
+	PPC_OPC_TEMPL_A(jitc.current_opc, frD, frA, frB, frC);
+	gen_check_fpu(jitc);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_fselx);
+		return flowContinue;
+	}
+
+	jitc.clobberAll();
+
+	// FCMP D0, #0.0; FCSEL D0, D_frC, D_frB, GE
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
+	jitc.asmLDR_D_cpu(V1, FPR_OFS(frC)); // selected when >= 0
+	jitc.asmLDR_D_cpu(V2, FPR_OFS(frB)); // selected when < 0
+	jitc.emit32(a64_FCMP_D_zero(V0));
+	jitc.emit32(a64_FCSEL_D(V0, V1, V2, A64_GE));
+	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+
+	return flowContinue;
+}
+
+/* fcmpu crfD, frA, frB — floating compare unordered */
+JITCFlow ppc_opc_gen_fcmpu(JITC &jitc)
+{
+	int crfD, frA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, crfD, frA, frB);
+	gen_check_fpu(jitc);
+
+	jitc.clobberAll();
+
+	// Use interpreter — fcmpu updates CR and FPSCR in complex ways
+	// (NaN handling, VXSNAN flag, etc.)
+	ppc_opc_gen_interpret(jitc, ppc_opc_fcmpu);
+	return flowContinue;
+}
+
+/* fcmpo crfD, frA, frB — floating compare ordered */
+JITCFlow ppc_opc_gen_fcmpo(JITC &jitc)
+{
+	int crfD, frA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, crfD, frA, frB);
+	gen_check_fpu(jitc);
+
+	jitc.clobberAll();
+
+	ppc_opc_gen_interpret(jitc, ppc_opc_fcmpo);
+	return flowContinue;
+}
+

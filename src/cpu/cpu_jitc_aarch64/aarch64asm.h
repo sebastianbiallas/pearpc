@@ -206,6 +206,43 @@ A64Instr a64_MVNw(int rd, int rm);            // MVN Wd, Wm = ~Wm
 /* Count leading zeros */
 A64Instr a64_CLZw(int rd, int rn);            // CLZ Wd, Wn
 
+/* Floating-point load/store (D-register, unsigned offset scaled by 8) */
+A64Instr a64_LDR_D(int dt, int rn, int uimm);  // LDR Dt, [Xn, #uimm]
+A64Instr a64_STR_D(int dt, int rn, int uimm);  // STR Dt, [Xn, #uimm]
+
+/* Floating-point arithmetic (double-precision) */
+A64Instr a64_FADD_D(int dd, int dn, int dm);   // FADD Dd, Dn, Dm
+A64Instr a64_FSUB_D(int dd, int dn, int dm);   // FSUB Dd, Dn, Dm
+A64Instr a64_FMUL_D(int dd, int dn, int dm);   // FMUL Dd, Dn, Dm
+A64Instr a64_FDIV_D(int dd, int dn, int dm);   // FDIV Dd, Dn, Dm
+A64Instr a64_FNEG_D(int dd, int dn);           // FNEG Dd, Dn
+A64Instr a64_FABS_D(int dd, int dn);           // FABS Dd, Dn
+A64Instr a64_FSQRT_D(int dd, int dn);          // FSQRT Dd, Dn
+
+/* Floating-point fused multiply-add (double-precision) */
+A64Instr a64_FMADD_D(int dd, int dn, int dm, int da);  // FMADD Dd, Dn, Dm, Da  (Da + Dn*Dm)
+A64Instr a64_FMSUB_D(int dd, int dn, int dm, int da);  // FMSUB Dd, Dn, Dm, Da  (Da - Dn*Dm)
+A64Instr a64_FNMADD_D(int dd, int dn, int dm, int da); // FNMADD Dd, Dn, Dm, Da (-(Da + Dn*Dm))
+A64Instr a64_FNMSUB_D(int dd, int dn, int dm, int da); // FNMSUB Dd, Dn, Dm, Da (Dn*Dm - Da)
+
+/* Floating-point conversion */
+A64Instr a64_FCVT_S_D(int sd, int dn);         // FCVT Sd, Dn (double to single)
+A64Instr a64_FCVT_D_S(int dd, int sn);         // FCVT Dd, Sn (single to double)
+
+/* Floating-point compare */
+A64Instr a64_FCMP_D(int dn, int dm);           // FCMP Dn, Dm
+A64Instr a64_FCMP_D_zero(int dn);              // FCMP Dn, #0.0
+
+/* Floating-point to integer conversion */
+A64Instr a64_FCVTZS_W_D(int wd, int dn);       // FCVTZS Wd, Dn (double to int32, round toward zero)
+
+/* Floating-point conditional select */
+A64Instr a64_FCSEL_D(int dd, int dn, int dm, A64Cond cond); // FCSEL Dd, Dn, Dm, cond
+
+/* Floating-point move (GPR <-> FPR) */
+A64Instr a64_FMOV_D_X(int dd, int xn);         // FMOV Dd, Xn (GPR to FPR)
+A64Instr a64_FMOV_X_D(int xd, int dn);         // FMOV Xd, Dn (FPR to GPR)
+
 /* Misc */
 A64Instr a64_NOP();
 A64Instr a64_REV(int rd, int rn);  // byte swap 64-bit

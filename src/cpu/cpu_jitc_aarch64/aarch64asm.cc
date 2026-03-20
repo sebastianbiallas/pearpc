@@ -805,6 +805,190 @@ A64Instr a64_REVw(int rd, int rn)
     return 0x5AC00800 | (rn << 5) | rd;
 }
 
+/*
+ *  Floating-point load/store (D-register, unsigned offset)
+ *  LDR Dt, [Xn, #uimm] — 11 111101 01 imm12 Rn Rt (scaled by 8)
+ *  STR Dt, [Xn, #uimm] — 11 111101 00 imm12 Rn Rt (scaled by 8)
+ */
+A64Instr a64_LDR_D(int dt, int rn, int uimm)
+{
+    A64_ASSERT_REG(dt, "LDR_D");
+    A64_ASSERT_REG(rn, "LDR_D");
+    A64_ASSERT_ALIGN(uimm, 8, "LDR_D");
+    A64_ASSERT_RANGE(uimm, 0, 32760, "LDR_D offset");
+    uint32 uoff = (uint32)uimm / 8;
+    return 0xFD400000 | (uoff << 10) | (rn << 5) | dt;
+}
+
+A64Instr a64_STR_D(int dt, int rn, int uimm)
+{
+    A64_ASSERT_REG(dt, "STR_D");
+    A64_ASSERT_REG(rn, "STR_D");
+    A64_ASSERT_ALIGN(uimm, 8, "STR_D");
+    A64_ASSERT_RANGE(uimm, 0, 32760, "STR_D offset");
+    uint32 uoff = (uint32)uimm / 8;
+    return 0xFD000000 | (uoff << 10) | (rn << 5) | dt;
+}
+
+/*
+ *  Floating-point arithmetic (double-precision)
+ */
+A64Instr a64_FADD_D(int dd, int dn, int dm)
+{
+    A64_ASSERT_REG(dd, "FADD_D"); A64_ASSERT_REG(dn, "FADD_D"); A64_ASSERT_REG(dm, "FADD_D");
+    // 00011110 011 Rm 001010 Rn Rd
+    return 0x1E602800 | (dm << 16) | (dn << 5) | dd;
+}
+
+A64Instr a64_FSUB_D(int dd, int dn, int dm)
+{
+    A64_ASSERT_REG(dd, "FSUB_D"); A64_ASSERT_REG(dn, "FSUB_D"); A64_ASSERT_REG(dm, "FSUB_D");
+    // 00011110 011 Rm 001110 Rn Rd
+    return 0x1E603800 | (dm << 16) | (dn << 5) | dd;
+}
+
+A64Instr a64_FMUL_D(int dd, int dn, int dm)
+{
+    A64_ASSERT_REG(dd, "FMUL_D"); A64_ASSERT_REG(dn, "FMUL_D"); A64_ASSERT_REG(dm, "FMUL_D");
+    // 00011110 011 Rm 000010 Rn Rd
+    return 0x1E600800 | (dm << 16) | (dn << 5) | dd;
+}
+
+A64Instr a64_FDIV_D(int dd, int dn, int dm)
+{
+    A64_ASSERT_REG(dd, "FDIV_D"); A64_ASSERT_REG(dn, "FDIV_D"); A64_ASSERT_REG(dm, "FDIV_D");
+    // 00011110 011 Rm 000110 Rn Rd
+    return 0x1E601800 | (dm << 16) | (dn << 5) | dd;
+}
+
+A64Instr a64_FNEG_D(int dd, int dn)
+{
+    A64_ASSERT_REG(dd, "FNEG_D"); A64_ASSERT_REG(dn, "FNEG_D");
+    // 00011110 01 100001 010000 Rn Rd
+    return 0x1E614000 | (dn << 5) | dd;
+}
+
+A64Instr a64_FABS_D(int dd, int dn)
+{
+    A64_ASSERT_REG(dd, "FABS_D"); A64_ASSERT_REG(dn, "FABS_D");
+    // 00011110 01 100000 110000 Rn Rd
+    return 0x1E60C000 | (dn << 5) | dd;
+}
+
+A64Instr a64_FSQRT_D(int dd, int dn)
+{
+    A64_ASSERT_REG(dd, "FSQRT_D"); A64_ASSERT_REG(dn, "FSQRT_D");
+    // 00011110 01 100001 110000 Rn Rd
+    return 0x1E61C000 | (dn << 5) | dd;
+}
+
+/*
+ *  Floating-point fused multiply-add (double-precision)
+ *  FMADD Dd, Dn, Dm, Da = Da + Dn*Dm
+ */
+A64Instr a64_FMADD_D(int dd, int dn, int dm, int da)
+{
+    A64_ASSERT_REG(dd, "FMADD_D"); A64_ASSERT_REG(dn, "FMADD_D");
+    A64_ASSERT_REG(dm, "FMADD_D"); A64_ASSERT_REG(da, "FMADD_D");
+    // 00011111 01 0 Rm 0 Ra Rn Rd
+    return 0x1F400000 | (dm << 16) | (da << 10) | (dn << 5) | dd;
+}
+
+A64Instr a64_FMSUB_D(int dd, int dn, int dm, int da)
+{
+    A64_ASSERT_REG(dd, "FMSUB_D"); A64_ASSERT_REG(dn, "FMSUB_D");
+    A64_ASSERT_REG(dm, "FMSUB_D"); A64_ASSERT_REG(da, "FMSUB_D");
+    // 00011111 01 0 Rm 1 Ra Rn Rd
+    return 0x1F408000 | (dm << 16) | (da << 10) | (dn << 5) | dd;
+}
+
+A64Instr a64_FNMADD_D(int dd, int dn, int dm, int da)
+{
+    A64_ASSERT_REG(dd, "FNMADD_D"); A64_ASSERT_REG(dn, "FNMADD_D");
+    A64_ASSERT_REG(dm, "FNMADD_D"); A64_ASSERT_REG(da, "FNMADD_D");
+    // 00011111 01 1 Rm 0 Ra Rn Rd
+    return 0x1F600000 | (dm << 16) | (da << 10) | (dn << 5) | dd;
+}
+
+A64Instr a64_FNMSUB_D(int dd, int dn, int dm, int da)
+{
+    A64_ASSERT_REG(dd, "FNMSUB_D"); A64_ASSERT_REG(dn, "FNMSUB_D");
+    A64_ASSERT_REG(dm, "FNMSUB_D"); A64_ASSERT_REG(da, "FNMSUB_D");
+    // 00011111 01 1 Rm 1 Ra Rn Rd
+    return 0x1F608000 | (dm << 16) | (da << 10) | (dn << 5) | dd;
+}
+
+/*
+ *  Floating-point conversion
+ */
+A64Instr a64_FCVT_S_D(int sd, int dn)
+{
+    A64_ASSERT_REG(sd, "FCVT_S_D"); A64_ASSERT_REG(dn, "FCVT_S_D");
+    // 00011110 01 100100 010000 Rn Rd  (type=01, opc=00 → single)
+    return 0x1E624000 | (dn << 5) | sd;
+}
+
+A64Instr a64_FCVT_D_S(int dd, int sn)
+{
+    A64_ASSERT_REG(dd, "FCVT_D_S"); A64_ASSERT_REG(sn, "FCVT_D_S");
+    // 00011110 00 100010 110000 Rn Rd  (type=00, opc=01 → double)
+    return 0x1E22C000 | (sn << 5) | dd;
+}
+
+/*
+ *  Floating-point compare
+ */
+A64Instr a64_FCMP_D(int dn, int dm)
+{
+    A64_ASSERT_REG(dn, "FCMP_D"); A64_ASSERT_REG(dm, "FCMP_D");
+    // 00011110 011 Rm 001000 Rn 00000
+    return 0x1E602000 | (dm << 16) | (dn << 5);
+}
+
+A64Instr a64_FCMP_D_zero(int dn)
+{
+    A64_ASSERT_REG(dn, "FCMP_D_zero");
+    // 00011110 011 00000 001000 Rn 01000
+    return 0x1E602008 | (dn << 5);
+}
+
+/*
+ *  Float to integer conversion
+ */
+A64Instr a64_FCVTZS_W_D(int wd, int dn)
+{
+    A64_ASSERT_REG(wd, "FCVTZS_W_D"); A64_ASSERT_REG(dn, "FCVTZS_W_D");
+    // 0 00 11110 01 111000 000000 Rn Rd
+    return 0x1E780000 | (dn << 5) | wd;
+}
+
+/*
+ *  Floating-point conditional select
+ */
+A64Instr a64_FCSEL_D(int dd, int dn, int dm, A64Cond cond)
+{
+    A64_ASSERT_REG(dd, "FCSEL_D"); A64_ASSERT_REG(dn, "FCSEL_D"); A64_ASSERT_REG(dm, "FCSEL_D");
+    // 00011110 011 Rm cond 11 Rn Rd
+    return 0x1E600C00 | (dm << 16) | ((int)cond << 12) | (dn << 5) | dd;
+}
+
+/*
+ *  Floating-point move between GPR and FPR
+ */
+A64Instr a64_FMOV_D_X(int dd, int xn)
+{
+    A64_ASSERT_REG(dd, "FMOV_D_X"); A64_ASSERT_REG(xn, "FMOV_D_X");
+    // 1 00 11110 01 1 00 111 000000 Rn Rd
+    return 0x9E670000 | (xn << 5) | dd;
+}
+
+A64Instr a64_FMOV_X_D(int xd, int dn)
+{
+    A64_ASSERT_REG(xd, "FMOV_X_D"); A64_ASSERT_REG(dn, "FMOV_X_D");
+    // 1 00 11110 01 1 00 110 000000 Rn Rd
+    return 0x9E660000 | (dn << 5) | xd;
+}
+
 /* PC-relative addressing */
 A64Instr a64_ADRP(int rd, sint64 offset)
 {

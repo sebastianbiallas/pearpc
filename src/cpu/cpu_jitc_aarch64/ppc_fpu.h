@@ -717,5 +717,29 @@ int ppc_opc_fsubsx(PPC_CPU_State &aCPU);
 #include "jitc_types.h"
 JITCFlow ppc_opc_gen_fmrx(JITC &jitc);
 JITCFlow ppc_opc_gen_fnegx(JITC &jitc);
+JITCFlow ppc_opc_gen_fabsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fnabsx(JITC &jitc);
+JITCFlow ppc_opc_gen_faddx(JITC &jitc);
+JITCFlow ppc_opc_gen_fsubx(JITC &jitc);
+JITCFlow ppc_opc_gen_fmulx(JITC &jitc);
+JITCFlow ppc_opc_gen_fdivx(JITC &jitc);
+JITCFlow ppc_opc_gen_faddsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fsubsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fmulsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fdivsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fmaddx(JITC &jitc);
+JITCFlow ppc_opc_gen_fmsubx(JITC &jitc);
+JITCFlow ppc_opc_gen_fnmaddx(JITC &jitc);
+JITCFlow ppc_opc_gen_fnmsubx(JITC &jitc);
+JITCFlow ppc_opc_gen_fmaddsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fmsubsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fnmaddsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fnmsubsx(JITC &jitc);
+JITCFlow ppc_opc_gen_fsqrtx(JITC &jitc);
+JITCFlow ppc_opc_gen_frspx(JITC &jitc);
+JITCFlow ppc_opc_gen_fctiwzx(JITC &jitc);
+JITCFlow ppc_opc_gen_fselx(JITC &jitc);
+JITCFlow ppc_opc_gen_fcmpu(JITC &jitc);
+JITCFlow ppc_opc_gen_fcmpo(JITC &jitc);
 
 #endif

@@ -177,34 +177,17 @@ GEN_INTERPRET_LOADSTORE(stfsux)
 GEN_INTERPRET_LOADSTORE(stfiwx)
 
 /* FPU arithmetic */
-GEN_INTERPRET(fdivx)
-GEN_INTERPRET(fdivsx)
-GEN_INTERPRET(fsubx)
-GEN_INTERPRET(fsubsx)
-GEN_INTERPRET(faddx)
-GEN_INTERPRET(faddsx)
-GEN_INTERPRET(fsqrtx)
+/* FPU native gen_ in ppc_fpu.cc:
+ *   fabsx, fnabsx, faddx, fsubx, fmulx, fdivx,
+ *   faddsx, fsubsx, fmulsx, fdivsx,
+ *   fmaddx, fmsubx, fnmaddx, fnmsubx,
+ *   fmaddsx, fmsubsx, fnmaddsx, fnmsubsx,
+ *   fsqrtx, frspx, fctiwzx, fselx, fcmpu, fcmpo
+ */
 GEN_INTERPRET(fsqrtsx)
 GEN_INTERPRET(fresx)
-GEN_INTERPRET(fmulx)
-GEN_INTERPRET(fmulsx)
 GEN_INTERPRET(frsqrtex)
-GEN_INTERPRET(fmsubx)
-GEN_INTERPRET(fmsubsx)
-GEN_INTERPRET(fmaddx)
-GEN_INTERPRET(fmaddsx)
-GEN_INTERPRET(fnmsubx)
-GEN_INTERPRET(fnmsubsx)
-GEN_INTERPRET(fnmaddx)
-GEN_INTERPRET(fnmaddsx)
-GEN_INTERPRET(fselx)
-GEN_INTERPRET(fcmpu)
-GEN_INTERPRET(fcmpo)
-GEN_INTERPRET(frspx)
 GEN_INTERPRET(fctiwx)
-GEN_INTERPRET(fctiwzx)
-GEN_INTERPRET(fabsx)
-GEN_INTERPRET(fnabsx)
 // fnegx, fmrx — native codegen in ppc_fpu.cc
 GEN_INTERPRET(mffsx)
 GEN_INTERPRET(mcrfs)

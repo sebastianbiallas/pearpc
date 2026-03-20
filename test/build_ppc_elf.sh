@@ -49,7 +49,7 @@ apt-get install -y -qq gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu >/dev/nu
 echo "Cross-compiler installed."
 
 # Assembly targets
-for name in test_loop test_branch_loop test_copy test_alu test_mem test_dsi test_fpu_exc test_altivec; do
+for name in test_loop test_branch_loop test_copy test_alu test_mem test_dsi test_fpu_exc test_fpu_arith test_altivec; do
     if [ "$TARGET" = "all" ] || [ "$TARGET" = "$name" ]; then
         if [ -f "${name}.S" ]; then
             ld_script="${name}.ld"

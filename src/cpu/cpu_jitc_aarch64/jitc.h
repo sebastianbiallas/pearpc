@@ -466,6 +466,10 @@ public:
     // 64-bit EOR with logical immediate
     void asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
 
+    // Floating-point load/store from CPU state (X20-relative, D-register)
+    void asmLDR_D_cpu(int dd, uint32 offset);  // LDR Dd, [X20, #offset]
+    void asmSTR_D_cpu(int dd, uint32 offset);  // STR Dd, [X20, #offset]
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)
@@ -483,6 +487,13 @@ public:
     {
         NativeAddress at = asmHERE();
         emit32(a64_Bcc(cond, 0));
+        return at;
+    }
+
+    NativeAddress asmBFixup()
+    {
+        NativeAddress at = asmHERE();
+        emit32(a64_B(0));
         return at;
     }
 
