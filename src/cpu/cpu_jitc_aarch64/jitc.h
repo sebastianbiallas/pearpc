@@ -379,7 +379,9 @@ public:
     void asmCMPw(NativeReg rn, uint32 imm12);
     void asmTSTw(NativeReg rn, int immr, int imms); // TST Wn, #bitmask
 
-    // Subtract with flags (32-bit immediate)
+    // ALU with flags (32-bit)
+    void asmADDSw(NativeReg rd, NativeReg rn, NativeReg rm); // ADDS Wd, Wn, Wm
+    void asmSUBSw(NativeReg rd, NativeReg rn, NativeReg rm); // SUBS Wd, Wn, Wm
     void asmSUBSw(NativeReg rd, NativeReg rn, uint32 imm12); // SUBS Wd, Wn, #imm12
 
     // Test and branch
@@ -395,6 +397,12 @@ public:
 
     // Shift immediate
     void asmLSRw_imm(NativeReg rd, NativeReg rn, int shift); // LSR Wd, Wn, #shift
+    void asmASRw_imm(NativeReg rd, NativeReg rn, int shift); // ASR Wd, Wn, #shift
+    void asmLSR_imm(NativeReg rd, NativeReg rn, int shift);  // LSR Xd, Xn, #shift
+
+    // Rotate
+    void asmRORw_imm(NativeReg rd, NativeReg rn, int shift); // ROR Wd, Wn, #shift
+    void asmRORw(NativeReg rd, NativeReg rn, NativeReg rm);  // ROR Wd, Wn, Wm
 
     // 64-bit ADD immediate
     void asmADD(NativeReg rd, NativeReg rn, uint32 imm12); // ADD Xd, Xn, #imm12
@@ -459,6 +467,59 @@ public:
     void asmBForward(uint skip_bytes)
     {
         emit32(a64_B((sint32)(skip_bytes + 4)));
+    }
+
+    // Forward branch fixups (emit with offset=0, patch later via asmResolveFixup)
+    NativeAddress asmBccFixup(A64Cond cond)
+    {
+        NativeAddress at = asmHERE();
+        emit32(a64_Bcc(cond, 0));
+        return at;
+    }
+
+    NativeAddress asmCBZwFixup(NativeReg rt)
+    {
+        NativeAddress at = asmHERE();
+        emit32(a64_CBZw(rt, 0));
+        return at;
+    }
+
+    NativeAddress asmCBNZwFixup(NativeReg rt)
+    {
+        NativeAddress at = asmHERE();
+        emit32(a64_CBNZw(rt, 0));
+        return at;
+    }
+
+    void asmResolveFixup(NativeAddress at, NativeAddress to = 0)
+    {
+        if (to == 0) {
+            to = asmHERE();
+        }
+        sint32 offset = (sint32)(to - at);
+        uint32 old = *(uint32 *)at;
+        uint32 patched;
+        // Detect instruction type from opcode bits and re-encode with correct offset
+        if ((old & 0x7E000000) == 0x34000000) {
+            // CBZ / CBNZ (32/64-bit): re-encode with new imm19
+            uint32 base = old & 0xFF00001F; // preserve sf, op, rt
+            sint32 imm19 = offset / 4;
+            patched = base | (((uint32)imm19 & 0x7FFFF) << 5);
+        } else if ((old & 0xFF000010) == 0x54000000) {
+            // B.cond: re-encode with new imm19
+            uint32 base = old & 0xFF00001F; // preserve cond
+            sint32 imm19 = offset / 4;
+            patched = base | (((uint32)imm19 & 0x7FFFF) << 5);
+        } else if ((old & 0x7C000000) == 0x14000000) {
+            // B / BL: re-encode with new imm26
+            uint32 base = old & 0xFC000000;
+            sint32 imm26 = offset / 4;
+            patched = base | ((uint32)imm26 & 0x03FFFFFF);
+        } else {
+            PPC_CPU_ERR("[A64] asmResolveFixup: unknown insn %08x at %p\n", old, at);
+            return;
+        }
+        *(uint32 *)at = patched;
     }
 
     void asmAssertHERE(NativeAddress expected, const char *label)

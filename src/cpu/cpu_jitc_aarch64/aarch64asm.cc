@@ -366,6 +366,15 @@ A64Instr a64_LSRw_imm(int rd, int rn, int shift)
     return 0x53000000 | (shift << 16) | (31 << 10) | (rn << 5) | rd;
 }
 
+A64Instr a64_LSR_imm(int rd, int rn, int shift)
+{
+    A64_ASSERT_REG(rd, "LSR_imm");
+    A64_ASSERT_REG(rn, "LSR_imm");
+    A64_ASSERT_RANGE(shift, 0, 63, "LSR_imm shift");
+    // LSR Xd, Xn, #shift = UBFM Xd, Xn, #shift, #63
+    return 0xD340FC00 | (shift << 16) | (rn << 5) | rd;
+}
+
 A64Instr a64_ASRw_imm(int rd, int rn, int shift)
 {
     A64_ASSERT_REG(rd, "ASRw_imm");

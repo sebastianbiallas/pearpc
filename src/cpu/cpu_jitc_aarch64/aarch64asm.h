@@ -112,6 +112,7 @@ A64Instr a64_NEGw(int rd, int rm); // NEG Wd, Wm = SUB Wd, WZR, Wm
 /* Shifts */
 A64Instr a64_LSLw_imm(int rd, int rn, int shift);
 A64Instr a64_LSRw_imm(int rd, int rn, int shift);
+A64Instr a64_LSR_imm(int rd, int rn, int shift);  // LSR Xd, Xn, #shift (64-bit)
 A64Instr a64_ASRw_imm(int rd, int rn, int shift);
 A64Instr a64_RORw_imm(int rd, int rn, int shift); // ROR Wd, Wn, #shift = EXTR Wd, Wn, Wn, #shift
 A64Instr a64_LSLw_reg(int rd, int rn, int rm);     // LSL Wd, Wn, Wm = LSLV

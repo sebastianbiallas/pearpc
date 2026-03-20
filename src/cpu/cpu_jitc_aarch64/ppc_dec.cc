@@ -120,8 +120,7 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 /* addic, addic_, subfic, mulli, andis_, rlwimix, mulhwux, orcx, norx, srawx,
    cntlzwx, divwx, divwux, addcx, addex, subfcx, subfex, srawix, mfcr, mtcrf
    now have native codegen in ppc_alu.cc */
-GEN_INTERPRET(addzex)
-GEN_INTERPRET(addmex)
+/* addzex, addmex — native codegen in ppc_alu.cc */
 GEN_INTERPRET(subfzex)
 GEN_INTERPRET(subfmex)
 GEN_INTERPRET(mulhwx)
@@ -144,7 +143,7 @@ GEN_INTERPRET_BRANCH(rfi)
 /* sc has native gen_ in ppc_alu.cc */
 
 /* CR */
-GEN_INTERPRET(mcrf)
+/* mcrf — native codegen in ppc_alu.cc */
 // CR logical ops — native codegen in ppc_alu.cc
 
 /*

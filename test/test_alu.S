@@ -693,6 +693,100 @@ _start:
     CHECK32 0xFEEDFACE
 
     /*
+     * Test 52: addze (rA=5, CA=1 → rD=6, CA=0)
+     */
+    PRINT   .Ltest52, (.Ltest52_end - .Ltest52)
+    li      4, 5
+    /* Set CA by doing addic with overflow: 0xFFFFFFFF + 1 = 0, CA=1 */
+    li      5, -1
+    addic   5, 5, 1             /* CA = 1 */
+    addze   3, 4                /* r3 = 5 + 1 = 6 */
+    CHECK   6
+
+    /*
+     * Test 53: addze (rA=5, CA=0 → rD=5, CA=0)
+     */
+    PRINT   .Ltest53, (.Ltest53_end - .Ltest53)
+    li      4, 5
+    /* Clear CA: addic 0+0 = 0, CA=0 */
+    li      5, 0
+    addic   5, 5, 0             /* CA = 0 */
+    addze   3, 4                /* r3 = 5 + 0 = 5 */
+    CHECK   5
+
+    /*
+     * Test 54: addze CA output (0xFFFFFFFF + CA=1 → 0, CA=1)
+     */
+    PRINT   .Ltest54, (.Ltest54_end - .Ltest54)
+    li      5, -1
+    addic   5, 5, 1             /* CA = 1 */
+    li      4, -1               /* rA = 0xFFFFFFFF */
+    addze   3, 4                /* r3 = 0xFFFFFFFF + 1 = 0, CA=1 */
+    CHECK   0
+    /* Verify CA is set by chaining another addze */
+    li      4, 0
+    addze   3, 4                /* r3 = 0 + CA(1) = 1 */
+    CHECK   1
+
+    /*
+     * Test 55: addme (rA=5, CA=1 → rD=5, CA=1)
+     */
+    PRINT   .Ltest55, (.Ltest55_end - .Ltest55)
+    li      5, -1
+    addic   5, 5, 1             /* CA = 1 */
+    li      4, 5
+    addme   3, 4                /* r3 = 5 + 1 + (-1) = 5, CA=1 (rA||CA) */
+    CHECK   5
+
+    /*
+     * Test 56: addme (rA=0, CA=0 → rD=-1, CA=0)
+     */
+    PRINT   .Ltest56, (.Ltest56_end - .Ltest56)
+    li      5, 0
+    addic   5, 5, 0             /* CA = 0 */
+    li      4, 0
+    addme   3, 4                /* r3 = 0 + 0 + (-1) = -1, CA=0 */
+    CHECK   -1
+
+    /*
+     * Test 57: mcrf (copy CR field)
+     */
+    PRINT   .Ltest57, (.Ltest57_end - .Ltest57)
+    /* Set CR0 to GT by comparing 1 > 0 */
+    li      4, 1
+    cmpwi   0, 4, 0             /* CR0 = GT */
+    /* Set CR1 to LT by comparing -1 < 0 */
+    li      4, -1
+    cmpwi   1, 4, 0             /* CR1 = LT */
+    /* Copy CR0 → CR2 */
+    mcrf    2, 0
+    /* Now CR2 should be GT. Branch on CR2 GT. */
+    bgt     2, .Lt57_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Lt57_done
+.Lt57_ok:
+    PRINT   .Lok, 3
+.Lt57_done:
+
+    /*
+     * Test 58: mcrf different direction (CR1=LT → CR3)
+     */
+    PRINT   .Ltest58, (.Ltest58_end - .Ltest58)
+    li      4, -1
+    cmpwi   1, 4, 0             /* CR1 = LT */
+    li      4, 1
+    cmpwi   3, 4, 0             /* CR3 = GT */
+    mcrf    3, 1                /* CR3 = CR1 = LT */
+    blt     3, .Lt58_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Lt58_done
+.Lt58_ok:
+    PRINT   .Lok, 3
+.Lt58_done:
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -869,6 +963,27 @@ _start:
 .Ltest51:
     .ascii  "test 51 lwarx rA+rB: "
 .Ltest51_end:
+.Ltest52:
+    .ascii  "test 52 addze:       "
+.Ltest52_end:
+.Ltest53:
+    .ascii  "test 53 addze no CA: "
+.Ltest53_end:
+.Ltest54:
+    .ascii  "test 54 addze CA out:"
+.Ltest54_end:
+.Ltest55:
+    .ascii  "test 55 addme CA=1:  "
+.Ltest55_end:
+.Ltest56:
+    .ascii  "test 56 addme CA=0:  "
+.Ltest56_end:
+.Ltest57:
+    .ascii  "test 57 mcrf:        "
+.Ltest57_end:
+.Ltest58:
+    .ascii  "test 58 mcrf LT:     "
+.Ltest58_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:

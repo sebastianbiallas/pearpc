@@ -310,6 +310,16 @@ void JITC::asmCMPw(NativeReg rn, uint32 imm12)
     emit32(a64_CMPw_imm(rn, imm12));
 }
 
+void JITC::asmADDSw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_ADDSw_reg(rd, rn, rm));
+}
+
+void JITC::asmSUBSw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_SUBSw_reg(rd, rn, rm));
+}
+
 void JITC::asmSUBSw(NativeReg rd, NativeReg rn, uint32 imm12)
 {
     emit32(a64_SUBSw_imm(rd, rn, imm12));
@@ -348,6 +358,26 @@ void JITC::asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms)
 void JITC::asmLSRw_imm(NativeReg rd, NativeReg rn, int shift)
 {
     emit32(a64_LSRw_imm(rd, rn, shift));
+}
+
+void JITC::asmASRw_imm(NativeReg rd, NativeReg rn, int shift)
+{
+    emit32(a64_ASRw_imm(rd, rn, shift));
+}
+
+void JITC::asmLSR_imm(NativeReg rd, NativeReg rn, int shift)
+{
+    emit32(a64_LSR_imm(rd, rn, shift));
+}
+
+void JITC::asmRORw_imm(NativeReg rd, NativeReg rn, int shift)
+{
+    emit32(a64_RORw_imm(rd, rn, shift));
+}
+
+void JITC::asmRORw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_RORw_reg(rd, rn, rm));
 }
 
 void JITC::asmADD(NativeReg rd, NativeReg rn, uint32 imm12)

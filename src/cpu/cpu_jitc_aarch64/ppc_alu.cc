@@ -753,7 +753,7 @@ JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (SH != 0) {
         // PPC rotate left by SH = AArch64 ROR by (32 - SH)
-        jitc.emit32(a64_RORw_imm(16, 16, (32 - SH) & 31));
+        jitc.asmRORw_imm(W16, W16, (32 - SH) & 31);
     }
     if (mask == 0xFFFFFFFF) {
         // No masking needed
@@ -780,7 +780,7 @@ JITCFlow ppc_opc_gen_rlwnmx(JITC &jitc)
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     // PPC rotl by rB = negate rB for ROR
     jitc.asmNEGw(W17, W17);
-    jitc.emit32(a64_RORw_reg(16, 16, 17));
+    jitc.asmRORw(W16, W16, W17);
     if (mask != 0xFFFFFFFF) {
         jitc.asmMOV(W17, mask);
         jitc.asmANDw(W16, W16, W17);
@@ -896,7 +896,7 @@ JITCFlow ppc_opc_gen_mulhwux(JITC &jitc)
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmUMULL(X16, W16, W17);
     // LSR X16, X16, #32 to get high word (64-bit UBFM)
-    jitc.emit32(0xD360FC00 | (X16 << 5) | W16);
+    jitc.asmLSR_imm(X16, X16, 32);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
         RC_UPDATE(W16);
 return flowContinue;
@@ -913,7 +913,7 @@ JITCFlow ppc_opc_gen_rlwimix(JITC &jitc)
     // v = ROTL(gpr[rS], SH)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (SH != 0) {
-        jitc.emit32(a64_RORw_imm(16, 16, (32 - SH) & 31));
+        jitc.asmRORw_imm(W16, W16, (32 - SH) & 31);
     }
     // rA = (v & mask) | (rA & ~mask)
     jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
@@ -958,7 +958,7 @@ JITCFlow ppc_opc_gen_addic(JITC &jitc)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMOV(W17, imm);
     // ADDS W16, W16, W17 — sets C flag on unsigned overflow
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W17));
+    jitc.asmADDSw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     // CSET W17, CS (carry set) → xer_ca = C flag
     jitc.asmCSETw(W17, A64_CS);
@@ -974,7 +974,7 @@ JITCFlow ppc_opc_gen_addic_(JITC &jitc)
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMOV(W17, imm);
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W17));
+    jitc.asmADDSw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmCSETw(W17, A64_CS);
     jitc.asmSTRw_cpu(W17, XER_CA_OFS);
@@ -997,7 +997,7 @@ JITCFlow ppc_opc_gen_subfic(JITC &jitc)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMOV(W17, imm);
     // SUBS W16, W17, W16 → W16 = imm - rA, C = no borrow = (imm >= rA)
-    jitc.emit32(a64_SUBSw_reg(W16, W17, W16));
+    jitc.asmSUBSw(W16, W17, W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     // CSET W17, CS → xer_ca
     jitc.asmCSETw(W17, A64_CS);
@@ -1016,11 +1016,11 @@ JITCFlow ppc_opc_gen_addex(JITC &jitc)
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmLDRw_cpu(W0, XER_CA_OFS);
     // ADDS W16, W16, W17 → partial sum, C1
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W17));
+    jitc.asmADDSw(W16, W16, W17);
     // CSET W1, CS → save C1
     jitc.asmCSETw(W1, A64_CS);
     // ADDS W16, W16, W0 → add carry-in, C2
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W0));
+    jitc.asmADDSw(W16, W16, W0);
     // CSET W0, CS → C2
     jitc.asmCSETw(W0, A64_CS);
     // CA = C1 | C2
@@ -1047,10 +1047,10 @@ JITCFlow ppc_opc_gen_subfex(JITC &jitc)
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmLDRw_cpu(W0, XER_CA_OFS);
     // ADDS W16, W16, W17
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W17));
+    jitc.asmADDSw(W16, W16, W17);
     jitc.asmCSETw(W1, A64_CS);
     // ADDS W16, W16, W0
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W0));
+    jitc.asmADDSw(W16, W16, W0);
     jitc.asmCSETw(W0, A64_CS);
     jitc.asmORRw(W0, W0, W1);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
@@ -1068,7 +1068,7 @@ JITCFlow ppc_opc_gen_addcx(JITC &jitc)
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.emit32(a64_ADDSw_reg(W16, W16, W17));
+    jitc.asmADDSw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmCSETw(W17, A64_CS);
     jitc.asmSTRw_cpu(W17, XER_CA_OFS);
@@ -1086,12 +1086,57 @@ JITCFlow ppc_opc_gen_subfcx(JITC &jitc)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rB));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
     // SUBS W16, W16, W17 → rB - rA, C = no borrow
-    jitc.emit32(a64_SUBSw_reg(W16, W16, W17));
+    jitc.asmSUBSw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmCSETw(W17, A64_CS);
     jitc.asmSTRw_cpu(W17, XER_CA_OFS);
         RC_UPDATE(W16);
 return flowContinue;
+}
+
+/* addzex rD, rA — Add to Zero Extended
+ * rD = rA + CA; CA = (rA == 0xFFFFFFFF && CA)
+ */
+JITCFlow ppc_opc_gen_addzex(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W0, XER_CA_OFS);
+    // ADDS W16, W16, W0 → rA + CA
+    jitc.asmADDSw(W16, W16, W0);
+    // CA = carry out of (rA + CA), which is true iff rA==0xFFFFFFFF && CA==1
+    jitc.asmCSETw(W0, A64_CS);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    jitc.asmSTRw_cpu(W0, XER_CA_OFS);
+	RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* addmex rD, rA — Add to Minus One Extended
+ * rD = rA + CA - 1; CA = (rA != 0 || CA != 0)
+ */
+JITCFlow ppc_opc_gen_addmex(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, XER_CA_OFS);
+    // rD = rA + CA + 0xFFFFFFFF = rA + CA - 1
+    // CA_out = (rA || CA) which equals (rA + CA) != 0 unsigned,
+    // equivalently: carry out of (rA + 0xFFFFFFFF) OR carry out of (sum + CA)
+    // Simplest: CA = (rA != 0) || (CA != 0)
+    // Use ORR to check, then CSET
+    jitc.asmORRw(W0, W16, W17);
+    jitc.asmCMPw(W0, (uint32)0);
+    jitc.asmCSETw(W0, A64_NE);  // CA_out = (rA || old_CA)
+    // Now compute rD = rA + old_CA + 0xFFFFFFFF
+    jitc.asmADDw(W16, W16, W17);  // rA + CA
+    jitc.asmSUBw(W16, W16, (uint32)1);    // - 1
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    jitc.asmSTRw_cpu(W0, XER_CA_OFS);
+	RC_UPDATE(W16);
+    return flowContinue;
 }
 
 /* srawix rA, rS, SH — Shift Right Algebraic Word Immediate
@@ -1110,7 +1155,7 @@ JITCFlow ppc_opc_gen_srawix(JITC &jitc)
         jitc.asmSTRw_cpu(W17, XER_CA_OFS);
     } else {
         // ASR W17, W16, #SH
-        jitc.emit32(a64_ASRw_imm(W17, W16, SH));
+        jitc.asmASRw_imm(W17, W16, SH);
         jitc.asmSTRw_cpu(W17, GPR_OFS(rA));
         // CA = (rS < 0) && (rS & ((1<<SH)-1) != 0)
         // Test shifted-out bits: AND W0, W16, #mask
@@ -2052,6 +2097,30 @@ JITCFlow ppc_opc_gen_crxor(JITC &jitc)  { return gen_cr_logical(jitc, 4); }
 JITCFlow ppc_opc_gen_crnand(JITC &jitc) { return gen_cr_logical(jitc, 5); }
 JITCFlow ppc_opc_gen_crnor(JITC &jitc)  { return gen_cr_logical(jitc, 6); }
 JITCFlow ppc_opc_gen_creqv(JITC &jitc)  { return gen_cr_logical(jitc, 7); }
+
+/* mcrf crD, crS — Move Condition Register Field
+ * CR field crD = CR field crS (each field is 4 bits)
+ */
+JITCFlow ppc_opc_gen_mcrf(JITC &jitc)
+{
+    uint32 crD, crS, bla;
+    PPC_OPC_TEMPL_X(jitc.current_opc, crD, crS, bla);
+    crD >>= 2;
+    crS >>= 2;
+    // PPC CR fields are numbered 0..7 from MSB, so field N occupies bits [31-N*4 .. 28-N*4]
+    crD = 7 - crD;
+    crS = 7 - crS;
+
+    jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+    if (crD != crS) {
+        // Extract 4-bit source field into low bits of W0
+        jitc.asmLSRw_imm(W0, W16, crS * 4);
+        // Insert into destination field
+        jitc.asmBFIw(W16, W0, crD * 4, 4);
+        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+    }
+    return flowContinue;
+}
 
 /*
  *	divwx		Divide Word
