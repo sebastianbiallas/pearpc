@@ -154,13 +154,13 @@ static void gen_cr_insert_unsigned(JITC &jitc, int crfD)
 }
 
 /*
- *  Helper: emit CR0 update for result in W16.
+ *  Helper: emit CR0 update for result in a given register.
  *  CR0 = bits [31:28] of cr register.
  *  LT(8) if result < 0, GT(4) if > 0, EQ(2) if == 0, SO(1) from XER.
  */
-static void gen_update_cr0(JITC &jitc)
+static void gen_update_cr0(JITC &jitc, NativeReg resultReg = W16)
 {
-    jitc.asmCMPw(W16, (uint32)0);
+    jitc.asmCMPw(resultReg, (uint32)0);
     gen_cr_insert_signed(jitc, 0);
 }
 
@@ -549,10 +549,11 @@ int ppc_opc_addcx(PPC_CPU_State &);
 int ppc_opc_subfcx(PPC_CPU_State &);
 int ppc_opc_srawix(PPC_CPU_State &);
 
-#define RC_FALLBACK(interp_func)                                                                                       \
+// After the ALU result is stored, optionally update CR0 if Rc=1.
+// resultReg must contain the 32-bit result for the comparison.
+#define RC_UPDATE(resultReg)                                                                                           \
     if (jitc.current_opc & PPC_OPC_Rc) {                                                                               \
-        ppc_opc_gen_interpret(jitc, interp_func);                                                                      \
-        return flowContinue;                                                                                           \
+        gen_update_cr0(jitc, resultReg);                                                                               \
     }
 
 static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
@@ -563,38 +564,38 @@ static JITCFlow gen_alu_reg(JITC &jitc, uint32 (*op)(int, int, int))
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.emit32(op(16, 16, 17));
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    RC_UPDATE(W16);
     return flowContinue;
 }
 
 /* add rD, rA, rB */
 JITCFlow ppc_opc_gen_addx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_addx);
     return gen_alu_reg(jitc, a64_ADDw_reg);
 }
 /* subf rD, rA, rB  (rD = rB - rA) */
 JITCFlow ppc_opc_gen_subfx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_subfx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W16, GPR_OFS(rB));
     jitc.asmSUBw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 /* and rA, rS, rB */
 JITCFlow ppc_opc_gen_andx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_andx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmANDw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 /* or rA, rS, rB (also: mr rA, rS when rS == rB) */
 JITCFlow ppc_opc_gen_orx(JITC &jitc)
@@ -620,40 +621,40 @@ JITCFlow ppc_opc_gen_orx(JITC &jitc)
 /* xor rA, rS, rB */
 JITCFlow ppc_opc_gen_xorx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_xorx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmEORw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* neg rD, rA */
 JITCFlow ppc_opc_gen_negx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_negx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     (void)rB;
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmNEGw(W16, W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* mullw rD, rA, rB */
 JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_mullwx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmMULw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /*
@@ -663,7 +664,6 @@ JITCFlow ppc_opc_gen_mullwx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_slwx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_slwx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS)); // X16 = zero-extend(gpr[rS])
@@ -671,7 +671,8 @@ JITCFlow ppc_opc_gen_slwx(JITC &jitc)
     jitc.asmANDw_imm(W17, W17, 0, 5); // AND W17, W17, #0x3F (6-bit shift)
     jitc.asmLSLV(X16, X16, X17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA)); // store low 32 bits
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /*
@@ -681,7 +682,6 @@ JITCFlow ppc_opc_gen_slwx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_srwx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_srwx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS)); // X16 = zero-extend(gpr[rS])
@@ -689,7 +689,8 @@ JITCFlow ppc_opc_gen_srwx(JITC &jitc)
     jitc.asmANDw_imm(W17, W17, 0, 5); // AND W17, W17, #0x3F (6-bit shift)
     jitc.asmLSRV(X16, X16, X17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA)); // store low 32 bits
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /*
@@ -698,7 +699,6 @@ JITCFlow ppc_opc_gen_srwx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_rlwinmx);
     int rS, rA, SH;
     uint32 MB, ME;
     PPC_OPC_TEMPL_M(jitc.current_opc, rS, rA, SH, MB, ME);
@@ -717,7 +717,8 @@ JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
         jitc.asmANDw(W16, W16, W17);
     }
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /*
@@ -725,7 +726,6 @@ JITCFlow ppc_opc_gen_rlwinmx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_rlwnmx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_rlwnmx);
     int rS, rA, rB, MB, ME;
     PPC_OPC_TEMPL_M(jitc.current_opc, rS, rA, rB, MB, ME);
 
@@ -741,7 +741,8 @@ JITCFlow ppc_opc_gen_rlwnmx(JITC &jitc)
         jitc.asmANDw(W16, W16, W17);
     }
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /*
@@ -844,7 +845,6 @@ JITCFlow ppc_opc_gen_mulli(JITC &jitc)
 /* mulhwux rD, rA, rB — Multiply High Word Unsigned */
 JITCFlow ppc_opc_gen_mulhwux(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_mulhwux);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -853,14 +853,14 @@ JITCFlow ppc_opc_gen_mulhwux(JITC &jitc)
     // LSR X16, X16, #32 to get high word (64-bit UBFM)
     jitc.emit32(0xD360FC00 | (X16 << 5) | W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 
 /* rlwimix rA, rS, SH, MB, ME — Rotate Left Word Immediate then Mask Insert */
 JITCFlow ppc_opc_gen_rlwimix(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_rlwimix);
     int rS, rA, SH;
     uint32 MB, ME;
     PPC_OPC_TEMPL_M(jitc.current_opc, rS, rA, SH, MB, ME);
@@ -891,7 +891,8 @@ JITCFlow ppc_opc_gen_rlwimix(JITC &jitc)
         jitc.asmORRw(W16, W16, W17);
         jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     }
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /*
@@ -964,7 +965,6 @@ JITCFlow ppc_opc_gen_subfic(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_addex(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_addex);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -982,7 +982,8 @@ JITCFlow ppc_opc_gen_addex(JITC &jitc)
     jitc.asmORRw(W0, W0, W1);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmSTRw_cpu(W0, XER_CA_OFS);
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* subfex rD, rA, rB — Subtract From Extended
@@ -993,7 +994,6 @@ JITCFlow ppc_opc_gen_addex(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_subfex(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_subfex);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     // Use the same approach as addex but with ~rA
@@ -1010,7 +1010,8 @@ JITCFlow ppc_opc_gen_subfex(JITC &jitc)
     jitc.asmORRw(W0, W0, W1);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmSTRw_cpu(W0, XER_CA_OFS);
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* addcx rD, rA, rB — Add Carrying (no carry in, carry out)
@@ -1018,7 +1019,6 @@ JITCFlow ppc_opc_gen_subfex(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_addcx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_addcx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1027,7 +1027,8 @@ JITCFlow ppc_opc_gen_addcx(JITC &jitc)
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmCSETw(W17, A64_CS);
     jitc.asmSTRw_cpu(W17, XER_CA_OFS);
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* subfcx rD, rA, rB — Subtract From Carrying
@@ -1035,7 +1036,6 @@ JITCFlow ppc_opc_gen_addcx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_subfcx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_subfcx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rB));
@@ -1045,7 +1045,8 @@ JITCFlow ppc_opc_gen_subfcx(JITC &jitc)
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
     jitc.asmCSETw(W17, A64_CS);
     jitc.asmSTRw_cpu(W17, XER_CA_OFS);
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* srawix rA, rS, SH — Shift Right Algebraic Word Immediate
@@ -1053,7 +1054,6 @@ JITCFlow ppc_opc_gen_subfcx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_srawix(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_srawix);
     int rS, rA;
     uint32 SH;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, SH);
@@ -1084,7 +1084,8 @@ JITCFlow ppc_opc_gen_srawix(JITC &jitc)
         jitc.asmCSELw(W0, W0, WZR, A64_NE);
         jitc.asmSTRw_cpu(W0, XER_CA_OFS);
     }
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* mfcr rD — Move From Condition Register */
@@ -1137,14 +1138,14 @@ JITCFlow ppc_opc_gen_srawx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_divwux(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_divwux);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmUDIVw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* divwx rD, rA, rB — Divide Word Signed
@@ -1152,33 +1153,32 @@ JITCFlow ppc_opc_gen_divwux(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_divwx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_divwx);
     int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmSDIVw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* orcx rA, rS, rB — OR with Complement */
 JITCFlow ppc_opc_gen_orcx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_orcx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmORNw(W16, W16, W17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* norx rA, rS, rB — NOR */
 JITCFlow ppc_opc_gen_norx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_norx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
@@ -1186,18 +1186,88 @@ JITCFlow ppc_opc_gen_norx(JITC &jitc)
     jitc.asmORRw(W16, W16, W17);
     jitc.asmMVNw(W16, W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
-    return flowContinue;
+        RC_UPDATE(W16);
+return flowContinue;
 }
 
 /* cntlzwx rA, rS — Count Leading Zeros Word */
 JITCFlow ppc_opc_gen_cntlzwx(JITC &jitc)
 {
-    RC_FALLBACK(ppc_opc_cntlzwx);
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     jitc.asmCLZw(W16, W16);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* andcx rA, rS, rB — AND with Complement */
+JITCFlow ppc_opc_gen_andcx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    // rA = rS AND NOT rB = BIC
+    jitc.asmMVNw(W17, W17);
+    jitc.asmANDw(W16, W16, W17);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* nandx rA, rS, rB — NAND */
+JITCFlow ppc_opc_gen_nandx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmANDw(W16, W16, W17);
+    jitc.asmMVNw(W16, W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* eqvx rA, rS, rB — Equivalent (XNOR) */
+JITCFlow ppc_opc_gen_eqvx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmEORw(W16, W16, W17);
+    jitc.asmMVNw(W16, W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* extsbx rA, rS — Extend Sign Byte */
+JITCFlow ppc_opc_gen_extsbx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    (void)rB;
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmSXTBw(W16, W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* extshx rA, rS — Extend Sign Halfword */
+JITCFlow ppc_opc_gen_extshx(JITC &jitc)
+{
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    (void)rB;
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmSXTHw(W16, W16);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+    RC_UPDATE(W16);
     return flowContinue;
 }
 

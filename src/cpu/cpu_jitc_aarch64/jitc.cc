@@ -444,6 +444,16 @@ void JITC::asmLSLVw(NativeReg rd, NativeReg rn, NativeReg rm)
     emit32(a64_LSLVw(rd, rn, rm));
 }
 
+void JITC::asmSXTBw(NativeReg rd, NativeReg rn)
+{
+    emit32(a64_SXTBw(rd, rn));
+}
+
+void JITC::asmSXTHw(NativeReg rd, NativeReg rn)
+{
+    emit32(a64_SXTHw(rd, rn));
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {

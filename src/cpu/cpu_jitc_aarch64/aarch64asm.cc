@@ -218,6 +218,9 @@ A64Instr a64_CMNw_imm(int rn, uint32 imm12)
     return 0x31000000 | (imm12 << 10) | (rn << 5) | 0x1F;
 }
 
+A64Instr a64_SXTBw(int rd, int rn) { return 0x13001C00 | (rn << 5) | rd; }
+A64Instr a64_SXTHw(int rd, int rn) { return 0x13003C00 | (rn << 5) | rd; }
+
 A64Instr a64_SUBw_reg(int rd, int rn, int rm)
 {
     return 0x4B000000 | (rm << 16) | (rn << 5) | rd;

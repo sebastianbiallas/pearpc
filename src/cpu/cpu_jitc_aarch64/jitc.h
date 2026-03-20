@@ -442,6 +442,10 @@ public:
     // Variable shift (32-bit)
     void asmLSLVw(NativeReg rd, NativeReg rn, NativeReg rm); // LSLV Wd, Wn, Wm
 
+    // Sign extend (32-bit)
+    void asmSXTBw(NativeReg rd, NativeReg rn); // SXTB Wd, Wn
+    void asmSXTHw(NativeReg rd, NativeReg rn); // SXTH Wd, Wn
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)

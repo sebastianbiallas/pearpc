@@ -125,11 +125,7 @@ GEN_INTERPRET(addmex)
 GEN_INTERPRET(subfzex)
 GEN_INTERPRET(subfmex)
 GEN_INTERPRET(mulhwx)
-GEN_INTERPRET(andcx)
-GEN_INTERPRET(nandx)
-GEN_INTERPRET(eqvx)
-GEN_INTERPRET(extsbx)
-GEN_INTERPRET(extshx)
+// andcx, nandx, eqvx, extsbx, extshx — native codegen in ppc_alu.cc
 GEN_INTERPRET(mcrxr)
 
 /* SPR — mfspr/mtspr native gen_ for LR/CTR in ppc_alu.cc */
