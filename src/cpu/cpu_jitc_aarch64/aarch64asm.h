@@ -213,8 +213,15 @@ A64Instr a64_REV16w(int rd, int rn); // byte swap within 16-bit halves
 A64Instr a64_ADRP(int rd, sint64 offset);
 A64Instr a64_ADR(int rd, sint32 offset);
 
-/* Instruction size computation for precomputed branch offsets */
-static inline uint a64_movw_size(uint32 imm) { return (imm >> 16) ? 8 : 4; }
+/* Instruction size computation for precomputed branch offsets.
+ * Must match the instruction count in asmMOV / asmMOV64. */
+static inline uint a64_movw_size(uint32 imm)
+{
+    uint16 lo = imm & 0xFFFF;
+    uint16 hi = (imm >> 16) & 0xFFFF;
+    if (lo == 0 && hi != 0) return 4; // single MOVZ shifted
+    return hi ? 8 : 4;               // MOVZ + optional MOVK
+}
 
 static inline uint a64_mov64_size(uint64 imm)
 {

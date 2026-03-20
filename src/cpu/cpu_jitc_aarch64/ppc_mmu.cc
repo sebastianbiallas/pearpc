@@ -2460,12 +2460,14 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
 
 	// if (xer & XER_SO) cr |= CR_CR0_SO
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, xer));
-	// TBZ W16, #31, +24  (skip 5 insns: LDR+MOVZ+MOVK+ORR+STR)
-	jitc.asmTBZ(W16, 31, 24);
+	uint so_body = 4 /* LDR cr */ + a64_movw_size(CR_CR0_SO) + 4 /* ORR */ + 4 /* STR */;
+	NativeAddress so_done = jitc.asmHERE() + 4 + so_body;
+	jitc.asmTBZ(W16, 31, 4 + so_body); // skip body
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
 	jitc.asmMOV(W17, (uint32)CR_CR0_SO);
 	jitc.asmORRw(W16, W16, W17);
 	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+	jitc.asmAssertHERE(so_done, "stwcx_ SO skip");
 
 	// done:
 	jitc.asmResolveFixup(cbz_fixup);

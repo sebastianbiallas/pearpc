@@ -3683,19 +3683,18 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
     // If not OSI: jump to SC exception (never returns).
     // If OSI: call gcard_osi(0), fall through (flowEndBlock).
 
-    uint osi_call_size = 4 /* MOV W0, #0 */
-                         + JITC::asmCALL_cpu_size;
-    uint sc_exc_size = 4 /* MOV W0, pc_ofs+4 */
-                       + JITC::asmCALL_cpu_size;
-    uint check2_size = 4 /* LDR gpr[4] */ + 8 /* MOV 0x77810f9b */
+    uint osi_call_size = a64_movw_size(0) + JITC::asmCALL_cpu_size;
+    uint sc_exc_size = a64_movw_size(jitc.pc + 4) + JITC::asmCALL_cpu_size;
+    uint check2_size = 4 /* LDR gpr[4] */ + a64_movw_size(0x77810f9b)
                        + 4 /* CMP */ + 4 /* B.NE */;
     uint skip1 = check2_size + osi_call_size + 4 /* B forward */;
     uint skip2 = osi_call_size + 4 /* B forward */;
 
-    uint total = 4 /* LDR gpr[3] */ + 8 /* MOV 0x113724fa */
-                 + 4 /* CMP */ + 4      /* B.NE */
+    uint total = 4 /* LDR gpr[3] */ + a64_movw_size(0x113724fa)
+                 + 4 /* CMP */ + 4 /* B.NE */
                  + check2_size + osi_call_size + 4 /* B forward */ + sc_exc_size;
     jitc.emitAssure(total);
+    NativeAddress end = jitc.asmHERE() + total;
 
     // Check gpr[3] == 0x113724fa
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, gpr[3]));
@@ -3718,6 +3717,7 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
     jitc.asmMOV(W0, jitc.pc + 4);
     jitc.asmCALL_cpu(PPC_STUB_SC_RAISE);
 
+    jitc.asmAssertHERE(end, "sc");
     return flowEndBlock;
 }
 

@@ -167,9 +167,16 @@ void JITC::asmNOP()
 
 void JITC::asmMOV(NativeReg rd, uint32 imm)
 {
-    emit32(a64_MOVZw(rd, imm & 0xFFFF, 0));
-    if (imm >> 16) {
-        emit32(a64_MOVKw(rd, (imm >> 16) & 0xFFFF, 16));
+    uint16 lo = imm & 0xFFFF;
+    uint16 hi = (imm >> 16) & 0xFFFF;
+    if (lo == 0 && hi != 0) {
+        // e.g. lis: just MOVZ with shift
+        emit32(a64_MOVZw(rd, hi, 16));
+    } else {
+        emit32(a64_MOVZw(rd, lo, 0));
+        if (hi) {
+            emit32(a64_MOVKw(rd, hi, 16));
+        }
     }
 }
 
