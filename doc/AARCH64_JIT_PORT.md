@@ -20,6 +20,7 @@ The aarch64 JIT backend compiles and links on macOS ARM64 (`aarch64-jit` branch)
 - Load/store GEN_INTERPRET wrapper checks return value (not exception_pending) for DSI detection
 - TLB slow-path DSI fix: all slow-path C functions return int (0=OK, 1=DSI), asm stubs check return value instead of exception_pending; async DEC/ext exceptions stay pending for heartbeat. Read slow paths store results in cpu->temp.
 - emitBxxFixup fix: captures address AFTER emit32() to handle fragment overflow correctly
+- Wide conditional fixups: `asmBccFixup`/`asmCBZwFixup`/`asmCBNZwFixup` emit inverted-condition + unconditional B to avoid ±1MB range limit across fragments
 - dss/dstst cache hint opcodes are now registered (no-ops)
 - ppc_opc_gen_invalid now prints `[JITC] WARNING: unknown opcode XXXXXXXX at pc_ofs=XXXX` to stderr at JIT compile time
 
@@ -163,7 +164,7 @@ Unlike x86 where icache is coherent with dcache, ARM64 requires explicit cache m
 
 - `.globl sym; sym:` on one line via semicolon does NOT work. Must use `.macro do_export` with `.globl` and label on separate lines.
 - Logical immediates (`and`, `orr`, `eor` with #imm) can only encode repeating bit patterns. Constants like `0x87c0ffff` must be loaded into a temp register first.
-- Conditional branches (`b.eq`, `b.ne`) have +/-1MB range and cannot reach external symbols. Use inverted condition + unconditional `b` instead.
+- Conditional branches (`b.eq`, `b.ne`) have +/-1MB range and cannot reach external symbols or cross-fragment fixup targets. The fixup functions (`asmBccFixup`, `asmCBZwFixup`, `asmCBNZwFixup`) use inverted condition + unconditional `b` to avoid this limit.
 - X18 is reserved on macOS. Using it will corrupt the platform's TLS.
 
 ## Porting Strategy
@@ -234,7 +235,7 @@ Replace interpreter calls with actual AArch64 instructions. Each native gen_ fun
 - All X-form indexed with update: `lwzux`, `stwux`, `lbzux`, `stbux`, `lhzux`, `sthux`, `lhaux`
 - Byte-reversed: `lwbrx`, `lhbrx`, `stwbrx`, `sthbrx` (native codegen with REV/REV16)
 - Multiple word: `lmw`, `stmw` (unrolled for count ≤ 4, interpreter for larger)
-- Reservation: `lwarx`, `stwcx.` (native codegen with forward-branch patching for CR0 update)
+- Reservation: `lwarx`, `stwcx.` (native codegen with wide conditional fixup for CR0 update)
 - Update variants save EA to `cpu->temp2` before the asm stub call (which clobbers W0), then write EA to `gpr[rA]` after successful return. DSI never returns, so rA stays unmodified on exception.
 - All return `flowContinue` — no dispatch overhead between load/store instructions.
 
@@ -267,7 +268,7 @@ Native codegen in `ppc_fpu.cc`:
 - FMA: `fmadd`→`FMADD`, `fmsub`→`FNMSUB`, `fnmadd`→`FNMADD`, `fnmsub`→`FMSUB` (PPC↔AArch64 mapping accounts for negation differences), plus single variants
 - Convert: `frsp` (FCVT S,D + FCVT D,S), `fctiwz` (FCVTZS W,D + FMOV D,X)
 - Select: `fsel` (FCMP D,#0 + FCSEL D,D,D,GE — no rounding dependency)
-- Compare: `fcmpu`, `fcmpo` — still interpreter (complex CR/FPSCR update with NaN handling)
+- Compare: `fcmpu`, `fcmpo` — native FCMP with CR update; NaN (B.VS) fallback uses wide conditional fixup for cross-fragment safety
 
 **AltiVec:** All use interpreter calls. Not needed for boot.
 
@@ -374,13 +375,14 @@ Gotchas:
 - Lock-step validation: **5.3 billion instructions** validated with zero mismatches
 - Decrementer and external interrupt delivery working
 
-**Current state:**
-The kernel reaches an I/O polling loop (CUDA IFR register) and stalls. This is a validation limitation: the reference interpreter and JIT both read the same CUDA hardware, causing double I/O side effects (reading IFR clears flags, so the second read consumes the state change meant for the first). Without validation, the kernel should progress past this point.
+**Current state (2026-03-21):**
+Mandrake Linux PPC boots into the installer. The full kernel boot sequence completes: memory setup, PCI probing, CUDA/ADB, IDE, USB, SCSI, framebuffer console, TCP/IP, Unix sockets, ramdisk decompression, ext2 root mount, PCMCIA, DVD-ROM driver, ISO 9660 CD mount, and userspace init.
+
+**Previously with validation enabled:**
+The kernel reached a CUDA IFR polling loop and stalled. This was a validation limitation: the reference interpreter and JIT both read the same CUDA hardware, causing double I/O side effects (reading IFR clears flags, so the second read consumes the state change meant for the first).
 
 **Remaining:**
 - Investigate MSR 0x2340 (unsupported bits) — generic CPU never hits this, so it's likely a JIT bug causing wrong MSR values. Currently masked with a warning.
-- Investigate DEC/timebase timing mismatch in validation (registers off by 1)
-- Boot Mandrake Linux PPC kernel to completion
 - Profile and optimize hot paths
 
 ### Decrementer Timer (sys_set_timer) on macOS
@@ -431,6 +433,82 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 - `setitimer` fallback on non-macOS POSIX without `timer_create` may have similar multi-thread issues. Not tested.
 - The dispatch_source cancel/recreate cycle on every `writeDEC` is suboptimal. Could use a single persistent timer and just update its fire time.
 
+## Translation Cache and Fragment Design
+
+The JIT translation cache is a single 64 MB block allocated at init with `MAP_JIT` (W^X). It is subdivided into **131,072 fragments** of 512 bytes each, managed as a free list. Each translated PPC page (4 KB, 1024 possible entrypoints) is represented by a **ClientPage** that owns a chain of one or more fragments. Up to 4,096 ClientPages can exist simultaneously.
+
+### Fragment allocation and linking
+
+When codegen for a PPC instruction exhausts the current fragment, `emit32()` calls `jitcEmitNextFragment()` which pops a fragment off the free list. If the new fragment is physically contiguous with the old one (within 20 bytes), `bytesLeft` is simply extended — no branch needed. Otherwise, an unconditional `B` is emitted at the end of the old fragment to link to the new one. 4 bytes are always reserved at the end of each fragment for this linking branch.
+
+Because fragments come from a free list, two consecutive fragments in a ClientPage's chain can be megabytes apart in the 64 MB cache. This is why conditional branch fixups must use the wide pattern (inverted-condition + unconditional B) — a `B.cond` with ±1 MB range cannot safely span a fragment boundary, but unconditional `B` with ±128 MB always reaches within the 64 MB cache.
+
+### Wide conditional fixups
+
+AArch64 conditional branches (`B.cond`, `CBZ`, `CBNZ`) have ±1 MB range (imm19). Unconditional `B` has ±128 MB (imm26). Forward conditional branch fixups — where a branch is emitted with offset=0 and patched later via `asmResolveFixup` — can span fragment boundaries, making the target unreachable by a conditional branch.
+
+The fixup functions (`asmBccFixup`, `asmCBZwFixup`, `asmCBNZwFixup`) solve this with a 2-instruction wide pattern:
+
+```
+emitAssure(8)    // CRITICAL: both instructions must be in the same fragment
+B.inv_cond +8    // inverted condition, fixed offset, skips next insn if cond is FALSE
+B 0              // unconditional placeholder, patched by asmResolveFixup
+```
+
+The `emitAssure(8)` is critical: the `B.inv_cond +8` has a fixed offset that assumes the `B` placeholder is exactly 4 bytes later. If a fragment boundary fell between the two instructions, the `+8` would jump into garbage in the old fragment instead of reaching the `B` in the new fragment.
+
+The inverted-condition branch has a fixed +8 offset (never patched — it always skips exactly one instruction). When the original condition is TRUE, the inverted branch is not taken, so execution falls through to the unconditional `B` which jumps to the fixup target. When the original condition is FALSE, the inverted branch skips the `B` and execution continues after both instructions.
+
+`asmResolveFixup` receives the address of the unconditional `B` and patches it with the correct offset. Since `B` has ±128 MB range, it always reaches within the 64 MB cache.
+
+`asmBFixup` (unconditional) does not need this pattern — it already emits a `B` with ±128 MB range.
+
+**jitc.log appearance:** The `B 0` placeholder shows as `14000000  b <fixup>` in jitc.log. This looks like an unresolved fixup but is expected — the log captures instructions at `emit32()` time, before `asmResolveFixup` patches the instruction word in memory. The patched value is only visible by disassembling the translation cache at runtime, not in the compile-time log. Thousands of these entries in the log during a kernel boot is normal.
+
+### LRU eviction
+
+When the free fragment list is empty, the **least-recently-used ClientPage** is destroyed and its fragments returned to the free list. ClientPages are kept in a doubly-linked LRU list; every `jitcNewPC` dispatch touches the accessed page (moves it to MRU end). When a new ClientPage is needed and none are free, 5 LRU pages are pre-evicted to reduce immediate re-eviction pressure.
+
+### Cache invalidation triggers
+
+The JIT cache is keyed by **physical address**, not effective address. This means TLB and segment register changes do not directly invalidate JIT code — only the PPC MMU's software TLB is flushed, and the next memory access refills it with the correct mapping.
+
+Explicit JIT cache invalidation happens only via:
+- **`icbi`** (Instruction Cache Block Invalidate): destroys the ClientPage containing the target physical address. This is how the kernel signals that it has overwritten code (e.g., module loading, self-modifying code).
+- **LRU eviction**: when fragments or ClientPages run out, old pages are destroyed.
+
+`tlbie`, `tlbia`, `mtsr`, `mtsrin` invalidate the PPC TLB but do **not** touch the JIT cache. Context switches in the guest OS change segment registers (which changes effective→physical mapping) but the JIT cache remains valid because it is indexed by physical address. The next code fetch re-translates the effective address through the new segment registers to find the (possibly different) physical page, which may already have a cached ClientPage.
+
+### Statistics
+
+Three counters are tracked and printed by `ppc_display_jitc_stats()`:
+
+| Counter | Meaning |
+|---------|---------|
+| `destroy_write` | Pages destroyed by `icbi` (client wrote to code) |
+| `destroy_oopages` | Pages destroyed because ClientPage pool was full |
+| `destroy_ootc` | Pages destroyed because fragment free list was empty |
+
+### Future research: is the fragment design actually needed?
+
+The 512-byte fragment scheme was inherited from the x86_64 JIT (which itself was designed for 32-bit x86). It solves a real problem — without it, each ClientPage would need a contiguous allocation up to some worst-case size, leading to external fragmentation of the 64 MB cache. Fragments turn this into a linked-list allocator where any free 512-byte slot can be used.
+
+But several questions are worth investigating:
+
+1. **Do we ever fill the 64 MB cache?** There are no utilization metrics (peak fragments in use, high-water mark, free list depth over time). A Linux boot might only translate a few thousand pages. If the working set fits comfortably, the fragment scheme adds complexity (linking branches, fixup range issues) for a problem that may not exist in practice.
+
+2. **What is the actual eviction rate?** The `destroy_ootc` / `destroy_oopages` counters exist but are rarely examined. If they stay near zero during a full boot, the cache is oversized and fragmentation is irrelevant. If they are high, the cache is pressure-limited and fragment size matters.
+
+3. **When does guest context-switch invalidation happen?** The guest kernel changes segment registers on process context switches, but since the JIT cache is physical-address-keyed, these don't cause invalidation. Only `icbi` (module load, runtime code generation) and LRU pressure destroy pages. If the guest never issues `icbi` during normal boot, the cache is append-only until full.
+
+4. **Could we use a bump allocator instead?** If the cache rarely fills up, a simple bump allocator (advance a pointer, no free list, no fragments) would eliminate linking branches, remove the fragment-boundary fixup problem entirely, and simplify the code. When the cache fills, invalidate everything and start over. This is what some simpler JITs do (LuaJIT's trace compiler, for example). The cost is that eviction is all-or-nothing rather than per-page LRU, but if pressure is rare, this is acceptable.
+
+5. **Could fragments be larger?** If the bump allocator is too aggressive, increasing `FRAGMENT_SIZE` from 512 to e.g. 4096 bytes would make fragment boundaries rare enough that most single-instruction codegen never crosses one. The wide fixup pattern would still be needed for correctness, but the linking branch overhead (one `B` per fragment boundary) drops proportionally.
+
+6. **What is the code density?** How many native bytes does the average PPC instruction compile to? If it's ~20 bytes (typical for a load with TLB stub call), a 4 KB PPC page (1024 instructions) generates ~20 KB of native code = ~40 fragments. With 131K fragments available, that's ~3,200 pages before eviction — close to the 4,096 ClientPage limit. Actual density measurements would inform both fragment size and cache size decisions.
+
+Adding instrumentation (`jitc.peakFragmentsUsed`, `jitc.totalFragmentsAllocated`, histograms of fragments-per-page) would answer most of these questions with a single boot run.
+
 ## Lessons Learned
 
 1. **Silent no-op stubs are fatal bugs in disguise.** `lmw`/`stmw` being empty stubs meant callee-saved registers were never saved/restored. `icbi` being a no-op meant the JIT code cache was never invalidated after code was overwritten. Every unimplemented opcode must abort with an error message.
@@ -457,7 +535,7 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 
 12. **Fragment-based icache flush is necessary.** The JIT translation cache uses non-contiguous fragments linked by branch instructions. `__builtin___clear_cache(result, tcp)` crashes if the range spans a gap between fragments. Use `jitcFlushClientPage()` which walks the fragment chain and flushes each fragment individually.
 
-13. **AArch64 conditional branches have limited range — never use them for cross-fragment fixups.** CBZ/CBNZ have ±1MB range (19-bit signed immediate). B.cc has ±1MB. Unconditional B has ±128MB (26-bit). When a forward fixup in generated code spans emitted instructions that include `emitBLR` calls (16 bytes each), the total distance can exceed 1MB if a fragment boundary falls in between. The `& 0x7FFFF` mask silently wraps the offset, and bit 18 being set makes the CPU interpret it as a large negative offset — branching far backward into unrelated compiled code. The symptom is a SIGSEGV at a small address like `0x328` or `0x384` (field offsets in `PPC_CPU_State` accessed via a NULL pointer). Use unconditional `B` via `resolveFixup()` for any fixup that might cross a fragment boundary, and use CBZ/CBNZ only for short known-distance branches.
+13. **AArch64 conditional branches have limited range — never use them for cross-fragment fixups.** CBZ/CBNZ have ±1MB range (19-bit signed immediate). B.cc has ±1MB. Unconditional B has ±128MB (26-bit). When a forward fixup in generated code spans emitted instructions that include `emitBLR` calls (16 bytes each), the total distance can exceed 1MB if a fragment boundary falls in between. The `& 0x7FFFF` mask silently wraps the offset, and bit 18 being set makes the CPU interpret it as a large negative offset — branching far backward into unrelated compiled code. The symptom is a SIGSEGV at a small address like `0x328` or `0x384` (field offsets in `PPC_CPU_State` accessed via a NULL pointer). **Fixed:** All conditional fixup functions (`asmBccFixup`, `asmCBZwFixup`, `asmCBNZwFixup`) now emit a 2-instruction wide fixup: an inverted-condition branch that skips +8 bytes, followed by an unconditional `B` placeholder (±128MB range). `asmResolveFixup` patches the unconditional B, which is always in range. This is the same pattern used by .NET CoreCLR for long AArch64 branches. Cost: 4 extra bytes per fixup site.
 
 14. **Don't inline TLB lookups into JIT output.** The TLB fast path (~6 instructions) lives in a shared asm stub called via BLR. Inlining it into every load/store site was attempted and reverted: each site bloated from ~12 to ~30 instructions, wasting translation cache and host icache. The x86 JIT had the same inline code written and `#if 0`'d it out. One shared copy stays hot in icache; hundreds of inline copies compete with everything else.
 

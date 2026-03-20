@@ -68,6 +68,7 @@ void jitc_dump_and_exit(int code)
     if (gTraceLog) {
         fflush(gTraceLog);
     }
+    crash_dump_cpu_state();
     FILE *df = fopen("memdump_jit.bin", "wb");
     if (df) {
         fwrite(gMemory, 1, gMemorySize, df);

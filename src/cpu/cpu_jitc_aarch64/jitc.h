@@ -524,8 +524,14 @@ public:
     // Forward branch fixups (emit with offset=0, patch later via asmResolveFixup)
     NativeAddress asmBccFixup(A64Cond cond)
     {
+        // Wide fixup: invert cond to skip over unconditional B placeholder.
+        // B.cond has ±1MB range which can be exceeded across fragments;
+        // unconditional B has ±128MB, safe for any distance in 64MB cache.
+        // Both instructions must land in the same fragment (the +8 offset is fixed).
+        emitAssure(8);
+        emit32(a64_Bcc((A64Cond)((int)cond ^ 1), 8));
         NativeAddress at = asmHERE();
-        emit32(a64_Bcc(cond, 0));
+        emit32(a64_B(0));
         return at;
     }
 
@@ -538,15 +544,21 @@ public:
 
     NativeAddress asmCBZwFixup(NativeReg rt)
     {
+        // Wide fixup: CBNZ skips over unconditional B placeholder
+        emitAssure(8);
+        emit32(a64_CBNZw(rt, 8));
         NativeAddress at = asmHERE();
-        emit32(a64_CBZw(rt, 0));
+        emit32(a64_B(0));
         return at;
     }
 
     NativeAddress asmCBNZwFixup(NativeReg rt)
     {
+        // Wide fixup: CBZ skips over unconditional B placeholder
+        emitAssure(8);
+        emit32(a64_CBZw(rt, 8));
         NativeAddress at = asmHERE();
-        emit32(a64_CBNZw(rt, 0));
+        emit32(a64_B(0));
         return at;
     }
 
