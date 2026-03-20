@@ -41,7 +41,7 @@ extern void ppc_fatal(const char *fmt, ...);
 //#define IO_RTL8139_TRACE(msg...) ht_printf("[IO/rtl8139] " msg)
 #define IO_GRAPHIC_TRACE(msg...) ht_printf("[IO/GCARD] " msg)
 #define IO_CUDA_TRACE(msg...) ht_printf("[IO/CUDA] " msg)
-#define IO_PIC_TRACE(msg...) ht_printf("[IO/PIC] " msg)
+//#define IO_PIC_TRACE(msg...) ht_printf("[IO/PIC] " msg)
 //#define IO_PCI_TRACE(msg...) ht_printf("[IO/PCI] " msg)
 #define IO_MACIO_TRACE(msg...) ht_printf("[IO/MACIO] " msg)
 //#define IO_NVRAM_TRACE(msg...) ht_printf("[IO/NVRAM] " msg)

@@ -280,9 +280,13 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         int sf = (insn >> 31) & 1;
         int nz = (insn >> 24) & 1;
         sint64 imm19 = signExtend((insn >> 5) & 0x7FFFF, 19);
-        uint64 target = pc + imm19 * 4;
         const char *op = nz ? "cbnz" : "cbz";
         const char *rname = sf ? xreg(rd) : wreg(rd);
+        if (imm19 == 0) {
+            snprintf(result, 256, "%s %s, <fixup>", op, rname);
+            return;
+        }
+        uint64 target = pc + imm19 * 4;
         const char *sym = symbolLookup(target);
         if (sym)
             snprintf(result, 256, "%s %s, %s", op, rname, sym);

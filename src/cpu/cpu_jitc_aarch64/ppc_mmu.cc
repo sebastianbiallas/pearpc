@@ -2411,7 +2411,7 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
 	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
 	jitc.clobberAll();
 	// Reserve enough space for the entire codegen to avoid fragment
-	// boundaries between forward-branch placeholders and their targets.
+	// boundaries between forward-branch fixups and their targets.
 	jitc.emitAssure(128);
 	gen_prologue(jitc);
 
@@ -2423,9 +2423,7 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
 
 	// if (!have_reservation) goto done
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, have_reservation));
-	jitc.emitAssure(4);
-	NativeAddress cbz_patch = jitc.asmHERE();
-	jitc.emit32(0); // placeholder CBZw
+	NativeAddress cbz_fixup = jitc.asmCBZwFixup(W16);
 
 	// have_reservation = 0
 	jitc.asmMOV(W16, 0);
@@ -2443,9 +2441,7 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
 	jitc.asmCMPw(W0, W16);
 
 	// if (value != reserve) goto skip_write
-	jitc.emitAssure(4);
-	NativeAddress bne_patch = jitc.asmHERE();
-	jitc.emit32(0); // placeholder B.NE
+	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
 
 	// Store gpr[rS] to EA (reload EA from temp2, reload W9 = pc_ofs)
 	gen_prologue(jitc);
@@ -2460,8 +2456,7 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
 	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
 
 	// skip_write:
-	NativeAddress skip_write = jitc.asmHERE();
-	*(uint32 *)bne_patch = a64_Bcc(A64_NE, (sint32)(skip_write - bne_patch));
+	jitc.asmResolveFixup(bne_fixup);
 
 	// if (xer & XER_SO) cr |= CR_CR0_SO
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, xer));
@@ -2473,8 +2468,7 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
 	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
 
 	// done:
-	NativeAddress done = jitc.asmHERE();
-	*(uint32 *)cbz_patch = a64_CBZw(W16, (sint32)(done - cbz_patch));
+	jitc.asmResolveFixup(cbz_fixup);
 
 	return flowContinue;
 }

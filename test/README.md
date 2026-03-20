@@ -47,12 +47,20 @@ Or use the helper script for `test_loop`:
 
 ## Running
 
+Run all tests:
 ```sh
+make test
+# or directly:
+test/run_tests.sh
+```
+
+Run a single test:
+```sh
+# Headless:
+./src/ppc --headless test/test_alu.cfg
+
 # With GUI (use for boot tests):
 ./src/ppc test/test_loop.cfg
-
-# Headless (use for automated tests):
-./src/ppc --headless test/test_alu.cfg
 ```
 
 Exit code 0 = all tests passed. Nonzero = number of failures.
@@ -68,6 +76,7 @@ Exit code 0 = all tests passed. Nonzero = number of failures.
 | `test_branch_loop.S` | `test_branch_loop.cfg` | Branch loop patterns: counted loops with `bl` calls inside (same-page `ble` + `bl` dispatch). Tests the exact pattern from the kernel's softirq init loop. Also tests `bdnz`, accumulator loops, and multi-register loop state. |
 | `test_fpu_exc.S` | `test_fpu_exc.cfg` | 24 FPU tests: NO_FPU exception handling (installs handler at 0x800, verifies lfd/fadd/stfd/fdivs/lfs/stfs raise NO_FPU when MSR_FP=0, checks SRR0/SRR1), NO_FPU vs DSI priority, fmr (64-bit copy), fneg (sign bit flip for +val, -val, -0.0). |
 | `test_altivec.S` | `test_altivec.cfg` | 12 AltiVec tests: MSR_VEC enable via rfi, vxor, vspltisw, vspltisb, vadduwm, vsubuwm, vand, vaddubm, vmrghw, vcmpequw. (with CR6), lvx/stvx round-trip, vspltw. |
+| `test_crlogical.S` | `test_crlogical.cfg` | CR logical operations: crand, crandc, cror, crorc, crxor, crnand, crnor, creqv, plus crclr/crset aliases. |
 
 ## Writing a new test
 
