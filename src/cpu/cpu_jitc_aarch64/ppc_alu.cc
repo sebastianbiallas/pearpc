@@ -279,31 +279,22 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
     bool lk = jitc.current_opc & 1;
     bool aa = jitc.current_opc & 2;
 
-    if (!aa) {
-        // PC-relative: target = current_code_base + pc + li
-        // Load ccb once into W0, reuse for both LR and target
-        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
-        if (lk) {
-            // BL: LR = ccb + pc + 4
-            jitc.asmMOV(W16, jitc.pc + 4);
-            jitc.asmADDw(W16, W0, W16);
-            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
-        }
-        jitc.asmMOV(W17, jitc.pc + li);
-        jitc.asmADDw(W0, W0, W17);
-        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
-        return flowEndBlockUnreachable;
-    }
-
-    // Absolute address
     if (lk) {
+        // BL: LR = ccb + pc + 4
         jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
         jitc.asmMOV(W17, jitc.pc + 4);
         jitc.asmADDw(W16, W16, W17);
         jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
     }
-    jitc.asmMOV(W0, li);
-    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+
+    if (aa) {
+        jitc.asmMOV(W0, li);
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+    } else {
+        // PC-relative: pass page offset, stub adds ccb
+        jitc.asmMOV(W0, jitc.pc + li);
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+    }
     return flowEndBlockUnreachable;
 }
 
@@ -357,12 +348,11 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     if (ctr_ok_always && cond_ok_always) {
         if (aa) {
             jitc.asmMOV(W0, (uint32)BD);
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         } else {
-            jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
-            jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
-            jitc.asmADDw(W0, W0, W17);
+            jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
         }
-        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         return flowEndBlockUnreachable;
     }
 
@@ -373,9 +363,8 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         if (aa) {
             dispatch_size = a64_movw_size((uint32)BD) + JITC::asmCALL_cpu_size;
         } else {
-            dispatch_size = 4                                           // LDR W0, [X20, #ccb]
-                            + a64_movw_size((uint32)(jitc.pc + BD)) + 4 // ADD W0, W0, W17
-                            + JITC::asmCALL_cpu_size;
+            // MOV W0, #offset + call NEW_PC_REL (stub adds ccb)
+            dispatch_size = a64_movw_size((uint32)(jitc.pc + BD)) + JITC::asmCALL_cpu_size;
         }
 
         //  LDR W16, [X20, #ctr]        ; 4
@@ -391,9 +380,6 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         jitc.asmSUBSw(W16, W16, 1);
         jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
 
-        // bdnz (BO & 2 == 0): taken when CTR != 0 → CBZ skips to not_taken
-        // bdz  (BO & 2 == 1): taken when CTR == 0 → CBNZ skips to not_taken
-        // The skip offset is +4 (past CBZ/CBNZ itself) + dispatch_size
         sint32 skip_offset = 4 + dispatch_size;
         if (BO & 2) {
             jitc.asmCBNZw(W16, skip_offset);
@@ -406,12 +392,11 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         // Taken: dispatch to target
         if (aa) {
             jitc.asmMOV(W0, (uint32)BD);
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         } else {
-            jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
-            jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
-            jitc.asmADDw(W0, W0, W17);
+            jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
         }
-        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
         jitc.asmAssertHERE(not_taken, "bcx_ctr");
         return flowContinue;
@@ -424,9 +409,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         if (aa) {
             dispatch_size = a64_movw_size((uint32)BD) + JITC::asmCALL_cpu_size;
         } else {
-            dispatch_size = 4                                           // LDR W0, [X20, #ccb]
-                            + a64_movw_size((uint32)(jitc.pc + BD)) + 4 // ADD W0, W0, W17
-                            + JITC::asmCALL_cpu_size;
+            dispatch_size = a64_movw_size((uint32)(jitc.pc + BD)) + JITC::asmCALL_cpu_size;
         }
 
         //  LDR W16, [X20, #cr]          ; 4
@@ -438,19 +421,12 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
 
         jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
 
-        // CR bit position: PPC uses MSB-first, bit 0 = bit 31 in a 32-bit word
         int aarch64_bit = 31 - BI;
 
-        // BO bit 3 (value 8): branch sense
-        //   BO & 8: branch when CR bit is SET   → TBZ to skip (not taken when clear)
-        //   !(BO & 8): branch when CR bit CLEAR → TBNZ to skip (not taken when set)
-        // TBZ/TBNZ offset: +4 (past TBZ itself) + dispatch_size
         sint32 skip_offset = 4 + dispatch_size;
         if (BO & 8) {
-            // Branch when CR bit set → skip (not taken) when clear
             jitc.asmTBZ(W16, aarch64_bit, skip_offset);
         } else {
-            // Branch when CR bit clear → skip (not taken) when set
             jitc.asmTBNZ(W16, aarch64_bit, skip_offset);
         }
 
@@ -459,12 +435,11 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         // Taken: dispatch to target
         if (aa) {
             jitc.asmMOV(W0, (uint32)BD);
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         } else {
-            jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
-            jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
-            jitc.asmADDw(W0, W0, W17);
+            jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
         }
-        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
         jitc.asmAssertHERE(not_taken, "bcx_cr");
         return flowContinue;
