@@ -192,9 +192,12 @@ A64Instr a64_LSRVw(int rd, int rn, int rm);  // LSRV Wd, Wn, Wm
 /* 64-bit shift variable (for PPC shift-by-register with 6-bit amounts) */
 A64Instr a64_LSLV(int rd, int rn, int rm);   // LSLV Xd, Xn, Xm
 A64Instr a64_LSRV(int rd, int rn, int rm);   // LSRV Xd, Xn, Xm
+A64Instr a64_ASRV(int rd, int rn, int rm);   // ASRV Xd, Xn, Xm
+A64Instr a64_SXTW(int rd, int rn);           // SXTW Xd, Wn
 
 /* Widening multiply */
 A64Instr a64_UMULL(int rd, int rn, int rm);   // UMULL Xd, Wn, Wm
+A64Instr a64_SMULL(int rd, int rn, int rm);   // SMULL Xd, Wn, Wm
 
 /* Logical (register) with invert */
 A64Instr a64_ORNw(int rd, int rn, int rm);    // ORN Wd, Wn, Wm = Wn | ~Wm

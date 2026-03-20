@@ -439,6 +439,9 @@ public:
 
     // Widening multiply
     void asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm); // UMULL Xd, Wn, Wm
+    void asmSMULL(NativeReg rd, NativeReg rn, NativeReg rm); // SMULL Xd, Wn, Wm
+    void asmASRV(NativeReg rd, NativeReg rn, NativeReg rm);  // ASRV Xd, Xn, Xm (64-bit)
+    void asmSXTW(NativeReg rd, NativeReg rn);                // SXTW Xd, Wn
 
     // Logical with invert
     void asmORNw(NativeReg rd, NativeReg rn, NativeReg rm); // ORN Wd, Wn, Wm

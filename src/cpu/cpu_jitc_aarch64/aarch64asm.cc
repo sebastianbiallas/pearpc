@@ -225,6 +225,13 @@ A64Instr a64_CMNw_imm(int rn, uint32 imm12)
     return 0x31000000 | (imm12 << 10) | (rn << 5) | 0x1F;
 }
 
+A64Instr a64_SXTW(int rd, int rn)
+{
+    A64_ASSERT_REG(rd, "SXTW"); A64_ASSERT_REG(rn, "SXTW");
+    // SXTW Xd, Wn = SBFM Xd, Xn, #0, #31
+    return 0x93407C00 | (rn << 5) | rd;
+}
+
 A64Instr a64_SXTBw(int rd, int rn)
 {
     A64_ASSERT_REG(rd, "SXTBw"); A64_ASSERT_REG(rn, "SXTBw");
@@ -733,12 +740,22 @@ A64Instr a64_LSRV(int rd, int rn, int rm)
     A64_ASSERT_REG(rd, "LSRV"); A64_ASSERT_REG(rn, "LSRV"); A64_ASSERT_REG(rm, "LSRV");
     return 0x9AC02400 | (rm << 16) | (rn << 5) | rd;
 }
+A64Instr a64_ASRV(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "ASRV"); A64_ASSERT_REG(rn, "ASRV"); A64_ASSERT_REG(rm, "ASRV");
+    return 0x9AC02800 | (rm << 16) | (rn << 5) | rd;
+}
 
 /* Widening multiply */
 A64Instr a64_UMULL(int rd, int rn, int rm)
 {
     A64_ASSERT_REG(rd, "UMULL"); A64_ASSERT_REG(rn, "UMULL"); A64_ASSERT_REG(rm, "UMULL");
     return 0x9BA07C00 | (rm << 16) | (rn << 5) | rd;
+}
+A64Instr a64_SMULL(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "SMULL"); A64_ASSERT_REG(rn, "SMULL"); A64_ASSERT_REG(rm, "SMULL");
+    return 0x9B207C00 | (rm << 16) | (rn << 5) | rd;
 }
 
 /* Logical with invert */

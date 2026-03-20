@@ -1210,10 +1210,53 @@ JITCFlow ppc_opc_gen_mtcrf(JITC &jitc)
     return flowContinue;
 }
 
-/* srawx rA, rS, rB — Shift Right Algebraic Word (sets XER[CA]) */
+/* mulhwx rD, rA, rB — Multiply High Word (signed)
+ * rD = (sint64(rA) * sint64(rB)) >> 32
+ */
+JITCFlow ppc_opc_gen_mulhwx(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmSMULL(X16, W16, W17);
+    jitc.asmLSR_imm(X16, X16, 32);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+	RC_UPDATE(W16);
+    return flowContinue;
+}
+
+/* srawx rA, rS, rB — Shift Right Algebraic Word (sets XER[CA])
+ * SH = rB & 63. rA = ASR(rS, SH). CA = (rS < 0) && (shifted-out bits != 0).
+ * For SH >= 32: if rS < 0, rA = 0xFFFFFFFF; else rA = 0.
+ * AArch64 ASRVw uses shift % 32, so we use 64-bit sign-extend + 64-bit ASR.
+ */
 JITCFlow ppc_opc_gen_srawx(JITC &jitc)
 {
-    ppc_opc_gen_interpret(jitc, ppc_opc_srawx);
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+    jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
+    jitc.asmANDw_imm(W17, W17, 0, 5);    // W17 = rB & 63 (logical imm: 6 ones)
+
+    // Sign-extend rS to 64-bit, then 64-bit ASR handles SH 0-63 correctly
+    jitc.asmSXTW(X0, W16);                // X0 = sign-extended rS
+    jitc.asmASRV(X1, X0, X17);            // X1 = X0 >> SH (arithmetic)
+    // W1 = result (low 32 bits)
+
+    // CA = (rS < 0) && (shifted-out bits != 0)
+    // Reconstruct original from result: if (result << SH) != original, bits were lost
+    jitc.asmLSLV(X16, X1, X17);           // X16 = result << SH
+    jitc.asmCMPw(W16, W0);                // compare low 32 bits (upper are sign-extended, always match)
+    jitc.asmCSETw(W16, A64_NE);           // W16 = (bits shifted out ? 1 : 0)
+    // Only set CA if rS was negative
+    jitc.asmTSTw(W0, 1, 0);               // test bit 31 of W0 (sign bit)
+    jitc.asmCSELw(W16, W16, WZR, A64_NE); // CA = negative ? shifted_out : 0
+    jitc.asmSTRw_cpu(W16, XER_CA_OFS);
+
+    // Store result
+    jitc.asmSTRw_cpu(W1, GPR_OFS(rA));
+	RC_UPDATE(W1);
     return flowContinue;
 }
 

@@ -489,6 +489,18 @@ void JITC::asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm)
 {
     emit32(a64_UMULL(rd, rn, rm));
 }
+void JITC::asmSMULL(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_SMULL(rd, rn, rm));
+}
+void JITC::asmASRV(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_ASRV(rd, rn, rm));
+}
+void JITC::asmSXTW(NativeReg rd, NativeReg rn)
+{
+    emit32(a64_SXTW(rd, rn));
+}
 void JITC::asmORNw(NativeReg rd, NativeReg rn, NativeReg rm)
 {
     emit32(a64_ORNw(rd, rn, rm));

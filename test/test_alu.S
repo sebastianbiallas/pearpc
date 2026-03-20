@@ -787,6 +787,103 @@ _start:
 .Lt58_done:
 
     /*
+     * Test 59: mulhw (positive * positive)
+     * 0x10000 * 0x10000 = 0x100000000 → high word = 1
+     */
+    PRINT   .Ltest59, (.Ltest59_end - .Ltest59)
+    lis     4, 1                /* r4 = 0x10000 */
+    lis     5, 1                /* r5 = 0x10000 */
+    mulhw   3, 4, 5
+    CHECK   1
+
+    /*
+     * Test 60: mulhw (negative * positive)
+     * -1 * 0x10000 = -0x10000 = 0xFFFFFFFF_FFFF0000 → high word = 0xFFFFFFFF
+     */
+    PRINT   .Ltest60, (.Ltest60_end - .Ltest60)
+    li      4, -1               /* r4 = 0xFFFFFFFF */
+    lis     5, 1                /* r5 = 0x10000 */
+    mulhw   3, 4, 5
+    CHECK   -1
+
+    /*
+     * Test 61: sraw by 1 (positive → logical shift)
+     * 0x40 >> 1 = 0x20, CA = 0
+     */
+    PRINT   .Ltest61, (.Ltest61_end - .Ltest61)
+    li      4, 0x40
+    li      5, 1
+    /* Clear CA first */
+    li      6, 0
+    addic   6, 6, 0
+    sraw    3, 4, 5
+    CHECK   0x20
+    /* Verify CA = 0 by checking addze */
+    li      4, 0
+    addze   3, 4
+    CHECK   0
+
+    /*
+     * Test 62: sraw by 1 (negative, no shifted-out bit)
+     * 0xFFFFFFFE >> 1 = 0xFFFFFFFF, CA = 0
+     */
+    PRINT   .Ltest62, (.Ltest62_end - .Ltest62)
+    li      4, -2               /* 0xFFFFFFFE */
+    li      5, 1
+    li      6, 0
+    addic   6, 6, 0
+    sraw    3, 4, 5
+    CHECK   -1
+    /* CA should be 0 (shifted-out bit was 0) */
+    li      4, 0
+    addze   3, 4
+    CHECK   0
+
+    /*
+     * Test 63: sraw by 1 (negative, shifted-out bit set → CA=1)
+     * 0xFFFFFFFF >> 1 = 0xFFFFFFFF, CA = 1
+     */
+    PRINT   .Ltest63, (.Ltest63_end - .Ltest63)
+    li      4, -1               /* 0xFFFFFFFF */
+    li      5, 1
+    li      6, 0
+    addic   6, 6, 0
+    sraw    3, 4, 5
+    CHECK   -1
+    /* CA should be 1 */
+    li      4, 0
+    addze   3, 4
+    CHECK   1
+
+    /*
+     * Test 64: sraw by 32 (negative → all 1s, CA=1 if any bit set)
+     * 0x80000001 >> 32 = 0xFFFFFFFF, CA = 1
+     */
+    PRINT   .Ltest64, (.Ltest64_end - .Ltest64)
+    lis     4, 0x8000           /* r4 = 0x80000000 */
+    ori     4, 4, 1             /* r4 = 0x80000001 */
+    li      5, 32
+    li      6, 0
+    addic   6, 6, 0
+    sraw    3, 4, 5
+    CHECK   -1
+    /* CA should be 1 */
+    li      4, 0
+    addze   3, 4
+    CHECK   1
+
+    /*
+     * Test 65: sraw by 0 (no shift, CA=0)
+     */
+    PRINT   .Ltest65, (.Ltest65_end - .Ltest65)
+    li      4, 42
+    li      5, 0
+    li      6, 0
+    addic   6, 6, 0
+    sraw    3, 4, 5
+    CHECK   42
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -984,6 +1081,27 @@ _start:
 .Ltest58:
     .ascii  "test 58 mcrf LT:     "
 .Ltest58_end:
+.Ltest59:
+    .ascii  "test 59 mulhw:       "
+.Ltest59_end:
+.Ltest60:
+    .ascii  "test 60 mulhw neg:   "
+.Ltest60_end:
+.Ltest61:
+    .ascii  "test 61 sraw pos:    "
+.Ltest61_end:
+.Ltest62:
+    .ascii  "test 62 sraw neg:    "
+.Ltest62_end:
+.Ltest63:
+    .ascii  "test 63 sraw CA:     "
+.Ltest63_end:
+.Ltest64:
+    .ascii  "test 64 sraw 32:     "
+.Ltest64_end:
+.Ltest65:
+    .ascii  "test 65 sraw 0:      "
+.Ltest65_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
