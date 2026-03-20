@@ -205,33 +205,29 @@ Test results: `test_loop.elf` prints "Hello from PPC!" and counts 1-10. `test_al
 
 Replace interpreter calls with actual AArch64 instructions. Each native gen_ function loads PPC registers from `[X20, #offset]`, performs the operation with AArch64 instructions, and stores the result back. 6 core load/store opcodes now have native code generation with inline TLB fast path (see below).
 
-**Done - ALU immediate:**
-- `addi`/`li` - immediate add (handles rA==0 for load immediate)
-- `addis`/`lis` - immediate add shifted
-- `ori`, `oris`, `xori`, `xoris` - OR/XOR immediate variants
-- `cmpi` - compare immediate (falls back to interpreter for CR update)
-
-**Done - ALU register:**
-- `add`, `subf`, `and`, `or`, `xor` - register-register operations
-- `neg`, `mullw` - negate, multiply
-- `slw`, `srw` - shifts
-- `rlwinm` - rotate and mask (interpreter fallback)
+**Done - ALU/compare/rotate/SPR (native codegen, flowContinue):**
+- Immediate: `addi`/`li`, `addis`/`lis`, `ori`, `oris`, `xori`, `xoris`, `andi.`, `andis.`, `addic`, `addic.`, `subfic`, `mulli`
+- Register: `add`, `subf`, `and`, `or`, `xor`, `neg`, `mullw`, `mulhw`, `mulhwu`, `slw`, `srw`, `divw`, `divwu`, `andc`, `orc`, `nor`, `nand`, `eqv`, `sraw`, `srawi`, `cntlzw`, `extsb`, `extsh`
+- Carry-aware: `addc`, `adde`, `addze`, `addme`, `subfc`, `subfe`, `subfze`, `subfme`
+- Compare: `cmpi`, `cmpli`, `cmp`, `cmpl` — native CR update via BFI
+- Rotate/mask: `rlwinm`, `rlwimi`, `rlwnm`
+- SPR/CR: `mfcr`, `mtcrf`, `mcrxr`, `mfspr`, `mtspr`, `mftb`, `mcrf`, `mfmsr`, all CR logical ops
 
 **Done - branches:**
 - `b`/`bl` - unconditional branch (computes EA, sets LR, jumps to ppc_new_pc_asm)
-- `bc` - conditional branch: uses interpreter for condition eval, then checks npc to dispatch. For same-page not-taken, continues without dispatch overhead.
+- `bc` - conditional branch: decodes BO/BI/BD at JIT compile time, emits native condition test:
+  - CR-only (beq/bne/blt/bgt/ble/bge): TBZ/TBNZ on CR bit (6-8 insn vs 22)
+  - CTR-only (bdnz/bdz): SUBS+CBZ/CBNZ (8-10 insn)
+  - Unconditional (BO=0x14): direct dispatch (4-5 insn)
+  - Fallback: LK=1 or combined CTR+CR → interpreter
 
 **Done - load/store with TLB fast path:**
-- `lwz`, `stw`, `lbz`, `stb`, `lhz`, `sth` - native gen_ functions that call asm TLB stubs
-- All indexed forms (`lwzx`, `stwx`, `lbzx`, `stbx`, `lhzx`, `sthx`) and update forms implemented in interpreter
-
-**Not yet optimized:**
-- `andi.`, `andis.` - AND immediate with CR0 update
-- `subfic`, `addic`, `addic.`, `mulli` - other immediates
-- `divwu`, `divw`, `sraw`, `srawi` - divide, arithmetic shift
-- `rlwimi`, `rlwnm` - rotate and mask variants
-- `extsb`, `extsh`, `cntlzw` - extend/count
-- `cmpi`, `cmpli`, `cmp`, `cmpl` - native CR update (currently interpreter)
+- All base D-form: `lwz`, `stw`, `lbz`, `stb`, `lhz`, `sth`, `lha`
+- All D-form with update: `lwzu`, `stwu`, `lbzu`, `stbu`, `lhzu`, `sthu`, `lhau`
+- All X-form indexed: `lwzx`, `stwx`, `lbzx`, `stbx`, `lhzx`, `sthx`, `lhax`
+- All X-form indexed with update: `lwzux`, `stwux`, `lbzux`, `stbux`, `lhzux`, `sthux`, `lhaux`
+- Update variants save EA to `cpu->temp2` before the asm stub call (which clobbers W0), then write EA to `gpr[rA]` after successful return. DSI never returns, so rA stays unmodified on exception.
+- All return `flowContinue` — no dispatch overhead between load/store instructions.
 
 **FPU load/store (needed for yaboot):**
 
@@ -253,19 +249,18 @@ All FPU arithmetic opcodes (fadd, fmul, fdiv, fsqrt, fmadd, etc.) are implemente
 
 #### Branch Dispatch Strategy
 
-All branch gen_ functions use the interpreter to evaluate the branch condition (handles all BO variants, CTR decrement, LK bit). The optimization is in **how the target is dispatched**:
-
 **`b`/`bl` (unconditional):** Compute target EA at translation time. Jump via `ppc_new_pc_asm` (full dispatch) or `ppc_new_pc_rel_asm`.
 
-**`bc` (conditional, `gen_bcx`):** Interpreter sets `npc`. Generated code compares `npc` with the expected fall-through address (`current_code_base + pc + 4`):
-- **Not taken** (`npc == fall-through`): patched `B.EQ` skips the dispatch, continues to next translated instruction (`flowContinue`).
-- **Taken, backward same-page, entry exists**: heartbeat + direct `BR` to the known native address. No dispatch overhead at all.
-- **Taken, same-page, entry not yet known**: heartbeat + `ppc_new_pc_this_page_asm` (fast lookup in ClientPage entrypoints array, no `jitcNewPC`).
-- **Taken, cross-page**: `ppc_new_pc_asm` (full dispatch).
+**`bc` (conditional, `gen_bcx`):** BO/BI/BD decoded at JIT compile time. Three native codegen paths:
 
-**`bclr`/`bcctr` (indirect):** Interpreter sets `npc` from LR or CTR. Generated code checks if `npc` is on the current page:
-- **Same page** (`npc - current_code_base < 4096`): heartbeat + `ppc_new_pc_this_page_asm`.
-- **Cross page**: `ppc_new_pc_asm`.
+- **CR-only** (BO & 4, ~90% of branches: beq/bne/blt/bgt/ble/bge): Load CR word, TBZ/TBNZ on the specific CR bit (bit position = 31-BI). If taken, dispatch via `ppc_new_pc_asm`. If not taken, fall through (`flowContinue`). **6-8 instructions** vs 22 with interpreter.
+- **CTR-only** (BO & 0x10, bdnz/bdz): SUBS to decrement CTR, CBZ/CBNZ to test. **8-10 instructions**.
+- **Unconditional** (BO & 0x14 == 0x14): Direct dispatch. **4-5 instructions**.
+- **Fallback** (LK=1 or combined CTR+CR): Uses interpreter via `ppc_opc_gen_interpret` + `gen_dispatch_npc`.
+
+No exceptions possible on branches, so no pc/npc/current_opc stores needed for native paths. All taken branches go through `ppc_new_pc_asm` which calls `ppc_heartbeat_ext_asm`, so heartbeat is always checked.
+
+**`bclr`/`bcctr` (indirect):** Interpreter sets `npc` from LR or CTR. Dispatch via `gen_dispatch_npc` (`ppc_new_pc_asm`).
 
 **`ppc_new_pc_this_page_asm`** (assembly helper): Translates EA→PA, then directly indexes `clientPages[PA >> 12]->entrypoints[(PA & 0xFFF) >> 2]` to get the native address. No `jitcNewPC` call, no icache flush, no W^X toggle. Falls back to `jitcNewPC` only if the entrypoint doesn't exist.
 
@@ -283,17 +278,18 @@ TLB-based memory access with assembly fast path + C++ slow path.
 
 **C++ slow path (ppc_mmu.cc):**
 - On TLB miss: EA→PA translation via `ppc_effective_to_physical()`, fill TLB, access memory
+- Page-spanning accesses (e.g., 4-byte load at page offset 0xFFD): detected by the asm stub's page-offset check, handled byte-by-byte in the slow path with separate EA→PA translation per byte. PPC does NOT raise alignment exceptions for unaligned integer loads — they are architecturally valid.
 - Only RAM pages cached in TLB; IO goes through slow path every time
 
 **TLB invalidation:**
 - Invalidate-all stores 0xFFFFFFFF (not 0 — page 0x00000000 was false-hitting)
 - Single-entry invalidation implemented
 
-### Phase 6: Same-Page Branch Optimization (DONE for backward branches)
+### Phase 6: Same-Page Branch Optimization (DONE)
 
-For backward same-page `bc` branches (tight loops), the generated code now jumps directly to the already-translated native entry point via `BR X16`. Each loop iteration: interpreter evaluates condition → heartbeat check → direct jump. No `jitcNewPC`, no icache flush.
+Conditional branches (`bc`) now use native TBZ/TBNZ/CBZ/CBNZ codegen (see Phase 4). Taken branches dispatch via `ppc_new_pc_asm` which handles heartbeat and page lookup. Not-taken branches fall through with zero overhead (`flowContinue`).
 
-**Remaining bottleneck:** Forward branches and function call/return still go through `ppc_new_pc_asm` → `jitcNewPC` → 64MB icache flush. The x86_64 JIT uses self-modifying code (backpatching) for this — on aarch64 with W^X, this requires toggling permissions.
+**Remaining bottleneck:** All taken branches and function call/return go through `ppc_new_pc_asm` → `jitcNewPC` → 64MB icache flush. The x86_64 JIT uses self-modifying code (backpatching) for this — on aarch64 with W^X, this requires toggling permissions.
 
 **icache flush scope:** Currently flushing all 64MB on every `jitcNewPC`. Fragment-level flush was attempted but broke things (needs investigation — likely fragments spanning multiple allocations or the lookup-only case accessing stale fragment pointers). This is the biggest remaining performance issue.
 
@@ -415,7 +411,7 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 
 1. **Silent no-op stubs are fatal bugs in disguise.** `lmw`/`stmw` being empty stubs meant callee-saved registers were never saved/restored. `icbi` being a no-op meant the JIT code cache was never invalidated after code was overwritten. Every unimplemented opcode must abort with an error message.
 
-2. **Don't blindly copy x86_64.** The TLB fast path works better as "asm check + C++ slow path" than reimplementing BAT/page-walk in assembly. The bcx works better as "interpreter eval + native dispatch" than fully native condition checking.
+2. **Don't blindly copy x86_64.** The TLB fast path works better as "asm check + C++ slow path" than reimplementing BAT/page-walk in assembly. For branches, we initially used "interpreter eval + native dispatch" but ultimately replaced it with fully native TBZ/TBNZ/CBZ/CBNZ codegen — the interpreter overhead (22 insn storing pc/npc/opc + calling C++) dominated when the actual condition check is just 1-2 instructions.
 
 3. **Tracing is essential for JIT debugging.** `jitc_trace.log` logs every `jitcNewPC` dispatch with CPU state. This found both the BSS loop bottleneck and the r30 register corruption. Flush frequently — buffered output is lost on timeout/crash.
 
@@ -439,7 +435,9 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 
 13. **AArch64 conditional branches have limited range — never use them for cross-fragment fixups.** CBZ/CBNZ have ±1MB range (19-bit signed immediate). B.cc has ±1MB. Unconditional B has ±128MB (26-bit). When a forward fixup in generated code spans emitted instructions that include `emitBLR` calls (16 bytes each), the total distance can exceed 1MB if a fragment boundary falls in between. The `& 0x7FFFF` mask silently wraps the offset, and bit 18 being set makes the CPU interpret it as a large negative offset — branching far backward into unrelated compiled code. The symptom is a SIGSEGV at a small address like `0x328` or `0x384` (field offsets in `PPC_CPU_State` accessed via a NULL pointer). Use unconditional `B` via `resolveFixup()` for any fixup that might cross a fragment boundary, and use CBZ/CBNZ only for short known-distance branches.
 
-14. **Print all host registers in the crash handler.** The default crash handler only printed pc/lr/sp, which made it impossible to distinguish "X20 corrupted" from "X0 not set from X20". Adding all x0-x28 registers plus the instruction word at the faulting PC immediately revealed the true bug: X20 was valid but X0 was 0. De-sliding the faulting PC with ASLR offset (`nm` address vs crash address of a known symbol) identified the exact C++ function being called with wrong arguments.
+14. **Don't inline TLB lookups into JIT output.** The TLB fast path (~6 instructions) lives in a shared asm stub called via BLR. Inlining it into every load/store site was attempted and reverted: each site bloated from ~12 to ~30 instructions, wasting translation cache and host icache. The x86 JIT had the same inline code written and `#if 0`'d it out. One shared copy stays hot in icache; hundreds of inline copies compete with everything else.
+
+15. **Print all host registers in the crash handler.** The default crash handler only printed pc/lr/sp, which made it impossible to distinguish "X20 corrupted" from "X0 not set from X20". Adding all x0-x28 registers plus the instruction word at the faulting PC immediately revealed the true bug: X20 was valid but X0 was 0. De-sliding the faulting PC with ASLR offset (`nm` address vs crash address of a known symbol) identified the exact C++ function being called with wrong arguments.
 
 ## Key Files
 
