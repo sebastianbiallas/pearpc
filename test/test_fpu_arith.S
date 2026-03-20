@@ -332,6 +332,65 @@ _start:
     fmsubs  4, 1, 3, 2
     CHECK_DBL 4, 0x40B38600, 0x00000000
 
+    /* ====== Test 35: lfs loads single 100.0, converts to double ====== */
+    PRINT   .Lt35, (.Lt35e - .Lt35)
+    /* Store IEEE single 100.0 = 0x42C80000 to scratch */
+    lis     0, 0x42C8
+    stw     0, 0(8)
+    lfs     1, 0(8)                 /* f1 = single_to_double(100.0) */
+    CHECK_DBL 1, 0x40590000, 0x00000000  /* double 100.0 */
+
+    /* ====== Test 36: stfs stores double as single ====== */
+    PRINT   .Lt36, (.Lt36e - .Lt36)
+    LOAD_DBL 1, 0x40590000, 0x00000000  /* f1 = double 100.0 */
+    stfs    1, 0(8)                 /* store as single */
+    lwz     3, 0(8)                 /* read back the 32-bit single */
+    CHECK32 0x42C80000              /* IEEE single 100.0 */
+
+    /* ====== Test 37: lfs + fadd round-trip ====== */
+    PRINT   .Lt37, (.Lt37e - .Lt37)
+    /* Store single 1.5 = 0x3FC00000 */
+    lis     0, 0x3FC0
+    stw     0, 0(8)
+    lfs     1, 0(8)                 /* f1 = 1.5 */
+    /* Store single 2.5 = 0x40200000 */
+    lis     0, 0x4020
+    stw     0, 0(8)
+    lfs     2, 0(8)                 /* f2 = 2.5 */
+    fadd    3, 1, 2                 /* f3 = 1.5 + 2.5 = 4.0 */
+    CHECK_DBL 3, 0x40100000, 0x00000000  /* double 4.0 */
+
+    /* ====== Test 38: stfs negative value ====== */
+    PRINT   .Lt38, (.Lt38e - .Lt38)
+    LOAD_DBL 1, 0xC0490000, 0x00000000  /* f1 = -50.0 */
+    stfs    1, 0(8)
+    lwz     3, 0(8)
+    CHECK32 0xC2480000              /* IEEE single -50.0 */
+
+    /* ====== Test 39: lfsu updates rA ====== */
+    PRINT   .Lt39, (.Lt39e - .Lt39)
+    lis     0, 0x42C8               /* single 100.0 */
+    stw     0, 16(8)                /* store at scratch+16 */
+    mr      9, 8                    /* r9 = scratch base */
+    lfsu    1, 16(9)                /* f1 = lfs(r9+16), r9 = r9+16 */
+    CHECK_DBL 1, 0x40590000, 0x00000000
+    /* Check r9 was updated */
+    PRINT   .Lt39b, (.Lt39be - .Lt39b)
+    subf    3, 8, 9                 /* r3 = r9 - scratch_base = 16 */
+    CHECK   16
+
+    /* ====== Test 40: stfsu updates rA ====== */
+    PRINT   .Lt40, (.Lt40e - .Lt40)
+    LOAD_DBL 1, 0x40590000, 0x00000000  /* 100.0 */
+    mr      9, 8
+    stfsu   1, 32(9)                /* store single at scratch+32, r9 = r9+32 */
+    lwz     3, 0(9)                 /* read from updated r9 (=scratch+32) */
+    CHECK32 0x42C80000
+    /* Check r9 was updated */
+    PRINT   .Lt40b, (.Lt40be - .Lt40b)
+    subf    3, 8, 9
+    CHECK   32
+
     /* ====== Summary ====== */
     PRINT   .Lsummary, (.Lsummarye - .Lsummary)
     cmpwi   0, 30, 0
@@ -456,11 +515,35 @@ _start:
 .Lt34:
     .ascii  "test 34 fmsubs:          "
 .Lt34e:
+.Lt35:
+    .ascii  "test 35 lfs 100.0:       "
+.Lt35e:
+.Lt36:
+    .ascii  "test 36 stfs 100.0:      "
+.Lt36e:
+.Lt37:
+    .ascii  "test 37 lfs+fadd:        "
+.Lt37e:
+.Lt38:
+    .ascii  "test 38 stfs -50.0:      "
+.Lt38e:
+.Lt39:
+    .ascii  "test 39a lfsu val:       "
+.Lt39e:
+.Lt39b:
+    .ascii  "test 39b lfsu rA:        "
+.Lt39be:
+.Lt40:
+    .ascii  "test 40a stfsu val:      "
+.Lt40e:
+.Lt40b:
+    .ascii  "test 40b stfsu rA:       "
+.Lt40be:
 .Lsummary:
     .ascii  "\n=== FPU Arith Summary ===\n"
 .Lsummarye:
 .Lpass:
-    .ascii  "All 34 tests passed!\n"
+    .ascii  "All 40 tests passed!\n"
 .Lpasse:
 .Lfailcount:
     .ascii  " test(s) failed\n"
