@@ -506,7 +506,7 @@ JITCFlow ppc_opc_gen_bclrx(JITC &jitc)
         NativeAddress not_taken = jitc.asmHERE() + dispatch_size;
 
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, lr));
-        jitc.asmANDw_imm(W0, W0, 2, 29); // AND W0, W0, #0xfffffffc
+        jitc.asmANDw_imm(W0, W0, 30, 29); // AND W0, W0, #0xfffffffc
         jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
         jitc.asmAssertHERE(not_taken, "bclrx_cr");
