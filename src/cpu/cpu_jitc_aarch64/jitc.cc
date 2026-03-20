@@ -721,7 +721,7 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
         }
         lastEntry = entry;
     }
-    if (total % 100000 == 0) {
+    if (total % 10000000 == 0) {
         fprintf(stderr, "[JITC] %llu dispatches: hits=%llu newTrans=%llu newEntry=%llu\n",
                 total, jitcHits, jitcNewTranslations, jitcNewEntries);
     }
