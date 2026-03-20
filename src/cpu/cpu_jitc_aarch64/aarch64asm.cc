@@ -79,6 +79,15 @@ A64Instr a64_MOVKw(int rd, uint16 imm16, int shift)
     return 0x72800000 | (hw << 21) | ((uint32)imm16 << 5) | rd;
 }
 
+A64Instr a64_MOVNw(int rd, uint16 imm16, int shift)
+{
+    A64_ASSERT_REG(rd, "MOVNw");
+    A64_ASSERT_RANGE(shift, 0, 16, "MOVNw shift");
+    A64_ASSERT_ALIGN(shift, 16, "MOVNw shift");
+    int hw = shift / 16;
+    return 0x12800000 | (hw << 21) | ((uint32)imm16 << 5) | rd;
+}
+
 /*
  *  Add/subtract (immediate)
  *  ADD Xd, Xn, #imm12

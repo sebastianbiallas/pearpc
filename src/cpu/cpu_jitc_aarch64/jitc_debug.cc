@@ -390,10 +390,16 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         else
             snprintf(result, 256, "%s %s, #0x%x", op, rname, imm16);
 
-        // Track MOVZ/MOVK for BLR resolution
+        // Track MOVZ/MOVK/MOVN for BLR resolution
         if (opc == 2) {
             // MOVZ: start fresh
             movTrackValue = (uint64)imm16 << shift;
+            movTrackReg = rd;
+        } else if (opc == 0) {
+            // MOVN: start fresh with inverted value
+            movTrackValue = sf
+                ? ~((uint64)imm16 << shift)
+                : (uint32)(~((uint32)imm16 << shift));
             movTrackReg = rd;
         } else if (opc == 3 && movTrackReg == rd) {
             // MOVK: accumulate

@@ -169,7 +169,13 @@ void JITC::asmMOV(NativeReg rd, uint32 imm)
 {
     uint16 lo = imm & 0xFFFF;
     uint16 hi = (imm >> 16) & 0xFFFF;
-    if (lo == 0 && hi != 0) {
+    if (hi == 0xFFFF && lo != 0xFFFF) {
+        // Negative sign-extended 16-bit: MOVN Wd, #~lo
+        emit32(a64_MOVNw(rd, (uint16)(~lo), 0));
+    } else if (lo == 0xFFFF && hi != 0xFFFF && hi != 0) {
+        // Upper half varies, lower all-ones: MOVN Wd, #~hi, lsl #16
+        emit32(a64_MOVNw(rd, (uint16)(~hi), 16));
+    } else if (lo == 0 && hi != 0) {
         // e.g. lis: just MOVZ with shift
         emit32(a64_MOVZw(rd, hi, 16));
     } else {

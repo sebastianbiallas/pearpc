@@ -52,6 +52,7 @@ A64Instr a64_CMP_imm(int rn, uint32 imm12);          // CMP Xn, #imm12
 /* 32-bit variants (Wd registers) */
 A64Instr a64_MOVZw(int rd, uint16 imm16, int shift);
 A64Instr a64_MOVKw(int rd, uint16 imm16, int shift);
+A64Instr a64_MOVNw(int rd, uint16 imm16, int shift);
 A64Instr a64_ADDw_imm(int rd, int rn, uint32 imm12);
 A64Instr a64_SUBw_imm(int rd, int rn, uint32 imm12);
 A64Instr a64_ADDSw_imm(int rd, int rn, uint32 imm12);
@@ -365,6 +366,8 @@ static inline uint a64_movw_size(uint32 imm)
 {
     uint16 lo = imm & 0xFFFF;
     uint16 hi = (imm >> 16) & 0xFFFF;
+    if (hi == 0xFFFF && lo != 0xFFFF) return 4; // MOVN
+    if (lo == 0xFFFF && hi != 0xFFFF && hi != 0) return 4; // MOVN shifted
     if (lo == 0 && hi != 0) return 4; // single MOVZ shifted
     return hi ? 8 : 4;               // MOVZ + optional MOVK
 }
