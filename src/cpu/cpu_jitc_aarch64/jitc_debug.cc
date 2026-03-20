@@ -199,6 +199,20 @@ static const char *wreg_or_zr(int r)
     return wreg(r);
 }
 
+static const char *dreg(int r)
+{
+    static char buf[8];
+    snprintf(buf, sizeof(buf), "d%d", r & 31);
+    return buf;
+}
+
+static const char *sreg(int r)
+{
+    static char buf[8];
+    snprintf(buf, sizeof(buf), "s%d", r & 31);
+    return buf;
+}
+
 static const char *condName(int cond)
 {
     static const char *names[] = {
@@ -771,9 +785,23 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         int offset = imm12 << scale;
 
         if (V) {
-            // SIMD/FP load/store — simplified
-            snprintf(result, 256, "%s (SIMD) [%s, #%d]",
-                    (opc2 & 1) ? "ldr" : "str", xreg(rn), offset);
+            // SIMD/FP load/store
+            const char *op = (opc2 & 1) ? "ldr" : "str";
+            // size=3 → D register (64-bit), size=2 → S register (32-bit)
+            const char *rname = (size >= 3) ? dreg(rd) : sreg(rd);
+            int fp_scale = (size >= 3) ? 3 : size;
+            int fp_offset = imm12 << fp_scale;
+            if (rn == 20) {
+                const char *field = cpuFieldName(fp_offset, fieldbuf, sizeof(fieldbuf));
+                if (field)
+                    snprintf(result, 256, "%s %s, [x20, #%d]  ; %s", op, rname, fp_offset, field);
+                else
+                    snprintf(result, 256, "%s %s, [x20, #%d]", op, rname, fp_offset);
+            } else if (fp_offset) {
+                snprintf(result, 256, "%s %s, [%s, #%d]", op, rname, xreg(rn), fp_offset);
+            } else {
+                snprintf(result, 256, "%s %s, [%s]", op, rname, xreg(rn));
+            }
             movTrackReg = -1;
             return;
         }
@@ -1021,6 +1049,136 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         }
         movTrackReg = -1;
         return;
+    }
+
+    // Floating-point data processing (scalar)
+    // Check for FP instructions: bits [28:24] = 11110 (0x1E) or 11111 (0x1F for FMA)
+    if ((insn & 0x5E000000) == 0x1E000000) {
+        int top4 = (insn >> 28) & 0xF;
+
+        // FP compare: 00011110 xx 1 rm 001000 rn ooooo
+        if (top4 == 1 && (insn & 0xFF20FC1F) == 0x1E202000) {
+            int ftype = (insn >> 22) & 3;
+            const char *rn_name = (ftype == 1) ? dreg(rn) : sreg(rn);
+            if (insn & 0x8) {
+                snprintf(result, 256, "fcmp %s, #0.0", rn_name);
+            } else {
+                const char *rm_name = (ftype == 1) ? dreg(rm) : sreg(rm);
+                snprintf(result, 256, "fcmp %s, %s", rn_name, rm_name);
+            }
+            movTrackReg = -1;
+            return;
+        }
+
+        // FP conditional select: 00011110 xx 1 rm cond 11 rn rd
+        if (top4 == 1 && (insn & 0xFF200C00) == 0x1E200C00) {
+            int ftype = (insn >> 22) & 3;
+            int cond = (insn >> 12) & 0xF;
+            const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
+            snprintf(result, 256, "fcsel %s, %s, %s, %s",
+                    rfn(rd), rfn(rn), rfn(rm), condName(cond));
+            movTrackReg = -1;
+            return;
+        }
+
+        // FP two-source: 00011110 xx 1 rm opcode rn rd
+        if (top4 == 1 && (insn & 0xFF200000) == 0x1E200000 && ((insn >> 10) & 3) == 2) {
+            int ftype = (insn >> 22) & 3;
+            int opcode = (insn >> 12) & 0xF;
+            const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
+            const char *op;
+            switch (opcode) {
+            case 0: op = "fmul"; break;
+            case 1: op = "fdiv"; break;
+            case 2: op = "fadd"; break;
+            case 3: op = "fsub"; break;
+            case 8: op = "fnmul"; break;
+            default: op = NULL; break;
+            }
+            if (op) {
+                snprintf(result, 256, "%s %s, %s, %s", op, rfn(rd), rfn(rn), rfn(rm));
+                movTrackReg = -1;
+                return;
+            }
+        }
+
+        // FP one-source: 00011110 xx 1 opcode 10000 rn rd
+        if (top4 == 1 && (insn & 0xFF3E0000) == 0x1E200000 && ((insn >> 10) & 0x3F) == 0x10) {
+            int ftype = (insn >> 22) & 3;
+            int opcode = (insn >> 15) & 0x3F;
+            const char *(*rfn_d)(int) = (ftype == 1) ? dreg : sreg;
+            switch (opcode) {
+            case 0: // FMOV
+                snprintf(result, 256, "fmov %s, %s", rfn_d(rd), rfn_d(rn));
+                break;
+            case 1: // FABS
+                snprintf(result, 256, "fabs %s, %s", rfn_d(rd), rfn_d(rn));
+                break;
+            case 2: // FNEG
+                snprintf(result, 256, "fneg %s, %s", rfn_d(rd), rfn_d(rn));
+                break;
+            case 3: // FSQRT
+                snprintf(result, 256, "fsqrt %s, %s", rfn_d(rd), rfn_d(rn));
+                break;
+            case 4: // FCVT to single
+                snprintf(result, 256, "fcvt %s, %s", sreg(rd), dreg(rn));
+                break;
+            case 5: // FCVT to double
+                snprintf(result, 256, "fcvt %s, %s", dreg(rd), sreg(rn));
+                break;
+            default:
+                snprintf(result, 256, "fp1src op=%d %s, %s", opcode, rfn_d(rd), rfn_d(rn));
+                break;
+            }
+            movTrackReg = -1;
+            return;
+        }
+
+        // FP-to-integer / integer-to-FP: sf 00 11110 xx 1 rmode opcode 000000 rn rd
+        if (top4 == 1 && (insn & 0x7F20FC00) == 0x1E200000) {
+            int sf = (insn >> 31) & 1;
+            int ftype = (insn >> 22) & 3;
+            int rmode = (insn >> 19) & 3;
+            int opcode = (insn >> 16) & 7;
+            if (rmode == 3 && opcode == 0) {
+                // FCVTZS
+                const char *gpr = sf ? xreg(rd) : wreg(rd);
+                const char *fpr = (ftype == 1) ? dreg(rn) : sreg(rn);
+                snprintf(result, 256, "fcvtzs %s, %s", gpr, fpr);
+                movTrackReg = -1;
+                return;
+            }
+            if (rmode == 0 && opcode == 7) {
+                // FMOV Dd, Xn (GPR to FPR, 64-bit)
+                snprintf(result, 256, "fmov %s, %s", dreg(rd), xreg(rn));
+                movTrackReg = -1;
+                return;
+            }
+            if (rmode == 0 && opcode == 6) {
+                // FMOV Xd, Dn (FPR to GPR, 64-bit)
+                snprintf(result, 256, "fmov %s, %s", xreg(rd), dreg(rn));
+                movTrackReg = -1;
+                return;
+            }
+        }
+
+        // FP fused multiply-add: 00011111 xx o1 rm o0 ra rn rd
+        if (top4 == 1 && (insn & 0xFF000000) == 0x1F000000) {
+            int ftype = (insn >> 22) & 3;
+            int o1 = (insn >> 21) & 1;
+            int o0 = (insn >> 15) & 1;
+            int ra = (insn >> 10) & 0x1F;
+            const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
+            const char *op;
+            if (!o1 && !o0) op = "fmadd";
+            else if (!o1 && o0) op = "fmsub";
+            else if (o1 && !o0) op = "fnmadd";
+            else op = "fnmsub";
+            snprintf(result, 256, "%s %s, %s, %s, %s", op,
+                    rfn(rd), rfn(rn), rfn(rm), rfn(ra));
+            movTrackReg = -1;
+            return;
+        }
     }
 
     // Fallback: unknown instruction
