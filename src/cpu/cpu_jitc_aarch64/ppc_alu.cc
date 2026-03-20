@@ -1407,21 +1407,34 @@ JITCFlow ppc_opc_gen_mtspr(JITC &jitc)
     int rS, spr1, spr2;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, spr1, spr2);
 
+    int ofs = -1;
     if (spr2 == 0) {
-        if (spr1 == 8) {
-            // mtlr rS
-            jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
-            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
-            return flowContinue;
+        switch (spr1) {
+        case 8: ofs = offsetof(PPC_CPU_State, lr); break;
+        case 9: ofs = offsetof(PPC_CPU_State, ctr); break;
+        case 26: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, srr[0]); break;
+        case 27: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, srr[1]); break;
         }
-        if (spr1 == 9) {
-            // mtctr rS
-            jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
-            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
-            return flowContinue;
+    } else if (spr2 == 8) {
+        switch (spr1) {
+        case 16: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[0]); break;
+        case 17: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[1]); break;
+        case 18: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[2]); break;
+        case 19: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[3]); break;
         }
     }
-    // All other SPRs: fall back to interpreter
+    if (ofs >= 0) {
+        jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
+        jitc.asmSTRw_cpu(W16, ofs);
+        return flowContinue;
+    }
+    // All other SPRs (DEC, BATs, XER, etc.): fall back to interpreter
     ppc_opc_gen_interpret(jitc, ppc_opc_mtspr);
     return flowContinue;
 }
@@ -1435,21 +1448,38 @@ JITCFlow ppc_opc_gen_mfspr(JITC &jitc)
     int rD, spr1, spr2;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, spr1, spr2);
 
+    int ofs = -1;
     if (spr2 == 0) {
-        if (spr1 == 8) {
-            // mflr rD
-            jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, lr));
-            jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-            return flowContinue;
+        switch (spr1) {
+        case 8: ofs = offsetof(PPC_CPU_State, lr); break;
+        case 9: ofs = offsetof(PPC_CPU_State, ctr); break;
+        case 18: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, dsisr); break;
+        case 19: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, dar); break;
+        case 26: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, srr[0]); break;
+        case 27: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, srr[1]); break;
         }
-        if (spr1 == 9) {
-            // mfctr rD
-            jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, ctr));
-            jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
-            return flowContinue;
+    } else if (spr2 == 8) {
+        switch (spr1) {
+        case 16: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[0]); break;
+        case 17: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[1]); break;
+        case 18: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[2]); break;
+        case 19: ppc_opc_gen_check_privilege(jitc);
+                 ofs = offsetof(PPC_CPU_State, sprg[3]); break;
         }
     }
-    // All other SPRs: fall back to interpreter
+    if (ofs >= 0) {
+        jitc.asmLDRw_cpu(W16, ofs);
+        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+        return flowContinue;
+    }
+    // All other SPRs (DEC, TBL, BATs, etc.): fall back to interpreter
     ppc_opc_gen_interpret(jitc, ppc_opc_mfspr);
     return flowContinue;
 }

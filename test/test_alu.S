@@ -884,6 +884,55 @@ _start:
     CHECK   42
 
     /*
+     * Test 66: mtspr/mfspr SRR0
+     */
+    PRINT   .Ltest66, (.Ltest66_end - .Ltest66)
+    lis     4, 0xDEAD
+    ori     4, 4, 0xBEEF
+    mtsrr0  4
+    mfsrr0  3
+    CHECK32 0xDEADBEEF
+
+    /*
+     * Test 67: mtspr/mfspr SRR1
+     */
+    PRINT   .Ltest67, (.Ltest67_end - .Ltest67)
+    lis     4, 0xCAFE
+    ori     4, 4, 0xBABE
+    mtsrr1  4
+    mfsrr1  3
+    CHECK32 0xCAFEBABE
+
+    /*
+     * Test 68: mtspr/mfspr SPRG0
+     */
+    PRINT   .Ltest68, (.Ltest68_end - .Ltest68)
+    lis     4, 0x1234
+    ori     4, 4, 0x5678
+    mtsprg  0, 4
+    mfsprg  3, 0
+    CHECK32 0x12345678
+
+    /*
+     * Test 69: mtspr/mfspr SPRG3
+     */
+    PRINT   .Ltest69, (.Ltest69_end - .Ltest69)
+    lis     4, 0xFEED
+    ori     4, 4, 0xFACE
+    mtsprg  3, 4
+    mfsprg  3, 3
+    CHECK32 0xFEEDFACE
+
+    /*
+     * Test 70: mfspr DAR (read-only test, write via store)
+     */
+    PRINT   .Ltest70, (.Ltest70_end - .Ltest70)
+    /* DAR is set by DSI exceptions; just verify mfspr doesn't crash */
+    mfdar   3
+    /* Can't easily predict the value, just check it doesn't trap */
+    PRINT   .Lok, 3
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -1102,6 +1151,21 @@ _start:
 .Ltest65:
     .ascii  "test 65 sraw 0:      "
 .Ltest65_end:
+.Ltest66:
+    .ascii  "test 66 srr0:        "
+.Ltest66_end:
+.Ltest67:
+    .ascii  "test 67 srr1:        "
+.Ltest67_end:
+.Ltest68:
+    .ascii  "test 68 sprg0:       "
+.Ltest68_end:
+.Ltest69:
+    .ascii  "test 69 sprg3:       "
+.Ltest69_end:
+.Ltest70:
+    .ascii  "test 70 mfdar:       "
+.Ltest70_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
