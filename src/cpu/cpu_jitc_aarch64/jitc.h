@@ -367,6 +367,9 @@ public:
     // Byte reverse
     void asmREVw(NativeReg rd, NativeReg rn);  // REV Wd, Wn
 
+    // Bit field insert
+    void asmBFIw(NativeReg rd, NativeReg rn, int lsb, int width);  // BFI Wd, Wn, #lsb, #width
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)

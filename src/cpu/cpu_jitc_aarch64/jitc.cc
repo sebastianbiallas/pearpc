@@ -339,6 +339,11 @@ void JITC::asmREVw(NativeReg rd, NativeReg rn)
     emit32(a64_REVw(rd, rn));
 }
 
+void JITC::asmBFIw(NativeReg rd, NativeReg rn, int lsb, int width)
+{
+    emit32(a64_BFIw(rd, rn, lsb, width));
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {

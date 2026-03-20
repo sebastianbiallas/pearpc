@@ -162,6 +162,9 @@ A64Instr a64_CBNZw(int rt, sint32 offset);         // CBNZ Wt, #offset
 A64Instr a64_TBZ(int rt, int bit, sint32 offset);  // TBZ Xt, #bit, #offset
 A64Instr a64_TBNZ(int rt, int bit, sint32 offset); // TBNZ Xt, #bit, #offset
 
+/* Bit field operations */
+A64Instr a64_BFIw(int rd, int rn, int lsb, int width); // BFI Wd, Wn, #lsb, #width
+
 /* Misc */
 A64Instr a64_NOP();
 A64Instr a64_REV(int rd, int rn);  // byte swap 64-bit

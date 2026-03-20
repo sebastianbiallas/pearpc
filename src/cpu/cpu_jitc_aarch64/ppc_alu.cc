@@ -138,20 +138,11 @@ static void gen_cmp_cr_update(JITC &jitc, int crfD)
     // CSINC Wd, Wn, Wm, cond = 0x1A800400 | (Wm<<16) | (cond<<12) | (Wn<<5) | Wd
     jitc.emit32(0x1A800400 | (0 << 16) | (A64_EQ << 12) | (0 << 5) | 0); // CSINC W0, W0, W0, EQ
 
-    // Now merge into CR: cr = (cr & mask) | (c << shift)
+    // Insert 4-bit CR field using BFI
     int cr_field = 7 - crfD;
     int cr_shift = cr_field * 4;
-
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
-    // Clear the 4-bit field: AND with ~(0xF << shift)
-    uint32 mask = ~(0xFu << cr_shift);
-    jitc.asmMOV(W2, mask);
-    jitc.asmANDw(W1, W1, W2);
-    // Shift result nibble and OR in
-    if (cr_shift > 0) {
-        jitc.emit32(a64_LSLw_imm(0, 0, cr_shift)); // LSL W0, W0, #shift
-    }
-    jitc.asmORRw(W1, W1, W0);
+    jitc.asmBFIw(W1, W0, cr_shift, 4);
     jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
 }
 
@@ -168,26 +159,21 @@ static void gen_cmpl_cr_update(JITC &jitc, int crfD)
     jitc.asmMOV(W2, (uint32)2);      // EQ value
 
     // CSEL W1, W1, W2, HI → W1 = (unsigned >) ? 4 : 2
-    jitc.emit32(0x1A800000 | (2 << 16) | (A64_HI << 12) | (1 << 5) | 1);
+    jitc.emit32(0x1A800000 | (W2 << 16) | (A64_HI << 12) | (W1 << 5) | W1);
     // CSEL W0, W0, W1, CC → W0 = (unsigned <) ? 8 : W1
-    jitc.emit32(0x1A800000 | (1 << 16) | (A64_CC << 12) | (0 << 5) | 0);
+    jitc.emit32(0x1A800000 | (W1 << 16) | (A64_CC << 12) | (W0 << 5) | W0);
 
     // OR in SO
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, xer));
     jitc.asmTSTw(W1, 1, 0);
-    jitc.emit32(0x1A800400 | (0 << 16) | (A64_EQ << 12) | (0 << 5) | 0);
+    jitc.emit32(0x1A800400 | (W0 << 16) | (A64_EQ << 12) | (W0 << 5) | W0);
 
+    // Insert 4-bit CR field using BFI
     int cr_field = 7 - crfD;
     int cr_shift = cr_field * 4;
-
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
-    uint32 mask = ~(0xFu << cr_shift);
-    jitc.asmMOV(W2, mask);
-    jitc.asmANDw(W1, W1, W2);
-    if (cr_shift > 0) {
-        jitc.emit32(a64_LSLw_imm(0, 0, cr_shift));
-    }
-    jitc.asmORRw(W1, W1, W0);
+    int immr = (32 - cr_shift) & 31;
+    jitc.emit32(0x33000000 | (immr << 16) | (3 << 10) | (W0 << 5) | W1);
     jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
 }
 
@@ -198,29 +184,27 @@ static void gen_cmpl_cr_update(JITC &jitc, int crfD)
  */
 static void gen_update_cr0(JITC &jitc)
 {
-    // CMP W16, #0
+    // CMP W16, #0 (result must be in W16 before calling this)
     jitc.asmCMPw(W16, (uint32)0);
 
-    jitc.asmMOV(W0, (uint32)8);
-    jitc.asmMOV(W1, (uint32)4);
-    jitc.asmMOV(W2, (uint32)2);
+    // Build 4-bit CR0 field: {LT, GT, EQ, SO}
+    jitc.asmMOV(W0, (uint32)8);     // LT value
+    jitc.asmMOV(W1, (uint32)4);     // GT value
+    jitc.asmMOV(W2, (uint32)2);     // EQ value
+    // CSEL W1, W1, W2, GT → 4 if GT, 2 if EQ
+    jitc.emit32(0x1A800000 | (W2 << 16) | (A64_GT << 12) | (W1 << 5) | W1);
+    // CSEL W0, W0, W1, LT → 8 if LT, else (4 or 2)
+    jitc.emit32(0x1A800000 | (W1 << 16) | (A64_LT << 12) | (W0 << 5) | W0);
 
-    // CSEL W1, W1, W2, GT (signed >)
-    jitc.emit32(0x1A800000 | (2 << 16) | (A64_GT << 12) | (1 << 5) | 1);
-    // CSEL W0, W0, W1, LT (signed <)
-    jitc.emit32(0x1A800000 | (1 << 16) | (A64_LT << 12) | (0 << 5) | 0);
-
-    // OR in SO
+    // OR in SO bit from XER
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, xer));
-    jitc.asmTSTw(W1, 1, 0);
-    jitc.emit32(0x1A800400 | (0 << 16) | (A64_EQ << 12) | (0 << 5) | 0);
+    jitc.asmTSTw(W1, 1, 0);         // TST W1, #0x80000000
+    // CSINC W0, W0, W0, EQ → if SO set (NE), W0 = W0+1
+    jitc.emit32(0x1A800400 | (W0 << 16) | (A64_EQ << 12) | (W0 << 5) | W0);
 
-    // CR0 is field 7, shift = 28
+    // Insert CR0 field (bits 31:28) using BFI
     jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
-    jitc.asmMOV(W2, (uint32)0x0FFFFFFFu);
-    jitc.asmANDw(W1, W1, W2);
-    jitc.emit32(a64_LSLw_imm(0, 0, 28));
-    jitc.asmORRw(W1, W1, W0);
+    jitc.asmBFIw(W1, W0, 28, 4);
     jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
 }
 

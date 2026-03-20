@@ -613,6 +613,19 @@ A64Instr a64_TBNZ(int rt, int bit, sint32 offset)
 }
 
 /* Misc */
+/* Bit field operations */
+A64Instr a64_BFIw(int rd, int rn, int lsb, int width)
+{
+    A64_ASSERT_REG(rd, "BFIw");
+    A64_ASSERT_REG(rn, "BFIw");
+    A64_ASSERT_RANGE(lsb, 0, 31, "BFIw lsb");
+    A64_ASSERT_RANGE(width, 1, 32 - lsb, "BFIw width");
+    // BFI Wd, Wn, #lsb, #width = BFM Wd, Wn, #(32-lsb)%32, #(width-1)
+    int immr = (32 - lsb) & 31;
+    int imms = width - 1;
+    return 0x33000000 | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
 A64Instr a64_NOP()
 {
     return 0xD503201F;
