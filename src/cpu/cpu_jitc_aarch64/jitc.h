@@ -466,10 +466,14 @@ public:
     void asmSXTBw(NativeReg rd, NativeReg rn); // SXTB Wd, Wn
     void asmSXTHw(NativeReg rd, NativeReg rn); // SXTH Wd, Wn
 
-    // 64-bit logical immediate
+    // 64-bit logical immediate (raw encoding)
     void asmAND_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
     void asmORR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
     void asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
+    // 64-bit logical immediate (auto-encode from mask value)
+    void asmAND_val(NativeReg rd, NativeReg rn, uint64 mask);
+    void asmORR_val(NativeReg rd, NativeReg rn, uint64 mask);
+    void asmEOR_val(NativeReg rd, NativeReg rn, uint64 mask);
 
     // Floating-point load/store from CPU state (X20-relative, D-register)
     void asmLDR_D_cpu(int dd, uint32 offset);  // LDR Dd, [X20, #offset]

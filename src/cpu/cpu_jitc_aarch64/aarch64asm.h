@@ -321,6 +321,44 @@ static inline bool a64_encode_log_imm32(uint32 val, int &out_immr, int &out_imms
     return false;
 }
 
+/*
+ * Encode a 64-bit logical immediate into N, immr, imms.
+ * For 64-bit element size, N=1 and the encoding is similar to 32-bit
+ * but with 6-bit immr/imms fields covering 64 bits.
+ * For sub-64-bit element sizes, N=0 and the 32-bit encoder is reused.
+ */
+static inline bool a64_encode_log_imm64(uint64 val, int &out_N, int &out_immr, int &out_imms)
+{
+    if (val == 0 || val == 0xFFFFFFFFFFFFFFFFULL) return false;
+
+    // Check if it fits the 32-bit repeating pattern (N=0)
+    uint32 lo = (uint32)val;
+    uint32 hi = (uint32)(val >> 32);
+    if (lo == hi) {
+        int immr, imms;
+        if (a64_encode_log_imm32(lo, immr, imms)) {
+            out_N = 0;
+            out_immr = immr;
+            out_imms = imms;
+            return true;
+        }
+    }
+
+    // 64-bit element size: N=1, find rotated contiguous run of ones
+    // Double the value (conceptually) to handle wrap-around
+    int lo_bit = __builtin_ctzll(val);
+    uint64 rotated = (val >> lo_bit) | (val << (64 - lo_bit));
+    int ones = __builtin_ctzll(~rotated);
+    // Verify it's a clean contiguous run
+    uint64 expected = (ones == 64) ? ~0ULL : ((1ULL << ones) - 1);
+    if (rotated != expected) return false;
+
+    out_N = 1;
+    out_immr = (64 - lo_bit) % 64;
+    out_imms = ones - 1;
+    return true;
+}
+
 /* Instruction size computation for precomputed branch offsets.
  * Must match the instruction count in asmMOV / asmMOV64. */
 static inline uint a64_movw_size(uint32 imm)

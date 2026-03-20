@@ -607,6 +607,33 @@ void JITC::asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms)
     emit32(a64_EOR_imm(rd, rn, N, immr, imms));
 }
 
+void JITC::asmAND_val(NativeReg rd, NativeReg rn, uint64 mask)
+{
+    int N, immr, imms;
+    if (!a64_encode_log_imm64(mask, N, immr, imms)) {
+        PPC_ALU_ERR("asmAND_val: cannot encode 0x%016llx as logical immediate\n", (unsigned long long)mask);
+    }
+    emit32(a64_AND_imm(rd, rn, N, immr, imms));
+}
+
+void JITC::asmORR_val(NativeReg rd, NativeReg rn, uint64 mask)
+{
+    int N, immr, imms;
+    if (!a64_encode_log_imm64(mask, N, immr, imms)) {
+        PPC_ALU_ERR("asmORR_val: cannot encode 0x%016llx as logical immediate\n", (unsigned long long)mask);
+    }
+    emit32(a64_ORR_imm(rd, rn, N, immr, imms));
+}
+
+void JITC::asmEOR_val(NativeReg rd, NativeReg rn, uint64 mask)
+{
+    int N, immr, imms;
+    if (!a64_encode_log_imm64(mask, N, immr, imms)) {
+        PPC_ALU_ERR("asmEOR_val: cannot encode 0x%016llx as logical immediate\n", (unsigned long long)mask);
+    }
+    emit32(a64_EOR_imm(rd, rn, N, immr, imms));
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {

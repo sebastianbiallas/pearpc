@@ -1462,8 +1462,7 @@ JITCFlow ppc_opc_gen_fnegx(JITC &jitc)
 	(void)rA;
 	gen_check_fpu(jitc);
 	jitc.asmLDR_cpu(X16, FPR_OFS(frB));
-	// EOR X16, X16, #0x8000000000000000 (N=1, immr=1, imms=0)
-	jitc.asmEOR_imm(X16, X16, 1, 1, 0);
+	jitc.asmEOR_val(X16, X16, 0x8000000000000000ULL); // flip sign bit
 	jitc.asmSTR_cpu(X16, FPR_OFS(frD));
 	return flowContinue;
 }
@@ -1471,15 +1470,13 @@ JITCFlow ppc_opc_gen_fnegx(JITC &jitc)
 /* Helper: clear sign bit — AND Xd, Xn, #0x7FFFFFFFFFFFFFFF */
 static void gen_clear_sign_bit(JITC &jitc, NativeReg rd, NativeReg rn)
 {
-	// AND Xd, Xn, #0x7FFFFFFFFFFFFFFF: N=1, immr=0, imms=62
-	jitc.asmAND_imm(rd, rn, 1, 0, 62);
+	jitc.asmAND_val(rd, rn, 0x7FFFFFFFFFFFFFFFULL); // clear sign bit
 }
 
 /* Helper: set sign bit — ORR Xd, Xn, #0x8000000000000000 */
 static void gen_set_sign_bit(JITC &jitc, NativeReg rd, NativeReg rn)
 {
-	// ORR Xd, Xn, #0x8000000000000000: N=1, immr=1, imms=0
-	jitc.asmORR_imm(rd, rn, 1, 1, 0);
+	jitc.asmORR_val(rd, rn, 0x8000000000000000ULL); // set sign bit
 }
 
 /*
