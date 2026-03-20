@@ -448,6 +448,36 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 
 15. **Print all host registers in the crash handler.** The default crash handler only printed pc/lr/sp, which made it impossible to distinguish "X20 corrupted" from "X0 not set from X20". Adding all x0-x28 registers plus the instruction word at the faulting PC immediately revealed the true bug: X20 was valid but X0 was 0. De-sliding the faulting PC with ASLR offset (`nm` address vs crash address of a known symbol) identified the exact C++ function being called with wrong arguments.
 
+## Testing Strategy
+
+**Goal: 100% test coverage of all opcodes with native JIT codegen.**
+
+Every opcode that has a native `gen_` function (as opposed to `GEN_INTERPRET` / `GEN_INTERPRET_LOADSTORE`) must be exercised by at least one test ELF. This ensures that JIT codegen bugs are caught by the test suite, not by a kernel boot failure weeks later.
+
+The test infrastructure is described in `test/README.md`. Tests are bare-metal PPC assembly programs that run on the emulated CPU with MMU enabled, using custom opcodes for I/O (`0x00333303` print, `0x00333304` exit). Each test checks results inline and reports pass/fail.
+
+### Current coverage
+
+| Test ELF | Opcodes covered |
+|----------|----------------|
+| `test_alu.S` | ALU arithmetic/logic, shifts, rotates, compares, SPR, multiply, divide, byte-reversed load/store, lwarx/stwcx. |
+| `test_mem.S` | Word/half/byte load/store, multi-page stride, lmw/stmw |
+| `test_dsi.S` | DSI exception handling through lwz/stw/sth/stb/lhz/lbz |
+| `test_branch_loop.S` | b/bl/blr/bctr/bctrl/blrl, conditional branches (beq/bne/blt/bgt/ble/bge), bdnz/bdz |
+| `test_fpu_exc.S` | FPU exception handling, fmr, fneg |
+| `test_altivec.S` | AltiVec enable, vector ALU/compare/splat/merge/load/store |
+| `test_crlogical.S` | crand/crandc/cror/crorc/crxor/crnand/crnor/creqv |
+
+### Coverage gaps (native codegen but no dedicated test)
+
+**ALU:** andc, eqv, nand, extsb, extsh, mulhw, rlwnm, addc, addze, addme, subfc, subfze, subfme, cmpl, cmpli
+
+**Load/store:** All update variants (lwzu, stwu, lbzu, stbu, lhzu, sthu, lhau and their X-form equivalents), lha/lhax, lhbrx, sthbrx, FP indexed/update variants (lfdx, stfdx, lfdu, stfdu, etc.)
+
+**Branch:** bc with LK=1 + CR condition, bc with combined CTR+CR
+
+**SPR/system:** mfsr, mtsr, mfsrin, mtsrin, tlbie
+
 ## Key Files
 
 ```
