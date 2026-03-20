@@ -579,15 +579,6 @@ int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
     if (addr < gMemorySize) {
         result = ppc_word_from_BE(*((uint32 *)(gMemory + addr)));
         // Trace reads from jiffies (PA 0025abe4)
-        if (addr >= 0x0025abe0 && addr <= 0x0025abe8) {
-            extern PPC_CPU_State *gCPU;
-            static int readTraceCount = 0;
-            if (readTraceCount < 200) {
-                fprintf(stderr, "[READ-TRACE] PA=%08x result=%08x raw_BE=%08x pc=%08x lr=%08x\n", addr, result,
-                        *((uint32 *)(gMemory + addr)), gCPU->pc, gCPU->lr);
-                readTraceCount++;
-            }
-        }
         return PPC_MMU_OK;
     }
     int ret = io_mem_read(addr, result, 4);
