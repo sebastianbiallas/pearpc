@@ -463,7 +463,9 @@ public:
     void asmSXTBw(NativeReg rd, NativeReg rn); // SXTB Wd, Wn
     void asmSXTHw(NativeReg rd, NativeReg rn); // SXTH Wd, Wn
 
-    // 64-bit EOR with logical immediate
+    // 64-bit logical immediate
+    void asmAND_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
+    void asmORR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
     void asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
 
     // Floating-point load/store from CPU state (X20-relative, D-register)

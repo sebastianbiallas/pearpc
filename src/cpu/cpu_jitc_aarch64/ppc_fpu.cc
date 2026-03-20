@@ -1455,22 +1455,17 @@ JITCFlow ppc_opc_gen_fnegx(JITC &jitc)
 }
 
 /* Helper: clear sign bit — AND Xd, Xn, #0x7FFFFFFFFFFFFFFF */
-static void gen_clear_sign_bit(JITC &jitc, int rd, int rn)
+static void gen_clear_sign_bit(JITC &jitc, NativeReg rd, NativeReg rn)
 {
-	// Reuse existing 64-bit EOR immediate encoder with AND opcode
-	// 64-bit AND immediate: 1 00 100100 N immr imms Rn Rd
-	// #0x7FFFFFFFFFFFFFFF: N=1, immr=0, imms=62
-	// Note: existing asmEOR_imm uses opc=10 (EOR), we need opc=00 (AND)
-	// AND = 0x92400000, N=1, immr=0, imms=62
-	jitc.emit32(0x92400000 | (0 << 16) | (62 << 10) | (rn << 5) | rd);
+	// AND Xd, Xn, #0x7FFFFFFFFFFFFFFF: N=1, immr=0, imms=62
+	jitc.asmAND_imm(rd, rn, 1, 0, 62);
 }
 
 /* Helper: set sign bit — ORR Xd, Xn, #0x8000000000000000 */
-static void gen_set_sign_bit(JITC &jitc, int rd, int rn)
+static void gen_set_sign_bit(JITC &jitc, NativeReg rd, NativeReg rn)
 {
-	// 64-bit ORR immediate: 1 01 100100 N immr imms Rn Rd
-	// #0x8000000000000000: N=1, immr=1, imms=0
-	jitc.emit32(0xB2400000 | (1 << 16) | (0 << 10) | (rn << 5) | rd);
+	// ORR Xd, Xn, #0x8000000000000000: N=1, immr=1, imms=0
+	jitc.asmORR_imm(rd, rn, 1, 1, 0);
 }
 
 /*

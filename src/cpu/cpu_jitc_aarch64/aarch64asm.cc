@@ -244,6 +244,24 @@ A64Instr a64_SXTHw(int rd, int rn)
     return 0x13003C00 | (rn << 5) | rd;
 }
 
+A64Instr a64_AND_imm(int rd, int rn, int N, int immr, int imms)
+{
+    A64_ASSERT_REG(rd, "AND_imm"); A64_ASSERT_REG(rn, "AND_imm");
+    A64_ASSERT_RANGE(N, 0, 1, "AND_imm N");
+    A64_ASSERT_RANGE(immr, 0, 63, "AND_imm immr");
+    A64_ASSERT_RANGE(imms, 0, 63, "AND_imm imms");
+    return 0x92000000 | (N << 22) | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_ORR_imm(int rd, int rn, int N, int immr, int imms)
+{
+    A64_ASSERT_REG(rd, "ORR_imm"); A64_ASSERT_REG(rn, "ORR_imm");
+    A64_ASSERT_RANGE(N, 0, 1, "ORR_imm N");
+    A64_ASSERT_RANGE(immr, 0, 63, "ORR_imm immr");
+    A64_ASSERT_RANGE(imms, 0, 63, "ORR_imm imms");
+    return 0xB2000000 | (N << 22) | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
 A64Instr a64_EOR_imm(int rd, int rn, int N, int immr, int imms)
 {
     A64_ASSERT_REG(rd, "EOR_imm"); A64_ASSERT_REG(rn, "EOR_imm");

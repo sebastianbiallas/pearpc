@@ -572,6 +572,16 @@ void JITC::asmSXTHw(NativeReg rd, NativeReg rn)
     emit32(a64_SXTHw(rd, rn));
 }
 
+void JITC::asmAND_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms)
+{
+    emit32(a64_AND_imm(rd, rn, N, immr, imms));
+}
+
+void JITC::asmORR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms)
+{
+    emit32(a64_ORR_imm(rd, rn, N, immr, imms));
+}
+
 void JITC::asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms)
 {
     emit32(a64_EOR_imm(rd, rn, N, immr, imms));

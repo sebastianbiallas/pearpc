@@ -87,7 +87,9 @@ A64Instr a64_CMNw_imm(int rn, uint32 imm12); // CMN Wn, #imm12 = ADDS WZR, Wn, #
 A64Instr a64_SXTBw(int rd, int rn); // SXTB Wd, Wn = SBFM Wd, Wn, #0, #7
 A64Instr a64_SXTHw(int rd, int rn); // SXTH Wd, Wn = SBFM Wd, Wn, #0, #15
 
-/* 64-bit EOR with logical immediate */
+/* 64-bit logical immediate */
+A64Instr a64_AND_imm(int rd, int rn, int N, int immr, int imms); // AND Xd, Xn, #bitmask
+A64Instr a64_ORR_imm(int rd, int rn, int N, int immr, int imms); // ORR Xd, Xn, #bitmask
 A64Instr a64_EOR_imm(int rd, int rn, int N, int immr, int imms); // EOR Xd, Xn, #bitmask
 
 /* MOV (register) */
