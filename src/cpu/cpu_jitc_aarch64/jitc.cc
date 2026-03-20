@@ -362,6 +362,42 @@ void JITC::asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms)
     emit32(a64_ANDw_imm(rd, rn, immr, imms));
 }
 
+bool JITC::asmORRw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp)
+{
+    int immr, imms;
+    if (a64_encode_log_imm32(val, immr, imms)) {
+        emit32(a64_ORRw_imm(rd, rn, immr, imms));
+        return true;
+    }
+    asmMOV(tmp, val);
+    asmORRw(rd, rn, tmp);
+    return false;
+}
+
+bool JITC::asmEORw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp)
+{
+    int immr, imms;
+    if (a64_encode_log_imm32(val, immr, imms)) {
+        emit32(a64_EORw_imm(rd, rn, immr, imms));
+        return true;
+    }
+    asmMOV(tmp, val);
+    asmEORw(rd, rn, tmp);
+    return false;
+}
+
+bool JITC::asmANDw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp)
+{
+    int immr, imms;
+    if (a64_encode_log_imm32(val, immr, imms)) {
+        emit32(a64_ANDw_imm(rd, rn, immr, imms));
+        return true;
+    }
+    asmMOV(tmp, val);
+    asmANDw(rd, rn, tmp);
+    return false;
+}
+
 void JITC::asmLSRw_imm(NativeReg rd, NativeReg rn, int shift)
 {
     emit32(a64_LSRw_imm(rd, rn, shift));

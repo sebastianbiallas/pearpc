@@ -213,6 +213,70 @@ A64Instr a64_REV16w(int rd, int rn); // byte swap within 16-bit halves
 A64Instr a64_ADRP(int rd, sint64 offset);
 A64Instr a64_ADR(int rd, sint32 offset);
 
+/*
+ * Encode a 32-bit value as an AArch64 logical immediate (N=0, immr, imms).
+ * Returns true if encodable, filling out_immr and out_imms.
+ * AArch64 logical immediates represent bitmasks that are a contiguous run
+ * of set bits, rotated, at element sizes of 2/4/8/16/32 bits.
+ */
+static inline bool a64_encode_log_imm32(uint32 val, int &out_immr, int &out_imms)
+{
+    if (val == 0 || val == 0xFFFFFFFF) return false; // not encodable
+
+    // Try each element size: 2, 4, 8, 16, 32
+    for (int size = 32; size >= 2; size >>= 1) {
+        uint32 mask = (size == 32) ? 0xFFFFFFFF : (1u << size) - 1;
+        uint32 elem = val & mask;
+
+        // Check that val is a repeating pattern of this element
+        bool repeats = true;
+        for (int i = size; i < 32; i += size) {
+            if (((val >> i) & mask) != elem) { repeats = false; break; }
+        }
+        if (!repeats) continue;
+
+        // elem must be a rotated contiguous run of ones within 'size' bits
+        // Rotate elem to find the run: count trailing zeros, rotate, count ones
+        if (elem == 0 || elem == mask) continue; // all-0 or all-1 not valid at this size
+
+        // Double the element to handle wrap-around
+        uint64 doubled = ((uint64)elem << size) | elem;
+        // Find lowest set bit position
+        int lo = __builtin_ctz(elem);
+        // Rotate right by lo to put the run at bit 0
+        uint32 rotated = (uint32)(doubled >> lo) & mask;
+        // Count consecutive ones from bit 0
+        int ones = __builtin_ctz(~rotated);
+        // Check it's a clean run
+        if (rotated != ((1u << ones) - 1)) continue;
+
+        // Encode: immr = (size - lo) % size, imms = (ones - 1) | size_encoding
+        out_immr = (size - lo) % size;
+        // imms encodes both the run length (ones-1) and element size:
+        // size=32: imms = 0b0xxxxx (bit 5 = 0), run = imms & 0x1F + 1 → imms = ones-1
+        // size=16: imms = 0b10xxxx, run bits in [3:0]
+        // size=8:  imms = 0b110xxx, run bits in [2:0]
+        // size=4:  imms = 0b1110xx, run bits in [1:0]
+        // size=2:  imms = 0b11110x, run bits in [0:0]
+        int size_enc;
+        switch (size) {
+        case 32: size_enc = 0b000000; break;
+        case 16: size_enc = 0b100000; break;
+        case  8: size_enc = 0b110000; break;
+        case  4: size_enc = 0b111000; break;
+        case  2: size_enc = 0b111100; break;
+        default: continue;
+        }
+        // imms = size_enc | (ones - 1), but the size_enc sets the upper bits
+        // to indicate element size, and the lower bits hold (ones - 1)
+        // The encoding uses ~size as a prefix: for 32-bit, bit 5 must be 0.
+        // For smaller sizes, higher bits are set to 1.
+        out_imms = size_enc | (ones - 1);
+        return true;
+    }
+    return false;
+}
+
 /* Instruction size computation for precomputed branch offsets.
  * Must match the instruction count in asmMOV / asmMOV64. */
 static inline uint a64_movw_size(uint32 imm)

@@ -233,8 +233,7 @@ JITCFlow ppc_opc_gen_ori(JITC &jitc)
     }
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm != 0) {
-        jitc.asmMOV(W17, imm);
-        jitc.asmORRw(W16, W16, W17);
+        jitc.asmORRw_imm_or_reg(W16, W16, imm);
     }
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
@@ -522,8 +521,7 @@ JITCFlow ppc_opc_gen_oris(JITC &jitc)
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm) {
-        jitc.asmMOV(W17, imm << 16);
-        jitc.asmORRw(W16, W16, W17);
+        jitc.asmORRw_imm_or_reg(W16, W16, imm << 16);
     }
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
@@ -539,8 +537,7 @@ JITCFlow ppc_opc_gen_xori(JITC &jitc)
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm) {
-        jitc.asmMOV(W17, imm);
-        jitc.asmEORw(W16, W16, W17);
+        jitc.asmEORw_imm_or_reg(W16, W16, imm);
     }
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
@@ -556,8 +553,7 @@ JITCFlow ppc_opc_gen_xoris(JITC &jitc)
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     if (imm) {
-        jitc.asmMOV(W17, imm << 16);
-        jitc.asmEORw(W16, W16, W17);
+        jitc.asmEORw_imm_or_reg(W16, W16, imm << 16);
     }
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     return flowContinue;
@@ -852,8 +848,7 @@ JITCFlow ppc_opc_gen_andi_(JITC &jitc)
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
-    jitc.asmMOV(W17, imm);
-    jitc.asmANDw(W16, W16, W17);
+    jitc.asmANDw_imm_or_reg(W16, W16, imm);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     gen_update_cr0(jitc);
     return flowContinue;
@@ -867,8 +862,7 @@ JITCFlow ppc_opc_gen_andis_(JITC &jitc)
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, rS, rA, imm);
     uint32 mask = imm << 16;
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
-    jitc.asmMOV(W17, mask);
-    jitc.asmANDw(W16, W16, W17);
+    jitc.asmANDw_imm_or_reg(W16, W16, mask);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
     gen_update_cr0(jitc);
     return flowContinue;

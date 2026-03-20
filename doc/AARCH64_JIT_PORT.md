@@ -448,6 +448,23 @@ The interpreter's `mfspr DEC` (case 22) was returning `aCPU.dec` directly withou
 
 15. **Print all host registers in the crash handler.** The default crash handler only printed pc/lr/sp, which made it impossible to distinguish "X20 corrupted" from "X0 not set from X20". Adding all x0-x28 registers plus the instruction word at the faulting PC immediately revealed the true bug: X20 was valid but X0 was 0. De-sliding the faulting PC with ASLR offset (`nm` address vs crash address of a known symbol) identified the exact C++ function being called with wrong arguments.
 
+16. **CR field encoding is 9 instructions and hard to shrink.** `cmpw`/`cmpwi` (~70k occurrences) encode a PPC CR nibble `{LT=8, GT=4, EQ=2, SO=1}` from AArch64 NZCV flags. The current sequence:
+
+    ```
+    cmp   w16, w17           ; set NZCV
+    cset  w0, ne             ; EQ=0, NE=1
+    csinc w0, w0, w0, ge     ; EQ=0, GT=1, LT=2
+    movz  w1, #2
+    lslv  w0, w1, w0         ; 2<<index = {2,4,8}
+    ldr   w1, [x20, #xer]
+    add   w0, w0, w1, lsr #31  ; OR in SO bit
+    ldr   w1, [x20, #cr]
+    bfi   w1, w0, #shift, #4   ; insert nibble
+    str   w1, [x20, #cr]
+    ```
+
+    The `MOVZ+LSLV` (2 insns) computes `2 << index` where index ∈ {0,1,2} → {2,4,8}. Replacing with `LSL W0, W0, #2` (1 insn) computes `index << 2` = {0,4,8} — wrong for EQ (produces 0 instead of 2). The bit positions {8,4,2} = {2^3, 2^2, 2^1} are powers of 2 but not uniformly spaced from any linear index, so a constant shift always breaks one case. Compensating (e.g. CSET+ADD for the EQ bit) costs ≥1 extra instruction, negating the saving. Reading NZCV directly via `MRS` doesn't help either: N is at bit 31 and Z at bit 30, but PPC has LT at bit 3 and EQ at bit 1 — the positions don't align, and GT (=!N&!Z) has no direct flag bit. The real win would be lazy CR evaluation (keep NZCV flags live and only materialize the CR nibble when something reads it), but that requires tracking flag liveness across basic blocks.
+
 ## Testing Strategy
 
 **Goal: 100% test coverage of all opcodes with native JIT codegen.**

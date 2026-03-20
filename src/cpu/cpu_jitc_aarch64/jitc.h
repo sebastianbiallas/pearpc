@@ -392,8 +392,14 @@ public:
     void asmCBZw(NativeReg rt, sint32 offset);  // CBZ Wt, #offset
     void asmCBNZw(NativeReg rt, sint32 offset); // CBNZ Wt, #offset
 
-    // ALU immediate (logical bitmask)
+    // ALU immediate (logical bitmask — raw immr/imms)
     void asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms); // AND Wn, Wm, #bitmask
+
+    // ALU logical with auto-encoding: tries logical immediate, falls back to MOV+reg.
+    // Returns true if encoded as 1 instruction (logical imm), false if 2 (MOV+reg).
+    bool asmORRw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp = W17);
+    bool asmEORw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp = W17);
+    bool asmANDw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp = W17);
 
     // Shift immediate
     void asmLSRw_imm(NativeReg rd, NativeReg rn, int shift); // LSR Wd, Wn, #shift
