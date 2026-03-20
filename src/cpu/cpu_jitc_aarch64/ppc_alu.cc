@@ -1936,6 +1936,79 @@ int ppc_opc_crxor(PPC_CPU_State &aCPU)
 }
 
 /*
+ *  Native codegen for CR logical ops.
+ *  All follow the pattern: crD = f(crA, crB) where f is a 1-bit logical op.
+ *
+ *  Emits ~7 instructions:
+ *    LDR W16, [cr]       — load CR word
+ *    LSR W0, W16, #bitA  — extract bit A
+ *    LSR W1, W16, #bitB  — extract bit B (skipped if crA == crB)
+ *    <op>                — compute result bit in W0 bit 0
+ *    BFI W16, W0, #bitD, #1  — insert result into CR
+ *    STR W16, [cr]       — store CR word
+ *
+ *  op_type: 0=AND, 1=ANDC, 2=OR, 3=ORC, 4=XOR, 5=NAND, 6=NOR, 7=EQV
+ */
+static JITCFlow gen_cr_logical(JITC &jitc, int op_type)
+{
+    int crD, crA, crB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, crD, crA, crB);
+
+    int bitA = 31 - crA;
+    int bitB = 31 - crB;
+    int bitD = 31 - crD;
+
+    jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+
+    // Extract bit A into W0 bit 0
+    jitc.asmLSRw_imm(W0, W16, bitA);
+
+    // Extract bit B into W1 bit 0 (reuse W0 if same bit)
+    if (crA == crB) {
+        // Both operands are the same bit
+        switch (op_type) {
+        case 0: /* AND(x,x) = x */ break;
+        case 1: /* ANDC(x,x) = 0 */ jitc.asmMOV(W0, (uint32)0); break;
+        case 2: /* OR(x,x) = x */ break;
+        case 3: /* ORC(x,x) = 1 */ jitc.asmMOV(W0, (uint32)1); break;
+        case 4: /* XOR(x,x) = 0 (crclr) */ jitc.asmMOV(W0, (uint32)0); break;
+        case 5: /* NAND(x,x) = NOT x */
+        case 6: /* NOR(x,x) = NOT x */
+            jitc.asmMOV(W1, (uint32)1);
+            jitc.asmEORw(W0, W0, W1);
+            break;
+        case 7: /* EQV(x,x) = 1 (crset) */ jitc.asmMOV(W0, (uint32)1); break;
+        }
+    } else {
+        jitc.asmLSRw_imm(W1, W16, bitB);
+        switch (op_type) {
+        case 0: /* AND  */ jitc.asmANDw(W0, W0, W1); break;
+        case 1: /* ANDC */ jitc.asmMVNw(W1, W1); jitc.asmANDw(W0, W0, W1); break;
+        case 2: /* OR   */ jitc.asmORRw(W0, W0, W1); break;
+        case 3: /* ORC  */ jitc.asmMVNw(W1, W1); jitc.asmORRw(W0, W0, W1); break;
+        case 4: /* XOR  */ jitc.asmEORw(W0, W0, W1); break;
+        case 5: /* NAND */ jitc.asmANDw(W0, W0, W1); jitc.asmMVNw(W0, W0); break;
+        case 6: /* NOR  */ jitc.asmORRw(W0, W0, W1); jitc.asmMVNw(W0, W0); break;
+        case 7: /* EQV  */ jitc.asmEORw(W0, W0, W1); jitc.asmMVNw(W0, W0); break;
+        }
+    }
+
+    // Insert result bit 0 of W0 into CR at position bitD
+    jitc.asmBFIw(W16, W0, bitD, 1);
+    jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_crand(JITC &jitc)  { return gen_cr_logical(jitc, 0); }
+JITCFlow ppc_opc_gen_crandc(JITC &jitc) { return gen_cr_logical(jitc, 1); }
+JITCFlow ppc_opc_gen_cror(JITC &jitc)   { return gen_cr_logical(jitc, 2); }
+JITCFlow ppc_opc_gen_crorc(JITC &jitc)  { return gen_cr_logical(jitc, 3); }
+JITCFlow ppc_opc_gen_crxor(JITC &jitc)  { return gen_cr_logical(jitc, 4); }
+JITCFlow ppc_opc_gen_crnand(JITC &jitc) { return gen_cr_logical(jitc, 5); }
+JITCFlow ppc_opc_gen_crnor(JITC &jitc)  { return gen_cr_logical(jitc, 6); }
+JITCFlow ppc_opc_gen_creqv(JITC &jitc)  { return gen_cr_logical(jitc, 7); }
+
+/*
  *	divwx		Divide Word
  *	.470
  */

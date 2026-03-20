@@ -145,14 +145,7 @@ GEN_INTERPRET_BRANCH(rfi)
 
 /* CR */
 GEN_INTERPRET(mcrf)
-GEN_INTERPRET(crand)
-GEN_INTERPRET(crandc)
-GEN_INTERPRET(creqv)
-GEN_INTERPRET(crnand)
-GEN_INTERPRET(crnor)
-GEN_INTERPRET(cror)
-GEN_INTERPRET(crorc)
-GEN_INTERPRET(crxor)
+// CR logical ops — native codegen in ppc_alu.cc
 
 /*
  * Load/Store - native gen_ with TLB fast path in ppc_mmu.cc:
