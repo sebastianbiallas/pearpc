@@ -515,6 +515,70 @@ _start:
     CHECK   14
 
     /*
+     * Test 41: addic (add immediate carrying)
+     * 0xFFFFFFFF + 1 = 0, CA=1
+     */
+    PRINT   .Ltest41, (.Ltest41_end - .Ltest41)
+    li      3, -1             /* 0xFFFFFFFF */
+    addic   3, 3, 1           /* 0xFFFFFFFF + 1 = 0, carry out */
+    CHECK   0
+
+    /*
+     * Test 42: subfic (subtract from immediate carrying)
+     * subfic r3, r3, 50 → 50 - 30 = 20
+     */
+    PRINT   .Ltest42, (.Ltest42_end - .Ltest42)
+    li      3, 30
+    subfic  3, 3, 50
+    CHECK   20
+
+    /*
+     * Test 43: adde (add extended with carry in)
+     * Set CA=1 via addic overflow, then adde 5+3+1=9
+     */
+    PRINT   .Ltest43, (.Ltest43_end - .Ltest43)
+    li      4, -1
+    addic   4, 4, 1           /* sets CA=1 */
+    li      3, 5
+    li      4, 3
+    adde    3, 3, 4           /* 5 + 3 + CA(1) = 9 */
+    CHECK   9
+
+    /*
+     * Test 44: subfe (subtract from extended)
+     * CA=1 from addic overflow, subfe r3,r4,r5 = ~r4+r5+CA
+     */
+    PRINT   .Ltest44, (.Ltest44_end - .Ltest44)
+    li      4, -1
+    addic   4, 4, 1           /* sets CA=1 */
+    li      4, 3
+    li      5, 10
+    subfe   3, 4, 5           /* ~3 + 10 + 1 = 0xFFFFFFFC + 10 + 1 = 7 */
+    CHECK   7
+
+    /*
+     * Test 45: srawi (shift right algebraic immediate)
+     * -16 >> 2 = -4 (arithmetic shift)
+     */
+    PRINT   .Ltest45, (.Ltest45_end - .Ltest45)
+    li      3, -16
+    srawi   3, 3, 2
+    CHECK   -4
+
+    /*
+     * Test 46: mfcr / mtcrf round-trip
+     */
+    PRINT   .Ltest46, (.Ltest46_end - .Ltest46)
+    li      3, -4
+    cmpwi   0, 3, -4          /* sets CR0 to EQ */
+    mfcr    3
+    /* CR0 EQ bit = bit 29 of CR = 0x20000000 */
+    /* Check that EQ bit is set in CR0 */
+    rlwinm  3, 3, 4, 28, 31   /* extract CR0 field */
+    andi.   3, 3, 2            /* EQ bit = 2 */
+    CHECK   2
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -658,6 +722,24 @@ _start:
 .Ltest40:
     .ascii  "test 40 divwu:       "
 .Ltest40_end:
+.Ltest41:
+    .ascii  "test 41 addic:       "
+.Ltest41_end:
+.Ltest42:
+    .ascii  "test 42 subfic:      "
+.Ltest42_end:
+.Ltest43:
+    .ascii  "test 43 adde:        "
+.Ltest43_end:
+.Ltest44:
+    .ascii  "test 44 subfe:       "
+.Ltest44_end:
+.Ltest45:
+    .ascii  "test 45 srawi:       "
+.Ltest45_end:
+.Ltest46:
+    .ascii  "test 46 mfcr:        "
+.Ltest46_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:

@@ -117,27 +117,19 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 /* rlwinmx, rlwnmx — rotate and mask */
 /* cmp, cmpl, cmpli, andi_ — with CR update */
 
-GEN_INTERPRET(addic)
-/* addic_, subfic, mulli, andis_, rlwimix, mulhwux, orcx, norx, srawx, cntlzwx
+/* addic, addic_, subfic, mulli, andis_, rlwimix, mulhwux, orcx, norx, srawx,
+   cntlzwx, divwx, divwux, addcx, addex, subfcx, subfex, srawix, mfcr, mtcrf
    now have native codegen in ppc_alu.cc */
-GEN_INTERPRET(addcx)
-GEN_INTERPRET(addex)
 GEN_INTERPRET(addzex)
 GEN_INTERPRET(addmex)
-GEN_INTERPRET(subfcx)
-GEN_INTERPRET(subfex)
 GEN_INTERPRET(subfzex)
 GEN_INTERPRET(subfmex)
 GEN_INTERPRET(mulhwx)
-/* divwx, divwux now have native codegen in ppc_alu.cc */
 GEN_INTERPRET(andcx)
 GEN_INTERPRET(nandx)
 GEN_INTERPRET(eqvx)
-GEN_INTERPRET(srawix)
 GEN_INTERPRET(extsbx)
 GEN_INTERPRET(extshx)
-GEN_INTERPRET(mfcr)
-GEN_INTERPRET(mtcrf)
 GEN_INTERPRET(mcrxr)
 
 /* SPR — mfspr/mtspr native gen_ for LR/CTR in ppc_alu.cc */

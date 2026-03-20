@@ -2531,7 +2531,7 @@ JITCFlow ppc_opc_gen_lhbrx(JITC &jitc)
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
 	// Half stub returns zero-extended 16-bit value, byte-swap the low 16 bits
-	jitc.emit32(0x5AC00400 | (W0 << 5) | W0);  // REV16 W0, W0
+	jitc.asmREV16w(W0, W0);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2557,7 +2557,7 @@ JITCFlow ppc_opc_gen_sthbrx(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.emit32(0x5AC00400 | (W1 << 5) | W1);  // REV16 W1, W1
+	jitc.asmREV16w(W1, W1);
 	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
 	return flowContinue;
 }

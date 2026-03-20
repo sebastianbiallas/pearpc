@@ -365,10 +365,34 @@ public:
     void asmLDR_reg(NativeReg rt, NativeReg rn, NativeReg rm, bool shift);   // LDR Xt, [Xn, Xm{, LSL #3}]
 
     // Byte reverse
-    void asmREVw(NativeReg rd, NativeReg rn);  // REV Wd, Wn
+    void asmREVw(NativeReg rd, NativeReg rn);    // REV Wd, Wn
+    void asmREV16w(NativeReg rd, NativeReg rn);  // REV16 Wd, Wn
 
     // Bit field insert
     void asmBFIw(NativeReg rd, NativeReg rn, int lsb, int width);  // BFI Wd, Wn, #lsb, #width
+
+    // Conditional select
+    void asmCSELw(NativeReg rd, NativeReg rn, NativeReg rm, A64Cond cond);
+    void asmCSINCw(NativeReg rd, NativeReg rn, NativeReg rm, A64Cond cond);
+    void asmCSETw(NativeReg rd, A64Cond cond);  // CSET Wd, cond = CSINC Wd, WZR, WZR, invert(cond)
+
+    // Data processing (2 source)
+    void asmUDIVw(NativeReg rd, NativeReg rn, NativeReg rm);
+    void asmSDIVw(NativeReg rd, NativeReg rn, NativeReg rm);
+
+    // 64-bit shift variable (for 6-bit shift amounts)
+    void asmLSLV(NativeReg rd, NativeReg rn, NativeReg rm);   // LSLV Xd, Xn, Xm
+    void asmLSRV(NativeReg rd, NativeReg rn, NativeReg rm);   // LSRV Xd, Xn, Xm
+
+    // Widening multiply
+    void asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm);  // UMULL Xd, Wn, Wm
+
+    // Logical with invert
+    void asmORNw(NativeReg rd, NativeReg rn, NativeReg rm);   // ORN Wd, Wn, Wm
+    void asmMVNw(NativeReg rd, NativeReg rm);                  // MVN Wd, Wm
+
+    // Count leading zeros
+    void asmCLZw(NativeReg rd, NativeReg rn);                  // CLZ Wd, Wn
 
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over

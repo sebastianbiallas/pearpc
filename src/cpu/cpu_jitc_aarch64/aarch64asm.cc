@@ -613,6 +613,19 @@ A64Instr a64_TBNZ(int rt, int bit, sint32 offset)
 }
 
 /* Misc */
+/* Conditional select */
+A64Instr a64_CSELw(int rd, int rn, int rm, A64Cond cond)
+{
+    // CSEL Wd, Wn, Wm, cond: 0 00 11010100 Rm cond 00 Rn Rd
+    return 0x1A800000 | (rm << 16) | ((int)cond << 12) | (rn << 5) | rd;
+}
+
+A64Instr a64_CSINCw(int rd, int rn, int rm, A64Cond cond)
+{
+    // CSINC Wd, Wn, Wm, cond: 0 00 11010100 Rm cond 01 Rn Rd
+    return 0x1A800400 | (rm << 16) | ((int)cond << 12) | (rn << 5) | rd;
+}
+
 /* Bit field operations */
 A64Instr a64_BFIw(int rd, int rn, int lsb, int width)
 {
@@ -626,6 +639,30 @@ A64Instr a64_BFIw(int rd, int rn, int lsb, int width)
     return 0x33000000 | (immr << 16) | (imms << 10) | (rn << 5) | rd;
 }
 
+/* Data processing (2 source) */
+A64Instr a64_UDIVw(int rd, int rn, int rm) { return 0x1AC00800 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_SDIVw(int rd, int rn, int rm) { return 0x1AC00C00 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_LSLVw(int rd, int rn, int rm) { return 0x1AC02000 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_LSRVw(int rd, int rn, int rm) { return 0x1AC02400 | (rm << 16) | (rn << 5) | rd; }
+
+/* 64-bit shift variable */
+A64Instr a64_LSLV(int rd, int rn, int rm) { return 0x9AC02000 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_LSRV(int rd, int rn, int rm) { return 0x9AC02400 | (rm << 16) | (rn << 5) | rd; }
+
+/* Widening multiply */
+A64Instr a64_UMULL(int rd, int rn, int rm)
+{
+    // UMADDL Xd, Wn, Wm, XZR: 10011011 101 Rm 0 11111 Rn Rd
+    return 0x9BA07C00 | (rm << 16) | (rn << 5) | rd;
+}
+
+/* Logical with invert */
+A64Instr a64_ORNw(int rd, int rn, int rm) { return 0x2A200000 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_MVNw(int rd, int rm) { return 0x2A200000 | (rm << 16) | (31 << 5) | rd; }
+
+/* Count leading zeros */
+A64Instr a64_CLZw(int rd, int rn) { return 0x5AC01000 | (rn << 5) | rd; }
+
 A64Instr a64_NOP()
 {
     return 0xD503201F;
@@ -637,6 +674,13 @@ A64Instr a64_REV(int rd, int rn)
     A64_ASSERT_REG(rn, "REV");
     // REV Xd, Xn (64-bit byte reverse)
     return 0xDAC00C00 | (rn << 5) | rd;
+}
+
+A64Instr a64_REV16w(int rd, int rn)
+{
+    A64_ASSERT_REG(rd, "REV16w");
+    A64_ASSERT_REG(rn, "REV16w");
+    return 0x5AC00400 | (rn << 5) | rd;
 }
 
 A64Instr a64_REVw(int rd, int rn)

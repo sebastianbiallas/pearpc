@@ -339,10 +339,40 @@ void JITC::asmREVw(NativeReg rd, NativeReg rn)
     emit32(a64_REVw(rd, rn));
 }
 
+void JITC::asmREV16w(NativeReg rd, NativeReg rn)
+{
+    emit32(a64_REV16w(rd, rn));
+}
+
 void JITC::asmBFIw(NativeReg rd, NativeReg rn, int lsb, int width)
 {
     emit32(a64_BFIw(rd, rn, lsb, width));
 }
+
+void JITC::asmCSELw(NativeReg rd, NativeReg rn, NativeReg rm, A64Cond cond)
+{
+    emit32(a64_CSELw(rd, rn, rm, cond));
+}
+
+void JITC::asmCSINCw(NativeReg rd, NativeReg rn, NativeReg rm, A64Cond cond)
+{
+    emit32(a64_CSINCw(rd, rn, rm, cond));
+}
+
+void JITC::asmCSETw(NativeReg rd, A64Cond cond)
+{
+    // CSET Wd, cond = CSINC Wd, WZR, WZR, invert(cond)
+    emit32(a64_CSINCw(rd, WZR, WZR, (A64Cond)((int)cond ^ 1)));
+}
+
+void JITC::asmUDIVw(NativeReg rd, NativeReg rn, NativeReg rm)  { emit32(a64_UDIVw(rd, rn, rm)); }
+void JITC::asmSDIVw(NativeReg rd, NativeReg rn, NativeReg rm)  { emit32(a64_SDIVw(rd, rn, rm)); }
+void JITC::asmLSLV(NativeReg rd, NativeReg rn, NativeReg rm)   { emit32(a64_LSLV(rd, rn, rm)); }
+void JITC::asmLSRV(NativeReg rd, NativeReg rn, NativeReg rm)   { emit32(a64_LSRV(rd, rn, rm)); }
+void JITC::asmUMULL(NativeReg rd, NativeReg rn, NativeReg rm)  { emit32(a64_UMULL(rd, rn, rm)); }
+void JITC::asmORNw(NativeReg rd, NativeReg rn, NativeReg rm)   { emit32(a64_ORNw(rd, rn, rm)); }
+void JITC::asmMVNw(NativeReg rd, NativeReg rm)                  { emit32(a64_MVNw(rd, rm)); }
+void JITC::asmCLZw(NativeReg rd, NativeReg rn)                  { emit32(a64_CLZw(rd, rn)); }
 
 static void jitcEmitAlign(JITC &jitc, uint align)
 {

@@ -162,13 +162,38 @@ A64Instr a64_CBNZw(int rt, sint32 offset);         // CBNZ Wt, #offset
 A64Instr a64_TBZ(int rt, int bit, sint32 offset);  // TBZ Xt, #bit, #offset
 A64Instr a64_TBNZ(int rt, int bit, sint32 offset); // TBNZ Xt, #bit, #offset
 
+/* Conditional select */
+A64Instr a64_CSELw(int rd, int rn, int rm, A64Cond cond);   // CSEL Wd, Wn, Wm, cond
+A64Instr a64_CSINCw(int rd, int rn, int rm, A64Cond cond);  // CSINC Wd, Wn, Wm, cond
+
 /* Bit field operations */
 A64Instr a64_BFIw(int rd, int rn, int lsb, int width); // BFI Wd, Wn, #lsb, #width
+
+/* Data processing (2 source) */
+A64Instr a64_UDIVw(int rd, int rn, int rm);  // UDIV Wd, Wn, Wm
+A64Instr a64_SDIVw(int rd, int rn, int rm);  // SDIV Wd, Wn, Wm
+A64Instr a64_LSLVw(int rd, int rn, int rm);  // LSLV Wd, Wn, Wm
+A64Instr a64_LSRVw(int rd, int rn, int rm);  // LSRV Wd, Wn, Wm
+
+/* 64-bit shift variable (for PPC shift-by-register with 6-bit amounts) */
+A64Instr a64_LSLV(int rd, int rn, int rm);   // LSLV Xd, Xn, Xm
+A64Instr a64_LSRV(int rd, int rn, int rm);   // LSRV Xd, Xn, Xm
+
+/* Widening multiply */
+A64Instr a64_UMULL(int rd, int rn, int rm);   // UMULL Xd, Wn, Wm
+
+/* Logical (register) with invert */
+A64Instr a64_ORNw(int rd, int rn, int rm);    // ORN Wd, Wn, Wm = Wn | ~Wm
+A64Instr a64_MVNw(int rd, int rm);            // MVN Wd, Wm = ~Wm
+
+/* Count leading zeros */
+A64Instr a64_CLZw(int rd, int rn);            // CLZ Wd, Wn
 
 /* Misc */
 A64Instr a64_NOP();
 A64Instr a64_REV(int rd, int rn);  // byte swap 64-bit
-A64Instr a64_REVw(int rd, int rn); // byte swap 32-bit
+A64Instr a64_REVw(int rd, int rn);   // byte swap 32-bit
+A64Instr a64_REV16w(int rd, int rn); // byte swap within 16-bit halves
 
 /* ADRP + ADD for PC-relative address loading */
 A64Instr a64_ADRP(int rd, sint64 offset);
