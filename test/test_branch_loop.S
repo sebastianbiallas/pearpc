@@ -443,6 +443,146 @@ _start:
     PRINT   .Lok, 3
 .Ltest14_done:
 
+    /*
+     * Test 15: beqlr — conditional return via LR when EQ
+     * Call a function that uses beqlr to return early if r3 == 0.
+     */
+    PRINT   .Ltest15_name, (.Ltest15_name_end - .Ltest15_name)
+
+    li      3, 0            /* EQ case: should beqlr early, r3 stays 0 */
+    bl      .Lcallee_beqlr
+    cmpwi   0, 3, 0
+    bne     .Ltest15_fail
+    li      3, 5            /* NE case: should NOT beqlr, callee sets r3=99 */
+    bl      .Lcallee_beqlr
+    cmpwi   0, 3, 99
+    bne     .Ltest15_fail
+    PRINT   .Lok, 3
+    b       .Ltest15_done
+.Ltest15_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Ltest15_done:
+
+    /*
+     * Test 16: bnelr — conditional return via LR when NE
+     * Call a function that uses bnelr to return early if r3 != 0.
+     */
+    PRINT   .Ltest16_name, (.Ltest16_name_end - .Ltest16_name)
+
+    li      3, 7            /* NE case: should bnelr early, r3 stays 7 */
+    bl      .Lcallee_bnelr
+    cmpwi   0, 3, 7
+    bne     .Ltest16_fail
+    li      3, 0            /* EQ case: should NOT bnelr, callee sets r3=88 */
+    bl      .Lcallee_bnelr
+    cmpwi   0, 3, 88
+    bne     .Ltest16_fail
+    PRINT   .Lok, 3
+    b       .Ltest16_done
+.Ltest16_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Ltest16_done:
+
+    /*
+     * Test 17: bltlr — conditional return via LR when LT
+     */
+    PRINT   .Ltest17_name, (.Ltest17_name_end - .Ltest17_name)
+
+    li      3, 3            /* LT case: 3 < 10 → should bltlr, r3 stays 3 */
+    li      4, 10
+    bl      .Lcallee_bltlr
+    cmpwi   0, 3, 3
+    bne     .Ltest17_fail
+    li      3, 20           /* GE case: 20 >= 10 → should NOT bltlr, callee sets r3=66 */
+    li      4, 10
+    bl      .Lcallee_bltlr
+    cmpwi   0, 3, 66
+    bne     .Ltest17_fail
+    PRINT   .Lok, 3
+    b       .Ltest17_done
+.Ltest17_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Ltest17_done:
+
+    /*
+     * Test 18: bgelr — conditional return via LR when GE
+     */
+    PRINT   .Ltest18_name, (.Ltest18_name_end - .Ltest18_name)
+
+    li      3, 10           /* GE case: 10 >= 5 → should bgelr, r3 stays 10 */
+    li      4, 5
+    bl      .Lcallee_bgelr
+    cmpwi   0, 3, 10
+    bne     .Ltest18_fail
+    li      3, 5            /* EQ case: 5 >= 5 → should bgelr, r3 stays 5 */
+    li      4, 5
+    bl      .Lcallee_bgelr
+    cmpwi   0, 3, 5
+    bne     .Ltest18_fail
+    li      3, 2            /* LT case: 2 < 5 → should NOT bgelr, callee sets r3=55 */
+    li      4, 5
+    bl      .Lcallee_bgelr
+    cmpwi   0, 3, 55
+    bne     .Ltest18_fail
+    PRINT   .Lok, 3
+    b       .Ltest18_done
+.Ltest18_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Ltest18_done:
+
+    /*
+     * Test 19: bgtlr — conditional return via LR when GT
+     */
+    PRINT   .Ltest19_name, (.Ltest19_name_end - .Ltest19_name)
+
+    li      3, 10           /* GT case: 10 > 5 → should bgtlr */
+    li      4, 5
+    bl      .Lcallee_bgtlr
+    cmpwi   0, 3, 10
+    bne     .Ltest19_fail
+    li      3, 5            /* EQ case: 5 == 5 → should NOT bgtlr, callee sets r3=44 */
+    li      4, 5
+    bl      .Lcallee_bgtlr
+    cmpwi   0, 3, 44
+    bne     .Ltest19_fail
+    PRINT   .Lok, 3
+    b       .Ltest19_done
+.Ltest19_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Ltest19_done:
+
+    /*
+     * Test 20: blelr — conditional return via LR when LE
+     */
+    PRINT   .Ltest20_name, (.Ltest20_name_end - .Ltest20_name)
+
+    li      3, 3            /* LT case: 3 < 10 → should blelr */
+    li      4, 10
+    bl      .Lcallee_blelr
+    cmpwi   0, 3, 3
+    bne     .Ltest20_fail
+    li      3, 10           /* EQ case: 10 == 10 → should blelr */
+    li      4, 10
+    bl      .Lcallee_blelr
+    cmpwi   0, 3, 10
+    bne     .Ltest20_fail
+    li      3, 20           /* GT case: 20 > 10 → should NOT blelr, callee sets r3=33 */
+    li      4, 10
+    bl      .Lcallee_blelr
+    cmpwi   0, 3, 33
+    bne     .Ltest20_fail
+    PRINT   .Lok, 3
+    b       .Ltest20_done
+.Ltest20_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Ltest20_done:
+
     /* Summary */
     cmpwi   0, 30, 0
     bne     .Lsummary_fail
@@ -477,6 +617,48 @@ _start:
 /* Callee that sets r3 = 77 and returns */
 .Lcallee_ret77:
     li      3, 77
+    blr
+
+/* beqlr callee: compare r3 with 0, return early if EQ, else set r3=99 */
+.Lcallee_beqlr:
+    cmpwi   0, 3, 0
+    beqlr
+    li      3, 99
+    blr
+
+/* bnelr callee: compare r3 with 0, return early if NE, else set r3=88 */
+.Lcallee_bnelr:
+    cmpwi   0, 3, 0
+    bnelr
+    li      3, 88
+    blr
+
+/* bltlr callee: compare r3 with r4, return early if LT, else set r3=66 */
+.Lcallee_bltlr:
+    cmpw    0, 3, 4
+    bltlr
+    li      3, 66
+    blr
+
+/* bgelr callee: compare r3 with r4, return early if GE, else set r3=55 */
+.Lcallee_bgelr:
+    cmpw    0, 3, 4
+    bgelr
+    li      3, 55
+    blr
+
+/* bgtlr callee: compare r3 with r4, return early if GT, else set r3=44 */
+.Lcallee_bgtlr:
+    cmpw    0, 3, 4
+    bgtlr
+    li      3, 44
+    blr
+
+/* blelr callee: compare r3 with r4, return early if LE, else set r3=33 */
+.Lcallee_blelr:
+    cmpw    0, 3, 4
+    blelr
+    li      3, 33
     blr
 
 /* Target for bctr test — sets r3 = 99, then jumps back */
@@ -545,6 +727,30 @@ _start:
     .ascii  "Test 14 (bctrl loop): "
 .Ltest14_name_end:
 
+.Ltest15_name:
+    .ascii  "Test 15 (beqlr): "
+.Ltest15_name_end:
+
+.Ltest16_name:
+    .ascii  "Test 16 (bnelr): "
+.Ltest16_name_end:
+
+.Ltest17_name:
+    .ascii  "Test 17 (bltlr): "
+.Ltest17_name_end:
+
+.Ltest18_name:
+    .ascii  "Test 18 (bgelr): "
+.Ltest18_name_end:
+
+.Ltest19_name:
+    .ascii  "Test 19 (bgtlr): "
+.Ltest19_name_end:
+
+.Ltest20_name:
+    .ascii  "Test 20 (blelr): "
+.Ltest20_name_end:
+
 .Lok:
     .ascii  "OK\n"
 .Lfail:
@@ -553,7 +759,7 @@ _start:
     .ascii  "FAIL (r28 wrong)\n"
 .Lfail_r28_end:
 .Lpass:
-    .ascii  "All 14 branch tests PASSED\n"
+    .ascii  "All 20 branch tests PASSED\n"
 .Lpass_end:
 .Lfailsum:
     .ascii  "FAILED - see above\n"

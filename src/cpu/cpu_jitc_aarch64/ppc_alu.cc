@@ -476,7 +476,44 @@ JITCFlow ppc_opc_gen_bclrx(JITC &jitc)
         return flowEndBlockUnreachable;
     }
 
-    // Conditional bclr — fall back to interpreter
+    // CR-only conditional bclr (no CTR decrement, no LK)
+    if (ctr_ok_always && !lk) {
+        jitc.clobberAll();
+
+        //  LDR W16, [X20, #cr]          ; 4
+        //  TBZ/TBNZ W16, #bit, not_taken ; 4  (skip dispatch)
+        //  LDR W0, [X20, #lr]           ; 4
+        //  AND W0, W0, #0xfffffffc      ; 4
+        //  <call stub_new_pc>           ; 8
+        // not_taken:
+        uint dispatch_size = 4 + 4 + JITC::asmCALL_cpu_size; // LDR + AND + call
+        uint total = 4 + 4 + dispatch_size;
+        jitc.emitAssure(total);
+
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+
+        int aarch64_bit = 31 - BI;
+        sint32 skip_offset = 4 + dispatch_size;
+
+        if (BO & 8) {
+            // Branch if CR bit SET → skip if CLEAR
+            jitc.asmTBZ(W16, aarch64_bit, skip_offset);
+        } else {
+            // Branch if CR bit CLEAR → skip if SET
+            jitc.asmTBNZ(W16, aarch64_bit, skip_offset);
+        }
+
+        NativeAddress not_taken = jitc.asmHERE() + dispatch_size;
+
+        jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, lr));
+        jitc.asmANDw_imm(W0, W0, 0, 29); // AND W0, W0, #0xfffffffc
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+
+        jitc.asmAssertHERE(not_taken, "bclrx_cr");
+        return flowContinue;
+    }
+
+    // Complex conditional bclr (CTR+CR, or LK) — fall back to interpreter
     ppc_opc_gen_interpret(jitc, ppc_opc_bclrx);
     gen_dispatch_npc(jitc);
     return flowEndBlockUnreachable;
