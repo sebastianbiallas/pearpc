@@ -349,6 +349,100 @@ _start:
     PRINT   .Lok, 3
 .Ltest10_done:
 
+    /*
+     * Test 11: bctr — indirect jump via CTR
+     * Load address of .Lbctr_target into CTR, jump to it.
+     * Target sets r3 = 99.
+     */
+    PRINT   .Ltest11_name, (.Ltest11_name_end - .Ltest11_name)
+    bl      1f
+1:  mflr    11
+    addi    11, 11, (.Lbctr_target - 1b)
+    mtctr   11
+    li      3, 0
+    bctr
+    /* should not reach here */
+    li      3, -1
+.Lbctr_resume:
+    cmpwi   0, 3, 99
+    beq     .Ltest11_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Ltest11_done
+.Ltest11_ok:
+    PRINT   .Lok, 3
+.Ltest11_done:
+
+    /*
+     * Test 12: bctrl — indirect call via CTR, sets LR
+     * Load address of .Lcallee_ret42 into CTR, call via bctrl.
+     * Callee sets r3 = 42 and returns via blr.
+     * After return, verify r3=42 and LR was set correctly.
+     */
+    PRINT   .Ltest12_name, (.Ltest12_name_end - .Ltest12_name)
+    bl      1f
+1:  mflr    11
+    addi    11, 11, (.Lcallee_ret42 - 1b)
+    mtctr   11
+    li      3, 0
+    bctrl
+    /* should return here with r3=42 */
+    cmpwi   0, 3, 42
+    beq     .Ltest12_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Ltest12_done
+.Ltest12_ok:
+    PRINT   .Lok, 3
+.Ltest12_done:
+
+    /*
+     * Test 13: blrl — call to LR, update LR
+     * Set LR = address of .Lcallee_ret77, then blrl jumps there
+     * and sets LR = return address. Callee returns via blr.
+     */
+    PRINT   .Ltest13_name, (.Ltest13_name_end - .Ltest13_name)
+    bl      1f
+1:  mflr    11
+    addi    11, 11, (.Lcallee_ret77 - 1b)
+    mtlr    11
+    li      3, 0
+    blrl
+    /* should return here with r3=77 */
+    cmpwi   0, 3, 77
+    beq     .Ltest13_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Ltest13_done
+.Ltest13_ok:
+    PRINT   .Lok, 3
+.Ltest13_done:
+
+    /*
+     * Test 14: bctr loop — use CTR as function pointer in a loop
+     * Call .Lcallee_add via bctrl 3 times, accumulating r3 += 5 each time.
+     */
+    PRINT   .Ltest14_name, (.Ltest14_name_end - .Ltest14_name)
+    bl      1f
+1:  mflr    11
+    addi    11, 11, (.Lcallee_add - 1b)
+    mtctr   11
+    li      3, 0
+    bctrl                   /* r3 = 0 + 5 = 5 */
+    /* CTR is clobbered by bctrl? No — bctrl doesn't decrement CTR */
+    mtctr   11              /* restore CTR */
+    bctrl                   /* r3 = 5 + 5 = 10 */
+    mtctr   11
+    bctrl                   /* r3 = 10 + 5 = 15 */
+    cmpwi   0, 3, 15
+    beq     .Ltest14_ok
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       .Ltest14_done
+.Ltest14_ok:
+    PRINT   .Lok, 3
+.Ltest14_done:
+
     /* Summary */
     cmpwi   0, 30, 0
     bne     .Lsummary_fail
@@ -374,6 +468,25 @@ _start:
 .Lcallee_add:
     addi    3, 3, 5
     blr
+
+/* Callee that sets r3 = 42 and returns */
+.Lcallee_ret42:
+    li      3, 42
+    blr
+
+/* Callee that sets r3 = 77 and returns */
+.Lcallee_ret77:
+    li      3, 77
+    blr
+
+/* Target for bctr test — sets r3 = 99, then jumps back */
+.Lbctr_target:
+    li      3, 99
+    bl      1f
+1:  mflr    11
+    addi    11, 11, (.Lbctr_resume - 1b)
+    mtctr   11
+    bctr
 
 /* String data */
 .Ltest1_name:
@@ -416,6 +529,22 @@ _start:
     .ascii  "Test 10 (bdz): "
 .Ltest10_name_end:
 
+.Ltest11_name:
+    .ascii  "Test 11 (bctr): "
+.Ltest11_name_end:
+
+.Ltest12_name:
+    .ascii  "Test 12 (bctrl): "
+.Ltest12_name_end:
+
+.Ltest13_name:
+    .ascii  "Test 13 (blrl): "
+.Ltest13_name_end:
+
+.Ltest14_name:
+    .ascii  "Test 14 (bctrl loop): "
+.Ltest14_name_end:
+
 .Lok:
     .ascii  "OK\n"
 .Lfail:
@@ -424,7 +553,7 @@ _start:
     .ascii  "FAIL (r28 wrong)\n"
 .Lfail_r28_end:
 .Lpass:
-    .ascii  "All 10 branch loop tests PASSED\n"
+    .ascii  "All 14 branch tests PASSED\n"
 .Lpass_end:
 .Lfailsum:
     .ascii  "FAILED - see above\n"
