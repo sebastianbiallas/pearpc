@@ -67,6 +67,7 @@ int ppc_opc_mtfsfx(PPC_CPU_State &); int ppc_opc_mtfsfix(PPC_CPU_State &);
 
 static FILE *gDebugLog;
 static AVLTree *symbols;
+static void jitcDebugSelfTest();
 
 /*
  *  MOVZ/MOVK tracker for resolving BLR targets.
@@ -201,15 +202,19 @@ static const char *wreg_or_zr(int r)
 
 static const char *dreg(int r)
 {
-    static char buf[8];
-    snprintf(buf, sizeof(buf), "d%d", r & 31);
+    static char bufs[4][8];
+    static int idx = 0;
+    char *buf = bufs[idx++ & 3];
+    snprintf(buf, 8, "d%d", r & 31);
     return buf;
 }
 
 static const char *sreg(int r)
 {
-    static char buf[8];
-    snprintf(buf, sizeof(buf), "s%d", r & 31);
+    static char bufs[4][8];
+    static int idx = 0;
+    char *buf = bufs[idx++ & 3];
+    snprintf(buf, 8, "s%d", r & 31);
     return buf;
 }
 
@@ -1051,27 +1056,73 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
         return;
     }
 
-    // Floating-point data processing (scalar)
-    // Check for FP instructions: bits [28:24] = 11110 (0x1E) or 11111 (0x1F for FMA)
-    if ((insn & 0x5E000000) == 0x1E000000) {
-        int top4 = (insn >> 28) & 0xF;
+    // Floating-point fused multiply-add: 0 0011111 xx o1 rm o0 ra rn rd
+    // Must check before other FP patterns since bit pattern overlaps
+    if ((insn & 0x7F000000) == 0x1F000000) {
+        int ftype = (insn >> 22) & 3;
+        int o1 = (insn >> 21) & 1;
+        int o0 = (insn >> 15) & 1;
+        int ra = (insn >> 10) & 0x1F;
+        const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
+        const char *op;
+        if (!o1 && !o0) op = "fmadd";
+        else if (!o1 && o0) op = "fmsub";
+        else if (o1 && !o0) op = "fnmadd";
+        else op = "fnmsub";
+        snprintf(result, 256, "%s %s, %s, %s, %s", op,
+                rfn(rd), rfn(rn), rfn(rm), rfn(ra));
+        movTrackReg = -1;
+        return;
+    }
 
-        // FP compare: 00011110 xx 1 rm 001000 rn ooooo
-        if (top4 == 1 && (insn & 0xFF20FC1F) == 0x1E202000) {
+    // Floating-point data processing (scalar)
+    // Bits [28:24] = 11110 → 0x1E
+    if ((insn & 0x5F000000) == 0x1E000000) {
+
+        // FP-to-integer / integer-to-FP conversions:
+        // sf 00 11110 ftype 1 rmode opcode 000000 rn rd
+        // FCVTZS: rmode=11, opcode=000  → sf 00 11110 xx 111 000 000000 rn rd
+        if ((insn & 0x7F3FFC00) == 0x1E380000) {
+            int sf = (insn >> 31) & 1;
             int ftype = (insn >> 22) & 3;
-            const char *rn_name = (ftype == 1) ? dreg(rn) : sreg(rn);
+            const char *gpr = sf ? xreg(rd) : wreg(rd);
+            const char *fpr = (ftype == 1) ? dreg(rn) : sreg(rn);
+            snprintf(result, 256, "fcvtzs %s, %s", gpr, fpr);
+            movTrackReg = -1;
+            return;
+        }
+
+        // FMOV GPR<->FPR (64-bit):
+        // FMOV Dd, Xn: 1 00 11110 01 1 00 111 000000 rn rd = 0x9E670000
+        if ((insn & 0xFFFFFC00) == 0x9E670000) {
+            snprintf(result, 256, "fmov %s, %s", dreg(rd), xreg(rn));
+            movTrackReg = -1;
+            return;
+        }
+        // FMOV Xd, Dn: 1 00 11110 01 1 00 110 000000 rn rd = 0x9E660000
+        if ((insn & 0xFFFFFC00) == 0x9E660000) {
+            snprintf(result, 256, "fmov %s, %s", xreg(rd), dreg(rn));
+            movTrackReg = -1;
+            return;
+        }
+
+        // FP compare: 0 0011110 xx 1 rm 00 1000 rn 0 x 000
+        // FCMP Dn, Dm:   0x1E60 2000 | rm<<16 | rn<<5 | 00000
+        // FCMP Dn, #0.0: 0x1E60 2008 | rn<<5
+        if ((insn & 0xFF207C00) == 0x1E202000) {
+            int ftype = (insn >> 22) & 3;
+            const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
             if (insn & 0x8) {
-                snprintf(result, 256, "fcmp %s, #0.0", rn_name);
+                snprintf(result, 256, "fcmp %s, #0.0", rfn(rn));
             } else {
-                const char *rm_name = (ftype == 1) ? dreg(rm) : sreg(rm);
-                snprintf(result, 256, "fcmp %s, %s", rn_name, rm_name);
+                snprintf(result, 256, "fcmp %s, %s", rfn(rn), rfn(rm));
             }
             movTrackReg = -1;
             return;
         }
 
-        // FP conditional select: 00011110 xx 1 rm cond 11 rn rd
-        if (top4 == 1 && (insn & 0xFF200C00) == 0x1E200C00) {
+        // FP conditional select: 0 0011110 xx 1 rm cond 11 rn rd
+        if ((insn & 0xFF200C00) == 0x1E200C00) {
             int ftype = (insn >> 22) & 3;
             int cond = (insn >> 12) & 0xF;
             const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
@@ -1081,8 +1132,8 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
             return;
         }
 
-        // FP two-source: 00011110 xx 1 rm opcode rn rd
-        if (top4 == 1 && (insn & 0xFF200000) == 0x1E200000 && ((insn >> 10) & 3) == 2) {
+        // FP two-source: 0 0011110 xx 1 rm opcode 10 rn rd
+        if ((insn & 0xFF200C00) == 0x1E200800) {
             int ftype = (insn >> 22) & 3;
             int opcode = (insn >> 12) & 0xF;
             const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
@@ -1102,8 +1153,8 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
             }
         }
 
-        // FP one-source: 00011110 xx 1 opcode 10000 rn rd
-        if (top4 == 1 && (insn & 0xFF3E0000) == 0x1E200000 && ((insn >> 10) & 0x3F) == 0x10) {
+        // FP one-source: 0 0011110 xx 1 xxxxx 10000 rn rd
+        if ((insn & 0xFF207C00) == 0x1E204000) {
             int ftype = (insn >> 22) & 3;
             int opcode = (insn >> 15) & 0x3F;
             const char *(*rfn_d)(int) = (ftype == 1) ? dreg : sreg;
@@ -1120,62 +1171,16 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
             case 3: // FSQRT
                 snprintf(result, 256, "fsqrt %s, %s", rfn_d(rd), rfn_d(rn));
                 break;
-            case 4: // FCVT to single
+            case 4: // FCVT S←D (ftype=01→type=00): 00011110 01 1 00100 10000 rn rd
                 snprintf(result, 256, "fcvt %s, %s", sreg(rd), dreg(rn));
                 break;
-            case 5: // FCVT to double
+            case 5: // FCVT D←S (ftype=00→type=01): 00011110 00 1 00101 10000 rn rd
                 snprintf(result, 256, "fcvt %s, %s", dreg(rd), sreg(rn));
                 break;
             default:
                 snprintf(result, 256, "fp1src op=%d %s, %s", opcode, rfn_d(rd), rfn_d(rn));
                 break;
             }
-            movTrackReg = -1;
-            return;
-        }
-
-        // FP-to-integer / integer-to-FP: sf 00 11110 xx 1 rmode opcode 000000 rn rd
-        if (top4 == 1 && (insn & 0x7F20FC00) == 0x1E200000) {
-            int sf = (insn >> 31) & 1;
-            int ftype = (insn >> 22) & 3;
-            int rmode = (insn >> 19) & 3;
-            int opcode = (insn >> 16) & 7;
-            if (rmode == 3 && opcode == 0) {
-                // FCVTZS
-                const char *gpr = sf ? xreg(rd) : wreg(rd);
-                const char *fpr = (ftype == 1) ? dreg(rn) : sreg(rn);
-                snprintf(result, 256, "fcvtzs %s, %s", gpr, fpr);
-                movTrackReg = -1;
-                return;
-            }
-            if (rmode == 0 && opcode == 7) {
-                // FMOV Dd, Xn (GPR to FPR, 64-bit)
-                snprintf(result, 256, "fmov %s, %s", dreg(rd), xreg(rn));
-                movTrackReg = -1;
-                return;
-            }
-            if (rmode == 0 && opcode == 6) {
-                // FMOV Xd, Dn (FPR to GPR, 64-bit)
-                snprintf(result, 256, "fmov %s, %s", xreg(rd), dreg(rn));
-                movTrackReg = -1;
-                return;
-            }
-        }
-
-        // FP fused multiply-add: 00011111 xx o1 rm o0 ra rn rd
-        if (top4 == 1 && (insn & 0xFF000000) == 0x1F000000) {
-            int ftype = (insn >> 22) & 3;
-            int o1 = (insn >> 21) & 1;
-            int o0 = (insn >> 15) & 1;
-            int ra = (insn >> 10) & 0x1F;
-            const char *(*rfn)(int) = (ftype == 1) ? dreg : sreg;
-            const char *op;
-            if (!o1 && !o0) op = "fmadd";
-            else if (!o1 && o0) op = "fmsub";
-            else if (o1 && !o0) op = "fnmadd";
-            else op = "fnmsub";
-            snprintf(result, 256, "%s %s, %s, %s, %s", op,
-                    rfn(rd), rfn(rn), rfn(rm), rfn(ra));
             movTrackReg = -1;
             return;
         }
@@ -1465,9 +1470,85 @@ void jitcDebugInit()
     ADD_SYM(ppc_opc_mtfsb1x);
     ADD_SYM(ppc_opc_mtfsfx);
     ADD_SYM(ppc_opc_mtfsfix);
+
+    jitcDebugSelfTest();
 }
 
 #undef ADD_SYM
+
+/*
+ *  Self-test: verify disassembly of known instruction encodings.
+ *  Called from jitcDebugInit() to catch regressions early.
+ */
+static void jitcDebugSelfTest()
+{
+    char result[256];
+    int failures = 0;
+
+#define TEST_DISASM(insn_val, expected_str) do { \
+    disasmA64(insn_val, 0x1000, result); \
+    if (strcmp(result, expected_str) != 0) { \
+        fprintf(stderr, "[DISASM TEST FAIL] 0x%08x: got \"%s\", expected \"%s\"\n", \
+                insn_val, result, expected_str); \
+        failures++; \
+    } \
+} while (0)
+
+    // FP two-source: FADD D0, D0, D1 — tests that rd/rn/rm decode distinctly
+    TEST_DISASM(0x1E612800, "fadd d0, d0, d1");
+    // FADD D2, D3, D4
+    TEST_DISASM(0x1E642862, "fadd d2, d3, d4");
+    // FSUB D5, D6, D7
+    TEST_DISASM(0x1E6738C5, "fsub d5, d6, d7");
+    // FMUL D0, D1, D2
+    TEST_DISASM(0x1E620820, "fmul d0, d1, d2");
+    // FDIV D0, D1, D2
+    TEST_DISASM(0x1E621820, "fdiv d0, d1, d2");
+
+    // FP one-source: FSQRT D0, D1
+    TEST_DISASM(0x1E61C020, "fsqrt d0, d1");
+    // FABS D2, D3
+    TEST_DISASM(0x1E60C062, "fabs d2, d3");
+    // FNEG D4, D5
+    TEST_DISASM(0x1E6140A4, "fneg d4, d5");
+
+    // FP conversion: FCVT S0, D1
+    TEST_DISASM(0x1E624020, "fcvt s0, d1");
+    // FCVT D0, S1
+    TEST_DISASM(0x1E22C020, "fcvt d0, s1");
+
+    // FP compare: FCMP D0, D1
+    TEST_DISASM(0x1E612000, "fcmp d0, d1");
+    // FCMP D0, #0.0
+    TEST_DISASM(0x1E602008, "fcmp d0, #0.0");
+
+    // FP fused multiply-add: FMADD D0, D0, D1, D2 — tests 4 distinct registers
+    TEST_DISASM(0x1F410800, "fmadd d0, d0, d1, d2");
+    // FNMSUB D3, D4, D5, D6
+    TEST_DISASM(0x1F659883, "fnmsub d3, d4, d5, d6");
+
+    // FP conditional select: FCSEL D0, D1, D2, GE
+    TEST_DISASM(0x1E62AC20, "fcsel d0, d1, d2, ge");
+
+    // FP load/store (just check the format includes register name)
+    // LDR D0, [X20, #136] (fr0)
+    TEST_DISASM(0xFD404680, "ldr d0, [x20, #136]  ; fr0");
+    // STR D1, [X20, #224] (fr11)
+    TEST_DISASM(0xFD007281, "str d1, [x20, #224]  ; fr11");
+
+    // FMOV D0, X0
+    TEST_DISASM(0x9E670000, "fmov d0, x0");
+    // FCVTZS W0, D0
+    TEST_DISASM(0x1E780000, "fcvtzs w0, d0");
+
+#undef TEST_DISASM
+
+    if (failures) {
+        fprintf(stderr, "[DISASM] %d self-test(s) FAILED\n", failures);
+    } else {
+        fprintf(stderr, "[DISASM] All self-tests passed\n");
+    }
+}
 
 void jitcDebugDone()
 {

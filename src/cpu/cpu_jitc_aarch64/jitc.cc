@@ -229,6 +229,29 @@ void JITC::asmSTR_D_cpu(int dd, uint32 offset)
     emit32(a64_STR_D(dd, X20, offset));
 }
 
+void JITC::asmFADD_D(int dd, int dn, int dm) { emit32(a64_FADD_D(dd, dn, dm)); }
+void JITC::asmFSUB_D(int dd, int dn, int dm) { emit32(a64_FSUB_D(dd, dn, dm)); }
+void JITC::asmFMUL_D(int dd, int dn, int dm) { emit32(a64_FMUL_D(dd, dn, dm)); }
+void JITC::asmFDIV_D(int dd, int dn, int dm) { emit32(a64_FDIV_D(dd, dn, dm)); }
+void JITC::asmFSQRT_D(int dd, int dn) { emit32(a64_FSQRT_D(dd, dn)); }
+void JITC::asmFABS_D(int dd, int dn) { emit32(a64_FABS_D(dd, dn)); }
+void JITC::asmFNEG_D(int dd, int dn) { emit32(a64_FNEG_D(dd, dn)); }
+
+void JITC::asmFMADD_D(int dd, int dn, int dm, int da) { emit32(a64_FMADD_D(dd, dn, dm, da)); }
+void JITC::asmFMSUB_D(int dd, int dn, int dm, int da) { emit32(a64_FMSUB_D(dd, dn, dm, da)); }
+void JITC::asmFNMADD_D(int dd, int dn, int dm, int da) { emit32(a64_FNMADD_D(dd, dn, dm, da)); }
+void JITC::asmFNMSUB_D(int dd, int dn, int dm, int da) { emit32(a64_FNMSUB_D(dd, dn, dm, da)); }
+
+void JITC::asmFCVT_S_D(int sd, int dn) { emit32(a64_FCVT_S_D(sd, dn)); }
+void JITC::asmFCVT_D_S(int dd, int sn) { emit32(a64_FCVT_D_S(dd, sn)); }
+void JITC::asmFCVTZS_W_D(int wd, int dn) { emit32(a64_FCVTZS_W_D(wd, dn)); }
+
+void JITC::asmFCMP_D(int dn, int dm) { emit32(a64_FCMP_D(dn, dm)); }
+void JITC::asmFCMP_D_zero(int dn) { emit32(a64_FCMP_D_zero(dn)); }
+
+void JITC::asmFCSEL_D(int dd, int dn, int dm, A64Cond cond) { emit32(a64_FCSEL_D(dd, dn, dm, cond)); }
+void JITC::asmFMOV_D_X(int dd, int xn) { emit32(a64_FMOV_D_X(dd, xn)); }
+
 void JITC::asmBL(NativeAddress to)
 {
     emitAssure(a64_bl_size((uint64)to));

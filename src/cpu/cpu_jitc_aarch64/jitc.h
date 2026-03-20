@@ -470,6 +470,34 @@ public:
     void asmLDR_D_cpu(int dd, uint32 offset);  // LDR Dd, [X20, #offset]
     void asmSTR_D_cpu(int dd, uint32 offset);  // STR Dd, [X20, #offset]
 
+    // Floating-point arithmetic (double-precision)
+    void asmFADD_D(int dd, int dn, int dm);    // FADD Dd, Dn, Dm
+    void asmFSUB_D(int dd, int dn, int dm);    // FSUB Dd, Dn, Dm
+    void asmFMUL_D(int dd, int dn, int dm);    // FMUL Dd, Dn, Dm
+    void asmFDIV_D(int dd, int dn, int dm);    // FDIV Dd, Dn, Dm
+    void asmFSQRT_D(int dd, int dn);           // FSQRT Dd, Dn
+    void asmFABS_D(int dd, int dn);            // FABS Dd, Dn
+    void asmFNEG_D(int dd, int dn);            // FNEG Dd, Dn
+
+    // Floating-point fused multiply-add (double-precision)
+    void asmFMADD_D(int dd, int dn, int dm, int da);  // FMADD Dd,Dn,Dm,Da
+    void asmFMSUB_D(int dd, int dn, int dm, int da);  // FMSUB Dd,Dn,Dm,Da
+    void asmFNMADD_D(int dd, int dn, int dm, int da);
+    void asmFNMSUB_D(int dd, int dn, int dm, int da);
+
+    // Floating-point conversion
+    void asmFCVT_S_D(int sd, int dn);          // FCVT Sd, Dn
+    void asmFCVT_D_S(int dd, int sn);          // FCVT Dd, Sn
+    void asmFCVTZS_W_D(int wd, int dn);        // FCVTZS Wd, Dn
+
+    // Floating-point compare
+    void asmFCMP_D(int dn, int dm);             // FCMP Dn, Dm
+    void asmFCMP_D_zero(int dn);                // FCMP Dn, #0.0
+
+    // Floating-point conditional select / move
+    void asmFCSEL_D(int dd, int dn, int dm, A64Cond cond);
+    void asmFMOV_D_X(int dd, int xn);          // FMOV Dd, Xn
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)
