@@ -226,8 +226,16 @@ Replace interpreter calls with actual AArch64 instructions. Each native gen_ fun
 - All D-form with update: `lwzu`, `stwu`, `lbzu`, `stbu`, `lhzu`, `sthu`, `lhau`
 - All X-form indexed: `lwzx`, `stwx`, `lbzx`, `stbx`, `lhzx`, `sthx`, `lhax`
 - All X-form indexed with update: `lwzux`, `stwux`, `lbzux`, `stbux`, `lhzux`, `sthux`, `lhaux`
+- Byte-reversed: `lwbrx`, `lhbrx`, `stwbrx`, `sthbrx` (native codegen with REV/REV16)
+- Multiple word: `lmw`, `stmw` (unrolled for count ≤ 4, interpreter for larger)
 - Update variants save EA to `cpu->temp2` before the asm stub call (which clobbers W0), then write EA to `gpr[rA]` after successful return. DSI never returns, so rA stays unmodified on exception.
 - All return `flowContinue` — no dispatch overhead between load/store instructions.
+
+**Done - stub pointer optimization:**
+- All 15 asm stub calls (7 load/store, 2 branch dispatch, 4 exception, 2 TLB + gcard_osi) stored as function pointers in `PPC_CPU_State.stubs[]`
+- `asmCALL_cpu(PPC_STUB_*)` emits `LDR X16, [X20, #offset]; BLR X16` — 2 instructions instead of `MOVZ+MOVK+MOVK+BLR` (4 instructions)
+- Saves 2 instructions at ~58 call sites across the translation cache
+- Precomputed size calculations updated to use `JITC::asmCALL_cpu_size` (8 bytes)
 
 **FPU load/store (needed for yaboot):**
 

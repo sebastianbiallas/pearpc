@@ -433,6 +433,15 @@ public:
     // Count leading zeros
     void asmCLZw(NativeReg rd, NativeReg rn); // CLZ Wd, Wn
 
+    // ADD with shifted register (32-bit)
+    void asmADDw_lsr(NativeReg rd, NativeReg rn, NativeReg rm, int shift); // ADD Wd, Wn, Wm, LSR #shift
+
+    // Compare negative (32-bit immediate)
+    void asmCMNw(NativeReg rn, uint32 imm12); // CMN Wn, #imm12
+
+    // Variable shift (32-bit)
+    void asmLSLVw(NativeReg rd, NativeReg rn, NativeReg rm); // LSLV Wd, Wn, Wm
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)

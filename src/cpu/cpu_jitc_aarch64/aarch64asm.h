@@ -77,6 +77,12 @@ A64Instr a64_ADDSw_reg(int rd, int rn, int rm);
 A64Instr a64_SUBSw_reg(int rd, int rn, int rm);
 A64Instr a64_CMPw_reg(int rn, int rm);
 
+/* Shifted register ADD (32-bit) */
+A64Instr a64_ADDw_reg_lsr(int rd, int rn, int rm, int shift); // ADD Wd, Wn, Wm, LSR #shift
+
+/* CMN (immediate, 32-bit) */
+A64Instr a64_CMNw_imm(int rn, uint32 imm12); // CMN Wn, #imm12 = ADDS WZR, Wn, #imm12
+
 /* MOV (register) */
 A64Instr a64_MOV(int rd, int rn);  // MOV Xd, Xn
 A64Instr a64_MOVw(int rd, int rn); // MOV Wd, Wn

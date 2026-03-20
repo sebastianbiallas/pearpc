@@ -429,6 +429,21 @@ void JITC::asmCLZw(NativeReg rd, NativeReg rn)
     emit32(a64_CLZw(rd, rn));
 }
 
+void JITC::asmADDw_lsr(NativeReg rd, NativeReg rn, NativeReg rm, int shift)
+{
+    emit32(a64_ADDw_reg_lsr(rd, rn, rm, shift));
+}
+
+void JITC::asmCMNw(NativeReg rn, uint32 imm12)
+{
+    emit32(a64_CMNw_imm(rn, imm12));
+}
+
+void JITC::asmLSLVw(NativeReg rd, NativeReg rn, NativeReg rm)
+{
+    emit32(a64_LSLVw(rd, rn, rm));
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {

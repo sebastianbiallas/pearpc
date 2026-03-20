@@ -202,6 +202,22 @@ A64Instr a64_ADDw_reg(int rd, int rn, int rm)
     return 0x0B000000 | (rm << 16) | (rn << 5) | rd;
 }
 
+A64Instr a64_ADDw_reg_lsr(int rd, int rn, int rm, int shift)
+{
+    // ADD Wd, Wn, Wm, LSR #shift
+    // sf=0, op=0, S=0, shift=01(LSR), imm6=shift
+    A64_ASSERT_RANGE(shift, 0, 31, "ADDw_reg_lsr shift");
+    return 0x0B400000 | (rm << 16) | (shift << 10) | (rn << 5) | rd;
+}
+
+A64Instr a64_CMNw_imm(int rn, uint32 imm12)
+{
+    // CMN Wn, #imm12 = ADDS WZR, Wn, #imm12
+    A64_ASSERT_REG(rn, "CMNw_imm");
+    A64_ASSERT_RANGE(imm12, 0, 0xFFF, "CMNw_imm imm12");
+    return 0x31000000 | (imm12 << 10) | (rn << 5) | 0x1F;
+}
+
 A64Instr a64_SUBw_reg(int rd, int rn, int rm)
 {
     return 0x4B000000 | (rm << 16) | (rn << 5) | rd;
