@@ -1913,19 +1913,61 @@ JITCFlow ppc_opc_gen_fselx(JITC &jitc)
 	return flowContinue;
 }
 
+/*
+ * Native fcmpu/fcmpo: FCMP D0, D1 then map NZCV to PPC CR + FPSCR FPCC.
+ * NaN (V=1) falls back to interpreter (needs VXSNAN/VXVC flags).
+ */
+static JITCFlow gen_fp_compare(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
+                                int crfD, int frA, int frB)
+{
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+
+	// Load FP registers and compare
+	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
+	jitc.asmLDR_D_cpu(V1, FPR_OFS(frB));
+	jitc.asmFCMP_D(V0, V1);
+
+	// If unordered (NaN), fall back to interpreter
+	NativeAddress bvs_fixup = jitc.asmBccFixup(A64_VS);
+
+	// Build compare result: EQ→0, GT→1, LT→2 (same as integer signed)
+	jitc.asmCSETw(W0, A64_NE);            // W0 = !EQ ? 1 : 0
+	jitc.asmCSINCw(W0, W0, W0, A64_GE);   // if LT: W0++ → EQ=0, GT=1, LT=2
+	jitc.asmMOV(W1, (uint32)2);
+	jitc.asmLSLVw(W0, W1, W0);            // W0 = 2 << index = EQ→2, GT→4, LT→8
+
+	// Update FPSCR FPCC (bits 15:12) and clear C bit (bit 16)
+	// Use BFI to insert a 5-bit field at bits 16:12, clearing C and setting FPCC
+	// W0 has 4-bit result (8/4/2) in bits 3:0, bit 4 is already 0 → clears C
+	jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmBFIw(W1, W0, 12, 5);          // insert 5 bits at 16:12
+	jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, fpscr));
+
+	// Insert 4-bit CR field using BFI (no SO bit for FP compares)
+	int cr_shift = (7 - (crfD >> 2)) * 4;
+	jitc.asmLDRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+	jitc.asmBFIw(W1, W0, cr_shift, 4);
+	jitc.asmSTRw_cpu(W1, offsetof(PPC_CPU_State, cr));
+
+	// Skip over interpreter fallback
+	NativeAddress b_fixup = jitc.asmBFixup();
+
+	// NaN fallback: use interpreter
+	jitc.asmResolveFixup(bvs_fixup);
+	ppc_opc_gen_interpret(jitc, op_fn);
+
+	jitc.asmResolveFixup(b_fixup);
+
+	return flowContinue;
+}
+
 /* fcmpu crfD, frA, frB — floating compare unordered */
 JITCFlow ppc_opc_gen_fcmpu(JITC &jitc)
 {
 	int crfD, frA, frB;
 	PPC_OPC_TEMPL_X(jitc.current_opc, crfD, frA, frB);
-	gen_check_fpu(jitc);
-
-	jitc.clobberAll();
-
-	// Use interpreter — fcmpu updates CR and FPSCR in complex ways
-	// (NaN handling, VXSNAN flag, etc.)
-	ppc_opc_gen_interpret(jitc, ppc_opc_fcmpu);
-	return flowContinue;
+	return gen_fp_compare(jitc, ppc_opc_fcmpu, crfD, frA, frB);
 }
 
 /* fcmpo crfD, frA, frB — floating compare ordered */
@@ -1933,11 +1975,6 @@ JITCFlow ppc_opc_gen_fcmpo(JITC &jitc)
 {
 	int crfD, frA, frB;
 	PPC_OPC_TEMPL_X(jitc.current_opc, crfD, frA, frB);
-	gen_check_fpu(jitc);
-
-	jitc.clobberAll();
-
-	ppc_opc_gen_interpret(jitc, ppc_opc_fcmpo);
-	return flowContinue;
+	return gen_fp_compare(jitc, ppc_opc_fcmpo, crfD, frA, frB);
 }
 

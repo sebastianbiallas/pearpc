@@ -563,16 +563,25 @@ public:
             // CBZ / CBNZ (32/64-bit): re-encode with new imm19
             uint32 base = old & 0xFF00001F; // preserve sf, op, rt
             sint32 imm19 = offset / 4;
+            if (imm19 < -(1 << 18) || imm19 >= (1 << 18)) {
+                PPC_CPU_ERR("[A64] asmResolveFixup: CBZ/CBNZ offset %d out of imm19 range at %p\n", offset, at);
+            }
             patched = base | (((uint32)imm19 & 0x7FFFF) << 5);
         } else if ((old & 0xFF000010) == 0x54000000) {
             // B.cond: re-encode with new imm19
             uint32 base = old & 0xFF00001F; // preserve cond
             sint32 imm19 = offset / 4;
+            if (imm19 < -(1 << 18) || imm19 >= (1 << 18)) {
+                PPC_CPU_ERR("[A64] asmResolveFixup: B.cond offset %d out of imm19 range at %p\n", offset, at);
+            }
             patched = base | (((uint32)imm19 & 0x7FFFF) << 5);
         } else if ((old & 0x7C000000) == 0x14000000) {
             // B / BL: re-encode with new imm26
             uint32 base = old & 0xFC000000;
             sint32 imm26 = offset / 4;
+            if (imm26 < -(1 << 25) || imm26 >= (1 << 25)) {
+                PPC_CPU_ERR("[A64] asmResolveFixup: B/BL offset %d out of imm26 range at %p\n", offset, at);
+            }
             patched = base | ((uint32)imm26 & 0x03FFFFFF);
         } else {
             PPC_CPU_ERR("[A64] asmResolveFixup: unknown insn %08x at %p\n", old, at);

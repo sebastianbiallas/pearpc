@@ -495,6 +495,42 @@ _start:
     lwz     3, 4(8)
     CHECK32 0xAAAAAAAB             /* back to round-to-nearest */
 
+    /* ====== Test 49: fcmpu on cr1 (GT) ====== */
+    PRINT   .Lt49, (.Lt49e - .Lt49)
+    LOAD_DBL 1, 0x40590000, 0x00000000  /* 100.0 */
+    LOAD_DBL 2, 0x40490000, 0x00000000  /* 50.0 */
+    fcmpu   1, 1, 2                     /* compare on CR1 */
+    mfcr    3
+    rlwinm  3, 3, 8, 28, 31            /* extract CR1 (bits 24-27) */
+    CHECK   0x4                         /* GT */
+
+    /* ====== Test 50: fcmpu on cr7 (LT) ====== */
+    PRINT   .Lt50, (.Lt50e - .Lt50)
+    LOAD_DBL 1, 0x40490000, 0x00000000  /* 50.0 */
+    LOAD_DBL 2, 0x40590000, 0x00000000  /* 100.0 */
+    fcmpu   7, 1, 2                     /* compare on CR7 */
+    mfcr    3
+    andi.   3, 3, 0xF                   /* extract CR7 (bits 0-3) */
+    CHECK   0x8                         /* LT */
+
+    /* ====== Test 51: fcmpo (ordered compare, GT) ====== */
+    PRINT   .Lt51, (.Lt51e - .Lt51)
+    LOAD_DBL 1, 0x40590000, 0x00000000  /* 100.0 */
+    LOAD_DBL 2, 0x40490000, 0x00000000  /* 50.0 */
+    fcmpo   0, 1, 2
+    mfcr    3
+    srwi    3, 3, 28
+    CHECK   0x4                         /* GT */
+
+    /* ====== Test 52: fcmpo (ordered compare, EQ) ====== */
+    PRINT   .Lt52, (.Lt52e - .Lt52)
+    LOAD_DBL 1, 0x40590000, 0x00000000  /* 100.0 */
+    LOAD_DBL 2, 0x40590000, 0x00000000  /* 100.0 */
+    fcmpo   0, 1, 2
+    mfcr    3
+    srwi    3, 3, 28
+    CHECK   0x2                         /* EQ */
+
     /* ====== Summary ====== */
     PRINT   .Lsummary, (.Lsummarye - .Lsummary)
     cmpwi   0, 30, 0
@@ -676,11 +712,23 @@ _start:
 .Lt48:
     .ascii  "test 48 fdiv RN=0 again: "
 .Lt48e:
+.Lt49:
+    .ascii  "test 49 fcmpu cr1 GT:    "
+.Lt49e:
+.Lt50:
+    .ascii  "test 50 fcmpu cr7 LT:    "
+.Lt50e:
+.Lt51:
+    .ascii  "test 51 fcmpo GT:        "
+.Lt51e:
+.Lt52:
+    .ascii  "test 52 fcmpo EQ:        "
+.Lt52e:
 .Lsummary:
     .ascii  "\n=== FPU Arith Summary ===\n"
 .Lsummarye:
 .Lpass:
-    .ascii  "All 48 tests passed!\n"
+    .ascii  "All 52 tests passed!\n"
 .Lpasse:
 .Lfailcount:
     .ascii  " test(s) failed\n"
