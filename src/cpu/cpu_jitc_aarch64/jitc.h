@@ -378,7 +378,8 @@ public:
     // Compare
     void asmCMPw(NativeReg rn, NativeReg rm);
     void asmCMPw(NativeReg rn, uint32 imm12);
-    void asmTSTw(NativeReg rn, int immr, int imms); // TST Wn, #bitmask
+    void asmTSTw(NativeReg rn, int immr, int imms); // TST Wn, #bitmask (raw encoding)
+    void asmTSTw_val(NativeReg rn, uint32 mask);    // TST Wn, #mask (auto-encode)
 
     // ALU with flags (32-bit)
     void asmADDSw(NativeReg rd, NativeReg rn, NativeReg rm); // ADDS Wd, Wn, Wm
@@ -394,7 +395,8 @@ public:
     void asmCBNZw(NativeReg rt, sint32 offset); // CBNZ Wt, #offset
 
     // ALU immediate (logical bitmask — raw immr/imms)
-    void asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms); // AND Wn, Wm, #bitmask
+    void asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms); // AND Wn, Wm, #bitmask (raw encoding)
+    void asmANDw_val(NativeReg rd, NativeReg rn, uint32 mask);        // AND Wd, Wn, #mask (auto-encode)
 
     // ALU logical with auto-encoding: tries logical immediate, falls back to MOV+reg.
     // Returns true if encoded as 1 instruction (logical imm), false if 2 (MOV+reg).

@@ -397,6 +397,24 @@ void JITC::asmANDw_imm(NativeReg rd, NativeReg rn, int immr, int imms)
     emit32(a64_ANDw_imm(rd, rn, immr, imms));
 }
 
+void JITC::asmTSTw_val(NativeReg rn, uint32 mask)
+{
+    int immr, imms;
+    if (!a64_encode_log_imm32(mask, immr, imms)) {
+        PPC_ALU_ERR("asmTSTw_val: cannot encode 0x%08x as logical immediate\n", mask);
+    }
+    emit32(a64_TSTw_imm(rn, immr, imms));
+}
+
+void JITC::asmANDw_val(NativeReg rd, NativeReg rn, uint32 mask)
+{
+    int immr, imms;
+    if (!a64_encode_log_imm32(mask, immr, imms)) {
+        PPC_ALU_ERR("asmANDw_val: cannot encode 0x%08x as logical immediate\n", mask);
+    }
+    emit32(a64_ANDw_imm(rd, rn, immr, imms));
+}
+
 bool JITC::asmORRw_imm_or_reg(NativeReg rd, NativeReg rn, uint32 val, NativeReg tmp)
 {
     int immr, imms;

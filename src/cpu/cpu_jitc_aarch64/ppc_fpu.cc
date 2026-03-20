@@ -1413,7 +1413,7 @@ static void gen_check_fpu(JITC &jitc)
 	if (!jitc.checkedFloat) {
 		jitc.clobberAll();
 		jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
-		jitc.asmTSTw(W0, 19, 0); // TST W0, #(1<<13) = MSR_FP
+		jitc.asmTSTw_val(W0, MSR_FP);
 
 		uint body = a64_movw_size(jitc.pc) + JITC::asmCALL_cpu_size;
 		jitc.emitAssure(4 + body);
@@ -1436,7 +1436,7 @@ static NativeAddress gen_check_rounding(JITC &jitc)
 		return NULL;
 	}
 	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1); // TST W0, #3
+	jitc.asmTSTw_val(W0, 0x3); // RN bits
 	NativeAddress fixup = jitc.asmBccFixup(A64_NE);
 	jitc.checkedRounding = true;
 	return fixup;

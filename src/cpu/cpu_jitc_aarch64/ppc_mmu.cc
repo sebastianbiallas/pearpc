@@ -2482,9 +2482,8 @@ JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
     gen_prologue(jitc);
 
     // cr &= 0x0FFFFFFF  (clear CR0)
-    // 32-bit logical imm: 0x0FFFFFFF = 28 ones from bit 0, N=0, immr=0, imms=27
     jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
-    jitc.asmANDw_imm(W16, W16, 0, 27);
+    jitc.asmANDw_val(W16, W16, 0x0FFFFFFF);
     jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
 
     // if (!have_reservation) goto done
@@ -2769,7 +2768,7 @@ static void gen_check_fpu(JITC &jitc)
     if (!jitc.checkedFloat) {
         jitc.clobberAll();
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
-        jitc.asmTSTw(W0, 19, 0); // TST W0, #(1<<13) = MSR_FP
+        jitc.asmTSTw_val(W0, MSR_FP);
 
         uint body = a64_movw_size(jitc.pc) + JITC::asmCALL_cpu_size;
         jitc.emitAssure(4 + body);

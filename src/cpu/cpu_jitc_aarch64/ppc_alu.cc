@@ -83,7 +83,7 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
         // TST W0, #(1<<14) = ANDS WZR, W0, #0x4000 (MSR_PR)
         // Logical immediate encoding for (1<<14): immr=18, imms=0
-        jitc.asmTSTw(W0, 18, 0);
+        jitc.asmTSTw_val(W0, MSR_PR);
 
         // Precompute body size: MOV(pc) + MOV(PRIV) + BL(exception)
         uint body = a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_PRIV) +
@@ -506,7 +506,7 @@ JITCFlow ppc_opc_gen_bclrx(JITC &jitc)
         NativeAddress not_taken = jitc.asmHERE() + dispatch_size;
 
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, lr));
-        jitc.asmANDw_imm(W0, W0, 30, 29); // AND W0, W0, #0xfffffffc
+        jitc.asmANDw_val(W0, W0, 0xFFFFFFFC);
         jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
         jitc.asmAssertHERE(not_taken, "bclrx_cr");
@@ -746,7 +746,7 @@ JITCFlow ppc_opc_gen_slwx(JITC &jitc)
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS)); // X16 = zero-extend(gpr[rS])
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.asmANDw_imm(W17, W17, 0, 5); // AND W17, W17, #0x3F (6-bit shift)
+    jitc.asmANDw_val(W17, W17, 0x3F);
     jitc.asmLSLV(X16, X16, X17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA)); // store low 32 bits
         RC_UPDATE(W16);
@@ -764,7 +764,7 @@ JITCFlow ppc_opc_gen_srwx(JITC &jitc)
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS)); // X16 = zero-extend(gpr[rS])
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.asmANDw_imm(W17, W17, 0, 5); // AND W17, W17, #0x3F (6-bit shift)
+    jitc.asmANDw_val(W17, W17, 0x3F);
     jitc.asmLSRV(X16, X16, X17);
     jitc.asmSTRw_cpu(W16, GPR_OFS(rA)); // store low 32 bits
         RC_UPDATE(W16);
@@ -1200,7 +1200,7 @@ JITCFlow ppc_opc_gen_srawix(JITC &jitc)
         jitc.asmCMPw(W0, (uint32)0);
         jitc.asmCSETw(W0, A64_NE);
         // TST W16, #0x80000000 (sign bit)
-        jitc.asmTSTw(W16, 1, 0);
+        jitc.asmTSTw_val(W16, 0x80000000);
         // CSEL W0, W0, WZR, NE → keep W0 if negative, else 0
         jitc.asmCSELw(W0, W0, WZR, A64_NE);
         jitc.asmSTRw_cpu(W0, XER_CA_OFS);
@@ -1274,7 +1274,7 @@ JITCFlow ppc_opc_gen_srawx(JITC &jitc)
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
-    jitc.asmANDw_imm(W17, W17, 0, 5);    // W17 = rB & 63 (logical imm: 6 ones)
+    jitc.asmANDw_val(W17, W17, 0x3F);     // W17 = rB & 63
 
     // Sign-extend rS to 64-bit, then 64-bit ASR handles SH 0-63 correctly
     jitc.asmSXTW(X0, W16);                // X0 = sign-extended rS
@@ -1287,7 +1287,7 @@ JITCFlow ppc_opc_gen_srawx(JITC &jitc)
     jitc.asmCMPw(W16, W0);                // compare low 32 bits (upper are sign-extended, always match)
     jitc.asmCSETw(W16, A64_NE);           // W16 = (bits shifted out ? 1 : 0)
     // Only set CA if rS was negative
-    jitc.asmTSTw(W0, 1, 0);               // test bit 31 of W0 (sign bit)
+    jitc.asmTSTw_val(W0, 0x80000000);      // test bit 31 of W0 (sign bit)
     jitc.asmCSELw(W16, W16, WZR, A64_NE); // CA = negative ? shifted_out : 0
     jitc.asmSTRw_cpu(W16, XER_CA_OFS);
 

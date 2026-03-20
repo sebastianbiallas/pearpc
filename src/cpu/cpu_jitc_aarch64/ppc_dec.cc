@@ -677,7 +677,7 @@ static void ppc_opc_gen_check_fpu(JITC &jitc)
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
         // TST W0, #(1<<13) = ANDS WZR, W0, #0x2000 (MSR_FP)
         // Logical immediate encoding for (1<<13): immr=19, imms=0
-        jitc.asmTSTw(W0, 19, 0);
+        jitc.asmTSTw_val(W0, MSR_FP);
 
         // Precompute body size: MOV(pc) + BL(exception)
         uint body = a64_movw_size(jitc.pc)
