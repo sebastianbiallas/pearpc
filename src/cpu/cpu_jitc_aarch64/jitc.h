@@ -231,6 +231,7 @@ struct JITC {
 
     bool checkedPriviledge;
     bool checkedFloat;
+    bool checkedRounding;
     bool checkedVector;
 
     NativeRegType *nativeRegsList[JITC_NUM_NATIVE_REGS];

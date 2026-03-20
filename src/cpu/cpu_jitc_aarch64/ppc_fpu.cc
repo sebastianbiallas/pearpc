@@ -1428,6 +1428,20 @@ static void gen_check_fpu(JITC &jitc)
 	}
 }
 
+// Returns the B.NE fixup address, or NULL if check was skipped (already validated).
+// If NULL, the caller must NOT emit the interpreter fallback path.
+static NativeAddress gen_check_rounding(JITC &jitc)
+{
+	if (jitc.checkedRounding) {
+		return NULL;
+	}
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	jitc.asmTSTw(W0, 0, 1); // TST W0, #3
+	NativeAddress fixup = jitc.asmBccFixup(A64_NE);
+	jitc.checkedRounding = true;
+	return fixup;
+}
+
 /* fmr frD, frB — copy 64-bit fpr */
 JITCFlow ppc_opc_gen_fmrx(JITC &jitc)
 {
@@ -1549,22 +1563,19 @@ static JITCFlow gen_fp_binop_double(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 
 	jitc.clobberAll();
 
-	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1); // TST W0, #3
-
-	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+	NativeAddress bne_fixup = gen_check_rounding(jitc);
 
 	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
 	jitc.asmLDR_D_cpu(V1, FPR_OFS(frB_or_frC));
 	emit_op(jitc);
 	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
 
-	NativeAddress b_fixup = jitc.asmBFixup();
-
-	jitc.asmResolveFixup(bne_fixup);
-	ppc_opc_gen_interpret(jitc, op_fn);
-
-	jitc.asmResolveFixup(b_fixup);
+	if (bne_fixup) {
+		NativeAddress b_fixup = jitc.asmBFixup();
+		jitc.asmResolveFixup(bne_fixup);
+		ppc_opc_gen_interpret(jitc, op_fn);
+		jitc.asmResolveFixup(b_fixup);
+	}
 
 	return flowContinue;
 }
@@ -1582,10 +1593,7 @@ static JITCFlow gen_fp_binop_single(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 
 	jitc.clobberAll();
 
-	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1);
-
-	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+	NativeAddress bne_fixup = gen_check_rounding(jitc);
 
 	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
 	jitc.asmLDR_D_cpu(V1, FPR_OFS(frB_or_frC));
@@ -1594,12 +1602,12 @@ static JITCFlow gen_fp_binop_single(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 	jitc.asmFCVT_D_S(V0, V0);
 	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
 
-	NativeAddress b_fixup = jitc.asmBFixup();
-
-	jitc.asmResolveFixup(bne_fixup);
-	ppc_opc_gen_interpret(jitc, op_fn);
-
-	jitc.asmResolveFixup(b_fixup);
+	if (bne_fixup) {
+		NativeAddress b_fixup = jitc.asmBFixup();
+		jitc.asmResolveFixup(bne_fixup);
+		ppc_opc_gen_interpret(jitc, op_fn);
+		jitc.asmResolveFixup(b_fixup);
+	}
 
 	return flowContinue;
 }
@@ -1690,10 +1698,7 @@ static JITCFlow gen_fp_fma_double(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 
 	jitc.clobberAll();
 
-	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1);
-
-	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+	NativeAddress bne_fixup = gen_check_rounding(jitc);
 
 	// D0=frA (Dn), D1=frC (Dm), D2=frB (Da)
 	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
@@ -1702,12 +1707,12 @@ static JITCFlow gen_fp_fma_double(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 	emit_op(jitc);
 	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
 
-	NativeAddress b_fixup = jitc.asmBFixup();
-
-	jitc.asmResolveFixup(bne_fixup);
-	ppc_opc_gen_interpret(jitc, op_fn);
-
-	jitc.asmResolveFixup(b_fixup);
+	if (bne_fixup) {
+		NativeAddress b_fixup = jitc.asmBFixup();
+		jitc.asmResolveFixup(bne_fixup);
+		ppc_opc_gen_interpret(jitc, op_fn);
+		jitc.asmResolveFixup(b_fixup);
+	}
 
 	return flowContinue;
 }
@@ -1724,10 +1729,7 @@ static JITCFlow gen_fp_fma_single(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 
 	jitc.clobberAll();
 
-	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1);
-
-	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+	NativeAddress bne_fixup = gen_check_rounding(jitc);
 
 	jitc.asmLDR_D_cpu(V0, FPR_OFS(frA));
 	jitc.asmLDR_D_cpu(V1, FPR_OFS(frC));
@@ -1737,12 +1739,12 @@ static JITCFlow gen_fp_fma_single(JITC &jitc, int (*op_fn)(PPC_CPU_State &),
 	jitc.asmFCVT_D_S(V0, V0);
 	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
 
-	NativeAddress b_fixup = jitc.asmBFixup();
-
-	jitc.asmResolveFixup(bne_fixup);
-	ppc_opc_gen_interpret(jitc, op_fn);
-
-	jitc.asmResolveFixup(b_fixup);
+	if (bne_fixup) {
+		NativeAddress b_fixup = jitc.asmBFixup();
+		jitc.asmResolveFixup(bne_fixup);
+		ppc_opc_gen_interpret(jitc, op_fn);
+		jitc.asmResolveFixup(b_fixup);
+	}
 
 	return flowContinue;
 }
@@ -1820,18 +1822,18 @@ JITCFlow ppc_opc_gen_fsqrtx(JITC &jitc)
 
 	jitc.clobberAll();
 
-	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1);
-	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+	NativeAddress bne_fixup = gen_check_rounding(jitc);
 
 	jitc.asmLDR_D_cpu(V0, FPR_OFS(frB));
 	jitc.asmFSQRT_D(V0, V0);
 	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
 
-	NativeAddress b_fixup = jitc.asmBFixup();
-	jitc.asmResolveFixup(bne_fixup);
-	ppc_opc_gen_interpret(jitc, ppc_opc_fsqrtx);
-	jitc.asmResolveFixup(b_fixup);
+	if (bne_fixup) {
+		NativeAddress b_fixup = jitc.asmBFixup();
+		jitc.asmResolveFixup(bne_fixup);
+		ppc_opc_gen_interpret(jitc, ppc_opc_fsqrtx);
+		jitc.asmResolveFixup(b_fixup);
+	}
 
 	return flowContinue;
 }
@@ -1849,19 +1851,19 @@ JITCFlow ppc_opc_gen_frspx(JITC &jitc)
 
 	jitc.clobberAll();
 
-	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
-	jitc.asmTSTw(W0, 0, 1);
-	NativeAddress bne_fixup = jitc.asmBccFixup(A64_NE);
+	NativeAddress bne_fixup = gen_check_rounding(jitc);
 
 	jitc.asmLDR_D_cpu(V0, FPR_OFS(frB));
 	jitc.asmFCVT_S_D(V0, V0); // double → single (rounds)
 	jitc.asmFCVT_D_S(V0, V0); // single → double (extend)
 	jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
 
-	NativeAddress b_fixup = jitc.asmBFixup();
-	jitc.asmResolveFixup(bne_fixup);
-	ppc_opc_gen_interpret(jitc, ppc_opc_frspx);
-	jitc.asmResolveFixup(b_fixup);
+	if (bne_fixup) {
+		NativeAddress b_fixup = jitc.asmBFixup();
+		jitc.asmResolveFixup(bne_fixup);
+		ppc_opc_gen_interpret(jitc, ppc_opc_frspx);
+		jitc.asmResolveFixup(b_fixup);
+	}
 
 	return flowContinue;
 }

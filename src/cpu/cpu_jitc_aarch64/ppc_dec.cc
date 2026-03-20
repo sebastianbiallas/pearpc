@@ -184,11 +184,37 @@ GEN_INTERPRET(frsqrtex)
 GEN_INTERPRET(fctiwx)
 // fnegx, fmrx — native codegen in ppc_fpu.cc
 GEN_INTERPRET(mffsx)
-GEN_INTERPRET(mcrfs)
-GEN_INTERPRET(mtfsb0x)
-GEN_INTERPRET(mtfsb1x)
-GEN_INTERPRET(mtfsfx)
-GEN_INTERPRET(mtfsfix)
+// FPSCR-modifying opcodes must reset checkedRounding
+JITCFlow ppc_opc_gen_mcrfs(JITC &jitc)
+{
+	jitc.checkedRounding = false;
+	ppc_opc_gen_interpret(jitc, ppc_opc_mcrfs);
+	return flowContinue;
+}
+JITCFlow ppc_opc_gen_mtfsb0x(JITC &jitc)
+{
+	jitc.checkedRounding = false;
+	ppc_opc_gen_interpret(jitc, ppc_opc_mtfsb0x);
+	return flowContinue;
+}
+JITCFlow ppc_opc_gen_mtfsb1x(JITC &jitc)
+{
+	jitc.checkedRounding = false;
+	ppc_opc_gen_interpret(jitc, ppc_opc_mtfsb1x);
+	return flowContinue;
+}
+JITCFlow ppc_opc_gen_mtfsfx(JITC &jitc)
+{
+	jitc.checkedRounding = false;
+	ppc_opc_gen_interpret(jitc, ppc_opc_mtfsfx);
+	return flowContinue;
+}
+JITCFlow ppc_opc_gen_mtfsfix(JITC &jitc)
+{
+	jitc.checkedRounding = false;
+	ppc_opc_gen_interpret(jitc, ppc_opc_mtfsfix);
+	return flowContinue;
+}
 
 /* Misc */
 /* twi, tw have native gen_ in ppc_alu.cc */

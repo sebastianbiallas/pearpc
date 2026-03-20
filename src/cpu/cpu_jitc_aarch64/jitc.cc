@@ -824,6 +824,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     jitc.invalidateAll();
     jitc.checkedPriviledge = false;
     jitc.checkedFloat = false;
+    jitc.checkedRounding = false;
     jitc.checkedVector = false;
 
     while (1) {
@@ -838,6 +839,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 
             jitc.checkedPriviledge = false;
             jitc.checkedFloat = false;
+            jitc.checkedRounding = false;
             jitc.checkedVector = false;
             if (ofs + 4 < 4096) {
                 jitcCreateEntrypoint(cp, ofs + 4);
