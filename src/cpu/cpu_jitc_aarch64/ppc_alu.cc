@@ -3662,6 +3662,12 @@ int ppc_opc_sync(PPC_CPU_State &aCPU)
     return 0;
 }
 
+JITCFlow ppc_opc_gen_sync(JITC &jitc)
+{
+    // NO-OP
+    return flowContinue;
+}
+
 /*
  *	tlbia		Translation Lookaside Buffer Invalidate All
  *	.676

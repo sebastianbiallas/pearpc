@@ -2758,3 +2758,4 @@ JITCFlow ppc_opc_gen_stfdux(JITC &jitc)
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
 }
+

@@ -446,6 +446,9 @@ public:
     void asmSXTBw(NativeReg rd, NativeReg rn); // SXTB Wd, Wn
     void asmSXTHw(NativeReg rd, NativeReg rn); // SXTH Wd, Wn
 
+    // 64-bit EOR with logical immediate
+    void asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms);
+
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over
     void asmBccForward(A64Cond cond, uint skip_bytes)

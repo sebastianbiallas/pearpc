@@ -1398,3 +1398,59 @@ int ppc_opc_fsubsx(PPC_CPU_State &aCPU)
     }
 	return 0;
 }
+
+/*
+ *  === Native JIT codegen for FP register operations ===
+ */
+
+#include "jitc.h"
+#include "jitc_asm.h"
+
+#define FPR_OFS(n) (offsetof(PPC_CPU_State, fpr) + (n) * sizeof(uint64))
+
+static void gen_check_fpu(JITC &jitc)
+{
+	if (!jitc.checkedFloat) {
+		jitc.clobberAll();
+		jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
+		jitc.asmTSTw(W0, 19, 0); // TST W0, #(1<<13) = MSR_FP
+
+		uint body = a64_movw_size(jitc.pc) + JITC::asmCALL_cpu_size;
+		jitc.emitAssure(4 + body);
+		NativeAddress target = jitc.asmHERE() + 4 + body;
+		jitc.asmBccForward(A64_NE, body);
+
+		jitc.asmMOV(W0, jitc.pc);
+		jitc.asmCALL_cpu(PPC_STUB_NO_FPU_EXC);
+
+		jitc.asmAssertHERE(target, "check_fpu_fpu");
+		jitc.checkedFloat = true;
+	}
+}
+
+/* fmr frD, frB — copy 64-bit fpr */
+JITCFlow ppc_opc_gen_fmrx(JITC &jitc)
+{
+	int frD, rA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, frB);
+	(void)rA;
+	gen_check_fpu(jitc);
+	jitc.asmLDR_cpu(X16, FPR_OFS(frB));
+	jitc.asmSTR_cpu(X16, FPR_OFS(frD));
+	return flowContinue;
+}
+
+/* fneg frD, frB — negate (flip sign bit 63) */
+JITCFlow ppc_opc_gen_fnegx(JITC &jitc)
+{
+	int frD, rA, frB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, frB);
+	(void)rA;
+	gen_check_fpu(jitc);
+	jitc.asmLDR_cpu(X16, FPR_OFS(frB));
+	// EOR X16, X16, #0x8000000000000000 (N=1, immr=0, imms=0)
+	jitc.asmEOR_imm(X16, X16, 1, 0, 0);
+	jitc.asmSTR_cpu(X16, FPR_OFS(frD));
+	return flowContinue;
+}
+

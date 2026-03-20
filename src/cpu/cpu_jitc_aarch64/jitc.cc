@@ -454,6 +454,11 @@ void JITC::asmSXTHw(NativeReg rd, NativeReg rn)
     emit32(a64_SXTHw(rd, rn));
 }
 
+void JITC::asmEOR_imm(NativeReg rd, NativeReg rn, int N, int immr, int imms)
+{
+    emit32(a64_EOR_imm(rd, rn, N, immr, imms));
+}
+
 static void jitcEmitAlign(JITC &jitc, uint align)
 {
     do {

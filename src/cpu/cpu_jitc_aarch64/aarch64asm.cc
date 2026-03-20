@@ -221,6 +221,12 @@ A64Instr a64_CMNw_imm(int rn, uint32 imm12)
 A64Instr a64_SXTBw(int rd, int rn) { return 0x13001C00 | (rn << 5) | rd; }
 A64Instr a64_SXTHw(int rd, int rn) { return 0x13003C00 | (rn << 5) | rd; }
 
+A64Instr a64_EOR_imm(int rd, int rn, int N, int immr, int imms)
+{
+    // EOR Xd, Xn, #bitmask  (sf=1, opc=10, N|immr|imms)
+    return 0xD2000000 | (N << 22) | (immr << 16) | (imms << 10) | (rn << 5) | rd;
+}
+
 A64Instr a64_SUBw_reg(int rd, int rn, int rm)
 {
     return 0x4B000000 | (rm << 16) | (rn << 5) | rd;

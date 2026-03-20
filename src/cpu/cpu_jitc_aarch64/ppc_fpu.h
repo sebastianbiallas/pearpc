@@ -714,4 +714,8 @@ int ppc_opc_fsqrtsx(PPC_CPU_State &aCPU);
 int ppc_opc_fsubx(PPC_CPU_State &aCPU);
 int ppc_opc_fsubsx(PPC_CPU_State &aCPU);
 
+#include "jitc_types.h"
+JITCFlow ppc_opc_gen_fmrx(JITC &jitc);
+JITCFlow ppc_opc_gen_fnegx(JITC &jitc);
+
 #endif

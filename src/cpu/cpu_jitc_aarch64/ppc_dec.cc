@@ -207,8 +207,7 @@ GEN_INTERPRET(fctiwx)
 GEN_INTERPRET(fctiwzx)
 GEN_INTERPRET(fabsx)
 GEN_INTERPRET(fnabsx)
-GEN_INTERPRET(fnegx)
-GEN_INTERPRET(fmrx)
+// fnegx, fmrx — native codegen in ppc_fpu.cc
 GEN_INTERPRET(mffsx)
 GEN_INTERPRET(mcrfs)
 GEN_INTERPRET(mtfsb0x)
@@ -221,7 +220,7 @@ GEN_INTERPRET(mtfsfix)
 GEN_INTERPRET(eciwx)
 GEN_INTERPRET(ecowx)
 GEN_INTERPRET(isync)
-GEN_INTERPRET(sync)
+// sync — no-op in emulator, native codegen below
 GEN_INTERPRET(eieio)
 /* tlbie, tlbia, tlbsync have native gen_ in ppc_alu.cc */
 GEN_INTERPRET_ENDBLOCK(icbi)
