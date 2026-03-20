@@ -62,7 +62,7 @@ Exit code 0 = all tests passed. Nonzero = number of failures.
 | Test | Config | Description |
 |------|--------|-------------|
 | `test_loop.S` | `test_loop.cfg` | Hello world + counting loop. Basic JIT validation. |
-| `test_alu.S` | `test_alu.cfg` | 22 ALU tests: addi, addis, add, subf, ori, and, xor, slw, srw, neg, mullw, oris, xori, xoris, or, stw/lwz, stb/lbz, sth/lhz, rlwinm, cmp/branch, mtspr/mfspr, mfcr/cmpwi. |
+| `test_alu.S` | `test_alu.cfg` | 51 ALU tests: addi, addis, add, subf, ori, and, xor, slw, srw, neg, mullw, oris, xori, xoris, or, stw/lwz, stb/lbz, sth/lhz, rlwinm, cmp/branch, mtspr/mfspr, mfcr/cmpwi, mfmsr, mtmsr, mulli, mulhwu, rlwimi, nor, orc, cntlzw, subfic, lwbrx, stwbrx, divwu, addic, adde, subfe, srawi, lwarx/stwcx. reservation semantics. |
 | `test_mem.S` | `test_mem.cfg` | 18 memory tests: word/half/byte store/load, byte-in-word extraction, multi-page stride, 1024-word XOR loop, cross-size access patterns. |
 | `test_dsi.S` | `test_dsi.cfg` | DSI exception handling: installs handler at vector 0x300, accesses unmapped pages to trigger DSI, handler creates PTE and returns via rfi, verifies retry succeeds. Tests lwz/stw/sth/stb/lhz/lbz through DSI-mapped pages. |
 | `test_branch_loop.S` | `test_branch_loop.cfg` | Branch loop patterns: counted loops with `bl` calls inside (same-page `ble` + `bl` dispatch). Tests the exact pattern from the kernel's softirq init loop. Also tests `bdnz`, accumulator loops, and multi-register loop state. |

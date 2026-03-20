@@ -228,6 +228,7 @@ Replace interpreter calls with actual AArch64 instructions. Each native gen_ fun
 - All X-form indexed with update: `lwzux`, `stwux`, `lbzux`, `stbux`, `lhzux`, `sthux`, `lhaux`
 - Byte-reversed: `lwbrx`, `lhbrx`, `stwbrx`, `sthbrx` (native codegen with REV/REV16)
 - Multiple word: `lmw`, `stmw` (unrolled for count ≤ 4, interpreter for larger)
+- Reservation: `lwarx`, `stwcx.` (native codegen with forward-branch patching for CR0 update)
 - Update variants save EA to `cpu->temp2` before the asm stub call (which clobbers W0), then write EA to `gpr[rA]` after successful return. DSI never returns, so rA stays unmodified on exception.
 - All return `flowContinue` — no dispatch overhead between load/store instructions.
 

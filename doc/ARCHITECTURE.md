@@ -133,7 +133,7 @@ Same architecture as the x86 JIT but targeting x86_64. Takes advantage of 16 GPR
 
 ### AArch64 JIT Compiler (`cpu_jitc_aarch64/`)
 
-JIT compiler targeting AArch64 (ARM64), primarily for macOS on Apple Silicon. Uses MAP_JIT + pthread_jit_write_protect_np for W^X compliance. Most opcodes use GEN_INTERPRET (calling the C++ interpreter via BLR); 6 core load/store opcodes (lwz/stw/lbz/stb/lhz/sth) have native code generation with TLB fast path. See `doc/AARCH64_JIT_PORT.md` for details.
+JIT compiler targeting AArch64 (ARM64), primarily for macOS on Apple Silicon. Uses MAP_JIT + pthread_jit_write_protect_np for W^X compliance. ALU/compare/rotate/SPR/CR ops, branches (b/bl/bc with native TBZ/TBNZ/CBZ codegen), and all integer load/store variants (D-form, X-form, update, byte-reversed, multiple, lwarx/stwcx.) have native code generation. FPU and AltiVec opcodes use GEN_INTERPRET (calling the C++ interpreter via BLR). See `doc/AARCH64_JIT_PORT.md` for details.
 
 ### CPU Interface (`cpu.h`)
 

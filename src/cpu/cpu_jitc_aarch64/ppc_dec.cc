@@ -153,8 +153,7 @@ GEN_INTERPRET(mcrf)
  */
 /* lwzu..sthux now have native codegen in ppc_mmu.cc */
 /* lmw/stmw now have native codegen in ppc_mmu.cc (unrolled for ≤4 regs) */
-GEN_INTERPRET_LOADSTORE(lwarx)
-GEN_INTERPRET_LOADSTORE(stwcx_)
+/* lwarx, stwcx_ — native codegen in ppc_mmu.cc */
 GEN_INTERPRET_LOADSTORE(lswi)
 GEN_INTERPRET_LOADSTORE(lswx)
 GEN_INTERPRET_LOADSTORE(stswi)
@@ -331,6 +330,10 @@ static JITCFlow ppc_opc_gen_special(JITC &jitc)
 {
     // Handle custom opcodes and PROM OSI calls via interpreter
     ppc_opc_gen_interpret(jitc, ppc_opc_special);
+    // Exit opcode (0x00333304) calls exit() and never returns.
+    if (jitc.current_opc == 0x00333304) {
+        return flowEndBlockUnreachable;
+    }
     return flowEndBlock;
 }
 

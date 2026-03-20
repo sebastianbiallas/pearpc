@@ -2384,6 +2384,102 @@ JITCFlow ppc_opc_gen_sthx(JITC &jitc)
 }
 
 /*
+ *  === lwarx / stwcx. ===
+ */
+
+JITCFlow ppc_opc_gen_lwarx(JITC &jitc)
+{
+	int rD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
+	// rD = result
+	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
+	// reserve = result
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, reserve));
+	// have_reservation = 1
+	jitc.asmMOV(W16, 1);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, have_reservation));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stwcx_(JITC &jitc)
+{
+	int rS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
+	jitc.clobberAll();
+	// Reserve enough space for the entire codegen to avoid fragment
+	// boundaries between forward-branch placeholders and their targets.
+	jitc.emitAssure(128);
+	gen_prologue(jitc);
+
+	// cr &= 0x0FFFFFFF  (clear CR0)
+	// 32-bit logical imm: 0x0FFFFFFF = 28 ones from bit 0, N=0, immr=0, imms=27
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+	jitc.asmANDw_imm(W16, W16, 0, 27);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+
+	// if (!have_reservation) goto done
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, have_reservation));
+	jitc.emitAssure(4);
+	NativeAddress cbz_patch = jitc.asmHERE();
+	jitc.emit32(0); // placeholder CBZw
+
+	// have_reservation = 0
+	jitc.asmMOV(W16, 0);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, have_reservation));
+
+	// EA into W0, save in temp2 (asm stub clobbers W0-W18)
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+
+	// Read current value at EA
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
+
+	// Compare with reserve
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, reserve));
+	jitc.asmCMPw(W0, W16);
+
+	// if (value != reserve) goto skip_write
+	jitc.emitAssure(4);
+	NativeAddress bne_patch = jitc.asmHERE();
+	jitc.emit32(0); // placeholder B.NE
+
+	// Store gpr[rS] to EA (reload EA from temp2, reload W9 = pc_ofs)
+	gen_prologue(jitc);
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
+
+	// cr |= CR_CR0_EQ  (bit 29 = 0x20000000)
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+	jitc.asmMOV(W17, (uint32)CR_CR0_EQ);
+	jitc.asmORRw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+
+	// skip_write:
+	NativeAddress skip_write = jitc.asmHERE();
+	*(uint32 *)bne_patch = a64_Bcc(A64_NE, (sint32)(skip_write - bne_patch));
+
+	// if (xer & XER_SO) cr |= CR_CR0_SO
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, xer));
+	// TBZ W16, #31, +24  (skip 5 insns: LDR+MOVZ+MOVK+ORR+STR)
+	jitc.asmTBZ(W16, 31, 24);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+	jitc.asmMOV(W17, (uint32)CR_CR0_SO);
+	jitc.asmORRw(W16, W16, W17);
+	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, cr));
+
+	// done:
+	NativeAddress done = jitc.asmHERE();
+	*(uint32 *)cbz_patch = a64_CBZw(W16, (sint32)(done - cbz_patch));
+
+	return flowContinue;
+}
+
+/*
  *  === X-form indexed loads with update ===
  *  EA = gpr[rA] + gpr[rB], rD = MEM[EA], rA = EA
  */

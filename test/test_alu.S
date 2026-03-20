@@ -579,6 +579,120 @@ _start:
     CHECK   2
 
     /*
+     * Test 47: lwarx/stwcx. — successful reservation
+     *
+     * lwarx loads a word and sets a reservation.
+     * stwcx. with matching reservation should store and set CR0.EQ.
+     */
+    PRINT   .Ltest47, (.Ltest47_end - .Ltest47)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    lis     0, 0xDEAD
+    ori     0, 0, 0xBEEF
+    stw     0, 0(8)                 /* mem = 0xDEADBEEF */
+    lwarx   3, 0, 8                 /* r3 = 0xDEADBEEF, reservation set */
+    lis     0, 0xCAFE
+    ori     0, 0, 0xBABE
+    stwcx.  0, 0, 8                 /* store 0xCAFEBABE (should succeed) */
+    bne     .Lt47_fail
+    lwz     3, 0(8)                 /* verify store happened */
+    CHECK32 0xCAFEBABE
+    b       .Lt47_done
+.Lt47_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Lt47_done:
+
+    /*
+     * Test 48: lwarx — correct load value
+     *
+     * Verify lwarx returns the word at the effective address.
+     */
+    PRINT   .Ltest48, (.Ltest48_end - .Ltest48)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    lis     0, 0x1234
+    ori     0, 0, 0x5678
+    stw     0, 0(8)
+    lwarx   3, 0, 8
+    CHECK32 0x12345678
+
+    /*
+     * Test 49: stwcx. without reservation — should NOT store, CR0.EQ=0
+     *
+     * After a successful stwcx., the reservation is cleared.
+     * A second stwcx. without lwarx should fail (CR0.EQ=0).
+     */
+    PRINT   .Ltest49, (.Ltest49_end - .Ltest49)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    lis     0, 0xAAAA
+    ori     0, 0, 0xBBBB
+    stw     0, 0(8)                 /* mem = 0xAAAABBBB */
+    lwarx   3, 0, 8                 /* reserve */
+    stwcx.  0, 0, 8                 /* consume reservation (succeeds) */
+    /* Now try again without lwarx — should fail */
+    lis     0, 0x1111
+    ori     0, 0, 0x2222
+    stwcx.  0, 0, 8                 /* no reservation → should NOT store */
+    beq     .Lt49_fail              /* if EQ set, stwcx wrongly succeeded */
+    lwz     3, 0(8)                 /* mem should still be 0xAAAABBBB */
+    CHECK32 0xAAAABBBB
+    b       .Lt49_done
+.Lt49_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Lt49_done:
+
+    /*
+     * Test 50: stwcx. with modified memory — should NOT store
+     *
+     * lwarx reads value V, another store changes memory to V2,
+     * stwcx. re-reads and compares with reserve (V). Since V != V2,
+     * stwcx. should fail (CR0.EQ=0) and NOT write.
+     */
+    PRINT   .Ltest50, (.Ltest50_end - .Ltest50)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    lis     0, 0x1111
+    ori     0, 0, 0x1111
+    stw     0, 0(8)                 /* mem = 0x11111111 */
+    lwarx   3, 0, 8                 /* r3 = 0x11111111, reserve = 0x11111111 */
+    /* Intervening store changes memory */
+    lis     0, 0x2222
+    ori     0, 0, 0x2222
+    stw     0, 0(8)                 /* mem = 0x22222222 (reserve still 0x11111111) */
+    lis     0, 0x3333
+    ori     0, 0, 0x3333
+    stwcx.  0, 0, 8                 /* re-reads 0x22222222 != reserve 0x11111111 → fail */
+    beq     .Lt50_fail              /* if EQ set, stwcx wrongly succeeded */
+    lwz     3, 0(8)                 /* mem should still be 0x22222222 */
+    CHECK32 0x22222222
+    b       .Lt50_done
+.Lt50_fail:
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+.Lt50_done:
+
+    /*
+     * Test 51: lwarx with rA+rB addressing
+     */
+    PRINT   .Ltest51, (.Ltest51_end - .Ltest51)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    li      7, 16                   /* offset */
+    lis     0, 0xFEED
+    ori     0, 0, 0xFACE
+    stw     0, 16(8)                /* mem[scratch+16] = 0xFEEDFACE */
+    lwarx   3, 8, 7                 /* EA = r8 + r7 = scratch+16 */
+    CHECK32 0xFEEDFACE
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -740,6 +854,21 @@ _start:
 .Ltest46:
     .ascii  "test 46 mfcr:        "
 .Ltest46_end:
+.Ltest47:
+    .ascii  "test 47 lwarx+stwcx: "
+.Ltest47_end:
+.Ltest48:
+    .ascii  "test 48 lwarx val:   "
+.Ltest48_end:
+.Ltest49:
+    .ascii  "test 49 stwcx no res:"
+.Ltest49_end:
+.Ltest50:
+    .ascii  "test 50 stwcx stale: "
+.Ltest50_end:
+.Ltest51:
+    .ascii  "test 51 lwarx rA+rB: "
+.Ltest51_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
@@ -753,3 +882,8 @@ _start:
     .ascii  "OK\n"
 .Lfail:
     .ascii  "FAIL\n"
+
+    .data
+    .p2align 4
+.Lscratch:
+    .space  256
