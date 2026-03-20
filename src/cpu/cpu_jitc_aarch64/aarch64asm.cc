@@ -163,49 +163,56 @@ A64Instr a64_CMPw_imm(int rn, uint32 imm12)
  */
 A64Instr a64_ADD_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ADD_reg"); A64_ASSERT_REG(rn, "ADD_reg"); A64_ASSERT_REG(rm, "ADD_reg");
     return 0x8B000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_SUB_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "SUB_reg"); A64_ASSERT_REG(rn, "SUB_reg"); A64_ASSERT_REG(rm, "SUB_reg");
     return 0xCB000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_AND_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "AND_reg"); A64_ASSERT_REG(rn, "AND_reg"); A64_ASSERT_REG(rm, "AND_reg");
     return 0x8A000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_ORR_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ORR_reg"); A64_ASSERT_REG(rn, "ORR_reg"); A64_ASSERT_REG(rm, "ORR_reg");
     return 0xAA000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_EOR_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "EOR_reg"); A64_ASSERT_REG(rn, "EOR_reg"); A64_ASSERT_REG(rm, "EOR_reg");
     return 0xCA000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_ADDS_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ADDS_reg"); A64_ASSERT_REG(rn, "ADDS_reg"); A64_ASSERT_REG(rm, "ADDS_reg");
     return 0xAB000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_SUBS_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "SUBS_reg"); A64_ASSERT_REG(rn, "SUBS_reg"); A64_ASSERT_REG(rm, "SUBS_reg");
     return 0xEB000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 /* 32-bit register ops */
 A64Instr a64_ADDw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ADDw_reg"); A64_ASSERT_REG(rn, "ADDw_reg"); A64_ASSERT_REG(rm, "ADDw_reg");
     return 0x0B000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_ADDw_reg_lsr(int rd, int rn, int rm, int shift)
 {
-    // ADD Wd, Wn, Wm, LSR #shift
-    // sf=0, op=0, S=0, shift=01(LSR), imm6=shift
+    A64_ASSERT_REG(rd, "ADDw_reg_lsr"); A64_ASSERT_REG(rn, "ADDw_reg_lsr"); A64_ASSERT_REG(rm, "ADDw_reg_lsr");
     A64_ASSERT_RANGE(shift, 0, 31, "ADDw_reg_lsr shift");
     return 0x0B400000 | (rm << 16) | (shift << 10) | (rn << 5) | rd;
 }
@@ -218,42 +225,60 @@ A64Instr a64_CMNw_imm(int rn, uint32 imm12)
     return 0x31000000 | (imm12 << 10) | (rn << 5) | 0x1F;
 }
 
-A64Instr a64_SXTBw(int rd, int rn) { return 0x13001C00 | (rn << 5) | rd; }
-A64Instr a64_SXTHw(int rd, int rn) { return 0x13003C00 | (rn << 5) | rd; }
+A64Instr a64_SXTBw(int rd, int rn)
+{
+    A64_ASSERT_REG(rd, "SXTBw"); A64_ASSERT_REG(rn, "SXTBw");
+    return 0x13001C00 | (rn << 5) | rd;
+}
+
+A64Instr a64_SXTHw(int rd, int rn)
+{
+    A64_ASSERT_REG(rd, "SXTHw"); A64_ASSERT_REG(rn, "SXTHw");
+    return 0x13003C00 | (rn << 5) | rd;
+}
 
 A64Instr a64_EOR_imm(int rd, int rn, int N, int immr, int imms)
 {
-    // EOR Xd, Xn, #bitmask  (sf=1, opc=10, N|immr|imms)
+    A64_ASSERT_REG(rd, "EOR_imm"); A64_ASSERT_REG(rn, "EOR_imm");
+    A64_ASSERT_RANGE(N, 0, 1, "EOR_imm N");
+    A64_ASSERT_RANGE(immr, 0, 63, "EOR_imm immr");
+    A64_ASSERT_RANGE(imms, 0, 63, "EOR_imm imms");
     return 0xD2000000 | (N << 22) | (immr << 16) | (imms << 10) | (rn << 5) | rd;
 }
 
 A64Instr a64_SUBw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "SUBw_reg"); A64_ASSERT_REG(rn, "SUBw_reg"); A64_ASSERT_REG(rm, "SUBw_reg");
     return 0x4B000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_ANDw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ANDw_reg"); A64_ASSERT_REG(rn, "ANDw_reg"); A64_ASSERT_REG(rm, "ANDw_reg");
     return 0x0A000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_ORRw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ORRw_reg"); A64_ASSERT_REG(rn, "ORRw_reg"); A64_ASSERT_REG(rm, "ORRw_reg");
     return 0x2A000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_EORw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "EORw_reg"); A64_ASSERT_REG(rn, "EORw_reg"); A64_ASSERT_REG(rm, "EORw_reg");
     return 0x4A000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_ADDSw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ADDSw_reg"); A64_ASSERT_REG(rn, "ADDSw_reg"); A64_ASSERT_REG(rm, "ADDSw_reg");
     return 0x2B000000 | (rm << 16) | (rn << 5) | rd;
 }
 
 A64Instr a64_SUBSw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "SUBSw_reg"); A64_ASSERT_REG(rn, "SUBSw_reg"); A64_ASSERT_REG(rm, "SUBSw_reg");
     return 0x6B000000 | (rm << 16) | (rn << 5) | rd;
 }
 
@@ -276,6 +301,7 @@ A64Instr a64_MOVw(int rd, int rn)
 /* Logical (register) with flag setting */
 A64Instr a64_ANDSw_reg(int rd, int rn, int rm)
 {
+    A64_ASSERT_REG(rd, "ANDSw_reg"); A64_ASSERT_REG(rn, "ANDSw_reg"); A64_ASSERT_REG(rm, "ANDSw_reg");
     return 0x6A000000 | (rm << 16) | (rn << 5) | rd;
 }
 
@@ -304,6 +330,7 @@ A64Instr a64_TSTw_imm(int rn, int immr, int imms)
 /* Multiply */
 A64Instr a64_MADDw(int rd, int rn, int rm, int ra)
 {
+    A64_ASSERT_REG(rd, "MADDw"); A64_ASSERT_REG(rn, "MADDw"); A64_ASSERT_REG(rm, "MADDw"); A64_ASSERT_REG(ra, "MADDw");
     return 0x1B000000 | (rm << 16) | (ra << 10) | (rn << 5) | rd;
 }
 
@@ -641,13 +668,13 @@ A64Instr a64_TBNZ(int rt, int bit, sint32 offset)
 /* Conditional select */
 A64Instr a64_CSELw(int rd, int rn, int rm, A64Cond cond)
 {
-    // CSEL Wd, Wn, Wm, cond: 0 00 11010100 Rm cond 00 Rn Rd
+    A64_ASSERT_REG(rd, "CSELw"); A64_ASSERT_REG(rn, "CSELw"); A64_ASSERT_REG(rm, "CSELw");
     return 0x1A800000 | (rm << 16) | ((int)cond << 12) | (rn << 5) | rd;
 }
 
 A64Instr a64_CSINCw(int rd, int rn, int rm, A64Cond cond)
 {
-    // CSINC Wd, Wn, Wm, cond: 0 00 11010100 Rm cond 01 Rn Rd
+    A64_ASSERT_REG(rd, "CSINCw"); A64_ASSERT_REG(rn, "CSINCw"); A64_ASSERT_REG(rm, "CSINCw");
     return 0x1A800400 | (rm << 16) | ((int)cond << 12) | (rn << 5) | rd;
 }
 
@@ -665,28 +692,64 @@ A64Instr a64_BFIw(int rd, int rn, int lsb, int width)
 }
 
 /* Data processing (2 source) */
-A64Instr a64_UDIVw(int rd, int rn, int rm) { return 0x1AC00800 | (rm << 16) | (rn << 5) | rd; }
-A64Instr a64_SDIVw(int rd, int rn, int rm) { return 0x1AC00C00 | (rm << 16) | (rn << 5) | rd; }
-A64Instr a64_LSLVw(int rd, int rn, int rm) { return 0x1AC02000 | (rm << 16) | (rn << 5) | rd; }
-A64Instr a64_LSRVw(int rd, int rn, int rm) { return 0x1AC02400 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_UDIVw(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "UDIVw"); A64_ASSERT_REG(rn, "UDIVw"); A64_ASSERT_REG(rm, "UDIVw");
+    return 0x1AC00800 | (rm << 16) | (rn << 5) | rd;
+}
+A64Instr a64_SDIVw(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "SDIVw"); A64_ASSERT_REG(rn, "SDIVw"); A64_ASSERT_REG(rm, "SDIVw");
+    return 0x1AC00C00 | (rm << 16) | (rn << 5) | rd;
+}
+A64Instr a64_LSLVw(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "LSLVw"); A64_ASSERT_REG(rn, "LSLVw"); A64_ASSERT_REG(rm, "LSLVw");
+    return 0x1AC02000 | (rm << 16) | (rn << 5) | rd;
+}
+A64Instr a64_LSRVw(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "LSRVw"); A64_ASSERT_REG(rn, "LSRVw"); A64_ASSERT_REG(rm, "LSRVw");
+    return 0x1AC02400 | (rm << 16) | (rn << 5) | rd;
+}
 
 /* 64-bit shift variable */
-A64Instr a64_LSLV(int rd, int rn, int rm) { return 0x9AC02000 | (rm << 16) | (rn << 5) | rd; }
-A64Instr a64_LSRV(int rd, int rn, int rm) { return 0x9AC02400 | (rm << 16) | (rn << 5) | rd; }
+A64Instr a64_LSLV(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "LSLV"); A64_ASSERT_REG(rn, "LSLV"); A64_ASSERT_REG(rm, "LSLV");
+    return 0x9AC02000 | (rm << 16) | (rn << 5) | rd;
+}
+A64Instr a64_LSRV(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "LSRV"); A64_ASSERT_REG(rn, "LSRV"); A64_ASSERT_REG(rm, "LSRV");
+    return 0x9AC02400 | (rm << 16) | (rn << 5) | rd;
+}
 
 /* Widening multiply */
 A64Instr a64_UMULL(int rd, int rn, int rm)
 {
-    // UMADDL Xd, Wn, Wm, XZR: 10011011 101 Rm 0 11111 Rn Rd
+    A64_ASSERT_REG(rd, "UMULL"); A64_ASSERT_REG(rn, "UMULL"); A64_ASSERT_REG(rm, "UMULL");
     return 0x9BA07C00 | (rm << 16) | (rn << 5) | rd;
 }
 
 /* Logical with invert */
-A64Instr a64_ORNw(int rd, int rn, int rm) { return 0x2A200000 | (rm << 16) | (rn << 5) | rd; }
-A64Instr a64_MVNw(int rd, int rm) { return 0x2A200000 | (rm << 16) | (31 << 5) | rd; }
+A64Instr a64_ORNw(int rd, int rn, int rm)
+{
+    A64_ASSERT_REG(rd, "ORNw"); A64_ASSERT_REG(rn, "ORNw"); A64_ASSERT_REG(rm, "ORNw");
+    return 0x2A200000 | (rm << 16) | (rn << 5) | rd;
+}
+A64Instr a64_MVNw(int rd, int rm)
+{
+    A64_ASSERT_REG(rd, "MVNw"); A64_ASSERT_REG(rm, "MVNw");
+    return 0x2A200000 | (rm << 16) | (31 << 5) | rd;
+}
 
 /* Count leading zeros */
-A64Instr a64_CLZw(int rd, int rn) { return 0x5AC01000 | (rn << 5) | rd; }
+A64Instr a64_CLZw(int rd, int rn)
+{
+    A64_ASSERT_REG(rd, "CLZw"); A64_ASSERT_REG(rn, "CLZw");
+    return 0x5AC01000 | (rn << 5) | rd;
+}
 
 A64Instr a64_NOP()
 {
