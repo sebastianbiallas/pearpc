@@ -242,6 +242,14 @@ void JITC::asmCALL(NativeAddress to)
     asmBL(to);
 }
 
+void JITC::asmCALL_cpu(int stubIndex)
+{
+    uint32 offset = offsetof(PPC_CPU_State, stubs) + stubIndex * sizeof(NativeAddress);
+    emitAssure(8);
+    asmLDR_cpu(X16, offset);
+    emit32(a64_BLR(X16));
+}
+
 void JITC::asmRET()
 {
     emit32(a64_RET());
@@ -687,7 +695,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
              */
             jitc.clobberAll();
             jitc.asmMOV(W0, (uint32)4096);
-            jitc.asmCALL((NativeAddress)ppc_new_pc_rel_asm);
+            jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
             break;
         }
         jitc.pc += 4;

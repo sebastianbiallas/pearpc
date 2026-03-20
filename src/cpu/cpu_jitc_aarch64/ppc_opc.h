@@ -114,7 +114,7 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
     // W0 == 0: no exception, continue normally.
     //
     // Layout: CBNZ +8 | B skip | LDR npc | BL ppc_new_pc_asm
-    uint call_size = a64_bl_size((uint64)ppc_new_pc_asm);
+    uint call_size = JITC::asmCALL_cpu_size;
     uint exc_path = 4 + call_size;  // LDR + CALL
     jitc.emitAssure(4 + 4 + exc_path);  // CBNZ + B + exc_path
 
@@ -124,7 +124,7 @@ static inline void ppc_opc_gen_interpret_loadstore(JITC &jitc, int (*func)(PPC_C
 
     // Exception path: dispatch to npc
     jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
-    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
     jitc.asmAssertHERE(target, "interpret_loadstore");
 }

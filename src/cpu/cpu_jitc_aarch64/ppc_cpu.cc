@@ -39,6 +39,8 @@
 #include "jitc_asm.h"
 #include "jitc_debug.h"
 
+extern "C" void gcard_osi(int cpu);
+
 //static
 PPC_CPU_State *gCPU;
 bool gSinglestep = false;
@@ -280,6 +282,23 @@ bool ppc_cpu_init()
     gCPU = ppc_malloc(sizeof *gCPU);
     memset(gCPU, 0, sizeof *gCPU);
     gCPU->pvr = gConfig->getConfigInt(CPU_KEY_PVR);
+
+    // Initialize stub function pointers for JIT fast calls
+    gCPU->stubs[PPC_STUB_READ_WORD]     = (NativeAddress)ppc_read_effective_word_asm;
+    gCPU->stubs[PPC_STUB_READ_BYTE]     = (NativeAddress)ppc_read_effective_byte_asm;
+    gCPU->stubs[PPC_STUB_READ_HALF_Z]   = (NativeAddress)ppc_read_effective_half_z_asm;
+    gCPU->stubs[PPC_STUB_READ_HALF_S]   = (NativeAddress)ppc_read_effective_half_s_asm;
+    gCPU->stubs[PPC_STUB_WRITE_WORD]    = (NativeAddress)ppc_write_effective_word_asm;
+    gCPU->stubs[PPC_STUB_WRITE_BYTE]    = (NativeAddress)ppc_write_effective_byte_asm;
+    gCPU->stubs[PPC_STUB_WRITE_HALF]    = (NativeAddress)ppc_write_effective_half_asm;
+    gCPU->stubs[PPC_STUB_NEW_PC]        = (NativeAddress)ppc_new_pc_asm;
+    gCPU->stubs[PPC_STUB_NEW_PC_REL]    = (NativeAddress)ppc_new_pc_rel_asm;
+    gCPU->stubs[PPC_STUB_PROGRAM_EXC]   = (NativeAddress)ppc_program_exception_asm;
+    gCPU->stubs[PPC_STUB_NO_FPU_EXC]    = (NativeAddress)ppc_no_fpu_exception_asm;
+    gCPU->stubs[PPC_STUB_SC_RAISE]      = (NativeAddress)ppc_sc_raise_asm;
+    gCPU->stubs[PPC_STUB_TLB_INV_ALL]   = (NativeAddress)ppc_mmu_tlb_invalidate_all_asm;
+    gCPU->stubs[PPC_STUB_TLB_INV_ENTRY] = (NativeAddress)ppc_mmu_tlb_invalidate_entry_asm;
+    gCPU->stubs[PPC_STUB_GCARD_OSI]     = (NativeAddress)gcard_osi;
 
     ppc_dec_init();
     // initialize srs (mostly for prom)

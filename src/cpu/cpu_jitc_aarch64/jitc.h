@@ -357,6 +357,8 @@ public:
     void asmBL(NativeAddress to);   // BL via BLR X16 (far call)
     void asmBR(NativeReg rn);       // BR Xn
     void asmCALL(NativeAddress to); // alias for asmBL (x86 compat name)
+    void asmCALL_cpu(int stubIndex); // LDR X16, [X20, #stubs[i]]; BLR X16
+    static constexpr uint asmCALL_cpu_size = 8; // LDR + BLR = 2 instructions
     void asmRET();
 
     // ALU 32-bit register-register

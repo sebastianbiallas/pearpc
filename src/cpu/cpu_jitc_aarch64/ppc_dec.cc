@@ -56,7 +56,7 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
     // SRR1 bit 17 = illegal instruction
     jitc.asmMOV(W1, (uint32)0x00080000);
     // Jump to program exception handler
-    jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
+    jitc.asmCALL_cpu(PPC_STUB_PROGRAM_EXC);
     return flowEndBlockUnreachable;
 }
 
@@ -82,7 +82,7 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
         /* Load npc from CPU state into W0 */                                                                          \
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));                                                             \
         /* Jump to ppc_new_pc_asm */                                                                                   \
-        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);                                                                   \
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);                                                                   \
         return flowEndBlockUnreachable;                                                                                \
     }
 
@@ -700,14 +700,14 @@ static void ppc_opc_gen_check_fpu(JITC &jitc)
 
         // Precompute body size: MOV(pc) + BL(exception)
         uint body = a64_movw_size(jitc.pc)
-                  + a64_bl_size((uint64)ppc_no_fpu_exception_asm);
+                  + JITC::asmCALL_cpu_size;
         jitc.emitAssure(4 + body);
         NativeAddress target = jitc.asmHERE() + 4 + body;
         jitc.asmBccForward(A64_NE, body); // B.NE skip (FP enabled)
 
         // FP disabled: raise NO_FPU exception
         jitc.asmMOV(W0, jitc.pc);
-        jitc.asmCALL((NativeAddress)ppc_no_fpu_exception_asm);
+        jitc.asmCALL_cpu(PPC_STUB_NO_FPU_EXC);
         // ppc_no_fpu_exception_asm does not return
 
         jitc.asmAssertHERE(target, "check_fpu");

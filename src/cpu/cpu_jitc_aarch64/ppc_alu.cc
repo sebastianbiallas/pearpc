@@ -87,7 +87,7 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
 
         // Precompute body size: MOV(pc) + MOV(PRIV) + BL(exception)
         uint body = a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_PRIV) +
-                    a64_bl_size((uint64)ppc_program_exception_asm);
+                    JITC::asmCALL_cpu_size;
         jitc.emitAssure(4 + body);
         NativeAddress target = jitc.asmHERE() + 4 + body;
         jitc.asmBccForward(A64_EQ, body); // B.EQ skip (not user mode)
@@ -95,7 +95,7 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
         // User mode: raise privilege exception
         jitc.asmMOV(W0, jitc.pc);
         jitc.asmMOV(W1, PPC_EXC_PROGRAM_PRIV);
-        jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
+        jitc.asmCALL_cpu(PPC_STUB_PROGRAM_EXC);
         // ppc_program_exception_asm does not return
 
         jitc.asmAssertHERE(target, "check_privilege");
@@ -330,13 +330,13 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
         jitc.asmMOV(W17, jitc.pc + li);
         jitc.asmADDw(W0, W0, W17);
         // Jump to ppc_new_pc_asm (W0 = new effective PC)
-        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         return flowEndBlockUnreachable;
     }
 
     // Absolute address
     jitc.asmMOV(W0, target);
-    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
     return flowEndBlockUnreachable;
 }
 
@@ -352,7 +352,7 @@ static void gen_dispatch_npc(JITC &jitc)
     // Same approach as x86 JIT — no same-page fast path, no conditional branch.
     // This avoids conditional branch range overflow when fragments are far apart.
     jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, npc));
-    jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 }
 
 /*
@@ -395,7 +395,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
             jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
             jitc.asmADDw(W0, W0, W17);
         }
-        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         return flowEndBlockUnreachable;
     }
 
@@ -404,11 +404,11 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
         // Compute dispatch size for the taken path (after the skip branch)
         uint dispatch_size;
         if (aa) {
-            dispatch_size = a64_movw_size((uint32)BD) + a64_bl_size((uint64)ppc_new_pc_asm);
+            dispatch_size = a64_movw_size((uint32)BD) + JITC::asmCALL_cpu_size;
         } else {
             dispatch_size = 4                                           // LDR W0, [X20, #ccb]
                             + a64_movw_size((uint32)(jitc.pc + BD)) + 4 // ADD W0, W0, W17
-                            + a64_bl_size((uint64)ppc_new_pc_asm);
+                            + JITC::asmCALL_cpu_size;
         }
 
         //  LDR W16, [X20, #ctr]        ; 4
@@ -444,7 +444,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
             jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
             jitc.asmADDw(W0, W0, W17);
         }
-        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
         jitc.asmAssertHERE(not_taken, "bcx_ctr");
         return flowContinue;
@@ -455,11 +455,11 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     {
         uint dispatch_size;
         if (aa) {
-            dispatch_size = a64_movw_size((uint32)BD) + a64_bl_size((uint64)ppc_new_pc_asm);
+            dispatch_size = a64_movw_size((uint32)BD) + JITC::asmCALL_cpu_size;
         } else {
             dispatch_size = 4                                           // LDR W0, [X20, #ccb]
                             + a64_movw_size((uint32)(jitc.pc + BD)) + 4 // ADD W0, W0, W17
-                            + a64_bl_size((uint64)ppc_new_pc_asm);
+                            + JITC::asmCALL_cpu_size;
         }
 
         //  LDR W16, [X20, #cr]          ; 4
@@ -497,7 +497,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
             jitc.asmMOV(W17, (uint32)(jitc.pc + BD));
             jitc.asmADDw(W0, W0, W17);
         }
-        jitc.asmCALL((NativeAddress)ppc_new_pc_asm);
+        jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
 
         jitc.asmAssertHERE(not_taken, "bcx_cr");
         return flowContinue;
@@ -3478,9 +3478,9 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
     // If OSI: call gcard_osi(0), fall through (flowEndBlock).
 
     uint osi_call_size = 4 /* MOV W0, #0 */
-                         + a64_bl_size((uint64)gcard_osi);
+                         + JITC::asmCALL_cpu_size;
     uint sc_exc_size = 4 /* MOV W0, pc_ofs+4 */
-                       + a64_bl_size((uint64)ppc_sc_raise_asm);
+                       + JITC::asmCALL_cpu_size;
     uint check2_size = 4 /* LDR gpr[4] */ + 8 /* MOV 0x77810f9b */
                        + 4 /* CMP */ + 4 /* B.NE */;
     uint skip1 = check2_size + osi_call_size + 4 /* B forward */;
@@ -3505,12 +3505,12 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
 
     // OSI match: call gcard_osi(0), fall through to next instruction
     jitc.asmMOV(W0, (uint32)0);
-    jitc.asmCALL((NativeAddress)gcard_osi);
+    jitc.asmCALL_cpu(PPC_STUB_GCARD_OSI);
     jitc.asmBForward(sc_exc_size);
 
     // SC exception (not OSI) — never returns
     jitc.asmMOV(W0, jitc.pc + 4);
-    jitc.asmCALL((NativeAddress)ppc_sc_raise_asm);
+    jitc.asmCALL_cpu(PPC_STUB_SC_RAISE);
 
     return flowEndBlock;
 }
@@ -3664,9 +3664,9 @@ JITCFlow ppc_opc_gen_tlbia(JITC &jitc)
     ppc_opc_gen_check_privilege(jitc);
     // Invalidate all TLB, then dispatch to next instruction
     jitc.asmMOV(X0, X20);
-    jitc.asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_all_asm);
+    jitc.asmCALL_cpu(PPC_STUB_TLB_INV_ALL);
     jitc.asmMOV(W0, jitc.pc + 4);
-    jitc.asmCALL((NativeAddress)ppc_new_pc_rel_asm);
+    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
     return flowEndBlockUnreachable;
 }
 
@@ -3678,9 +3678,9 @@ JITCFlow ppc_opc_gen_tlbie(JITC &jitc)
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     // W0 = gpr[rB] (EA to invalidate)
     jitc.asmLDRw_cpu(W0, GPR_OFS(rB));
-    jitc.asmCALL((NativeAddress)ppc_mmu_tlb_invalidate_entry_asm);
+    jitc.asmCALL_cpu(PPC_STUB_TLB_INV_ENTRY);
     jitc.asmMOV(W0, jitc.pc + 4);
-    jitc.asmCALL((NativeAddress)ppc_new_pc_rel_asm);
+    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
     return flowEndBlockUnreachable;
 }
 
@@ -3710,14 +3710,14 @@ JITCFlow ppc_opc_gen_tw(JITC &jitc)
         // Always trap
         jitc.asmMOV(W0, jitc.pc);
         jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
-        jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
+        jitc.asmCALL_cpu(PPC_STUB_PROGRAM_EXC);
         return flowEndBlockUnreachable;
     }
 
     // Conditional trap: branch to exception if any TO condition matches
     int nconds = __builtin_popcount(TO & 0x1f);
     uint trap_body =
-        a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_TRAP) + a64_bl_size((uint64)ppc_program_exception_asm);
+        a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_TRAP) + JITC::asmCALL_cpu_size;
     jitc.emitAssure(nconds * 4 + 4 + trap_body);
 
     // Emit conditional branches to trap path
@@ -3742,7 +3742,7 @@ JITCFlow ppc_opc_gen_tw(JITC &jitc)
     // Trap path
     jitc.asmMOV(W0, jitc.pc);
     jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
-    jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
+    jitc.asmCALL_cpu(PPC_STUB_PROGRAM_EXC);
 
     jitc.asmAssertHERE(end, "tw");
 
@@ -3768,14 +3768,14 @@ JITCFlow ppc_opc_gen_twi(JITC &jitc)
     if (TO == 0x1f) {
         jitc.asmMOV(W0, jitc.pc);
         jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
-        jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
+        jitc.asmCALL_cpu(PPC_STUB_PROGRAM_EXC);
         return flowEndBlockUnreachable;
     }
 
     // Conditional trap: branch to exception if any TO condition matches
     int nconds = __builtin_popcount(TO & 0x1f);
     uint trap_body =
-        a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_TRAP) + a64_bl_size((uint64)ppc_program_exception_asm);
+        a64_movw_size(jitc.pc) + a64_movw_size(PPC_EXC_PROGRAM_TRAP) + JITC::asmCALL_cpu_size;
     jitc.emitAssure(nconds * 4 + 4 + trap_body);
 
     struct {
@@ -3796,7 +3796,7 @@ JITCFlow ppc_opc_gen_twi(JITC &jitc)
 
     jitc.asmMOV(W0, jitc.pc);
     jitc.asmMOV(W1, PPC_EXC_PROGRAM_TRAP);
-    jitc.asmCALL((NativeAddress)ppc_program_exception_asm);
+    jitc.asmCALL_cpu(PPC_STUB_PROGRAM_EXC);
 
     jitc.asmAssertHERE(end, "twi");
 

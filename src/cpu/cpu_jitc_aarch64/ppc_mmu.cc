@@ -2078,7 +2078,7 @@ JITCFlow ppc_opc_gen_lwz(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2091,7 +2091,7 @@ JITCFlow ppc_opc_gen_lbz(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_BYTE);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2104,7 +2104,7 @@ JITCFlow ppc_opc_gen_lhz(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_Z);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2117,7 +2117,7 @@ JITCFlow ppc_opc_gen_lha(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_S);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2135,7 +2135,7 @@ JITCFlow ppc_opc_gen_stw(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
 	return flowContinue;
 }
 
@@ -2148,7 +2148,7 @@ JITCFlow ppc_opc_gen_stb(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_BYTE);
 	return flowContinue;
 }
 
@@ -2161,7 +2161,7 @@ JITCFlow ppc_opc_gen_sth(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_HALF);
 	return flowContinue;
 }
 
@@ -2181,7 +2181,7 @@ JITCFlow ppc_opc_gen_lwzu(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2197,7 +2197,7 @@ JITCFlow ppc_opc_gen_lbzu(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_BYTE);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2213,7 +2213,7 @@ JITCFlow ppc_opc_gen_lhzu(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_Z);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2229,7 +2229,7 @@ JITCFlow ppc_opc_gen_lhau(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_S);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2251,7 +2251,7 @@ JITCFlow ppc_opc_gen_stwu(JITC &jitc)
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
@@ -2267,7 +2267,7 @@ JITCFlow ppc_opc_gen_stbu(JITC &jitc)
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_BYTE);
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
@@ -2283,7 +2283,7 @@ JITCFlow ppc_opc_gen_sthu(JITC &jitc)
 	gen_ea_D(jitc, rA, (sint32)imm);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_HALF);
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
@@ -2301,7 +2301,7 @@ JITCFlow ppc_opc_gen_lwzx(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2313,7 +2313,7 @@ JITCFlow ppc_opc_gen_lbzx(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_BYTE);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2325,7 +2325,7 @@ JITCFlow ppc_opc_gen_lhzx(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_Z);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2337,7 +2337,7 @@ JITCFlow ppc_opc_gen_lhax(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_S);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
 }
@@ -2355,7 +2355,7 @@ JITCFlow ppc_opc_gen_stwx(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
 	return flowContinue;
 }
 
@@ -2367,7 +2367,7 @@ JITCFlow ppc_opc_gen_stbx(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_BYTE);
 	return flowContinue;
 }
 
@@ -2379,7 +2379,7 @@ JITCFlow ppc_opc_gen_sthx(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_HALF);
 	return flowContinue;
 }
 
@@ -2396,7 +2396,7 @@ JITCFlow ppc_opc_gen_lwzux(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2411,7 +2411,7 @@ JITCFlow ppc_opc_gen_lbzux(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_BYTE);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2426,7 +2426,7 @@ JITCFlow ppc_opc_gen_lhzux(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_Z);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2441,7 +2441,7 @@ JITCFlow ppc_opc_gen_lhaux(JITC &jitc)
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_s_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_S);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
@@ -2462,7 +2462,7 @@ JITCFlow ppc_opc_gen_stwux(JITC &jitc)
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
@@ -2477,7 +2477,7 @@ JITCFlow ppc_opc_gen_stbux(JITC &jitc)
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_byte_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_BYTE);
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
@@ -2492,7 +2492,7 @@ JITCFlow ppc_opc_gen_sthux(JITC &jitc)
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
-	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_HALF);
 	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
 	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
 	return flowContinue;
@@ -2511,7 +2511,7 @@ JITCFlow ppc_opc_gen_lwbrx(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
 	jitc.asmREVw(W0, W0);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
 	return flowContinue;
@@ -2524,7 +2524,7 @@ JITCFlow ppc_opc_gen_lhbrx(JITC &jitc)
 	jitc.clobberAll();
 	gen_prologue(jitc);
 	gen_ea_X(jitc, rA, rB);
-	jitc.asmCALL((NativeAddress)ppc_read_effective_half_z_asm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_HALF_Z);
 	// Half stub returns zero-extended 16-bit value, byte-swap the low 16 bits
 	jitc.asmREV16w(W0, W0);
 	jitc.asmSTRw_cpu(W0, GPR_OFS(rD));
@@ -2540,7 +2540,7 @@ JITCFlow ppc_opc_gen_stwbrx(JITC &jitc)
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
 	jitc.asmREVw(W1, W1);
-	jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
 	return flowContinue;
 }
 
@@ -2553,7 +2553,7 @@ JITCFlow ppc_opc_gen_sthbrx(JITC &jitc)
 	gen_ea_X(jitc, rA, rB);
 	jitc.asmLDRw_cpu(W1, GPR_OFS(rS));
 	jitc.asmREV16w(W1, W1);
-	jitc.asmCALL((NativeAddress)ppc_write_effective_half_asm);
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_HALF);
 	return flowContinue;
 }
 
@@ -2579,7 +2579,7 @@ JITCFlow ppc_opc_gen_lmw(JITC &jitc)
 	gen_prologue(jitc);
 	for (int i = 0; i < count; i++) {
 		gen_ea_D(jitc, rA, (sint32)imm + i * 4);
-		jitc.asmCALL((NativeAddress)ppc_read_effective_word_asm);
+		jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
 		jitc.asmSTRw_cpu(W0, GPR_OFS(rD + i));
 	}
 	return flowContinue;
@@ -2600,7 +2600,7 @@ JITCFlow ppc_opc_gen_stmw(JITC &jitc)
 	for (int i = 0; i < count; i++) {
 		gen_ea_D(jitc, rA, (sint32)imm + i * 4);
 		jitc.asmLDRw_cpu(W1, GPR_OFS(rS + i));
-		jitc.asmCALL((NativeAddress)ppc_write_effective_word_asm);
+		jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
 	}
 	return flowContinue;
 }
