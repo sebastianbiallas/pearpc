@@ -217,9 +217,7 @@ GEN_INTERPRET(mtfsfix)
 /* twi, tw have native gen_ in ppc_alu.cc */
 GEN_INTERPRET(eciwx)
 GEN_INTERPRET(ecowx)
-GEN_INTERPRET(isync)
-// sync — no-op in emulator, native codegen below
-GEN_INTERPRET(eieio)
+/* isync, eieio — no-op in emulator, native gen_ below */
 /* tlbie, tlbia, tlbsync have native gen_ in ppc_alu.cc */
 GEN_INTERPRET_ENDBLOCK(icbi)
 GEN_INTERPRET_LOADSTORE(dcbz)
@@ -238,12 +236,8 @@ GEN_INTERPRET_LOADSTORE(stvebx)
 GEN_INTERPRET_LOADSTORE(stvehx)
 GEN_INTERPRET_LOADSTORE(stvewx)
 GEN_INTERPRET(dst)
-GEN_INTERPRET(dcba)
-GEN_INTERPRET(dcbf)
 GEN_INTERPRET(dcbi)
-GEN_INTERPRET(dcbst)
-GEN_INTERPRET(dcbt)
-GEN_INTERPRET(dcbtst)
+/* dcba, dcbf, dcbst, dcbt, dcbtst — cache hints, no-op in emulator, native gen_ in ppc_alu.cc */
 
 static int ppc_opc_special(PPC_CPU_State &aCPU)
 {

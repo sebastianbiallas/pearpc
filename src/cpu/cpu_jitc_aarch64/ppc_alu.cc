@@ -3673,20 +3673,21 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
 {
     jitc.clobberAll();
 
-    // Inline OSI check (matches x86 JIT approach).
+    // Inline OSI check.
     // If not OSI: jump to SC exception (never returns).
-    // If OSI: call gcard_osi(0), fall through (flowEndBlock).
+    // If OSI: call gcard_osi(0), dispatch to pc+4 (never falls through).
 
-    uint osi_call_size = a64_movw_size(0) + JITC::asmCALL_cpu_size;
+    uint osi_size = a64_movw_size(0) + JITC::asmCALL_cpu_size
+                    + a64_movw_size(jitc.pc + 4) + JITC::asmCALL_cpu_size;
     uint sc_exc_size = a64_movw_size(jitc.pc + 4) + JITC::asmCALL_cpu_size;
     uint check2_size = 4 /* LDR gpr[4] */ + a64_movw_size(0x77810f9b)
                        + 4 /* CMP */ + 4 /* B.NE */;
-    uint skip1 = check2_size + osi_call_size + 4 /* B forward */;
-    uint skip2 = osi_call_size + 4 /* B forward */;
+    uint skip1 = check2_size + osi_size;
+    uint skip2 = osi_size;
 
     uint total = 4 /* LDR gpr[3] */ + a64_movw_size(0x113724fa)
                  + 4 /* CMP */ + 4 /* B.NE */
-                 + check2_size + osi_call_size + 4 /* B forward */ + sc_exc_size;
+                 + check2_size + osi_size + sc_exc_size;
     jitc.emitAssure(total);
     NativeAddress end = jitc.asmHERE() + total;
 
@@ -3702,17 +3703,18 @@ JITCFlow ppc_opc_gen_sc(JITC &jitc)
     jitc.asmCMPw(W1, W2);
     jitc.asmBccForward(A64_NE, skip2);
 
-    // OSI match: call gcard_osi(0), fall through to next instruction
+    // OSI match: call gcard_osi(0), then dispatch to next instruction
     jitc.asmMOV(W0, (uint32)0);
     jitc.asmCALL_cpu(PPC_STUB_GCARD_OSI);
-    jitc.asmBForward(sc_exc_size);
+    jitc.asmMOV(W0, jitc.pc + 4);
+    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
 
     // SC exception (not OSI) — never returns
     jitc.asmMOV(W0, jitc.pc + 4);
     jitc.asmCALL_cpu(PPC_STUB_SC_RAISE);
 
     jitc.asmAssertHERE(end, "sc");
-    return flowEndBlock;
+    return flowEndBlockUnreachable;
 }
 
 /*
@@ -3728,6 +3730,48 @@ int ppc_opc_sync(PPC_CPU_State &aCPU)
 JITCFlow ppc_opc_gen_sync(JITC &jitc)
 {
     // NO-OP
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_isync(JITC &jitc)
+{
+    // NO-OP
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_eieio(JITC &jitc)
+{
+    // NO-OP
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_dcba(JITC &jitc)
+{
+    // NO-OP (cache hint)
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_dcbf(JITC &jitc)
+{
+    // NO-OP (cache hint)
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_dcbst(JITC &jitc)
+{
+    // NO-OP (cache hint)
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_dcbt(JITC &jitc)
+{
+    // NO-OP (cache hint)
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_dcbtst(JITC &jitc)
+{
+    // NO-OP (cache hint)
     return flowContinue;
 }
 
