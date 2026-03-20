@@ -149,7 +149,7 @@ struct PPC_CPU_State {
 
     // Function pointers for asm stubs, indexed by PPC_STUB_*.
     // Stored here so JIT code can load them via [X20, #offset].
-    byte *stubs[16];
+    byte *stubs[18];
 } PACKED;
 
 enum {
@@ -168,6 +168,8 @@ enum {
     PPC_STUB_TLB_INV_ALL,
     PPC_STUB_TLB_INV_ENTRY,
     PPC_STUB_GCARD_OSI,
+    PPC_STUB_READ_DWORD,
+    PPC_STUB_WRITE_DWORD,
     PPC_STUB_COUNT
 };
 

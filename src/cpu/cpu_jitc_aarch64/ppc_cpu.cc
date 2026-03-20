@@ -299,6 +299,8 @@ bool ppc_cpu_init()
     gCPU->stubs[PPC_STUB_TLB_INV_ALL]   = (NativeAddress)ppc_mmu_tlb_invalidate_all_asm;
     gCPU->stubs[PPC_STUB_TLB_INV_ENTRY] = (NativeAddress)ppc_mmu_tlb_invalidate_entry_asm;
     gCPU->stubs[PPC_STUB_GCARD_OSI]     = (NativeAddress)gcard_osi;
+    gCPU->stubs[PPC_STUB_READ_DWORD]    = (NativeAddress)ppc_read_effective_dword_asm;
+    gCPU->stubs[PPC_STUB_WRITE_DWORD]   = (NativeAddress)ppc_write_effective_dword_asm;
 
     ppc_dec_init();
     // initialize srs (mostly for prom)

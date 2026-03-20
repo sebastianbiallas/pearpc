@@ -2604,3 +2604,157 @@ JITCFlow ppc_opc_gen_stmw(JITC &jitc)
 	}
 	return flowContinue;
 }
+
+/*
+ *  === FP double-word loads ===
+ *  lfd frD, d(rA): frD = MEM64[(rA|0) + d]
+ *  Dword stub: W0 = EA, W9 = pc_ofs → returns X0 = 64-bit value
+ */
+
+#define FPR_OFS(n) (offsetof(PPC_CPU_State, fpr) + (n) * sizeof(uint64))
+
+static void gen_check_fpu(JITC &jitc)
+{
+	if (!jitc.checkedFloat) {
+		jitc.clobberAll();
+		jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, msr));
+		jitc.asmTSTw(W0, 19, 0); // TST W0, #(1<<13) = MSR_FP
+
+		uint body = a64_movw_size(jitc.pc) + JITC::asmCALL_cpu_size;
+		jitc.emitAssure(4 + body);
+		NativeAddress target = jitc.asmHERE() + 4 + body;
+		jitc.asmBccForward(A64_NE, body); // B.NE skip (FP enabled)
+
+		jitc.asmMOV(W0, jitc.pc);
+		jitc.asmCALL_cpu(PPC_STUB_NO_FPU_EXC);
+
+		jitc.asmAssertHERE(target, "check_fpu_mmu");
+		jitc.checkedFloat = true;
+	}
+}
+
+JITCFlow ppc_opc_gen_lfd(JITC &jitc)
+{
+	int frD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frD, rA, imm);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmCALL_cpu(PPC_STUB_READ_DWORD);
+	jitc.asmSTR_cpu(X0, FPR_OFS(frD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lfdu(JITC &jitc)
+{
+	int frD, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frD, rA, imm);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL_cpu(PPC_STUB_READ_DWORD);
+	jitc.asmSTR_cpu(X0, FPR_OFS(frD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lfdx(JITC &jitc)
+{
+	int frD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, rB);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmCALL_cpu(PPC_STUB_READ_DWORD);
+	jitc.asmSTR_cpu(X0, FPR_OFS(frD));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lfdux(JITC &jitc)
+{
+	int frD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, rB);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmCALL_cpu(PPC_STUB_READ_DWORD);
+	jitc.asmSTR_cpu(X0, FPR_OFS(frD));
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+/*
+ *  === FP double-word stores ===
+ *  stfd frS, d(rA): MEM64[(rA|0) + d] = frS
+ *  Dword stub: W0 = EA, X1 = 64-bit value, W9 = pc_ofs
+ */
+
+JITCFlow ppc_opc_gen_stfd(JITC &jitc)
+{
+	int frS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frS, rA, imm);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmLDR_cpu(X1, FPR_OFS(frS));
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_DWORD);
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stfdu(JITC &jitc)
+{
+	int frS, rA;
+	uint32 imm;
+	PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frS, rA, imm);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_D(jitc, rA, (sint32)imm);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDR_cpu(X1, FPR_OFS(frS));
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_DWORD);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stfdx(JITC &jitc)
+{
+	int frS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frS, rA, rB);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmLDR_cpu(X1, FPR_OFS(frS));
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_DWORD);
+	return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stfdux(JITC &jitc)
+{
+	int frS, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frS, rA, rB);
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	gen_prologue(jitc);
+	gen_ea_X(jitc, rA, rB);
+	jitc.asmSTRw_cpu(W0, offsetof(PPC_CPU_State, temp2));
+	jitc.asmLDR_cpu(X1, FPR_OFS(frS));
+	jitc.asmCALL_cpu(PPC_STUB_WRITE_DWORD);
+	jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, temp2));
+	jitc.asmSTRw_cpu(W16, GPR_OFS(rA));
+	return flowContinue;
+}

@@ -135,6 +135,28 @@ static const char *cpuFieldName(int offset, char *buf, int buflen)
     A(tlb_code_eff, TLB_ENTRIES); A(tlb_data_read_eff, TLB_ENTRIES); A(tlb_data_write_eff, TLB_ENTRIES);
     A(tlb_code_phys, TLB_ENTRIES); A(tlb_data_read_phys, TLB_ENTRIES); A(tlb_data_write_phys, TLB_ENTRIES);
 
+    // Stub function pointers
+    {
+        int base = (int)offsetof(PPC_CPU_State, stubs);
+        int sz = (int)sizeof(((PPC_CPU_State *)0)->stubs[0]);
+        int count = (int)(sizeof(((PPC_CPU_State *)0)->stubs) / sz);
+        if (offset >= base && offset < base + count * sz) {
+            static const char *stubNames[] = {
+                "stub_read_word", "stub_read_byte", "stub_read_half_z", "stub_read_half_s",
+                "stub_write_word", "stub_write_byte", "stub_write_half",
+                "stub_new_pc", "stub_new_pc_rel",
+                "stub_program_exc", "stub_no_fpu_exc", "stub_sc_raise",
+                "stub_tlb_inv_all", "stub_tlb_inv_entry", "stub_gcard_osi",
+                "stub_read_dword", "stub_write_dword",
+            };
+            int idx = (offset - base) / sz;
+            if (idx < (int)(sizeof(stubNames) / sizeof(stubNames[0])))
+                return stubNames[idx];
+            snprintf(buf, buflen, "stubs[%d]", idx);
+            return buf;
+        }
+    }
+
 #undef F
 #undef A
     return NULL;
