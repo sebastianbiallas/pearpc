@@ -48,9 +48,10 @@ bool FASTCALL ppc_exception(PPC_CPU_State &aCPU, uint32 type, uint32 flags, uint
 {
     // aCPU.pc must be set by the caller before ppc_exception() is
     // reachable. For the interpreter path, ppc_opc_gen_interpret stores
-    // pc = current_code_base + pc_ofs. For native load/store, the gen_
-    // functions store pc before calling the asm stub. For ISI,
-    // ppc_new_pc_asm stores pc directly.
+    // pc = current_code_base + pc_ofs. For native load/store, the asm
+    // stub stores pc_ofs and computes pc on the slow path (TLB miss)
+    // before calling the C++ helper. For ISI, ppc_new_pc_asm stores
+    // pc directly.
 
     if (type != PPC_EXC_DEC) PPC_EXC_TRACE("@%08x: type = %08x (%08x, %08x)\n", aCPU.pc, type, flags, a);
     switch (type) {

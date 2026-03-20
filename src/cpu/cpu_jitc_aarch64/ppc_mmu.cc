@@ -2047,16 +2047,11 @@ static void gen_ea_D(JITC &jitc, int rA, sint32 simm)
  *  Helpers for load/store codegen.
  */
 
-// Emit pc_ofs, pc, npc stores needed for DSI exception handling.
+// Pass pc_ofs to asm stub in W9.  The stub stores pc_ofs and computes
+// pc = current_code_base + pc_ofs only on the slow path (TLB miss/DSI).
 static void gen_prologue(JITC &jitc)
 {
-	jitc.asmMOV(W16, jitc.pc);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc_ofs));
-	jitc.asmLDRw_cpu(W17, offsetof(PPC_CPU_State, current_code_base));
-	jitc.asmADDw(W16, W16, W17);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, pc));
-	jitc.asmADDw(W16, W16, (uint32)4);
-	jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, npc));
+	jitc.asmMOV(W9, jitc.pc);
 }
 
 // Compute EA = (rA ? gpr[rA] : 0) + gpr[rB] into W0  (X-form)

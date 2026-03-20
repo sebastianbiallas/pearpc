@@ -33,16 +33,16 @@
  *    X19 = JITC pointer (callee-saved, always valid)
  *
  *  Read stubs:
- *    IN:  w0 = effective address
+ *    IN:  w0 = effective address, w9 = pc_ofs
  *    OUT: w0 = value (host-endian, byte-swapped from BE storage)
  *         w0/x0 for dword
  *
  *  Write stubs:
- *    IN:  w0 = effective address
+ *    IN:  w0 = effective address, w9 = pc_ofs
  *         w1 = value (host-endian) / x1 for dword
  *    OUT: none
  *
- *  Scratch registers (clobbered): x0-x5, x16, x17
+ *  Scratch registers (clobbered): x0-x5, x9, x16, x17
  *  Preserved: x19-x28, x29, x30 (LR saved/restored in slow path)
  *
  *  All slow-path helpers return int: 0 = OK, nonzero = DSI exception.
@@ -125,6 +125,10 @@ do_export EXTERN(ppc_read_effective_byte_asm)
 .Lread_byte_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_byte_slow)
@@ -165,6 +169,10 @@ do_export EXTERN(ppc_read_effective_half_z_asm)
 .Lread_half_z_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_half_z_slow)
@@ -205,6 +213,10 @@ do_export EXTERN(ppc_read_effective_half_s_asm)
 .Lread_half_s_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_half_z_slow)
@@ -245,6 +257,10 @@ do_export EXTERN(ppc_read_effective_word_asm)
 .Lread_word_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_word_slow)
@@ -284,6 +300,10 @@ do_export EXTERN(ppc_read_effective_dword_asm)
 .Lread_dword_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w1, w0
     mov     x0, x20
     bl      EXTERN(ppc_read_effective_dword_slow)
@@ -322,6 +342,10 @@ do_export EXTERN(ppc_write_effective_byte_asm)
 .Lwrite_byte_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w2, w1                      // w2 = data
     mov     w1, w0                      // w1 = ea
     mov     x0, x20                     // x0 = cpu
@@ -360,6 +384,10 @@ do_export EXTERN(ppc_write_effective_half_asm)
 .Lwrite_half_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w2, w1
     mov     w1, w0
     mov     x0, x20
@@ -398,6 +426,10 @@ do_export EXTERN(ppc_write_effective_word_asm)
 .Lwrite_word_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     w2, w1
     mov     w1, w0
     mov     x0, x20
@@ -436,6 +468,10 @@ do_export EXTERN(ppc_write_effective_dword_asm)
 .Lwrite_dword_slow:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
     mov     x2, x1                      // x2 = data (64-bit)
     mov     w1, w0                      // w1 = ea
     mov     x0, x20                     // x0 = cpu
