@@ -104,8 +104,8 @@ _start:
     stw     0, 0xF00(9)             /* count = 0 */
 
     /* Store a known double to memory, load it into FPR, store back */
-    lis     8, 0x10                  /* r8 = 0x100800 (in our mapped page) */
-    ori     8, 8, 0x0800
+    lis     8, .Lscratch@ha          /* r8 = &.Lscratch (data section) */
+    ori     8, 8, .Lscratch@l
     lis     0, 0x4059               /* 0x4059000000000000 = 100.0 in IEEE 754 */
     stw     0, 0(8)
     li      0, 0
@@ -126,8 +126,8 @@ _start:
      */
     PRINT   .Lt2, (.Lt2e - .Lt2)
 
-    lis     8, 0x10
-    ori     8, 8, 0x0800
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
     /* f1 = 100.0 (loaded above), load 50.0 into f2 */
     lis     0, 0x4049               /* 0x4049000000000000 = 50.0 */
     stw     0, 16(8)
@@ -159,8 +159,8 @@ _start:
 
     /* This lfd should fault with NO_FPU.
      * The handler sets MSR_FP in SRR1, rfi retries, lfd succeeds. */
-    lis     8, 0x10
-    ori     8, 8, 0x0800
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
 .Lt3_fault:
     lfd     1, 0(8)
 
@@ -188,8 +188,9 @@ _start:
 
     /* Verify: lfd actually loaded the data on retry (f1 == 100.0) */
     PRINT   .Lt3c, (.Lt3ce - .Lt3c)
-    lis     8, 0x10
-    ori     8, 8, 0x0900             /* scratch area at 0x100900 */
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    addi    8, 8, 64
     stfd    1, 0(8)
     lwz     3, 0(8)                  /* high word of 100.0 = 0x40590000 */
     CHECK32 0x40590000
@@ -242,8 +243,9 @@ _start:
 
     /* Verify: fadd actually computed the result on retry (f3 = 100+50 = 150) */
     PRINT   .Lt4c, (.Lt4ce - .Lt4c)
-    lis     8, 0x10
-    ori     8, 8, 0x0900
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    addi    8, 8, 64
     stfd    3, 0(8)
     lwz     3, 0(8)                  /* high word of 150.0 = 0x4062C000 */
     CHECK32 0x4062C000
@@ -266,8 +268,9 @@ _start:
     mtmsr   5
     isync
 
-    lis     8, 0x10
-    ori     8, 8, 0x0900
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    addi    8, 8, 64
 .Lt5_fault:
     stfd    1, 0(8)
 
@@ -320,8 +323,8 @@ _start:
     mtmsr   5
     isync
 
-    lis     8, 0x10
-    ori     8, 8, 0x0800
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
 .Lt7_fault:
     lfs     1, 0(8)
 
@@ -348,8 +351,9 @@ _start:
     mtmsr   5
     isync
 
-    lis     8, 0x10
-    ori     8, 8, 0x0900
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    addi    8, 8, 64
 .Lt8_fault:
     stfs    1, 0(8)
 
@@ -436,6 +440,107 @@ _start:
     li      9, 0
     lwz     3, 0xE00(9)
     CHECK   1
+
+    /*
+     * Test 11: fmr — copy FPR
+     *
+     * Load 100.0 into f1, fmr f2,f1, verify f2 == 100.0
+     */
+    /*
+     * Tests 11-14 use .Lscratch in the .data section at 0x200000,
+     * a separate page from the code to avoid JIT self-modifying
+     * code issues.
+     */
+    PRINT   .Lt11, (.Lt11e - .Lt11)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l       /* r8 = &.Lscratch (0x200000) */
+    lis     0, 0x4059               /* 0x4059000000000000 = 100.0 */
+    stw     0, 0(8)
+    li      0, 0
+    stw     0, 4(8)
+    lfd     1, 0(8)                 /* f1 = 100.0 */
+    fmr     2, 1                    /* f2 = f1 */
+    stfd    2, 8(8)
+    lwz     3, 8(8)                 /* high word */
+    CHECK32 0x40590000
+
+    /* Verify low word is also correct */
+    PRINT   .Lt11b, (.Lt11be - .Lt11b)
+    lwz     3, 12(8)                /* low word */
+    CHECK   0
+
+    /*
+     * Test 12: fneg — negate (flip sign bit 63)
+     *
+     * fneg f2, f1 where f1 = +100.0
+     * Expected: f2 = -100.0 = 0xC059000000000000
+     * High word = 0xC0590000, low word = 0x00000000
+     *
+     * The bug: immr=0 instead of immr=1 in EOR_imm encoding
+     * flipped bit 0 (mantissa LSB) instead of bit 63 (sign bit).
+     * Result was 0x4059000000000001 instead of 0xC059000000000000.
+     */
+    PRINT   .Lt12, (.Lt12e - .Lt12)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    lis     0, 0x4059               /* 100.0 */
+    stw     0, 0(8)
+    li      0, 0
+    stw     0, 4(8)
+    lfd     1, 0(8)                 /* f1 = +100.0 */
+    fneg    2, 1                    /* f2 = -100.0 */
+    stfd    2, 8(8)
+    lwz     3, 8(8)                 /* high word: should be 0xC0590000 */
+    CHECK32 0xC0590000
+
+    /* Verify low word is 0 (not 1 — the old bug!) */
+    PRINT   .Lt12b, (.Lt12be - .Lt12b)
+    lwz     3, 12(8)                /* low word: should be 0x00000000 */
+    CHECK   0
+
+    /*
+     * Test 13: fneg of negative → positive
+     *
+     * fneg f3, f2 where f2 = -100.0 → f3 = +100.0
+     */
+    PRINT   .Lt13, (.Lt13e - .Lt13)
+
+    fneg    3, 2                    /* f3 = -(-100.0) = +100.0 */
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    stfd    3, 16(8)
+    lwz     3, 16(8)                /* high word: 0x40590000 */
+    CHECK32 0x40590000
+
+    PRINT   .Lt13b, (.Lt13be - .Lt13b)
+    lwz     3, 20(8)                /* low word: 0x00000000 */
+    CHECK   0
+
+    /*
+     * Test 14: fneg of -0.0 → +0.0
+     *
+     * -0.0 = 0x8000000000000000, fneg → +0.0 = 0x0000000000000000
+     * This specifically tests that only the sign bit changes.
+     */
+    PRINT   .Lt14, (.Lt14e - .Lt14)
+
+    lis     8, .Lscratch@ha
+    ori     8, 8, .Lscratch@l
+    lis     0, 0x8000               /* -0.0 high word */
+    stw     0, 0(8)
+    li      0, 0
+    stw     0, 4(8)
+    lfd     4, 0(8)                 /* f4 = -0.0 */
+    fneg    5, 4                    /* f5 = +0.0 */
+    stfd    5, 8(8)
+    lwz     3, 8(8)                 /* high word: 0x00000000 */
+    CHECK   0
+
+    PRINT   .Lt14b, (.Lt14be - .Lt14b)
+    lwz     3, 12(8)                /* low word: 0x00000000 */
+    CHECK   0
 
     /*
      * Summary
@@ -592,9 +697,42 @@ _start:
 .Lt10b:
     .ascii  "test 10b DSI on retry:   "
 .Lt10be:
+.Lt11:
+    .ascii  "test 11a fmr high:       "
+.Lt11e:
+.Lt11b:
+    .ascii  "test 11b fmr low:        "
+.Lt11be:
+.Lt12:
+    .ascii  "test 12a fneg +100 high: "
+.Lt12e:
+.Lt12b:
+    .ascii  "test 12b fneg +100 low:  "
+.Lt12be:
+.Lt13:
+    .ascii  "test 13a fneg neg high:  "
+.Lt13e:
+.Lt13b:
+    .ascii  "test 13b fneg neg low:   "
+.Lt13be:
+.Lt14:
+    .ascii  "test 14a fneg -0 high:   "
+.Lt14e:
+.Lt14b:
+    .ascii  "test 14b fneg -0 low:    "
+.Lt14be:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummarye:
 .Lpass:
     .ascii  "All tests passed!\n"
 .Lpasse:
+
+/* ============================================================
+ * Scratch data area — on a separate page (0x200000) so writes
+ * here do not trigger JIT code page invalidation.
+ * ============================================================ */
+    .data
+    .p2align 4
+.Lscratch:
+    .space  256

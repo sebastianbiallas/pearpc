@@ -1448,8 +1448,8 @@ JITCFlow ppc_opc_gen_fnegx(JITC &jitc)
 	(void)rA;
 	gen_check_fpu(jitc);
 	jitc.asmLDR_cpu(X16, FPR_OFS(frB));
-	// EOR X16, X16, #0x8000000000000000 (N=1, immr=0, imms=0)
-	jitc.asmEOR_imm(X16, X16, 1, 0, 0);
+	// EOR X16, X16, #0x8000000000000000 (N=1, immr=1, imms=0)
+	jitc.asmEOR_imm(X16, X16, 1, 1, 0);
 	jitc.asmSTR_cpu(X16, FPR_OFS(frD));
 	return flowContinue;
 }
