@@ -279,31 +279,30 @@ JITCFlow ppc_opc_gen_bx(JITC &jitc)
     bool lk = jitc.current_opc & 1;
     bool aa = jitc.current_opc & 2;
 
-    if (lk) {
-        // BL: set LR = current_code_base + pc + 4
-        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
-        jitc.asmMOV(W17, jitc.pc + 4);
-        jitc.asmADDw(W16, W16, W17);
-        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
-    }
-
-    uint32 target;
-    if (aa) {
-        target = li;
-    } else {
-        // PC-relative: we need current_code_base + pc + li at runtime
-        // But current_code_base + pc is the current EA
-        // Emit: W0 = current_code_base + pc + li
+    if (!aa) {
+        // PC-relative: target = current_code_base + pc + li
+        // Load ccb once into W0, reuse for both LR and target
         jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, current_code_base));
+        if (lk) {
+            // BL: LR = ccb + pc + 4
+            jitc.asmMOV(W16, jitc.pc + 4);
+            jitc.asmADDw(W16, W0, W16);
+            jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+        }
         jitc.asmMOV(W17, jitc.pc + li);
         jitc.asmADDw(W0, W0, W17);
-        // Jump to ppc_new_pc_asm (W0 = new effective PC)
         jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
         return flowEndBlockUnreachable;
     }
 
     // Absolute address
-    jitc.asmMOV(W0, target);
+    if (lk) {
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+        jitc.asmMOV(W17, jitc.pc + 4);
+        jitc.asmADDw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+    }
+    jitc.asmMOV(W0, li);
     jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
     return flowEndBlockUnreachable;
 }
