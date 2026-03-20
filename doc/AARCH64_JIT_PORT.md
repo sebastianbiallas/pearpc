@@ -122,6 +122,12 @@ SP       : Stack pointer (must be 16-byte aligned)
 - **X19-X28**: Preserved across BLR calls (callee-saved). X19 and X20 are reserved. X21-X28 are available for values that must survive across helper calls (e.g. branch target offsets). Currently used as scratch by `ppc_new_pc_this_page_asm` (X21).
 - **CPU state** (`[X20, #offset]`): Always accessible. Gen_ functions read/write PPC registers via `emitLDR32_cpu` / `emitSTR32_cpu`. This is memory, not a register, so it survives all calls.
 
+**MMU stub clobber set (jitc_mmu.S):**
+
+The asm read/write stubs (`PPC_STUB_READ_*`, `PPC_STUB_WRITE_*`) only clobber: `X0-X5, X9, X16, X17`. Registers **W6-W8, W10-W15** survive stub calls and can be used by generated code to hold values across calls.
+
+- **W6**: Reserved for EA preservation in load/store-with-update codegen. The update variants (lwzu, stwu, etc.) save the effective address in W6 before the stub call, then store W6 to gpr[rA] after the stub returns. This avoids a memory round-trip through `cpu->temp2` and also fixes a correctness bug where the dword read stub's slow path would overwrite temp2.
+
 ### W^X on macOS ARM64
 
 macOS ARM64 enforces Write XOR Execute (W^X). JIT code cannot be simultaneously writable and executable. The solution:
