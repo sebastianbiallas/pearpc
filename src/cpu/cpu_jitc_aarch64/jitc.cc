@@ -251,6 +251,8 @@ void JITC::asmFCMP_D_zero(int dn) { emit32(a64_FCMP_D_zero(dn)); }
 
 void JITC::asmFCSEL_D(int dd, int dn, int dm, A64Cond cond) { emit32(a64_FCSEL_D(dd, dn, dm, cond)); }
 void JITC::asmFMOV_D_X(int dd, int xn) { emit32(a64_FMOV_D_X(dd, xn)); }
+void JITC::asmFMOV_S_W(int sd, int wn) { emit32(a64_FMOV_S_W(sd, wn)); }
+void JITC::asmFMOV_W_S(int wd, int sn) { emit32(a64_FMOV_W_S(wd, sn)); }
 
 void JITC::asmBL(NativeAddress to)
 {

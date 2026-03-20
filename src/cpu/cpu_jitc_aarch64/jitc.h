@@ -499,6 +499,8 @@ public:
     // Floating-point conditional select / move
     void asmFCSEL_D(int dd, int dn, int dm, A64Cond cond);
     void asmFMOV_D_X(int dd, int xn);          // FMOV Dd, Xn
+    void asmFMOV_S_W(int sd, int wn);          // FMOV Sd, Wn
+    void asmFMOV_W_S(int wd, int sn);          // FMOV Wd, Sn
 
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over

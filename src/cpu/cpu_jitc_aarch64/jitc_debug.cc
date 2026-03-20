@@ -1105,6 +1105,18 @@ static void disasmA64(uint32 insn, uint64 pc, char *result)
             movTrackReg = -1;
             return;
         }
+        // FMOV Sd, Wn: 0 00 11110 00 1 00 111 000000 rn rd = 0x1E270000
+        if ((insn & 0xFFFFFC00) == 0x1E270000) {
+            snprintf(result, 256, "fmov %s, %s", sreg(rd), wreg(rn));
+            movTrackReg = -1;
+            return;
+        }
+        // FMOV Wd, Sn: 0 00 11110 00 1 00 110 000000 rn rd = 0x1E260000
+        if ((insn & 0xFFFFFC00) == 0x1E260000) {
+            snprintf(result, 256, "fmov %s, %s", wreg(rd), sreg(rn));
+            movTrackReg = -1;
+            return;
+        }
 
         // FP compare: 0 0011110 xx 1 rm 00 1000 rn 0 x 000
         // FCMP Dn, Dm:   0x1E60 2000 | rm<<16 | rn<<5 | 00000
@@ -1538,6 +1550,10 @@ static void jitcDebugSelfTest()
 
     // FMOV D0, X0
     TEST_DISASM(0x9E670000, "fmov d0, x0");
+    // FMOV S0, W0
+    TEST_DISASM(0x1E270000, "fmov s0, w0");
+    // FMOV W1, S0
+    TEST_DISASM(0x1E260001, "fmov w1, s0");
     // FCVTZS W0, D0
     TEST_DISASM(0x1E780000, "fcvtzs w0, d0");
 

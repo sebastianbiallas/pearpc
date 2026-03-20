@@ -242,8 +242,10 @@ A64Instr a64_FCVTZS_W_D(int wd, int dn);       // FCVTZS Wd, Dn (double to int32
 A64Instr a64_FCSEL_D(int dd, int dn, int dm, A64Cond cond); // FCSEL Dd, Dn, Dm, cond
 
 /* Floating-point move (GPR <-> FPR) */
-A64Instr a64_FMOV_D_X(int dd, int xn);         // FMOV Dd, Xn (GPR to FPR)
-A64Instr a64_FMOV_X_D(int xd, int dn);         // FMOV Xd, Dn (FPR to GPR)
+A64Instr a64_FMOV_D_X(int dd, int xn);         // FMOV Dd, Xn (64-bit GPR to FPR)
+A64Instr a64_FMOV_X_D(int xd, int dn);         // FMOV Xd, Dn (FPR to 64-bit GPR)
+A64Instr a64_FMOV_S_W(int sd, int wn);         // FMOV Sd, Wn (32-bit GPR to FPR)
+A64Instr a64_FMOV_W_S(int wd, int sn);         // FMOV Wd, Sn (FPR to 32-bit GPR)
 
 /* Misc */
 A64Instr a64_NOP();

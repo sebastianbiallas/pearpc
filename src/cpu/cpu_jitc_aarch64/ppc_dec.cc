@@ -164,16 +164,10 @@ GEN_INTERPRET(dss)
 GEN_INTERPRET(dstst)
 
 /* FPU load/store */
-GEN_INTERPRET_LOADSTORE(lfs)
-GEN_INTERPRET_LOADSTORE(lfsu)
-GEN_INTERPRET_LOADSTORE(lfsx)
-GEN_INTERPRET_LOADSTORE(lfsux)
+/* lfs/lfsu/lfsx/lfsux — native gen_ in ppc_mmu.cc */
 // lfd/lfdu/lfdx/lfdux — native codegen in ppc_mmu.cc
 // stfd/stfdu/stfdx/stfdux — native codegen in ppc_mmu.cc
-GEN_INTERPRET_LOADSTORE(stfs)
-GEN_INTERPRET_LOADSTORE(stfsu)
-GEN_INTERPRET_LOADSTORE(stfsx)
-GEN_INTERPRET_LOADSTORE(stfsux)
+/* stfs/stfsu/stfsx/stfsux — native gen_ in ppc_mmu.cc */
 GEN_INTERPRET_LOADSTORE(stfiwx)
 
 /* FPU arithmetic */

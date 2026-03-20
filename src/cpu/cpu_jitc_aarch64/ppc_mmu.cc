@@ -2905,3 +2905,151 @@ JITCFlow ppc_opc_gen_stfdux(JITC &jitc)
     jitc.asmSTRw_cpu(W6, GPR_OFS(rA));
     return flowContinue;
 }
+
+/*
+ *  === FP single-precision loads ===
+ *  lfs frD, d(rA): frD = single_to_double(MEM32[(rA|0) + d])
+ *  Read 32-bit word via stub, then FMOV S0,W0 + FCVT D0,S0 to convert
+ *  IEEE single to double and store as 64-bit FPR.
+ */
+
+JITCFlow ppc_opc_gen_lfs(JITC &jitc)
+{
+    int frD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frD, rA, imm);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_D(jitc, rA, (sint32)imm);
+    jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
+    // W0 = 32-bit IEEE single → convert to double → store to FPR
+    jitc.asmFMOV_S_W(V0, W0);
+    jitc.asmFCVT_D_S(V0, V0);
+    jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lfsu(JITC &jitc)
+{
+    int frD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frD, rA, imm);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_D(jitc, rA, (sint32)imm);
+    jitc.asmMOV(W6, W0); // save EA for update
+    jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
+    jitc.asmFMOV_S_W(V0, W0);
+    jitc.asmFCVT_D_S(V0, V0);
+    jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+    jitc.asmSTRw_cpu(W6, GPR_OFS(rA));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lfsx(JITC &jitc)
+{
+    int frD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, rB);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_X(jitc, rA, rB);
+    jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
+    jitc.asmFMOV_S_W(V0, W0);
+    jitc.asmFCVT_D_S(V0, V0);
+    jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_lfsux(JITC &jitc)
+{
+    int frD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, rB);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_X(jitc, rA, rB);
+    jitc.asmMOV(W6, W0);
+    jitc.asmCALL_cpu(PPC_STUB_READ_WORD);
+    jitc.asmFMOV_S_W(V0, W0);
+    jitc.asmFCVT_D_S(V0, V0);
+    jitc.asmSTR_D_cpu(V0, FPR_OFS(frD));
+    jitc.asmSTRw_cpu(W6, GPR_OFS(rA));
+    return flowContinue;
+}
+
+/*
+ *  === FP single-precision stores ===
+ *  stfs frS, d(rA): MEM32[(rA|0) + d] = double_to_single(frS)
+ *  Load 64-bit FPR, FCVT S0,D0 to round to single, FMOV W1,S0,
+ *  then write 32-bit word via stub.
+ */
+
+JITCFlow ppc_opc_gen_stfs(JITC &jitc)
+{
+    int frS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frS, rA, imm);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_D(jitc, rA, (sint32)imm);
+    // Convert FPR double to single, move to W1 for write stub
+    jitc.asmLDR_D_cpu(V0, FPR_OFS(frS));
+    jitc.asmFCVT_S_D(V0, V0);
+    jitc.asmFMOV_W_S(W1, V0);
+    jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stfsu(JITC &jitc)
+{
+    int frS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(jitc.current_opc, frS, rA, imm);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_D(jitc, rA, (sint32)imm);
+    jitc.asmMOV(W6, W0); // save EA for update
+    jitc.asmLDR_D_cpu(V0, FPR_OFS(frS));
+    jitc.asmFCVT_S_D(V0, V0);
+    jitc.asmFMOV_W_S(W1, V0);
+    jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
+    jitc.asmSTRw_cpu(W6, GPR_OFS(rA));
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stfsx(JITC &jitc)
+{
+    int frS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, frS, rA, rB);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_X(jitc, rA, rB);
+    jitc.asmLDR_D_cpu(V0, FPR_OFS(frS));
+    jitc.asmFCVT_S_D(V0, V0);
+    jitc.asmFMOV_W_S(W1, V0);
+    jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
+    return flowContinue;
+}
+
+JITCFlow ppc_opc_gen_stfsux(JITC &jitc)
+{
+    int frS, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, frS, rA, rB);
+    gen_check_fpu(jitc);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_X(jitc, rA, rB);
+    jitc.asmMOV(W6, W0);
+    jitc.asmLDR_D_cpu(V0, FPR_OFS(frS));
+    jitc.asmFCVT_S_D(V0, V0);
+    jitc.asmFMOV_W_S(W1, V0);
+    jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
+    jitc.asmSTRw_cpu(W6, GPR_OFS(rA));
+    return flowContinue;
+}

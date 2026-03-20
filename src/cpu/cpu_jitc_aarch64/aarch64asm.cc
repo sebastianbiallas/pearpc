@@ -1007,6 +1007,20 @@ A64Instr a64_FMOV_X_D(int xd, int dn)
     return 0x9E660000 | (dn << 5) | xd;
 }
 
+A64Instr a64_FMOV_S_W(int sd, int wn)
+{
+    A64_ASSERT_REG(sd, "FMOV_S_W"); A64_ASSERT_REG(wn, "FMOV_S_W");
+    // 0 00 11110 00 1 00 111 000000 Rn Rd
+    return 0x1E270000 | (wn << 5) | sd;
+}
+
+A64Instr a64_FMOV_W_S(int wd, int sn)
+{
+    A64_ASSERT_REG(wd, "FMOV_W_S"); A64_ASSERT_REG(sn, "FMOV_W_S");
+    // 0 00 11110 00 1 00 110 000000 Rn Rd
+    return 0x1E260000 | (sn << 5) | wd;
+}
+
 /* PC-relative addressing */
 A64Instr a64_ADRP(int rd, sint64 offset)
 {
