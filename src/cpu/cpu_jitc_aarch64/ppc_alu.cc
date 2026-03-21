@@ -2883,6 +2883,30 @@ int ppc_opc_subfmeox(PPC_CPU_State &aCPU)
     return 0;
 }
 
+/* subfmex rD, rA — Subtract From Minus One Extended
+ * rD = ~rA + CA - 1; CA = (rA != 0xFFFFFFFF) || CA
+ * Mirrors addmex but with ~rA.
+ */
+JITCFlow ppc_opc_gen_subfmex(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmMVNw(W16, W16);
+    jitc.asmLDRw_cpu(W17, XER_CA_OFS);
+    // CA_out = (~rA != 0) || (old_CA != 0) = (rA != 0xFFFFFFFF) || CA
+    jitc.asmORRw(W0, W16, W17);
+    jitc.asmCMPw(W0, (uint32)0);
+    jitc.asmCSETw(W0, A64_NE);
+    // rD = ~rA + old_CA - 1
+    jitc.asmADDw(W16, W16, W17);
+    jitc.asmSUBw(W16, W16, (uint32)1);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    jitc.asmSTRw_cpu(W0, XER_CA_OFS);
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
 /*
  *	subfzex		Subtract From Zero Extended
  *	.671

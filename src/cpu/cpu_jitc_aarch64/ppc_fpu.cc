@@ -1978,3 +1978,24 @@ JITCFlow ppc_opc_gen_fcmpo(JITC &jitc)
 	return gen_fp_compare(jitc, ppc_opc_fcmpo, crfD, frA, frB);
 }
 
+/* mffs frD — Move From FPSCR
+ * fpr[frD] = (uint64)fpscr (zero-extended to 64 bits in low word)
+ * mffs. (Rc=1) updates CR1 — fall back to interpreter for that.
+ */
+JITCFlow ppc_opc_gen_mffsx(JITC &jitc)
+{
+	int frD, rA, rB;
+	PPC_OPC_TEMPL_X(jitc.current_opc, frD, rA, rB);
+	if (jitc.current_opc & PPC_OPC_Rc) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_mffsx);
+		return flowContinue;
+	}
+	gen_check_fpu(jitc);
+	jitc.clobberAll();
+	// Load fpscr (32-bit), zero-extend to 64, store to fpr[frD]
+	jitc.asmLDRw_cpu(W0, offsetof(PPC_CPU_State, fpscr));
+	// W0 is already zero-extended to X0 by the 32-bit load
+	jitc.asmSTR_cpu(X0, FPR_OFS(frD));
+	return flowContinue;
+}
+

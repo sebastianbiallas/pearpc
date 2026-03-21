@@ -120,8 +120,7 @@ static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 /* addic, addic_, subfic, mulli, andis_, rlwimix, mulhwux, orcx, norx, srawx,
    cntlzwx, divwx, divwux, addcx, addex, subfcx, subfex, srawix, mfcr, mtcrf
    now have native codegen in ppc_alu.cc */
-/* addzex, addmex, subfzex — native codegen in ppc_alu.cc */
-GEN_INTERPRET(subfmex)
+/* addzex, addmex, subfzex, subfmex — native codegen in ppc_alu.cc */
 /* mulhwx — native codegen in ppc_alu.cc */
 // andcx, nandx, eqvx, extsbx, extshx — native codegen in ppc_alu.cc
 GEN_INTERPRET(mcrxr)
@@ -182,7 +181,7 @@ GEN_INTERPRET(fresx)
 GEN_INTERPRET(frsqrtex)
 GEN_INTERPRET(fctiwx)
 // fnegx, fmrx — native codegen in ppc_fpu.cc
-GEN_INTERPRET(mffsx)
+/* mffsx — native codegen in ppc_fpu.cc */
 // FPSCR-modifying opcodes must reset checkedRounding
 JITCFlow ppc_opc_gen_mcrfs(JITC &jitc)
 {

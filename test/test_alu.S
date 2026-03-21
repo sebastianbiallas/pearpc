@@ -994,6 +994,55 @@ _start:
     CHECK   1
 
     /*
+     * Test 76: subfme — basic: rA=1, CA=0 → ~1 + 0 - 1 = 0xFFFFFFFD, CA=1
+     * CA_out = (rA != 0xFFFFFFFF) || CA = (1 != 0xFFFFFFFF) || 0 = 1
+     */
+    PRINT   .Ltest76, (.Ltest76_end - .Ltest76)
+    li      5, 0
+    addic   5, 5, 0           /* CA = 0 */
+    li      4, 1
+    subfme  3, 4              /* rD = ~1 + 0 - 1 = 0xFFFFFFFE + 0xFFFFFFFF = 0xFFFFFFFD */
+    CHECK32 0xFFFFFFFD
+
+    /*
+     * Test 77: subfme — with CA=1: rA=1, CA=1 → ~1 + 1 - 1 = 0xFFFFFFFE, CA=1
+     */
+    PRINT   .Ltest77, (.Ltest77_end - .Ltest77)
+    li      5, 0
+    li      6, 0
+    subfc   5, 5, 6           /* CA = 1 */
+    li      4, 1
+    subfme  3, 4              /* rD = ~1 + 1 - 1 = 0xFFFFFFFE */
+    CHECK32 0xFFFFFFFE
+
+    /*
+     * Test 78: subfme — rA=0xFFFFFFFF, CA=0 → ~0xFFFFFFFF + 0 - 1 = 0xFFFFFFFE, CA=0
+     * CA_out = (0xFFFFFFFF != 0xFFFFFFFF) || 0 = 0
+     */
+    PRINT   .Ltest78, (.Ltest78_end - .Ltest78)
+    li      5, 0
+    addic   5, 5, 0           /* CA = 0 */
+    li      4, -1             /* rA = 0xFFFFFFFF */
+    subfme  3, 4              /* rD = ~(-1) + 0 - 1 = 0 + 0xFFFFFFFF = 0xFFFFFFFF */
+    CHECK32 0xFFFFFFFF
+
+    /*
+     * Test 79: subfme — rA=0xFFFFFFFF, CA=1 → ~0xFFFFFFFF + 1 - 1 = 0, CA=1
+     * CA_out = (0xFFFFFFFF != 0xFFFFFFFF) || 1 = 1
+     */
+    PRINT   .Ltest79, (.Ltest79_end - .Ltest79)
+    li      5, 0
+    li      6, 0
+    subfc   5, 5, 6           /* CA = 1 */
+    li      4, -1             /* rA = 0xFFFFFFFF */
+    subfme  3, 4              /* rD = 0 + 1 - 1 = 0 */
+    CHECK   0
+    /* Verify CA=1 */
+    li      3, 0
+    addze   3, 3
+    CHECK   1
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -1242,6 +1291,18 @@ _start:
 .Ltest75:
     .ascii  "test 75 subfze. Rc:  "
 .Ltest75_end:
+.Ltest76:
+    .ascii  "test 76 subfme:      "
+.Ltest76_end:
+.Ltest77:
+    .ascii  "test 77 subfme CA=1: "
+.Ltest77_end:
+.Ltest78:
+    .ascii  "test 78 subfme -1:   "
+.Ltest78_end:
+.Ltest79:
+    .ascii  "test 79 subfme -1+CA:"
+.Ltest79_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
