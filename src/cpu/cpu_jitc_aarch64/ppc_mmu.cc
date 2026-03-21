@@ -56,8 +56,11 @@ extern "C" void crash_dump_cpu_state()
                 gCPU->lr, gCPU->ctr, gCPU->cr, gCPU->msr);
         fprintf(stderr, "  srr0=%08x srr1=%08x current_opc=%08x code_base=%08x\n", gCPU->srr[0], gCPU->srr[1],
                 gCPU->current_opc, gCPU->current_code_base);
-        fprintf(stderr, "  gpr: r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x r9=%08x\n", gCPU->gpr[0], gCPU->gpr[1],
-                gCPU->gpr[2], gCPU->gpr[3], gCPU->gpr[4], gCPU->gpr[5], gCPU->gpr[9]);
+        fprintf(stderr, "  xer=%08x xer_ca=%d fpscr=%08x\n", gCPU->xer, gCPU->xer_ca, gCPU->fpscr);
+        for (int i = 0; i < 32; i += 4) {
+            fprintf(stderr, "  r%-2d=%08x r%-2d=%08x r%-2d=%08x r%-2d=%08x\n",
+                    i, gCPU->gpr[i], i + 1, gCPU->gpr[i + 1], i + 2, gCPU->gpr[i + 2], i + 3, gCPU->gpr[i + 3]);
+        }
     }
 }
 
