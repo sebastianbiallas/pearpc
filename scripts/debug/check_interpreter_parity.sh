@@ -32,7 +32,9 @@ generic_funcs=$(grep -B20 'ppc_exception' "$GENERIC"/ppc_opc.cc "$GENERIC"/ppc_a
 
 for func in $generic_funcs; do
     # Check if the aarch64 version also calls ppc_exception (uncommented)
-    has_exc=$(grep -A30 "int ${func}(" "$AARCH64"/ppc_alu.cc "$AARCH64"/ppc_opc.cc 2>/dev/null | \
+    # Use sed to extract only the body of the matching function (stop at next function def)
+    has_exc=$(grep -A200 "int ${func}(" "$AARCH64"/ppc_alu.cc "$AARCH64"/ppc_opc.cc 2>/dev/null | \
+        sed -n '1p; 2,/^[a-zA-Z].*ppc_opc_/{ /^[a-zA-Z].*ppc_opc_/q; p; }' | \
         grep -v '//' | grep 'ppc_exception' | head -1)
     if [ -z "$has_exc" ]; then
         echo "  MISSING: $func — generic calls ppc_exception, aarch64 does not"
@@ -59,7 +61,9 @@ gen_interpret_only=$(grep 'GEN_INTERPRET(' "$AARCH64"/ppc_dec.cc | \
 
 for opc in $gen_interpret_only; do
     # Check if the interpreter function calls ppc_exception
-    has_exc=$(grep -A30 "int ppc_opc_${opc}(" "$AARCH64"/ppc_alu.cc "$AARCH64"/ppc_opc.cc 2>/dev/null | \
+    # Use sed to extract only the body of the matching function (stop at next function def)
+    has_exc=$(grep -A200 "int ppc_opc_${opc}(" "$AARCH64"/ppc_alu.cc "$AARCH64"/ppc_opc.cc 2>/dev/null | \
+        sed -n '1p; 2,/^[a-zA-Z].*ppc_opc_/{ /^[a-zA-Z].*ppc_opc_/q; p; }' | \
         grep -v '//' | grep 'ppc_exception' | head -1)
     if [ -n "$has_exc" ]; then
         echo "  WARNING: $opc uses GEN_INTERPRET but calls ppc_exception — exception will be silently dropped!"
