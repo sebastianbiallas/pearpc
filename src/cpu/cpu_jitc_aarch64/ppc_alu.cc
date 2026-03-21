@@ -2923,6 +2923,27 @@ int ppc_opc_subfzeox(PPC_CPU_State &aCPU)
     return 0;
 }
 
+/* subfzex rD, rA — Subtract From Zero Extended
+ * rD = ~rA + CA; CA = carry_out(~rA + CA)
+ * CA is 1 only when ~rA == 0xFFFFFFFF && CA == 1, i.e. rA == 0 && CA == 1
+ */
+JITCFlow ppc_opc_gen_subfzex(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
+    jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
+    jitc.asmMVNw(W16, W16);
+    jitc.asmLDRw_cpu(W0, XER_CA_OFS);
+    // ADDS W16, W16, W0 → ~rA + CA
+    jitc.asmADDSw(W16, W16, W0);
+    // CA = carry out of (~rA + CA)
+    jitc.asmCSETw(W0, A64_CS);
+    jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+    jitc.asmSTRw_cpu(W0, XER_CA_OFS);
+    RC_UPDATE(W16);
+    return flowContinue;
+}
+
 /*
  *	xorx		XOR
  *	.680

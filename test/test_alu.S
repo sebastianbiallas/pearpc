@@ -933,6 +933,67 @@ _start:
     PRINT   .Lok, 3
 
     /*
+     * Test 71: subfze — basic: ~0x00000001 + 0 = 0xFFFFFFFE, CA=0
+     */
+    PRINT   .Ltest71, (.Ltest71_end - .Ltest71)
+    /* Clear CA by doing addic r0,r0,0 on a zero reg */
+    li      5, 0
+    addic   5, 5, 0          /* CA = 0 */
+    li      4, 1              /* rA = 1 */
+    subfze  3, 4              /* rD = ~1 + 0 = 0xFFFFFFFE */
+    CHECK32 0xFFFFFFFE
+
+    /*
+     * Test 72: subfze — with CA=1: ~0x00000001 + 1 = 0xFFFFFFFF, CA=0
+     */
+    PRINT   .Ltest72, (.Ltest72_end - .Ltest72)
+    /* Set CA: addic -1 on 0 → 0xFFFFFFFF, CA=0... use subfc instead */
+    li      5, 0
+    li      6, 0
+    subfc   5, 5, 6           /* 0 - 0 = 0, CA = 1 (no borrow) */
+    li      4, 1              /* rA = 1 */
+    subfze  3, 4              /* rD = ~1 + 1 = 0xFFFFFFFF, CA=0 */
+    CHECK32 0xFFFFFFFF
+
+    /*
+     * Test 73: subfze — carry out: rA=0, CA=1 → ~0 + 1 = 0, CA=1
+     */
+    PRINT   .Ltest73, (.Ltest73_end - .Ltest73)
+    li      5, 0
+    li      6, 0
+    subfc   5, 5, 6           /* CA = 1 */
+    li      4, 0              /* rA = 0 */
+    subfze  3, 4              /* rD = ~0 + 1 = 0xFFFFFFFF + 1 = 0, CA=1 */
+    CHECK   0
+    /* Verify CA=1 by using addzex to read it */
+    li      3, 0
+    addze   3, 3              /* rD = 0 + CA = 1 */
+    CHECK   1
+
+    /*
+     * Test 74: subfze — rA=0, CA=0 → ~0 + 0 = 0xFFFFFFFF, CA=0
+     */
+    PRINT   .Ltest74, (.Ltest74_end - .Ltest74)
+    li      5, 0
+    addic   5, 5, 0           /* CA = 0 */
+    li      4, 0
+    subfze  3, 4              /* rD = ~0 + 0 = 0xFFFFFFFF, CA=0 */
+    CHECK32 0xFFFFFFFF
+
+    /*
+     * Test 75: subfze. — Rc=1, negative result sets CR0[LT]
+     */
+    PRINT   .Ltest75, (.Ltest75_end - .Ltest75)
+    li      5, 0
+    addic   5, 5, 0           /* CA = 0 */
+    li      4, 0x10           /* rA = 16 */
+    subfze. 3, 4              /* rD = ~16 + 0 = 0xFFFFFFEF (negative), CR0[LT]=1 */
+    mfcr    3
+    /* CR0 is bits 28:31 of CR. LT=bit 31 (MSB of CR0 field) */
+    rlwinm  3, 3, 1, 31, 31  /* extract CR0[LT] → bit 0 */
+    CHECK   1
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -1166,6 +1227,21 @@ _start:
 .Ltest70:
     .ascii  "test 70 mfdar:       "
 .Ltest70_end:
+.Ltest71:
+    .ascii  "test 71 subfze:      "
+.Ltest71_end:
+.Ltest72:
+    .ascii  "test 72 subfze CA=1: "
+.Ltest72_end:
+.Ltest73:
+    .ascii  "test 73 subfze CA=1→1:"
+.Ltest73_end:
+.Ltest74:
+    .ascii  "test 74 subfze rA=0: "
+.Ltest74_end:
+.Ltest75:
+    .ascii  "test 75 subfze. Rc:  "
+.Ltest75_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
