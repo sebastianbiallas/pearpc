@@ -222,7 +222,7 @@ GEN_INTERPRET(ecowx)
 /* isync, eieio — no-op in emulator, native gen_ below */
 /* tlbie, tlbia, tlbsync have native gen_ in ppc_alu.cc */
 GEN_INTERPRET_ENDBLOCK(icbi)
-GEN_INTERPRET_LOADSTORE(dcbz)
+/* dcbz — native codegen in ppc_mmu.cc (single TLB lookup + STP×2) */
 
 /* AltiVec load/store */
 GEN_INTERPRET_LOADSTORE(lvx)

@@ -323,6 +323,90 @@ _start:
     CHECK   999
 
     /*
+     * Test 19: dcbz — zeroes 32 bytes at aligned address
+     * Write known pattern, dcbz, verify all 8 words are zero.
+     */
+    PRINT   .Lt19, (.Lt19e - .Lt19)
+    addi    6, 1, -256          /* scratch area, well within stack */
+    rlwinm  6, 6, 0, 0, 26     /* r6 &= ~0x1F — align to 32-byte boundary */
+    /* Fill 32 bytes with 0xDEADBEEF */
+    lis     4, 0xDEAD
+    ori     4, 4, 0xBEEF
+    stw     4, 0(6)
+    stw     4, 4(6)
+    stw     4, 8(6)
+    stw     4, 12(6)
+    stw     4, 16(6)
+    stw     4, 20(6)
+    stw     4, 24(6)
+    stw     4, 28(6)
+    /* dcbz the aligned address */
+    dcbz    0, 6
+    /* Verify all 8 words are zero */
+    lwz     3, 0(6)
+    CHECK   0
+    PRINT   .Lt20, (.Lt20e - .Lt20)
+    lwz     3, 4(6)
+    CHECK   0
+    PRINT   .Lt21, (.Lt21e - .Lt21)
+    lwz     3, 8(6)
+    CHECK   0
+    PRINT   .Lt22, (.Lt22e - .Lt22)
+    lwz     3, 28(6)
+    CHECK   0
+
+    /*
+     * Test 23: dcbz with rA+rB addressing
+     */
+    PRINT   .Lt23, (.Lt23e - .Lt23)
+    /* Fill again */
+    lis     4, 0xCAFE
+    ori     4, 4, 0xBABE
+    stw     4, 0(6)
+    stw     4, 4(6)
+    stw     4, 8(6)
+    stw     4, 12(6)
+    stw     4, 16(6)
+    stw     4, 20(6)
+    stw     4, 24(6)
+    stw     4, 28(6)
+    /* dcbz rA, rB */
+    li      7, 0
+    dcbz    7, 6
+    lwz     3, 0(6)
+    CHECK   0
+    PRINT   .Lt24, (.Lt24e - .Lt24)
+    lwz     3, 24(6)
+    CHECK   0
+
+    /*
+     * Test 25: dcbz aligns unaligned EA
+     * Pass an address +4 into the cache line — dcbz should still zero
+     * from the aligned base.
+     */
+    PRINT   .Lt25, (.Lt25e - .Lt25)
+    /* Fill the line */
+    lis     4, 0x1234
+    ori     4, 4, 0x5678
+    stw     4, 0(6)
+    stw     4, 4(6)
+    stw     4, 8(6)
+    stw     4, 12(6)
+    stw     4, 16(6)
+    stw     4, 20(6)
+    stw     4, 24(6)
+    stw     4, 28(6)
+    /* dcbz at base+4 (unaligned within line) */
+    addi    7, 6, 4
+    dcbz    0, 7
+    /* Word at offset 0 should be zeroed (dcbz aligns down) */
+    lwz     3, 0(6)
+    CHECK   0
+    PRINT   .Lt26, (.Lt26e - .Lt26)
+    lwz     3, 28(6)
+    CHECK   0
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -406,6 +490,30 @@ _start:
 .Lt18:
     .ascii  "test 18 stmw/lmw r31 only: "
 .Lt18e:
+.Lt19:
+    .ascii  "test 19 dcbz word[0]:      "
+.Lt19e:
+.Lt20:
+    .ascii  "test 20 dcbz word[1]:      "
+.Lt20e:
+.Lt21:
+    .ascii  "test 21 dcbz word[2]:      "
+.Lt21e:
+.Lt22:
+    .ascii  "test 22 dcbz word[7]:      "
+.Lt22e:
+.Lt23:
+    .ascii  "test 23 dcbz rA+rB [0]:    "
+.Lt23e:
+.Lt24:
+    .ascii  "test 24 dcbz rA+rB [6]:    "
+.Lt24e:
+.Lt25:
+    .ascii  "test 25 dcbz unalign [0]:  "
+.Lt25e:
+.Lt26:
+    .ascii  "test 26 dcbz unalign [7]:  "
+.Lt26e:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:

@@ -487,6 +487,49 @@ do_export EXTERN(ppc_write_effective_dword_asm)
 //  String load/store and cache stubs (not yet implemented)
 //
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  ppc_opc_dcbz_asm
+//
+//  IN:  w0 = EA (already cache-line aligned: EA & ~0x1F)
+//       w9 = pc_ofs
+//
+//  Zeroes 32 bytes at the aligned address.  Since the 32-byte block is
+//  always within a single 4 KB page, one TLB lookup suffices.
+//
+.p2align 4
+do_export EXTERN(ppc_opc_dcbz_asm)
+    and     w2, w0, #0xFFF              // page offset
+    // TLB lookup (write TLB)
+    lsr     w3, w0, #12
+    and     w3, w3, #(TLB_ENTRIES - 1)
+    and     w4, w0, #0xFFFFF000
+    add     x5, x20, #tlb_data_8_eff
+    ldr     w16, [x5, x3, lsl #2]
+    cmp     w4, w16
+    TLB_MISS_BRANCH    .Ldcbz_slow
+    // TLB hit — get host pointer and zero 32 bytes with two STP of XZR
+    add     x5, x20, #tlb_data_8_phys
+    ldr     x5, [x5, x3, lsl #3]
+    add     x5, x5, x2                 // host_ptr + page_offset
+    stp     xzr, xzr, [x5]
+    stp     xzr, xzr, [x5, #16]
+    ret
+.Ldcbz_slow:
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+    str     w9, [x20, #pc_ofs]
+    ldr     w16, [x20, #current_code_base]
+    add     w16, w16, w9
+    str     w16, [x20, #pc]
+    mov     w1, w0                      // w1 = ea (aligned)
+    mov     x0, x20                     // x0 = cpu
+    bl      EXTERN(ppc_opc_dcbz_slow)
+    cbnz    w0, .Ldsi_from_slow
+    ldp     x29, x30, [sp], #16
+    ret
+
+
 .p2align 4
 do_export EXTERN(ppc_opc_stswi_asm)
     ret

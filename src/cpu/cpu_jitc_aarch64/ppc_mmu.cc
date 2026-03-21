@@ -973,6 +973,26 @@ int ppc_opc_dcbz(PPC_CPU_State &aCPU)
     }
     return PPC_MMU_OK;
 }
+
+// dcbz slow path — called from asm stub on TLB miss.
+// EA is already aligned to 32 bytes, so always within one page.
+extern "C" int ppc_opc_dcbz_slow(PPC_CPU_State *cpu, uint32 ea)
+{
+    if (ppc_write_effective_dword(*cpu, ea, 0)) {
+        return 1;
+    }
+    if (ppc_write_effective_dword(*cpu, ea + 8, 0)) {
+        return 1;
+    }
+    if (ppc_write_effective_dword(*cpu, ea + 16, 0)) {
+        return 1;
+    }
+    if (ppc_write_effective_dword(*cpu, ea + 24, 0)) {
+        return 1;
+    }
+    return 0;
+}
+
 int ppc_opc_dcba(PPC_CPU_State &aCPU)
 {
     return 0;
@@ -2744,6 +2764,24 @@ JITCFlow ppc_opc_gen_stmw(JITC &jitc)
         jitc.asmLDRw_cpu(W1, GPR_OFS(rS + i));
         jitc.asmCALL_cpu(PPC_STUB_WRITE_WORD);
     }
+    return flowContinue;
+}
+
+/*
+ *  === dcbz — Data Cache Block Zero ===
+ *  Zeroes 32 bytes at EA aligned to cache-line boundary.
+ *  Since the 32-byte block is always within a single 4KB page,
+ *  the asm stub does a single TLB lookup then STP XZR,XZR × 2.
+ */
+JITCFlow ppc_opc_gen_dcbz(JITC &jitc)
+{
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
+    jitc.clobberAll();
+    gen_prologue(jitc);
+    gen_ea_X(jitc, rA, rB);
+    jitc.asmANDw_val(W0, W0, ~0x1f); // align to 32-byte cache line
+    jitc.asmCALL_cpu(PPC_STUB_DCBZ);
     return flowContinue;
 }
 

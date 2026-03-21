@@ -40,6 +40,7 @@ extern "C" void ppc_read_effective_dword_asm();
 extern "C" void ppc_opc_stswi_asm();
 extern "C" void ppc_opc_lswi_asm();
 extern "C" void ppc_opc_icbi_asm();
+extern "C" void ppc_opc_dcbz_asm();
 
 extern "C" void ppc_isi_exception_asm();
 extern "C" void ppc_dsi_exception_asm();

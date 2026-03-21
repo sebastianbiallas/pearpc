@@ -1273,6 +1273,7 @@ void jitcDebugInit()
     ADD_SYM(ppc_opc_icbi_asm);
     ADD_SYM(ppc_opc_stswi_asm);
     ADD_SYM(ppc_opc_lswi_asm);
+    ADD_SYM(ppc_opc_dcbz_asm);
 
     // Exception handlers
     ADD_SYM(ppc_isi_exception_asm);
