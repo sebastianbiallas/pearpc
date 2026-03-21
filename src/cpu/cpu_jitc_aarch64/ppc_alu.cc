@@ -177,8 +177,12 @@ JITCFlow ppc_opc_gen_addi(JITC &jitc)
     sint32 simm = (sint32)imm;
 
     if (rA == 0) {
-        jitc.asmMOV(W16, (uint32)simm);
-        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+        if (simm == 0) {
+            jitc.asmSTRw_cpu(WZR, GPR_OFS(rD));
+        } else {
+            jitc.asmMOV(W16, (uint32)simm);
+            jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+        }
     } else {
         jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
         if (simm >= 0 && simm < 4096) {
@@ -207,8 +211,12 @@ JITCFlow ppc_opc_gen_addis(JITC &jitc)
     uint32 shifted = imm << 16;
 
     if (rA == 0) {
-        jitc.asmMOV(W16, shifted);
-        jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+        if (shifted == 0) {
+            jitc.asmSTRw_cpu(WZR, GPR_OFS(rD));
+        } else {
+            jitc.asmMOV(W16, shifted);
+            jitc.asmSTRw_cpu(W16, GPR_OFS(rD));
+        }
     } else {
         jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
         jitc.asmMOV(W17, shifted);
