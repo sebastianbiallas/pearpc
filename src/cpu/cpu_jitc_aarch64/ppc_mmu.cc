@@ -2724,11 +2724,10 @@ JITCFlow ppc_opc_gen_sthbrx(JITC &jitc)
 
 /*
  *  === lmw / stmw — Load/Store Multiple Word ===
- *  For small register counts (≤4), unroll as individual lwz/stw calls.
- *  For larger counts, fall back to interpreter.
+ *  Fully unrolled as individual word read/write stub calls.
+ *  Each stub does its own TLB lookup, but sequential addresses
+ *  within a page will TLB-hit after the first access.
  */
-
-#define LMW_STMW_INLINE_MAX 4
 
 JITCFlow ppc_opc_gen_lmw(JITC &jitc)
 {
@@ -2736,10 +2735,6 @@ JITCFlow ppc_opc_gen_lmw(JITC &jitc)
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
     int count = 32 - rD;
-    if (count > LMW_STMW_INLINE_MAX) {
-        ppc_opc_gen_interpret_loadstore(jitc, ppc_opc_lmw);
-        return flowEndBlock;
-    }
     jitc.clobberAll();
     gen_prologue(jitc);
     for (int i = 0; i < count; i++) {
@@ -2756,10 +2751,6 @@ JITCFlow ppc_opc_gen_stmw(JITC &jitc)
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rS, rA, imm);
     int count = 32 - rS;
-    if (count > LMW_STMW_INLINE_MAX) {
-        ppc_opc_gen_interpret_loadstore(jitc, ppc_opc_stmw);
-        return flowEndBlock;
-    }
     jitc.clobberAll();
     gen_prologue(jitc);
     for (int i = 0; i < count; i++) {
