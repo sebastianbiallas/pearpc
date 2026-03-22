@@ -585,19 +585,19 @@ bool mapped_load_elf_from_chrp(File &f, uint disp_off)
 
 				real_mode = desc->real_mode;
 
-				if (desc->real_base != -1)
+				if (desc->real_base != 0xFFFFFFFF)
 					real_base = desc->real_base;
 
-				if (desc->real_size != -1)
+				if (desc->real_size != 0xFFFFFFFF)
 					real_size = desc->real_size;
 
-				if (desc->virt_base != -1)
+				if (desc->virt_base != 0xFFFFFFFF)
 					virt_base = desc->virt_base;
 
-				if (desc->virt_size != -1)
+				if (desc->virt_size != 0xFFFFFFFF)
 					virt_size = desc->virt_size;
 
-				if (desc->load_base != -1)
+				if (desc->load_base != 0xFFFFFFFF)
 					load_base = desc->load_base;
 
 				free(desc);
