@@ -1567,7 +1567,7 @@ void ppc_opc_lfs(PPC_CPU_State &aCPU)
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
 		ppc_fpu_single_to_double(s, d);
-		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+		ppc_fpu_pack_double(aCPU.fpscr, d, (uint64&)aCPU.fpr[frD]);
 	}	
 }
 JITCFlow ppc_opc_gen_lfs(JITC &jitc)
@@ -1606,7 +1606,7 @@ void ppc_opc_lfsu(PPC_CPU_State &aCPU)
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
 		ppc_fpu_single_to_double(s, d);
-		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+		ppc_fpu_pack_double(aCPU.fpscr, d, (uint64&)aCPU.fpr[frD]);
 		aCPU.gpr[rA] += imm;
 	}	
 }
@@ -1650,7 +1650,7 @@ void ppc_opc_lfsux(PPC_CPU_State &aCPU)
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
 		ppc_fpu_single_to_double(s, d);
-		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+		ppc_fpu_pack_double(aCPU.fpscr, d, (uint64&)aCPU.fpr[frD]);
 	}	
 }
 JITCFlow ppc_opc_gen_lfsux(JITC &jitc)
@@ -1689,7 +1689,7 @@ void ppc_opc_lfsx(PPC_CPU_State &aCPU)
 		ppc_double d;
 		ppc_fpu_unpack_single(s, r);
 		ppc_fpu_single_to_double(s, d);
-		ppc_fpu_pack_double(aCPU.fpscr, d, aCPU.fpr[frD]);
+		ppc_fpu_pack_double(aCPU.fpscr, d, (uint64&)aCPU.fpr[frD]);
 	}	
 }
 JITCFlow ppc_opc_gen_lfsx(JITC &jitc)
@@ -1968,7 +1968,7 @@ void ppc_opc_lmw(PPC_CPU_State &aCPU)
 	PPC_OPC_TEMPL_D_SImm(aCPU.current_opc, rD, rA, imm);
 	uint32 ea = (rA ? aCPU.gpr[rA] : 0) + imm;
 	while (rD <= 31) {
-		if (ppc_read_effective_word(aCPU, ea, aCPU.gpr[rD])) {
+		if (ppc_read_effective_word(aCPU, ea, (uint32&)aCPU.gpr[rD])) {
 			return;
 		}
 		rD++;

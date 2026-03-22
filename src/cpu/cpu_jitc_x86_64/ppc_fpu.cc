@@ -1028,7 +1028,7 @@ void ppc_opc_faddx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXISI;
 	}
 	ppc_fpu_add(aCPU.fpscr, D, A, B);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)(aCPU.fpr[frD]));
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fadd.\n");
@@ -1067,7 +1067,7 @@ void ppc_opc_faddsx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXISI;
 	}
 	ppc_fpu_add(aCPU.fpscr, D, A, B);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fadds.\n");
@@ -1293,7 +1293,7 @@ void ppc_opc_fdivx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXIDI;		
 	}
 	ppc_fpu_div(D, A, B);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fdiv.\n");
@@ -1339,7 +1339,7 @@ void ppc_opc_fdivsx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXIDI;		
 	}
 	ppc_fpu_div(D, A, B);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fdivs.\n");
@@ -1363,7 +1363,7 @@ void ppc_opc_fmaddx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(B, aCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, aCPU.fpr[frC]);
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmadd.\n");
@@ -1397,7 +1397,7 @@ void ppc_opc_fmaddsx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(B, aCPU.fpr[frB]);
 	ppc_fpu_unpack_double(C, aCPU.fpr[frC]);
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmadds.\n");
@@ -1475,7 +1475,7 @@ void ppc_opc_fmsubx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(C, aCPU.fpr[frC]);
 	B.s ^= 1;
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmsub.\n");
@@ -1510,7 +1510,7 @@ void ppc_opc_fmsubsx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(C, aCPU.fpr[frC]);
 	B.s ^= 1;
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmsubs.\n");
@@ -1538,7 +1538,7 @@ void ppc_opc_fmulx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXIMZ;
 	}
 	ppc_fpu_mul(D, A, C);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmul.\n");
@@ -1578,7 +1578,7 @@ void ppc_opc_fmulsx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXIMZ;
 	}
 	ppc_fpu_mul(D, A, C);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fmuls.\n");
@@ -1700,7 +1700,7 @@ void ppc_opc_fnmaddx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(C, aCPU.fpr[frC]);
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
 	D.s ^= 1;
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmadd.\n");
@@ -1735,7 +1735,7 @@ void ppc_opc_fnmaddsx(PPC_CPU_State &aCPU)
 	ppc_fpu_unpack_double(C, aCPU.fpr[frC]);
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
 	D.s ^= 1;
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmadds.\n");
@@ -1761,7 +1761,7 @@ void ppc_opc_fnmsubx(PPC_CPU_State &aCPU)
 	B.s ^= 1;
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
 	D.s ^= 1;
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmsub.\n");
@@ -1797,7 +1797,7 @@ void ppc_opc_fnmsubsx(PPC_CPU_State &aCPU)
 	B.s ^= 1;
 	ppc_fpu_mul_add(aCPU.fpscr, D, A, C, B);
 	D.s ^= 1;
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fnmsubs.\n");
@@ -1839,7 +1839,7 @@ void ppc_opc_frspx(PPC_CPU_State &aCPU)
 	PPC_OPC_ASSERT(frA==0);
 	ppc_double B;
 	ppc_fpu_unpack_double(B, aCPU.fpr[frB]);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, B, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, B, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("frsp.\n");
@@ -1867,7 +1867,7 @@ void ppc_opc_frsqrtex(PPC_CPU_State &aCPU)
 	aCPU.fpscr |= ppc_fpu_sqrt(aCPU.fpscr, Q, B);
 	E.type = ppc_fpr_norm; E.s = 0; E.e = 0; E.m = 0x80000000000000ULL;
 	ppc_fpu_div(D, E, Q);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);	
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);	
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("frsqrte.\n");
@@ -1934,7 +1934,7 @@ void ppc_opc_fsqrtx(PPC_CPU_State &aCPU)
 	ppc_double D;
 	ppc_fpu_unpack_double(B, aCPU.fpr[frB]);
 	ppc_fpu_sqrt(aCPU.fpscr, D, B);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fsqrt.\n");
@@ -1995,7 +1995,7 @@ void ppc_opc_fsubx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXISI;
 	}
 	ppc_fpu_add(aCPU.fpscr, D, A, B);
-	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fsub.\n");
@@ -2042,7 +2042,7 @@ void ppc_opc_fsubsx(PPC_CPU_State &aCPU)
 		aCPU.fpscr |= FPSCR_VXISI;
 	}
 	ppc_fpu_add(aCPU.fpscr, D, A, B);
-	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, aCPU.fpr[frD]);
+	aCPU.fpscr |= ppc_fpu_pack_double_as_single(aCPU.fpscr, D, (uint64&)aCPU.fpr[frD]);
 	if (aCPU.current_opc & PPC_OPC_Rc) {
 		// update cr1 flags
 		PPC_FPU_ERR("fsubs.\n");
