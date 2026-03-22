@@ -860,12 +860,12 @@ EXPORT(ppc_write_effective_word_asm):
 	jc	2f
 	and	ebx, 0xfff
 	sub	ecx, ebx
-	1:
+	5:
 		rol	edx, 8
 		mov	[rax], dl
 		inc	rax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	4:
 	mov	[rsp+8], edx
 	mov	eax, [rsp]
@@ -878,18 +878,18 @@ EXPORT(ppc_write_effective_word_asm):
 	add	ebx, 4
 	and	ebx, 0xfff
 	sub	rax, rbx
-	1:
+	5:
 		rol	edx, 8
 		mov	[rax], dl
 		inc	rax
 		dec	ebx
-	jnz	1b
+	jnz	5b
 	ret
 
 2:
 	and	ebx, 0xfff
 	sub	ecx, ebx
-	1:
+	5:
 		rol	edx, 8
 		push	rax
 		push	rcx
@@ -903,13 +903,13 @@ EXPORT(ppc_write_effective_word_asm):
 		pop	rax
 		inc	eax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	jmp	4b
 3:
 	add	ebx, 4
 	and	ebx, 0xfff
 	sub	eax, ebx
-	1:
+	5:
 		rol	edx, 8
 		push	rax
 		push	rdx
@@ -921,7 +921,7 @@ EXPORT(ppc_write_effective_word_asm):
 		pop	rax
 		inc	rax
 		dec	rbx
-	jnz	1b
+	jnz	5b
 	ret
 .balign 16
 ##############################################################################################
@@ -966,12 +966,12 @@ EXPORT(ppc_write_effective_dword_asm):
 	jc	2f
 	and	ebx, 0xfff
 	sub	ecx, ebx
-	1:
+	5:
 		rol	rdx, 8
 		mov	[rax], dl
 		inc	rax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	4:
 	mov	[rsp+8], rdx
 	mov	eax, [rsp]
@@ -984,18 +984,18 @@ EXPORT(ppc_write_effective_dword_asm):
 	add	ebx, 8
 	and	ebx, 0xfff
 	sub	rax, rbx
-	1:
+	5:
 		rol	rdx, 8
 		mov	[rax], dl
 		inc	rax
 		dec	ebx
-	jnz	1b
+	jnz	5b
 	ret
 
 2:
 	and	ebx, 0xfff
 	sub	ecx, ebx
-	1:
+	5:
 		rol	rdx, 8
 		push	rax
 		push	rcx
@@ -1009,13 +1009,13 @@ EXPORT(ppc_write_effective_dword_asm):
 		pop	rax
 		inc	eax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	jmp	4b
 3:
 	add	ebx, 4
 	and	ebx, 0xfff
 	sub	eax, ebx
-	1:
+	5:
 		rol	rdx, 8
 		push	rax
 		push	rdx
@@ -1027,7 +1027,7 @@ EXPORT(ppc_write_effective_dword_asm):
 		pop	rax
 		inc	rax
 		dec	rbx
-	jnz	1b
+	jnz	5b
 	ret
 
 .balign 16
@@ -1151,7 +1151,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	jc	2f
 	xor	edx, edx
 	mov	dh, [rax]
-1:
+5:
 	mov	eax, [rsp]
 	mov	[rsp], edx
 	inc	eax
@@ -1171,7 +1171,7 @@ EXPORT(ppc_read_effective_half_z_asm):
 	xor	edx, edx
 	mov	dh, al
 	pop	rdi
-	jmp	1b
+	jmp	5b
 3:
 	push	rdx
 	mov	edi, eax
@@ -1222,7 +1222,7 @@ EXPORT(ppc_read_effective_half_s_asm):
 	jc	2f
 	xor	ecx, ecx
 	mov	ch, [rax]
-1:
+5:
 	mov	eax, [rsp]
 	mov	[rsp], ecx
 	inc	eax
@@ -1242,7 +1242,7 @@ EXPORT(ppc_read_effective_half_s_asm):
 	xor	ecx, ecx
 	mov	ch, al
 	pop	rdi
-	jmp	1b
+	jmp	5b
 3:
 	push	rcx
 	mov	edi, eax
@@ -1293,12 +1293,12 @@ EXPORT(ppc_read_effective_word_asm):
 	mov	ecx, 4096
 	jc	2f
 	sub	ecx, ebx
-	1:
+	5:
 		shl	edx, 8
 		mov	dl, [rax]
 		inc	rax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	4:
 	mov	eax, [rsp]
 	mov	[rsp], edx
@@ -1311,18 +1311,18 @@ EXPORT(ppc_read_effective_word_asm):
 	pop	rdx
 	jc	3f
 	sub	ebx, 4092
-	1:
+	5:
 		shl	edx, 8
 		mov	dl, [rax]
 		inc	rax
 		dec	ebx
-	jnz	1b
+	jnz	5b
 	ret
 
 2:
 	sub	ecx, ebx
 	push	rdi
-	1:
+	5:
 		shl	edx, 8
 		push	rcx
 		push	rax
@@ -1336,12 +1336,12 @@ EXPORT(ppc_read_effective_word_asm):
 		pop	rcx
 		inc	eax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	pop	rdi
 	jmp	4b
 3:
 	sub	ebx, 4092
-	1:
+	5:
 		shl	edx, 8
 		push	rax
 		push	rdx
@@ -1353,7 +1353,7 @@ EXPORT(ppc_read_effective_word_asm):
 		pop	rax
 		inc	eax
 		dec	ebx
-	jnz	1b
+	jnz	5b
 	ret
 .balign 16
 ##############################################################################################
@@ -1395,12 +1395,12 @@ EXPORT(ppc_read_effective_dword_asm):
 	mov	r12d, 4096
 	jc	2f
 	sub	r12d, ebx
-	1:
+	5:
 		shl	rdx, 8
 		mov	dl, [rax]
 		inc	rax
 		dec	r12d
-	jnz	1b
+	jnz	5b
 	4:
 	pop	rax
 	push	rdx
@@ -1413,18 +1413,18 @@ EXPORT(ppc_read_effective_dword_asm):
 	pop	rdx
 	jc	3f
 	sub	ebx, 4088
-	1:
+	5:
 		shl	rdx, 8
 		mov	dl, [rax]
 		inc	rax
 		dec	ebx
-	jnz	1b
+	jnz	5b
 	ret
 
 2:
 	sub	r12d, ebx
 	push	rdi
-	1:
+	5:
 		shl	rdx, 8
 		push	rax
 		push	rdx
@@ -1436,12 +1436,12 @@ EXPORT(ppc_read_effective_dword_asm):
 		pop	rax
 		inc	eax
 		dec	r12d
-	jnz	1b
+	jnz	5b
 	pop	rdi
 	jmp	4b
 3:
 	sub	ebx, 4088
-	1:
+	5:
 		shl	rdx, 8
 		push	rax
 		push	rdx
@@ -1453,7 +1453,7 @@ EXPORT(ppc_read_effective_dword_asm):
 		pop	rax
 		inc	eax
 		dec	ebx
-	jnz	1b
+	jnz	5b
 	ret
 	
 .balign 16
@@ -1546,7 +1546,7 @@ EXPORT(ppc_opc_stswi_asm):
 	mmu_prologue
 	mov	r8d, 1
 	
-	1:
+	5:
 		dec	r8d
 		jnz	2f
 			mov	edx, [curCPU(gpr+4*rbx)]
@@ -1576,7 +1576,7 @@ EXPORT(ppc_opc_stswi_asm):
 		shl	edx, 8
 		inc	eax
 		dec	ecx
-	jnz	1b
+	jnz	5b
 	ret
 
 3:
@@ -1602,7 +1602,7 @@ EXPORT(ppc_opc_stswi_asm):
 EXPORT(ppc_opc_lswi_asm):
 	mmu_prologue
 	mov	r8d, 4
-	1:
+	6:
 		or	r8d, r8d
 		jnz	2f
 			mov	[curCPU(gpr+4*rbx)], edx
@@ -1634,7 +1634,7 @@ EXPORT(ppc_opc_lswi_asm):
 		dec	r8d
 		inc	eax
 		dec	ecx
-	jnz	1b
+	jnz	6b
 	
 	or	r8d, r8d
 	jz	5f

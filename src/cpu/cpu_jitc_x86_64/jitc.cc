@@ -20,10 +20,12 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cassert>
 
 #include "system/sysvm.h"
 #include "tools/data.h"
 #include "tools/snprintf.h"
+#include "tools/except.h"
 
 #include "jitc.h"
 #include "jitc_debug.h"
@@ -199,8 +201,7 @@ static void jitcDestroyClientPage(JITC &jitc, ClientPage *cp)
 {
 	// assert(cp->tcf_current)
 	jitcDestroyFragments(jitc, cp->tcf_current);
-	memset(cp->entrypoints, 0, sizeof cp->entrypoints);
-	cp->tcf_current = NULL;
+	cp->destroy();
 	jitcUnmapClientPage(jitc, cp);
 }
 
@@ -338,14 +339,20 @@ static ClientPage *jitcGetOrCreateClientPage(JITC &jitc, uint32 baseaddr)
 	}
 }
 
-static inline void jitcCreateEntrypoint(ClientPage *cp, uint32 ofs)
+static inline void jitcCreateEntrypoint(byte *translationCache, ClientPage *cp, uint32 ofs)
 {
-	cp->entrypoints[ofs >> 2] = cp->tcp;
+	const ptrdiff_t cacheOffset = cp->tcp - translationCache;
+	assert(cacheOffset > 0);
+	cp->entrypoints[ofs >> 2] = static_cast<uint32_t>(cacheOffset);
 }
 
-static inline NativeAddress jitcGetEntrypoint(ClientPage *cp, uint32 ofs)
+static inline NativeAddress jitcGetEntrypoint(byte *translationCache, ClientPage *cp, uint32 ofs)
 {
-	return cp->entrypoints[ofs >> 2];
+	if (const auto entrypoint = cp->entrypoints[ofs >> 2]) {
+		return translationCache + cp->entrypoints[ofs >> 2];
+	} else {
+		return NULL;
+	}
 }
 
 extern uint64 jitcCompileTicks;
@@ -367,7 +374,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 	jitcEmitAlign(jitc, jitc.hostCPUCaps.loop_align);
 
 	NativeAddress entry = cp->tcp;
-	jitcCreateEntrypoint(cp, ofs);
+	jitcCreateEntrypoint(jitc.translationCache, cp, ofs);
 
 	byte *physpage;
 	ppc_direct_physical_memory_handle(baseaddr, physpage);
@@ -411,7 +418,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 			jitc.checkedFloat = false;
 			jitc.checkedVector = false;
 			if (ofs+4 < 4096) {
-				jitcCreateEntrypoint(cp, ofs+4);
+				jitcCreateEntrypoint(jitc.translationCache, cp, ofs+4);
 			}
 		} else {
 			/* flowEndBlockUnreachable */
@@ -463,7 +470,7 @@ extern "C" NativeAddress jitcNewPC(JITC &jitc, uint32 entry)
 	if (!cp->tcf_current) {
 		return jitcStartTranslation(jitc, cp, baseaddr, entry & 0xfff);
 	} else {
-		NativeAddress ofs = jitcGetEntrypoint(cp, entry & 0xfff);
+		NativeAddress ofs = jitcGetEntrypoint(jitc.translationCache, cp, entry & 0xfff);
 		if (ofs) {
 			return ofs;
 		} else {
@@ -516,50 +523,68 @@ extern uint8 jitcFlagsMappingCMP_U[257];
 extern uint8 jitcFlagsMappingCMP_L[257];
 #endif
 
-bool JITC::init(uint maxClientPages, uint32 tcSize)
+bool JITC::init(size_t maxClientPages, size_t tcSize)
 {
-	memset(this, 0, sizeof *this);
-
 	x86GetCaps(hostCPUCaps);
 
+	// Limit translation cache size to 2^31 so jmp/call can use 32-bit relative addresses
+	if (tcSize > INT32_MAX) {
+		tcSize = INT32_MAX;
+	}
+	
 	translationCache = (byte*)sys_alloc_read_write_execute(tcSize);
+	if (!translationCache) {
+		throw MsgfException("Failed to allocate translation cache of %dMB", tcSize / 1024 / 1024);
+	}
 	
-	ht_printf("translation cache: %p\n", translationCache);
+	// Reserve the initial fragments of the translation cache for jump table entries
+	static_assert(kJumpTableSize % FRAGMENT_SIZE == 0, "kJumpTableSize must be a multiple of FRAGMENT_SIZE");
+	const size_t jumpTableFragments = (kJumpTableSize / FRAGMENT_SIZE);
 	
-	if (!translationCache) return false;
-	int maxPages = gMemorySize / 4096;
+	// Reserve at least 1 fragment (at offset 0) as this is used to indicate an entry in
+	// ClientPage.entrypoints that has not yet been translated
+	const size_t firstFragment = std::max<size_t>(1, jumpTableFragments);
+	const size_t numFragments = (tcSize / FRAGMENT_SIZE) - firstFragment;
+
+	jumpTableStart = jumpTableCurr = translationCache;
+
+	// Allocate fragments in contiguous memory and point freeFragmentsList into this memory
+	fragmentArray = std::vector<TranslationCacheFragment>(numFragments, TranslationCacheFragment());
+	
+	TranslationCacheFragment *tcf = &fragmentArray.at(0);
+	freeFragmentsList = tcf;
+	tcf->base = translationCache + firstFragment * FRAGMENT_SIZE;
+	for (size_t index = 1; index < numFragments; ++index) {
+		tcf->prev = &fragmentArray.at(index);
+		tcf = tcf->prev;
+		tcf->base = translationCache + (firstFragment + index) * FRAGMENT_SIZE;
+	}
+	tcf->prev = NULL;
+
+	const size_t maxPages = gMemorySize / 4096;
 	clientPages = ppc_malloc(maxPages * sizeof (ClientPage *));
 	memset(clientPages, 0, maxPages * sizeof (ClientPage *));
 
-	// allocate fragments
-	TranslationCacheFragment *tcf = ppc_malloc(sizeof (TranslationCacheFragment));
-	freeFragmentsList = tcf;
-	tcf->base = translationCache;
-	for (uint32 addr=FRAGMENT_SIZE; addr < tcSize; addr += FRAGMENT_SIZE) {
-		tcf->prev = ppc_malloc(sizeof (TranslationCacheFragment));
-		tcf = tcf->prev;
-		tcf->base = translationCache + addr;
-	}
-	tcf->prev = NULL;
+	// Allocate client pages in contiguous memory and point freeClientPages into this memory
+	const size_t numClientPages = std::min<size_t>(maxPages, maxClientPages);
+	clientPageArray = std::vector<ClientPage>(numClientPages, ClientPage());
 	
-	// allocate client pages
-	ClientPage *cp = ppc_malloc(sizeof (ClientPage));
-	memset(cp->entrypoints, 0, sizeof cp->entrypoints);
-	cp->tcf_current = NULL; // not translated yet
-	cp->lessRU = NULL;
+	ClientPage *cp = &clientPageArray.at(0);
 	LRUpage = NULL;
 	freeClientPages = cp;
-	for (uint i=1; i < maxClientPages; i++) {
-		cp->moreRU = ppc_malloc(sizeof (ClientPage));
+	
+	for (size_t i = 1; i < numClientPages; i++) {
+		cp->moreRU = &clientPageArray.at(i);
 		cp->moreRU->lessRU = cp;
 		cp = cp->moreRU;
-		
-		memset(cp->entrypoints, 0, sizeof cp->entrypoints);
-		cp->tcf_current = NULL; // not translated yet
 	}
-	cp->moreRU = NULL;
 	MRUpage = NULL;
 	
+	ht_printf("translation cache    : %u MB @ 0x%p\n", tcSize / 1024 / 1024, translationCache);
+	ht_printf("client pages         : %llu (%llu MB)\n", clientPageArray.size(), (clientPageArray.size() * sizeof(clientPageArray[0])) / 1024 / 1024);
+	ht_printf("translation fragments: %llu (%llu MB)\n", fragmentArray.size(), (fragmentArray.size() * sizeof(fragmentArray[0])) / 1024 / 1024);
+	ht_printf("jump table fragments : %u (%ld B)\n", static_cast<uint32_t>(jumpTableFragments), getJumpTableFreeBytes());
+
 	// initialize native registers
 	NativeRegType *nr = ppc_malloc(sizeof (NativeRegType));
 	nr->reg = RAX;
@@ -567,7 +592,7 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 	LRUreg = nr;
 	nativeRegsList[RAX] = nr;
 	for (NativeReg reg = RCX; reg <= R15; reg=(NativeReg)(reg+1)) {
-		if (reg != RSP) {
+		if (reg != RSP && reg != R15) {
 			nr->moreRU = ppc_malloc(sizeof (NativeRegType));
 			nr->moreRU->lessRU = nr;
 			nr = nr->moreRU;

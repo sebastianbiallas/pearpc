@@ -21,8 +21,6 @@
 #ifndef __JITC_DEBUG_H__
 #define __JITC_DEBUG_H__
 
-#define JITC_DEBUG
-
 static inline UNUSED uint64 jitcDebugGetTicks()
 {
 	uint32 s0, s1;
@@ -38,6 +36,7 @@ void jitcDebugLogAdd(const char *fmt, ...);
 
 void jitcDebugInit();
 void jitcDebugDone();
+void jitcDebugAddJumpTableEntry(NativeAddress to, NativeAddress entry);
 
 #else
 
@@ -56,6 +55,10 @@ static inline UNUSED void jitcDebugInit()
 static inline UNUSED void jitcDebugDone()
 {
 }
+static inline UNUSED void jitcDebugAddJumpTableEntry(NativeAddress to, NativeAddress entry)
+{
+}
+
 #endif
 
 #endif
