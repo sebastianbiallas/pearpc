@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>
 
 #include "system/systhread.h"
 #include "system/arch/sysendian.h"
@@ -43,6 +44,9 @@
 
 PPC_CPU_State gCPU;
 Debugger *gDebugger;
+
+static FILE *gGenericTraceLog = NULL;
+static uint64 gGenericTraceCount = 0;
 
 static bool gSinglestep = false;
 
@@ -106,6 +110,10 @@ void ppc_cpu_run()
 	gDebugger = new Debugger();
 	gDebugger->mAlwaysShowRegs = true;
 	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
+
+	gGenericTraceLog = fopen("trace_generic.log", "w");
+	if (gGenericTraceLog) setvbuf(gGenericTraceLog, NULL, _IOFBF, 256 * 1024);
+
 	uint ops=0;
 	gCPU.effective_code_page = 0xffffffff;
 //	ppc_fpu_test();
@@ -130,6 +138,21 @@ void ppc_cpu_run()
 		}
 		ppc_exec_opc();
 		ops++;
+
+		if (gGenericTraceLog && (ops % 10000) == 0) {
+			gGenericTraceCount++;
+			fprintf(gGenericTraceLog,
+				"%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x "
+				"r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x "
+				"dec=%08x pdec=%016llx\n",
+				gGenericTraceCount, gCPU.pc, gCPU.msr,
+				gCPU.cr, gCPU.lr, gCPU.ctr,
+				gCPU.gpr[0], gCPU.gpr[1], gCPU.gpr[2],
+				gCPU.gpr[3], gCPU.gpr[4], gCPU.gpr[5],
+				gCPU.dec, (unsigned long long)gCPU.pdec);
+			if (gGenericTraceCount % 100 == 0) fflush(gGenericTraceLog);
+		}
+
 		gCPU.ptb++;
 		if (gCPU.pdec == 0) {
 			gCPU.exception_pending = true;
@@ -213,6 +236,45 @@ void ppc_cpu_run()
 		}
 #endif
 	}
+
+	// Dump memory on exit for debugging
+	extern byte *gMemory;
+	extern uint32 gMemorySize;
+	ht_printf("[DUMP] gMemory=%p gMemorySize=%u\n", gMemory, gMemorySize);
+	if (gMemory && gMemorySize > 0) {
+		FILE *df = fopen("memdump_generic.bin", "wb");
+		if (df) {
+			fwrite(gMemory, 1, gMemorySize, df);
+			fclose(df);
+			ht_printf("[DUMP] wrote memdump_generic.bin (%u bytes)\n", gMemorySize);
+		}
+	}
+	if (gGenericTraceLog) {
+		fflush(gGenericTraceLog);
+		fclose(gGenericTraceLog);
+		gGenericTraceLog = NULL;
+		ht_printf("[DUMP] wrote trace_generic.log (%llu entries)\n", gGenericTraceCount);
+	}
+}
+
+void ppc_cpu_crash_dump(int code)
+{
+	fprintf(stderr, "  PPC state: pc=%08x lr=%08x ctr=%08x cr=%08x msr=%08x\n",
+		gCPU.pc, gCPU.lr, gCPU.ctr, gCPU.cr, gCPU.msr);
+	fprintf(stderr, "  srr0=%08x srr1=%08x\n", gCPU.srr[0], gCPU.srr[1]);
+	fprintf(stderr, "  gpr: r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x\n",
+		gCPU.gpr[0], gCPU.gpr[1], gCPU.gpr[2], gCPU.gpr[3],
+		gCPU.gpr[4], gCPU.gpr[5]);
+
+	extern byte *gMemory;
+	extern uint32 gMemorySize;
+	FILE *df = fopen("memdump_generic.bin", "wb");
+	if (df) {
+		fwrite(gMemory, 1, gMemorySize, df);
+		fclose(df);
+		fprintf(stderr, "[DUMP] wrote memdump_generic.bin (%u bytes)\n", gMemorySize);
+	}
+	exit(code);
 }
 
 void ppc_cpu_stop()

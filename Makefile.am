@@ -9,3 +9,7 @@ dist2: distdir
 	-rm -rf $(distdir)
 
 dist-all2: dist2
+
+.PHONY: test
+test:
+	@test/run_tests.sh

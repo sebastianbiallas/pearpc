@@ -235,6 +235,8 @@ static void cuda_send_packet(uint8 type, int nb, ...)
 	gCUDA.rIFR |= SR_INT;
 	gCUDA.rB &= ~TREQ;
 	gCUDA.rB |= TIP;
+	{ static int c = 0; c++; if (c <= 20 || c % 1000 == 0)
+	  fprintf(stderr, "[CUDA-SEND] #%d state=%d left=%d\n", c, gCUDA.state, gCUDA.left); }
 	pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 }
 
@@ -532,10 +534,16 @@ static void cuda_start_T1()
 	IO_CUDA_TRACE("T1 restarted, T1 = %08x\n", T1);
 }
 
+static int cuda_op_count = 0;
+static int cuda_ifr_read_count = 0;
+
 void cuda_write(uint32 addr, uint32 data, int size)
 {
 	sys_lock_mutex(gCUDAMutex);
 
+	cuda_op_count++;
+	if (cuda_op_count <= 2000)
+		fprintf(stderr, "[CUDA-W] #%d state=%d addr=%08x data=%08x\n", cuda_op_count, gCUDA.state, addr, data);
 	IO_CUDA_TRACE("%d write word @%08x: %08x\n", gCUDA.state, addr, data);
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
@@ -604,7 +612,15 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				data &= ~TREQ;
 			}
 		}
-		pic_raise_interrupt(IO_PIC_IRQ_CUDA);
+		{ static int c = 0; c++; if (c <= 20 || c % 1000 == 0)
+		  fprintf(stderr, "[CUDA-REGB] #%d state=%d rB=%02x data=%02x ifr=%02x\n", c, gCUDA.state, gCUDA.rB, data, gCUDA.rIFR); }
+		// This pic_raise_interrupt is correct and required.
+		// The CUDA driver relies on the PIC interrupt to know when
+		// shift register transfers complete. Only raise when SR_INT
+		// is set in IFR (not unconditionally as the original code did).
+		// Removing this entirely breaks CUDA init on all backends.
+		if (gCUDA.rIFR & SR_INT)
+			pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 		if (!(gCUDA.rB & TIP) && (data & TIP)) {
 			gCUDA.rIFR |= SR_INT;
 //			IO_CUDA_TRACE2("v from: %08x %d\n", gCPU.pc, gCUDA.state);
@@ -711,17 +727,29 @@ void cuda_write(uint32 addr, uint32 data, int size)
 void cuda_read(uint32 addr, uint32 &data, int size)
 {
 	sys_lock_mutex(gCUDAMutex);
+	cuda_op_count++;
 
 	IO_CUDA_TRACE("%d read word @%08x\n", gCUDA.state, addr);
+	uint32 reg = addr - IO_CUDA_PA_START;
+	if (reg != 0x1a00 /* IFR */ && cuda_ifr_read_count > 100) {
+		fprintf(stderr, "[CUDA] broke out of IFR loop after %d reads, now reading reg %04x (op #%d)\n",
+			cuda_ifr_read_count, reg, cuda_op_count);
+		cuda_ifr_read_count = 0;
+	}
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
 	case A:
 		IO_CUDA_TRACE("A(%02x)->\n", gCUDA.rA);
 		data = gCUDA.rA;
 		break;
-	case B:
+	case B: {
 		IO_CUDA_TRACE("B(%02x)->\n", gCUDA.rB);
 		data = gCUDA.rB;
+		static int rb_read_count = 0;
+		rb_read_count++;
+		if (rb_read_count <= 30 || rb_read_count % 1000 == 0)
+			fprintf(stderr, "[CUDA-READB] #%d rB=%02x state=%d\n", rb_read_count, gCUDA.rB, gCUDA.state);
+		}
 		break;
 	case DIRB:
 		IO_CUDA_TRACE("DIRB(%02x)->\n", gCUDA.rDIRB);
@@ -796,6 +824,7 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		data = gCUDA.rPCR;
 		break;
 	case IFR:
+		cuda_ifr_read_count++;
 		data = gCUDA.rIFR;
 		if (gCUDA.state == cuda_idle) {
 			if (!gCUDA.left /*&& !(gCUDA.rIER & SR_INT)*/) {
@@ -824,6 +853,8 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		IO_CUDA_ERR("unknown service\n");
 	}
 
+	if (cuda_op_count <= 2000)
+		fprintf(stderr, "[CUDA-R] #%d state=%d addr=%08x data=%08x\n", cuda_op_count, gCUDA.state, addr + IO_CUDA_PA_START, data);
 	sys_unlock_mutex(gCUDAMutex);
 }
 
@@ -923,8 +954,8 @@ static bool tryProcessCudaEvent(const SystemEvent &ev)
 
 static void *cudaEventLoop(void *arg)
 {
-	gKeyboard->attachEventHandler(cudaEventHandler);
-	gMouse->attachEventHandler(cudaEventHandler);
+	if (gKeyboard) gKeyboard->attachEventHandler(cudaEventHandler);
+	if (gMouse) gMouse->attachEventHandler(cudaEventHandler);
 	sys_lock_semaphore(gCUDAEventSem);
 	while (1) {
 //		IO_CUDA_WARN("waiting on semaphore\n");

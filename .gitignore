@@ -1,20 +1,56 @@
-.deps
-Makefile
-Makefile.in
-aclocal.m4
-autom4te.cache
+# Build artifacts
+*.o
+*.a
+src/ppc
+compile_commands.json
 config.h
-config.h.in
-config.cache
 config.log
 config.status
-configure
 stamp-h1
-stamp-h
-stamp-h.in
+autom4te.cache/
+.deps/
+Makefile
+!Makefile.am
+Makefile.in
+
+# Generated files
+configure~
+bootfile.dump
+
+# Test artifacts
+test/*.o
+test/nvram_test
+test/nvram_mandrake
+nvram
+
+# JIT debug/trace logs
+jitc.log
+jitc_trace.log
+
+# Large binary files
+*.iso
+*.img
+
+# Clangd cache
+.cache/
+
+# Autotools generated
+aclocal.m4
 config.guess
+config.h.in
 config.sub
+configure
 depcomp
 install-sh
 missing
 ylwrap
+
+# Validation/trace logs
+validate.log
+
+# macOS
+.DS_Store
+
+# Editor
+*~
+*.swp

@@ -24,6 +24,8 @@
 #include "system/types.h"
 #include "tools/snprintf.h"
 
+extern void ppc_fatal(const char *fmt, ...);
+
 
 #define PPC_CPU_TRACE(msg...) ht_printf("[CPU/CPU] " msg)
 #define PPC_ALU_TRACE(msg...) ht_printf("[CPU/ALU] " msg)
@@ -33,15 +35,15 @@
 //#define PPC_EXC_TRACE(msg...) ht_printf("[CPU/EXC] " msg)
 #define PPC_MMU_TRACE(msg...) ht_printf("[CPU/MMU] " msg)
 #define PPC_OPC_TRACE(msg...) ht_printf("[CPU/OPC] " msg)
-//#define IO_PROM_TRACE(msg...) ht_printf("[IO/PROM] " msg)
-//#define IO_PROM_FS_TRACE(msg...) ht_printf("[IO/PROM/FS] " msg)
+#define IO_PROM_TRACE(msg...) ht_printf("[IO/PROM] " msg)
+#define IO_PROM_FS_TRACE(msg...) ht_printf("[IO/PROM/FS] " msg)
 //#define IO_3C90X_TRACE(msg...) ht_printf("[IO/3c90x] " msg)
 //#define IO_RTL8139_TRACE(msg...) ht_printf("[IO/rtl8139] " msg)
-//#define IO_GRAPHIC_TRACE(msg...) ht_printf("[IO/GCARD] " msg)
+#define IO_GRAPHIC_TRACE(msg...) ht_printf("[IO/GCARD] " msg)
 //#define IO_CUDA_TRACE(msg...) ht_printf("[IO/CUDA] " msg)
 //#define IO_PIC_TRACE(msg...) ht_printf("[IO/PIC] " msg)
 //#define IO_PCI_TRACE(msg...) ht_printf("[IO/PCI] " msg)
-//#define IO_MACIO_TRACE(msg...) ht_printf("[IO/MACIO] " msg)
+#define IO_MACIO_TRACE(msg...) ht_printf("[IO/MACIO] " msg)
 //#define IO_NVRAM_TRACE(msg...) ht_printf("[IO/NVRAM] " msg)
 //#define IO_IDE_TRACE(msg...) ht_printf("[IO/IDE] " msg)
 //#define IO_USB_TRACE(msg...) ht_printf("[IO/USB] " msg)
@@ -71,28 +73,28 @@
 #define IO_SERIAL_WARN(msg...) ht_printf("[IO/SERIAL] <Warning> " msg)
 #define IO_CORE_WARN(msg...) ht_printf("[IO/Generic] <Warning> " msg)
 
-#define PPC_CPU_ERR(msg...) {ht_printf("[CPU/CPU] <Error> " msg);exit(1); } 
-#define PPC_ALU_ERR(msg...) {ht_printf("[CPU/ALU] <Error> " msg);exit(1); }
-#define PPC_FPU_ERR(msg...) {ht_printf("[CPU/FPU] <Error> " msg);exit(1); }
-#define PPC_DEC_ERR(msg...) {ht_printf("[CPU/DEC] <Error> " msg);exit(1); }
-#define PPC_ESC_ERR(msg...) {ht_printf("[CPU/ESC] <Error> " msg);exit(1); }
-#define PPC_EXC_ERR(msg...) {ht_printf("[CPU/EXC] <Error> " msg);exit(1); }
-#define PPC_MMU_ERR(msg...) {ht_printf("[CPU/MMU] <Error> " msg);exit(1); }
-#define PPC_OPC_ERR(msg...) {ht_printf("[CPU/OPC] <Error> " msg);exit(1); }
-#define IO_PROM_ERR(msg...) {ht_printf("[IO/PROM] <Error> " msg);exit(1); }
-#define IO_PROM_FS_ERR(msg...) {ht_printf("[IO/PROM/FS] <Error> " msg);exit(1); }
-#define IO_3C90X_ERR(msg...) {ht_printf("[IO/3c90x] <Error> " msg);exit(1); }
-#define IO_RTL8139_ERR(msg...) {ht_printf("[IO/rtl8139] <Error> " msg);exit(1); }
-#define IO_GRAPHIC_ERR(msg...) {ht_printf("[IO/GCARD] <Error> " msg);exit(1); }
-#define IO_CUDA_ERR(msg...) {ht_printf("[IO/CUDA] <Error> " msg);exit(1); }
-#define IO_PIC_ERR(msg...) {ht_printf("[IO/PIC] <Error> " msg);exit(1); }
-#define IO_PCI_ERR(msg...) {ht_printf("[IO/PCI] <Error> " msg);exit(1); }
-#define IO_MACIO_ERR(msg...) {ht_printf("[IO/MACIO] <Error> " msg);exit(1); }
-#define IO_NVRAM_ERR(msg...) {ht_printf("[IO/NVRAM] <Error> " msg);exit(1); }
-#define IO_IDE_ERR(msg...) {ht_printf("[IO/IDE] <Error> " msg);exit(1); }
-#define IO_USB_ERR(msg...) {ht_printf("[IO/IDE] <Error> " msg);exit(1); }
-#define IO_SERIAL_ERR(msg...) {ht_printf("[IO/SERIAL] <Error> " msg);exit(1); }
-#define IO_CORE_ERR(msg...) {ht_printf("[IO/Generic] <Error> " msg);exit(1); }
+#define PPC_CPU_ERR(msg...) ppc_fatal("[CPU/CPU] <Error> " msg)
+#define PPC_ALU_ERR(msg...) ppc_fatal("[CPU/ALU] <Error> " msg)
+#define PPC_FPU_ERR(msg...) ppc_fatal("[CPU/FPU] <Error> " msg)
+#define PPC_DEC_ERR(msg...) ppc_fatal("[CPU/DEC] <Error> " msg)
+#define PPC_ESC_ERR(msg...) ppc_fatal("[CPU/ESC] <Error> " msg)
+#define PPC_EXC_ERR(msg...) ppc_fatal("[CPU/EXC] <Error> " msg)
+#define PPC_MMU_ERR(msg...) ppc_fatal("[CPU/MMU] <Error> " msg)
+#define PPC_OPC_ERR(msg...) ppc_fatal("[CPU/OPC] <Error> " msg)
+#define IO_PROM_ERR(msg...) ppc_fatal("[IO/PROM] <Error> " msg)
+#define IO_PROM_FS_ERR(msg...) ppc_fatal("[IO/PROM/FS] <Error> " msg)
+#define IO_3C90X_ERR(msg...) ppc_fatal("[IO/3c90x] <Error> " msg)
+#define IO_RTL8139_ERR(msg...) ppc_fatal("[IO/rtl8139] <Error> " msg)
+#define IO_GRAPHIC_ERR(msg...) ppc_fatal("[IO/GCARD] <Error> " msg)
+#define IO_CUDA_ERR(msg...) ppc_fatal("[IO/CUDA] <Error> " msg)
+#define IO_PIC_ERR(msg...) ppc_fatal("[IO/PIC] <Error> " msg)
+#define IO_PCI_ERR(msg...) ppc_fatal("[IO/PCI] <Error> " msg)
+#define IO_MACIO_ERR(msg...) ppc_fatal("[IO/MACIO] <Error> " msg)
+#define IO_NVRAM_ERR(msg...) ppc_fatal("[IO/NVRAM] <Error> " msg)
+#define IO_IDE_ERR(msg...) ppc_fatal("[IO/IDE] <Error> " msg)
+#define IO_USB_ERR(msg...) ppc_fatal("[IO/USB] <Error> " msg)
+#define IO_SERIAL_ERR(msg...) ppc_fatal("[IO/SERIAL] <Error> " msg)
+#define IO_CORE_ERR(msg...) ppc_fatal("[IO/Generic] <Error> " msg)
 
 /*
  *

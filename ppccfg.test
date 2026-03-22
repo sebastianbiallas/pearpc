@@ -18,7 +18,7 @@ prom_driver_graphic = "video.x"
 
 ## Boot directly from CD (no hard disk)
 pci_ide0_master_installed = 1
-pci_ide0_master_image = "MandrakeLinux-9.1-CD1.ppc.iso"
+pci_ide0_master_image = "../pearpc.test/MandrakeLinux-9.1-CD1.ppc.iso"
 pci_ide0_master_type = "cdrom"
 
 pci_ide0_slave_installed = 0

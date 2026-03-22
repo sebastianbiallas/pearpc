@@ -21,6 +21,14 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "system/types.h"
+
+// I/O read cache globals (used by io.h inline functions)
+bool gIOReadReplay = false;
+uint32 gIOReadCacheAddr = 0;
+uint32 gIOReadCacheData = 0;
+bool gIOReadCacheValid = false;
+
 #include "io.h"
 #include "io/3c90x/3c90x.h"
 #include "io/graphic/gcard.h"

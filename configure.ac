@@ -19,7 +19,7 @@ AC_ARG_ENABLE(profiling,
 AC_ARG_ENABLE(debug,
 	[  --enable-debug          make a debug build [default=yes]],,enable_debug="yes")
 AC_ARG_ENABLE(cpu,
-	[  --enable-cpu            choose cpu (generic, jitc_x86 or jitc_x86_64) [default=<YOUR-ARCH> or generic]],,enable_cpu="")
+	[  --enable-cpu            choose cpu (generic, jitc_x86, jitc_x86_64, or jitc_aarch64) [default=<YOUR-ARCH> or generic]],,enable_cpu="")
 AC_ARG_ENABLE(ui,
 	[  --enable-ui             choose ui (beos, gtk, qt, sdl, win32, or x11) [system-specific defaults]],,enable_ui="no")
 
@@ -38,8 +38,18 @@ else
 fi
 
 if test "x$enable_fpo" = "xyes"; then
-	PPC_CFLAGS="$PPC_CFLAGS -fomit-frame-pointer"
-	PPC_CXXFLAGS="$PPC_CXXFLAGS -fomit-frame-pointer"
+	case "$target" in
+	aarch64*|arm64*)
+		dnl On aarch64, x29 is the dedicated frame pointer; omitting it
+		dnl saves nothing but breaks backtrace().
+		PPC_CFLAGS="$PPC_CFLAGS -fno-omit-frame-pointer"
+		PPC_CXXFLAGS="$PPC_CXXFLAGS -fno-omit-frame-pointer"
+	;;
+	*)
+		PPC_CFLAGS="$PPC_CFLAGS -fomit-frame-pointer"
+		PPC_CXXFLAGS="$PPC_CXXFLAGS -fomit-frame-pointer"
+	;;
+	esac
 fi
 
 if test "x$enable_profiling" = "xyes"; then
@@ -139,16 +149,19 @@ esac
 case "$enable_cpu" in
 jitc_x86_64*)
 	CPU_DIR="cpu_jitc_x86_64"
-;;	
+;;
 jitc_x86*)
 	CPU_DIR="cpu_jitc_x86"
-;;	
+;;
+jitc_aarch64*)
+	CPU_DIR="cpu_jitc_aarch64"
+;;
 generic*)
 	CPU_DIR="cpu_generic"
-;;	
+;;
 *)
 	CPU_DIR=""
-;;	
+;;
 esac
 
 case "$target" in
@@ -167,10 +180,10 @@ x86_64*)
 	fi
 ;;
 aarch64*|arm64*)
-	AC_MSG_RESULT([*** aarch64 target system (interpreter only)])
+	AC_MSG_RESULT([*** aarch64 target system])
 	ARCH_DIR=generic
 	if test -z "$CPU_DIR"; then
-		CPU_DIR="cpu_generic"
+		CPU_DIR="cpu_jitc_aarch64"
 	fi
 ;;
 *)
@@ -195,6 +208,7 @@ AM_CONDITIONAL(USE_OSAPI_WIN32, test x$OSAPI_DIR = xwin32)
 AM_CONDITIONAL(USE_CPU_GENERIC, test x$CPU_DIR = xcpu_generic)
 AM_CONDITIONAL(USE_CPU_JITC_X86, test x$CPU_DIR = xcpu_jitc_x86)
 AM_CONDITIONAL(USE_CPU_JITC_X86_64, test x$CPU_DIR = xcpu_jitc_x86_64)
+AM_CONDITIONAL(USE_CPU_JITC_AARCH64, test x$CPU_DIR = xcpu_jitc_aarch64)
 
 dnl Checks for programs.
 AC_PROG_RANLIB
@@ -482,6 +496,7 @@ src/cpu/Makefile
 src/cpu/cpu_generic/Makefile
 src/cpu/cpu_jitc_x86/Makefile
 src/cpu/cpu_jitc_x86_64/Makefile
+src/cpu/cpu_jitc_aarch64/Makefile
 src/debug/Makefile
 src/io/Makefile
 src/io/3c90x/Makefile

@@ -1,0 +1,78 @@
+---
+# PearPC .clang-format
+# Matches existing code style but uses spaces instead of tabs.
+# Apply to new code only; don't reformat the entire codebase.
+
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation: spaces, width matches original tab stops
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+ContinuationIndentWidth: 4
+
+# Braces
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeElse: false
+  BeforeCatch: false
+  IndentBraces: false
+
+# Pointers and references: attach to name (Type *name)
+PointerAlignment: Right
+ReferenceAlignment: Right
+
+# Line length
+ColumnLimit: 120
+
+# Spaces
+SpaceBeforeParens: ControlStatements
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceInEmptyBlock: false
+SpacesInParentheses: false
+SpacesInAngles: false
+
+# Includes
+SortIncludes: Never
+IncludeBlocks: Preserve
+
+# Short forms
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: false
+
+# Switch/case
+IndentCaseLabels: false
+IndentCaseBlocks: false
+
+# Braces on control statements (prevent dangling single-line bodies)
+InsertBraces: true
+
+# Misc
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+MaxEmptyLinesToKeep: 2
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# Access modifiers
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+
+# Preprocessor
+IndentPPDirectives: None
+
+# Don't touch existing code formatting in comments
+ReflowComments: false
+...
