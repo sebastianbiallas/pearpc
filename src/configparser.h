@@ -66,6 +66,7 @@ public:
 
 		// these will throw an exception if key isn't set!
 		int	getConfigInt(const String &name);
+		uint32	getConfigUInt(const String &name);
 		String &getConfigString(const String &name, String &result);
 protected:
 		bool	skipWhite(Stream &in);

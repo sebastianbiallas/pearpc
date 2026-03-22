@@ -247,7 +247,7 @@ bool ppc_cpu_init()
 {
 	gCPU = ppc_malloc(sizeof *gCPU);
 	memset(gCPU, 0, sizeof *gCPU);
-	gCPU->pvr = gConfig->getConfigInt(CPU_KEY_PVR);
+	gCPU->pvr = gConfig->getConfigUInt(CPU_KEY_PVR);
 
 	ppc_dec_init();
 	// initialize srs (mostly for prom)

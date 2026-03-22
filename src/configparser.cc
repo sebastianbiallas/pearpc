@@ -70,36 +70,40 @@ bool ConfigEntry::isInitialized() const
 	
 
 class ConfigEntryInt: public ConfigEntry {
-	int value;
+	uint64 value;
 public:
 
 	ConfigEntryInt(const String &aName, bool mandatory)
-		:ConfigEntry(aName, mandatory)
+		:ConfigEntry(aName, mandatory), value(0)
 	{
 	}
 
-	ConfigEntryInt(const String &aName, int defaultvalue, int scheiss_c_plus_plus)
-		:ConfigEntry(aName, false)
+	ConfigEntryInt(const String &aName, uint64 defaultvalue)
+		:ConfigEntry(aName, false), value(defaultvalue)
 	{
-		value = defaultvalue;
 		mInitialized = true;
 	}
-	
+
 	virtual ConfigType getType() const
 	{
 		return configTypeInt;
 	}
-	
-	void set(int v)
+
+	void set(uint64 v)
 	{
 		value = v;
 		mInitialized = true;
 		mSet = true;
 	}
-	
+
 	virtual int asInt() const
 	{
-		return value;
+		return (int)value;
+	}
+
+	uint32 asUInt() const
+	{
+		return (uint32)value;
 	}
 };
 
@@ -161,7 +165,7 @@ void ConfigParser::acceptConfigEntryString(const String &mName, bool mandatory)
 
 void ConfigParser::acceptConfigEntryIntDef(const String &mName, int d)
 {
-	ConfigEntry *entry = new ConfigEntryInt(mName, d, 0);
+	ConfigEntry *entry = new ConfigEntryInt(mName, (uint64)d);
 	if (!entries->insert(entry)) throw MsgfException("duplicate config entry '%y'", &mName);
 }
 
@@ -306,6 +310,15 @@ int ConfigParser::getConfigInt(const String &name)
 	if (!entry) throw MsgfException("unknown entry '%y'", &name);
 	if (!entry->isInitialized()) throw MsgfException("%y is not set!", &name);
 	return entry->asInt();
+}
+
+uint32 ConfigParser::getConfigUInt(const String &name)
+{
+	ConfigEntry empty(name, false);
+	ConfigEntry *entry = (ConfigEntry *)entries->get(entries->find(&empty));
+	if (!entry) throw MsgfException("unknown entry '%y'", &name);
+	if (!entry->isInitialized()) throw MsgfException("%y is not set!", &name);
+	return ((ConfigEntryInt *)entry)->asUInt();
 }
 
 String &ConfigParser::getConfigString(const String &name, String &result)

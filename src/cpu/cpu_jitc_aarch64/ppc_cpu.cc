@@ -281,7 +281,7 @@ bool ppc_cpu_init()
 {
     gCPU = ppc_malloc(sizeof *gCPU);
     memset(gCPU, 0, sizeof *gCPU);
-    gCPU->pvr = gConfig->getConfigInt(CPU_KEY_PVR);
+    gCPU->pvr = gConfig->getConfigUInt(CPU_KEY_PVR);
 
     // Initialize stub function pointers for JIT fast calls
     gCPU->stubs[PPC_STUB_READ_WORD]     = (NativeAddress)ppc_read_effective_word_asm;

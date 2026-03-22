@@ -231,7 +231,7 @@ void ppc_set_singlestep_nonverbose(bool v)
 bool ppc_cpu_init()
 {
 	memset(&gCPU, 0, sizeof gCPU);
-	gCPU.pvr = gConfig->getConfigInt(CPU_KEY_PVR);
+	gCPU.pvr = gConfig->getConfigUInt(CPU_KEY_PVR);
 	
 	ppc_dec_init();
 	// initialize srs (mostly for prom)

@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 			"Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA\n\n");
 
 
-		if (gConfig->getConfigInt("memory_size") < 64*1024*1024) {
+		if (gConfig->getConfigUInt("memory_size") < 64*1024*1024) {
 			ht_printf("%s: 'memory_size' must be >= 64MB.", configfile);
 			exit(1);
 		}
@@ -396,7 +396,7 @@ int main(int argc, char *argv[])
 		 *	begin hardware init
 		 */
 
-		if (!ppc_init_physical_memory(gConfig->getConfigInt("memory_size"))) {
+		if (!ppc_init_physical_memory(gConfig->getConfigUInt("memory_size"))) {
 			ht_printf("cannot initialize memory.\n");
 			exit(1);
 		}
@@ -479,7 +479,7 @@ int main(int argc, char *argv[])
 		ht_printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
 
 		// initialize initial paging (for prom)
-		uint32 PAGE_TABLE_ADDR = gConfig->getConfigInt("page_table_pa");
+		uint32 PAGE_TABLE_ADDR = gConfig->getConfigUInt("page_table_pa");
 		ht_printf("initializing initial page table at %08x\n", PAGE_TABLE_ADDR);
 
  		// 256 Kbytes Pagetable, 2^15 Pages, 2^12 PTEGs
