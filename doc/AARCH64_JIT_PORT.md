@@ -614,6 +614,99 @@ src/cpu/cpu_jitc_aarch64/
 └── ppc_tools.h        # Portable helpers (carry, rotate)
 ```
 
+## XER Summary Overflow (SO) in CR Packing
+
+### Background
+
+The PPC architecture specifies that every CR update (compares, Rc=1 ALU ops)
+must copy the SO (Summary Overflow) bit from XER into bit 0 of the CR field.
+This means every compare and every Rc=1 instruction must read XER.
+
+In the aarch64 JIT, this costs 2 instructions per CR update:
+
+```
+ldr w1, [x20, #xer]          ; load XER
+add w0, w0, w1, lsr #31      ; OR in SO bit (bit 31 → bit 0)
+```
+
+With ~102K compare/Rc=1 instructions per boot, this is ~204K wasted
+instructions (1.8% of total JIT output).
+
+### Which instructions set SO?
+
+SO is set by the "o" (overflow) variants of ALU instructions. It is a
+**sticky** bit — once set, it stays set until explicitly cleared by `mtspr XER`
+or `mcrxr`.
+
+**Instructions that set XER[SO] and XER[OV]:**
+- `addox`, `addcox`, `addeox`, `addmeox`, `addzeox`
+- `subfox`, `subfcox`, `subfeox`, `subfmeox`, `subfzeox`
+- `mullwox` (multiply overflow)
+- `divwox`, `divwuox` (divide overflow)
+- `negox`
+
+**None of these are currently implemented** in PearPC — they all call
+`PPC_ALU_ERR("...ox unimplemented")`. This means SO is never set in practice.
+
+### Which instructions read SO?
+
+**In the CR packing path (native JIT codegen):**
+- `cmp`, `cmpi`, `cmpl`, `cmpli` — all four compare instructions
+- All Rc=1 instructions (`add.`, `and.`, `or.`, `andi.`, etc.) via `gen_update_cr0`
+
+**In interpreter functions:**
+- `ppc_update_cr0()` — reads `xer & XER_SO` to set CR0[SO]
+- Compare interpreter functions — same
+
+**Other readers:**
+- `mfspr XER` — reads the full XER register (returns SO/OV/CA bits)
+- `mcrxr` — moves XER[SO/OV/CA] to a CR field (currently unimplemented)
+- `mfcr` — reads the full CR (which contains SO bits already packed)
+
+### How x86_64 JIT handles this
+
+The x86_64 JIT defines `HANDLE_SO` as an **empty macro** (unless `EXACT_SO`
+is defined at compile time):
+
+```asm
+#ifndef EXACT_SO
+#define HANDLE_SO          // no-op — skip SO entirely
+#else
+#define HANDLE_SO test byte ptr [xer+3], 1<<7; jnz 4f
+#endif
+```
+
+This means the x86_64 JIT **never** copies SO into CR fields. Since no
+overflow instruction is implemented, this is safe and saves significant
+overhead.
+
+### Optimization plan
+
+**Option A (minimal, safe):** Remove the XER load from `gen_cr_insert_signed`
+and `gen_cr_insert_unsigned`. Since no "o" instruction is implemented, SO is
+always 0, making the load + ADD a guaranteed no-op. If an "o" instruction is
+later implemented, add SO handling back.
+
+**Option B (runtime config):** Add a config option `ppc_exact_so` (default
+off). When off, skip SO in JIT codegen. When on, emit the XER load. This
+matches the x86_64 `EXACT_SO` compile-time flag but makes it runtime
+configurable, so users running software that depends on overflow detection
+can enable it.
+
+**Option C (lazy SO):** Track whether any "o" instruction has been compiled
+in the current translation cache. If not, skip SO in all CR packing. If one
+is compiled, invalidate the cache and recompile with SO enabled. This is
+automatic but complex.
+
+Option A is recommended for now, with Option B as a future enhancement when
+"o" instructions are implemented.
+
+### Impact
+
+Removing the SO load saves 2 instructions per CR update:
+- ~102K compare/Rc=1 instructions × 2 = **~204K instructions saved (1.8%)**
+- Also eliminates a load-use dependency stall on `w1` in the hot path
+
 ## References
 
 - [ARM Architecture Reference Manual (ARMv8-A)](https://developer.arm.com/documentation/ddi0487/latest)
