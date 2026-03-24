@@ -49,7 +49,7 @@
 #include "cuda.h"
 
 //#define IO_CUDA_TRACE2(str...) ht_printf(str)
-#define IO_CUDA_TRACE2(str...) 
+#define IO_CUDA_TRACE2(str...)
 
 //#define IO_CUDA_TRACE3(str...) ht_printf(str)
 #define IO_CUDA_TRACE3(str...) 
@@ -235,8 +235,7 @@ static void cuda_send_packet(uint8 type, int nb, ...)
 	gCUDA.rIFR |= SR_INT;
 	gCUDA.rB &= ~TREQ;
 	gCUDA.rB |= TIP;
-	{ static int c = 0; c++; if (c <= 20 || c % 1000 == 0)
-	  fprintf(stderr, "[CUDA-SEND] #%d state=%d left=%d\n", c, gCUDA.state, gCUDA.left); }
+	IO_CUDA_TRACE2("[CUDA-SEND] state=%d left=%d\n", gCUDA.state, gCUDA.left);
 	pic_raise_interrupt(IO_PIC_IRQ_CUDA);
 }
 
@@ -534,16 +533,12 @@ static void cuda_start_T1()
 	IO_CUDA_TRACE("T1 restarted, T1 = %08x\n", T1);
 }
 
-static int cuda_op_count = 0;
 static int cuda_ifr_read_count = 0;
 
 void cuda_write(uint32 addr, uint32 data, int size)
 {
 	sys_lock_mutex(gCUDAMutex);
 
-	cuda_op_count++;
-	if (cuda_op_count <= 2000)
-		fprintf(stderr, "[CUDA-W] #%d state=%d addr=%08x data=%08x\n", cuda_op_count, gCUDA.state, addr, data);
 	IO_CUDA_TRACE("%d write word @%08x: %08x\n", gCUDA.state, addr, data);
 	addr -= IO_CUDA_PA_START;
 	switch (addr) {
@@ -612,8 +607,7 @@ void cuda_write(uint32 addr, uint32 data, int size)
 				data &= ~TREQ;
 			}
 		}
-		{ static int c = 0; c++; if (c <= 20 || c % 1000 == 0)
-		  fprintf(stderr, "[CUDA-REGB] #%d state=%d rB=%02x data=%02x ifr=%02x\n", c, gCUDA.state, gCUDA.rB, data, gCUDA.rIFR); }
+		IO_CUDA_TRACE2("[CUDA-REGB] state=%d rB=%02x data=%02x ifr=%02x\n", gCUDA.state, gCUDA.rB, data, gCUDA.rIFR);
 		// This pic_raise_interrupt is correct and required.
 		// The CUDA driver relies on the PIC interrupt to know when
 		// shift register transfers complete. Only raise when SR_INT
@@ -727,13 +721,12 @@ void cuda_write(uint32 addr, uint32 data, int size)
 void cuda_read(uint32 addr, uint32 &data, int size)
 {
 	sys_lock_mutex(gCUDAMutex);
-	cuda_op_count++;
 
 	IO_CUDA_TRACE("%d read word @%08x\n", gCUDA.state, addr);
 	uint32 reg = addr - IO_CUDA_PA_START;
 	if (reg != 0x1a00 /* IFR */ && cuda_ifr_read_count > 100) {
-		fprintf(stderr, "[CUDA] broke out of IFR loop after %d reads, now reading reg %04x (op #%d)\n",
-			cuda_ifr_read_count, reg, cuda_op_count);
+		IO_CUDA_WARN("broke out of IFR loop after %d reads, now reading reg %04x\n",
+			cuda_ifr_read_count, reg);
 		cuda_ifr_read_count = 0;
 	}
 	addr -= IO_CUDA_PA_START;
@@ -745,10 +738,6 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 	case B: {
 		IO_CUDA_TRACE("B(%02x)->\n", gCUDA.rB);
 		data = gCUDA.rB;
-		static int rb_read_count = 0;
-		rb_read_count++;
-		if (rb_read_count <= 30 || rb_read_count % 1000 == 0)
-			fprintf(stderr, "[CUDA-READB] #%d rB=%02x state=%d\n", rb_read_count, gCUDA.rB, gCUDA.state);
 		}
 		break;
 	case DIRB:
@@ -853,8 +842,7 @@ void cuda_read(uint32 addr, uint32 &data, int size)
 		IO_CUDA_ERR("unknown service\n");
 	}
 
-	if (cuda_op_count <= 2000)
-		fprintf(stderr, "[CUDA-R] #%d state=%d addr=%08x data=%08x\n", cuda_op_count, gCUDA.state, addr + IO_CUDA_PA_START, data);
+	IO_CUDA_TRACE("%d read @%08x: %08x\n", gCUDA.state, addr + IO_CUDA_PA_START, data);
 	sys_unlock_mutex(gCUDAMutex);
 }
 
@@ -885,24 +873,14 @@ static bool doProcessCudaEvent(const SystemEvent &ev)
 	case sysevMouse: {
 		int dx = ev.mouse.relx; //* 256 / gDisplay->mClientChar.width;
 		int dy = ev.mouse.rely; //* 256 / gDisplay->mClientChar.height;
-		if (dx < 0) {
-			if (dx < -63) {
-				dx = 127;
-			} else {
-				dx += 128;
-			}
-		} else if (dx > 63) {
-			dx = 63;
-		}
-		if (dy < 0) {
-			if (dy < -63) {
-				dy = 127;
-			} else {
-				dy += 128;
-			}
-		} else if (dy > 63) {
-			dy = 63;
-		}
+		// ADB mouse uses 7-bit signed deltas (-63..63),
+		// encoded as two's complement in bits 0-6 (bit 7 = button state)
+		if (dx < -63) dx = -63;
+		if (dx > 63) dx = 63;
+		if (dy < -63) dy = -63;
+		if (dy > 63) dy = 63;
+		dx &= 0x7f;
+		dy &= 0x7f;
 		if (!ev.mouse.button2) dx |= 0x80;
 		if (!ev.mouse.button1) dy |= 0x80;
 //		ht_printf("adb mouse: cur: %d, %d d: %d, %d\n", ev.mouseEvent.x, ev.mouseEvent.y, dx, dy);
