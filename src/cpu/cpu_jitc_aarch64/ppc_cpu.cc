@@ -38,6 +38,7 @@
 #include "jitc.h"
 #include "jitc_asm.h"
 #include "jitc_debug.h"
+#include "system/display.h"
 
 extern "C" void gcard_osi(int cpu);
 
@@ -109,9 +110,11 @@ void ppc_cpu_wakeup()
 
 static void decTimerCB(sys_timer t)
 {
-    static int dc = 0; dc++;
-    if (dc <= 10 || dc % 100 == 0)
+    static int dc = 0;
+    dc++;
+    if (dc <= 10 || dc % 100 == 0) {
         fprintf(stderr, "[DEC] #%d\n", dc);
+    }
     ppc_cpu_atomic_raise_dec_exception(*gCPU);
 }
 
@@ -138,8 +141,7 @@ void ppc_cpu_run()
         }
     }
     if ((sizeof *gCPU) % 16) {
-        PPC_CPU_ERR("sizeof gCPU (%d) is not multiple of 16 (aarch64 alignment)\n",
-                  (int)(sizeof *gCPU));
+        PPC_CPU_ERR("sizeof gCPU (%d) is not multiple of 16 (aarch64 alignment)\n", (int)(sizeof *gCPU));
     }
     ht_printf("*** &gCPU: %p, &gJITC: %p\n", gCPU, gCPU->jitc);
     ht_printf("sizeof cpu: %d\n", int(sizeof(*gCPU)));
@@ -148,14 +150,30 @@ void ppc_cpu_run()
     ppc_start_jitc_asm(gCPU->pc, &gCPU, sizeof *gCPU);
     ht_printf("JIT returned\n");
 
-    // Dump memory on exit for debugging
+    // Dump memory on exit if configured
     extern byte *gMemory;
     extern uint32 gMemorySize;
-    FILE *df = fopen("memdump_jit.bin", "wb");
-    if (df) {
-        fwrite(gMemory, 1, gMemorySize, df);
-        fclose(df);
-        ht_printf("[DUMP] wrote memdump_jit.bin (%u bytes) on JIT exit\n", gMemorySize);
+    extern char gMemdumpFile[];
+    extern char gFramebufferDumpFile[];
+    if (gMemdumpFile[0] && gMemory && gMemorySize > 0) {
+        FILE *df = fopen(gMemdumpFile, "wb");
+        if (df) {
+            fwrite(gMemory, 1, gMemorySize, df);
+            fclose(df);
+            ht_printf("[DUMP] wrote %s (%u bytes)\n", gMemdumpFile, gMemorySize);
+        }
+    }
+    extern byte *gFrameBuffer;
+    if (gFramebufferDumpFile[0] && gFrameBuffer) {
+        extern SystemDisplay *gDisplay;
+        uint32 fbSize =
+            gDisplay->mClientChar.width * gDisplay->mClientChar.height * gDisplay->mClientChar.bytesPerPixel;
+        FILE *df = fopen(gFramebufferDumpFile, "wb");
+        if (df) {
+            fwrite(gFrameBuffer, 1, fbSize, df);
+            fclose(df);
+            ht_printf("[DUMP] wrote %s (%u bytes)\n", gFramebufferDumpFile, fbSize);
+        }
     }
 }
 
@@ -179,7 +197,9 @@ extern void jitc_dump_and_exit(int code);
 void ppc_fatal(const char *fmt, ...)
 {
     static bool already_crashing = false;
-    if (already_crashing) _exit(1);
+    if (already_crashing) {
+        _exit(1);
+    }
     already_crashing = true;
 
     va_list ap;
@@ -284,24 +304,24 @@ bool ppc_cpu_init()
     gCPU->pvr = gConfig->getConfigUInt(CPU_KEY_PVR);
 
     // Initialize stub function pointers for JIT fast calls
-    gCPU->stubs[PPC_STUB_READ_WORD]     = (NativeAddress)ppc_read_effective_word_asm;
-    gCPU->stubs[PPC_STUB_READ_BYTE]     = (NativeAddress)ppc_read_effective_byte_asm;
-    gCPU->stubs[PPC_STUB_READ_HALF_Z]   = (NativeAddress)ppc_read_effective_half_z_asm;
-    gCPU->stubs[PPC_STUB_READ_HALF_S]   = (NativeAddress)ppc_read_effective_half_s_asm;
-    gCPU->stubs[PPC_STUB_WRITE_WORD]    = (NativeAddress)ppc_write_effective_word_asm;
-    gCPU->stubs[PPC_STUB_WRITE_BYTE]    = (NativeAddress)ppc_write_effective_byte_asm;
-    gCPU->stubs[PPC_STUB_WRITE_HALF]    = (NativeAddress)ppc_write_effective_half_asm;
-    gCPU->stubs[PPC_STUB_NEW_PC]        = (NativeAddress)ppc_new_pc_asm;
-    gCPU->stubs[PPC_STUB_NEW_PC_REL]    = (NativeAddress)ppc_new_pc_rel_asm;
-    gCPU->stubs[PPC_STUB_PROGRAM_EXC]   = (NativeAddress)ppc_program_exception_asm;
-    gCPU->stubs[PPC_STUB_NO_FPU_EXC]    = (NativeAddress)ppc_no_fpu_exception_asm;
-    gCPU->stubs[PPC_STUB_SC_RAISE]      = (NativeAddress)ppc_sc_raise_asm;
-    gCPU->stubs[PPC_STUB_TLB_INV_ALL]   = (NativeAddress)ppc_mmu_tlb_invalidate_all_asm;
+    gCPU->stubs[PPC_STUB_READ_WORD] = (NativeAddress)ppc_read_effective_word_asm;
+    gCPU->stubs[PPC_STUB_READ_BYTE] = (NativeAddress)ppc_read_effective_byte_asm;
+    gCPU->stubs[PPC_STUB_READ_HALF_Z] = (NativeAddress)ppc_read_effective_half_z_asm;
+    gCPU->stubs[PPC_STUB_READ_HALF_S] = (NativeAddress)ppc_read_effective_half_s_asm;
+    gCPU->stubs[PPC_STUB_WRITE_WORD] = (NativeAddress)ppc_write_effective_word_asm;
+    gCPU->stubs[PPC_STUB_WRITE_BYTE] = (NativeAddress)ppc_write_effective_byte_asm;
+    gCPU->stubs[PPC_STUB_WRITE_HALF] = (NativeAddress)ppc_write_effective_half_asm;
+    gCPU->stubs[PPC_STUB_NEW_PC] = (NativeAddress)ppc_new_pc_asm;
+    gCPU->stubs[PPC_STUB_NEW_PC_REL] = (NativeAddress)ppc_new_pc_rel_asm;
+    gCPU->stubs[PPC_STUB_PROGRAM_EXC] = (NativeAddress)ppc_program_exception_asm;
+    gCPU->stubs[PPC_STUB_NO_FPU_EXC] = (NativeAddress)ppc_no_fpu_exception_asm;
+    gCPU->stubs[PPC_STUB_SC_RAISE] = (NativeAddress)ppc_sc_raise_asm;
+    gCPU->stubs[PPC_STUB_TLB_INV_ALL] = (NativeAddress)ppc_mmu_tlb_invalidate_all_asm;
     gCPU->stubs[PPC_STUB_TLB_INV_ENTRY] = (NativeAddress)ppc_mmu_tlb_invalidate_entry_asm;
-    gCPU->stubs[PPC_STUB_GCARD_OSI]     = (NativeAddress)gcard_osi;
-    gCPU->stubs[PPC_STUB_READ_DWORD]    = (NativeAddress)ppc_read_effective_dword_asm;
-    gCPU->stubs[PPC_STUB_WRITE_DWORD]   = (NativeAddress)ppc_write_effective_dword_asm;
-    gCPU->stubs[PPC_STUB_DCBZ]         = (NativeAddress)ppc_opc_dcbz_asm;
+    gCPU->stubs[PPC_STUB_GCARD_OSI] = (NativeAddress)gcard_osi;
+    gCPU->stubs[PPC_STUB_READ_DWORD] = (NativeAddress)ppc_read_effective_dword_asm;
+    gCPU->stubs[PPC_STUB_WRITE_DWORD] = (NativeAddress)ppc_write_effective_dword_asm;
+    gCPU->stubs[PPC_STUB_DCBZ] = (NativeAddress)ppc_opc_dcbz_asm;
 
     ppc_dec_init();
     // initialize srs (mostly for prom)
@@ -326,7 +346,8 @@ bool ppc_cpu_init()
     }
     gTBreadITB = sys_get_hiresclk_ticks();
     gClientTimeBaseFrequency = q;
-    fprintf(stderr, "[INIT] gClientTimeBaseFrequency=%llu gHostClockScale=%d\n", gClientTimeBaseFrequency, gHostClockScale);
+    fprintf(stderr, "[INIT] gClientTimeBaseFrequency=%llu gHostClockScale=%d\n", gClientTimeBaseFrequency,
+            gHostClockScale);
     gClientBusFrequency = gClientTimeBaseFrequency * 4;
     gClientClockFrequency = gClientBusFrequency * 5;
     gCPU->jitc = new JITC;

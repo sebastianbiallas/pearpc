@@ -58,44 +58,44 @@
 
 void changeCDFunc(void *p)
 {
-	int *i = (int *)p;
-	IDEConfig *idecfg = ide_get_config(*i);
-	
-	CDROMDevice *dev = (CDROMDevice *)idecfg->device;
-	
-	dev->acquire();
-	
-	if (dev->isLocked()) {
-		dev->release();
-		
-		// sys_gui_messagebox("cdrom is locked!");
-	} else {
-		dev->setReady(false);
-		dev->release();
-		/*
+    int *i = (int *)p;
+    IDEConfig *idecfg = ide_get_config(*i);
+
+    CDROMDevice *dev = (CDROMDevice *)idecfg->device;
+
+    dev->acquire();
+
+    if (dev->isLocked()) {
+        dev->release();
+
+        // sys_gui_messagebox("cdrom is locked!");
+    } else {
+        dev->setReady(false);
+        dev->release();
+        /*
 		 * because we have set ready to false, no one can use
 		 * the cdrom now (no medium present)
 		 */
-		String fn;
-		if (sys_gui_open_file_dialog(fn, "title", "*.*", "alle", "testa", true)) {
-			dev->acquire();
-			((CDROMDeviceFile *)dev)->changeDataSource(fn.contentChar());
-			dev->setReady(true);
-			dev->release();
-		} else {
-			/*
+        String fn;
+        if (sys_gui_open_file_dialog(fn, "title", "*.*", "alle", "testa", true)) {
+            dev->acquire();
+            ((CDROMDeviceFile *)dev)->changeDataSource(fn.contentChar());
+            dev->setReady(true);
+            dev->release();
+        } else {
+            /*
 			 * the user picked no file / canceled the dialog.
 			 * what's better now, to leave the old medium
 			 * or to set no medium present?
 			 * we choose the second option.
 			 */
-		}
-	}
+        }
+    }
 }
 
 void initMenu()
 {
-/*	IDEConfig *idecfg = ide_get_config(0);
+    /*	IDEConfig *idecfg = ide_get_config(0);
 	if (idecfg->installed && idecfg->protocol == IDE_ATAPI) {
 		MemMapFile changeCDButton(ppc_button_changecd, sizeof ppc_button_changecd);
 		int *i = new int;
@@ -112,36 +112,37 @@ void initMenu()
 	gDisplay->finishMenu();*/
 }
 
-static const char *textlogo UNUSED = "\e[?7h\e[40m\e[2J\e[40m\n\n\n\n\n\e[0;1m"
-"\e[24C\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
-"\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4   "
-"\xda\xc4\xc4\xc4\xc4\xc4\xc4\n\e[24C\e[0m\xda\xc4\xc4   "
-"\xda\xc4\xc4 \xda\xc4\xc4   \xda\xc4\xc4 \xda\xc4\xc4   "
-"\xda\xc4\xc4\n\e[24C\e[1;30m\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
-"\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
-"\xda\xc4\xc4\n\e[24C\e[34m\xda\xc4\xc4\e[7C\xda\xc4\xc4\e[7C\xda\xc4\xc4   "
-"\xda\xc4\xc4\n\e[24C\e[0;34m\xda\xc4\xc4\e[7C\xda\xc4\xc4\e[8C\xda\xc4\xc4\xc4\xc4\xc4\xc4\n\n";
+static const char *textlogo UNUSED =
+    "\e[?7h\e[40m\e[2J\e[40m\n\n\n\n\n\e[0;1m"
+    "\e[24C\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
+    "\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4   "
+    "\xda\xc4\xc4\xc4\xc4\xc4\xc4\n\e[24C\e[0m\xda\xc4\xc4   "
+    "\xda\xc4\xc4 \xda\xc4\xc4   \xda\xc4\xc4 \xda\xc4\xc4   "
+    "\xda\xc4\xc4\n\e[24C\e[1;30m\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
+    "\xda\xc4\xc4\xc4\xc4\xc4\xc4\xc4  "
+    "\xda\xc4\xc4\n\e[24C\e[34m\xda\xc4\xc4\e[7C\xda\xc4\xc4\e[7C\xda\xc4\xc4   "
+    "\xda\xc4\xc4\n\e[24C\e[0;34m\xda\xc4\xc4\e[7C\xda\xc4\xc4\e[8C\xda\xc4\xc4\xc4\xc4\xc4\xc4\n\n";
 
 static const vcp CONSOLE_BG = VC_BLACK;
 
 void drawLogo()
 {
-	MemMapFile img(ppc_img, sizeof ppc_img);
-	Gif g;
-	g.loadFromByteStream(img);
-	gDisplay->fillRGB(0, 0, gDisplay->mClientChar.width,
-		gDisplay->mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
-	g.draw(gDisplay, (gDisplay->mClientChar.width-g.mWidth)/2, (gDisplay->mClientChar.height >= 600) ? (150-g.mHeight)/2 : 0);
-	gDisplay->setAnsiColor(VCP(VC_BLUE, CONSOLE_BG));
-	gDisplay->fillAllVT(VCP(VC_BLUE, CONSOLE_BG), ' ');
-//	gDisplay->print(textlogo);
-	gDisplay->setAnsiColor(VCP(VC_LIGHT(VC_BLUE), VC_TRANSPARENT));
-	gDisplay->print("\e[H" APPNAME " " APPVERSION " " COPYRIGHT"\n\n");
+    MemMapFile img(ppc_img, sizeof ppc_img);
+    Gif g;
+    g.loadFromByteStream(img);
+    gDisplay->fillRGB(0, 0, gDisplay->mClientChar.width, gDisplay->mClientChar.height, MK_RGB(0xff, 0xff, 0xff));
+    g.draw(gDisplay, (gDisplay->mClientChar.width - g.mWidth) / 2,
+           (gDisplay->mClientChar.height >= 600) ? (150 - g.mHeight) / 2 : 0);
+    gDisplay->setAnsiColor(VCP(VC_BLUE, CONSOLE_BG));
+    gDisplay->fillAllVT(VCP(VC_BLUE, CONSOLE_BG), ' ');
+    //	gDisplay->print(textlogo);
+    gDisplay->setAnsiColor(VCP(VC_LIGHT(VC_BLUE), VC_TRANSPARENT));
+    gDisplay->print("\e[H" APPNAME " " APPVERSION " " COPYRIGHT "\n\n");
 }
 
 void tests()
 {
-/*	while (true) {
+    /*	while (true) {
 		DisplayEvent ev;
 		if (gDisplay->getEvent(ev)) {
 			if (ev.type == evMouse) {
@@ -157,7 +158,6 @@ void tests()
 #include "io/prom/forth.h"
 void testforth()
 {
-
 #if 0
 		ForthVM vm;
 		gCPU.msr = MSR_IR | MSR_DR | MSR_FP;
@@ -184,12 +184,26 @@ void testforth()
 /*
  *
  */
-static bool gHeadless = false;
+char gMemdumpFile[512];
+char gFramebufferDumpFile[512];
 
 void usage()
 {
-	ht_printf("usage: ppc [--headless] configfile\n");
-	exit(1);
+    ht_printf("usage: ppc [options] [configfile]\n");
+    ht_printf("\n");
+    ht_printf("Options:\n");
+    ht_printf("  -c, --config <file>     Config file path\n");
+    ht_printf("  --<key>=<value>         Set config key (hyphens become underscores)\n");
+    ht_printf("  --<key>                 Same as --<key>=1 (boolean flag)\n");
+    ht_printf("  -h, --help              Show this help with all config keys\n");
+    ht_printf("\n");
+    ht_printf("CLI values override config file values. Config file is optional\n");
+    ht_printf("if all required values are provided via CLI or have defaults.\n");
+    ht_printf("\n");
+    ht_printf("Examples:\n");
+    ht_printf("  ppc myconfig.cfg\n");
+    ht_printf("  ppc --memory-size=0x10000000 myconfig.cfg\n");
+    ht_printf("  ppc -c myconfig.cfg --prom-env-machargs=\"-v\"\n");
 }
 
 #ifdef main
@@ -197,366 +211,475 @@ void usage()
 #undef main
 extern "C" int SDL_main(int argc, char *argv[])
 {
-	return 0;
+    return 0;
 }
 #endif
 
 static void crash_handler(int sig, siginfo_t *info, void *ctx)
 {
-	const char *signame = (sig == SIGILL) ? "SIGILL" : (sig == SIGSEGV) ? "SIGSEGV" : (sig == SIGBUS) ? "SIGBUS" : "SIGNAL";
-	fprintf(stderr, "\n*** %s at %p (signal %d) ***\n", signame, info->si_addr, sig);
+    const char *signame = (sig == SIGILL)    ? "SIGILL"
+                          : (sig == SIGSEGV) ? "SIGSEGV"
+                          : (sig == SIGBUS)  ? "SIGBUS"
+                                             : "SIGNAL";
+    fprintf(stderr, "\n*** %s at %p (signal %d) ***\n", signame, info->si_addr, sig);
 
 #ifdef __aarch64__
-	ucontext_t *uc = (ucontext_t *)ctx;
-	auto *ss = &uc->uc_mcontext->__ss;
-	fprintf(stderr, "  pc=%p  lr=%p  sp=%p  fp=%p\n",
-		(void *)ss->__pc, (void *)ss->__lr,
-		(void *)ss->__sp, (void *)ss->__fp);
-	fprintf(stderr, "  x0=%016llx  x1=%016llx  x2=%016llx  x3=%016llx\n",
-		ss->__x[0], ss->__x[1], ss->__x[2], ss->__x[3]);
-	fprintf(stderr, "  x4=%016llx  x5=%016llx  x6=%016llx  x7=%016llx\n",
-		ss->__x[4], ss->__x[5], ss->__x[6], ss->__x[7]);
-	fprintf(stderr, "  x8=%016llx  x9=%016llx x10=%016llx x11=%016llx\n",
-		ss->__x[8], ss->__x[9], ss->__x[10], ss->__x[11]);
-	fprintf(stderr, " x12=%016llx x13=%016llx x14=%016llx x15=%016llx\n",
-		ss->__x[12], ss->__x[13], ss->__x[14], ss->__x[15]);
-	fprintf(stderr, " x16=%016llx x17=%016llx x18=%016llx x19=%016llx\n",
-		ss->__x[16], ss->__x[17], ss->__x[18], ss->__x[19]);
-	fprintf(stderr, " x20=%016llx x21=%016llx x22=%016llx x23=%016llx\n",
-		ss->__x[20], ss->__x[21], ss->__x[22], ss->__x[23]);
-	fprintf(stderr, " x24=%016llx x25=%016llx x26=%016llx x27=%016llx\n",
-		ss->__x[24], ss->__x[25], ss->__x[26], ss->__x[27]);
-	fprintf(stderr, " x28=%016llx\n", ss->__x[28]);
-	// Print instruction at faulting PC
-	fprintf(stderr, "  insn@pc: %08x\n", *(uint32 *)ss->__pc);
+    ucontext_t *uc = (ucontext_t *)ctx;
+    auto *ss = &uc->uc_mcontext->__ss;
+    fprintf(stderr, "  pc=%p  lr=%p  sp=%p  fp=%p\n", (void *)ss->__pc, (void *)ss->__lr, (void *)ss->__sp,
+            (void *)ss->__fp);
+    fprintf(stderr, "  x0=%016llx  x1=%016llx  x2=%016llx  x3=%016llx\n", ss->__x[0], ss->__x[1], ss->__x[2],
+            ss->__x[3]);
+    fprintf(stderr, "  x4=%016llx  x5=%016llx  x6=%016llx  x7=%016llx\n", ss->__x[4], ss->__x[5], ss->__x[6],
+            ss->__x[7]);
+    fprintf(stderr, "  x8=%016llx  x9=%016llx x10=%016llx x11=%016llx\n", ss->__x[8], ss->__x[9], ss->__x[10],
+            ss->__x[11]);
+    fprintf(stderr, " x12=%016llx x13=%016llx x14=%016llx x15=%016llx\n", ss->__x[12], ss->__x[13], ss->__x[14],
+            ss->__x[15]);
+    fprintf(stderr, " x16=%016llx x17=%016llx x18=%016llx x19=%016llx\n", ss->__x[16], ss->__x[17], ss->__x[18],
+            ss->__x[19]);
+    fprintf(stderr, " x20=%016llx x21=%016llx x22=%016llx x23=%016llx\n", ss->__x[20], ss->__x[21], ss->__x[22],
+            ss->__x[23]);
+    fprintf(stderr, " x24=%016llx x25=%016llx x26=%016llx x27=%016llx\n", ss->__x[24], ss->__x[25], ss->__x[26],
+            ss->__x[27]);
+    fprintf(stderr, " x28=%016llx\n", ss->__x[28]);
+    // Print instruction at faulting PC
+    fprintf(stderr, "  insn@pc: %08x\n", *(uint32 *)ss->__pc);
 #endif
 
-	// Dump CPU state, backtrace, and memory, then exit
-	ppc_cpu_crash_dump(128 + sig);
+    // Dump CPU state, backtrace, and memory, then exit
+    ppc_cpu_crash_dump(128 + sig);
 }
 
 int main(int argc, char *argv[])
 {
-	// Install signal handlers for crash diagnostics
-	struct sigaction sa;
-	sa.sa_sigaction = crash_handler;
-	sa.sa_flags = SA_SIGINFO;
-	sigemptyset(&sa.sa_mask);
-	sigaction(SIGILL, &sa, NULL);
-	sigaction(SIGSEGV, &sa, NULL);
-	sigaction(SIGBUS, &sa, NULL);
+    // Install signal handlers for crash diagnostics
+    struct sigaction sa;
+    sa.sa_sigaction = crash_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGILL, &sa, NULL);
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
 
-	const char *configfile = NULL;
-	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--headless") == 0) {
-			gHeadless = true;
-		} else if (!configfile) {
-			configfile = argv[i];
-		} else {
-			usage();
-		}
-	}
-	if (!configfile) usage();
+    const char *configfile = NULL;
+    bool showHelp = false;
 
-	setvbuf(stdout, 0, _IONBF, 0);
+    struct CLIOverride {
+        char key[128];
+        const char *value;
+    };
+    CLIOverride overrides[64];
+    int nOverrides = 0;
 
-	sys_gui_init();
-	
- 	if (sizeof(uint8) != 1) {
-		ht_printf("sizeof(uint8) == %d != 1\n", sizeof(uint8)); exit(-1);
-	}
-	if (sizeof(uint16) != 2) {
-		ht_printf("sizeof(uint16) == %d != 2\n", sizeof(uint16)); exit(-1);
-	}
-	if (sizeof(uint32) != 4) {
-		ht_printf("sizeof(uint32) == %d != 4\n", sizeof(uint32)); exit(-1);
-	}
-	if (sizeof(uint64) != 8) {
-		ht_printf("sizeof(uint64) == %d != 8\n", sizeof(uint64)); exit(-1);
-	}
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            showHelp = true;
+        } else if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0) {
+            if (++i >= argc) {
+                ht_printf("error: %s requires an argument\n", argv[i - 1]);
+                usage();
+                exit(1);
+            }
+            configfile = argv[i];
+        } else if (strncmp(argv[i], "--", 2) == 0) {
+            const char *opt = argv[i] + 2;
+            const char *eq = strchr(opt, '=');
+            const char *value;
+            char *key = overrides[nOverrides].key;
+
+            if (eq) {
+                int keyLen = eq - opt;
+                if (keyLen >= (int)sizeof(overrides[0].key)) {
+                    ht_printf("error: option name too long: %s\n", argv[i]);
+                    exit(1);
+                }
+                memcpy(key, opt, keyLen);
+                key[keyLen] = '\0';
+                value = eq + 1;
+            } else {
+                // Bare --key without = means --key=1 (boolean flag)
+                strncpy(key, opt, sizeof(overrides[0].key) - 1);
+                key[sizeof(overrides[0].key) - 1] = '\0';
+                value = "1";
+            }
+
+            for (char *p = key; *p; p++) {
+                if (*p == '-') {
+                    *p = '_';
+                }
+            }
+
+            overrides[nOverrides].value = value;
+            if (++nOverrides >= 64) {
+                ht_printf("error: too many command line options\n");
+                exit(1);
+            }
+        } else if (!configfile) {
+            configfile = argv[i];
+        } else {
+            ht_printf("error: unexpected argument: %s\n", argv[i]);
+            usage();
+            exit(1);
+        }
+    }
+
+    setvbuf(stdout, 0, _IONBF, 0);
+
+    sys_gui_init();
+
+    if (sizeof(uint8) != 1) {
+        ht_printf("sizeof(uint8) == %d != 1\n", sizeof(uint8));
+        exit(-1);
+    }
+    if (sizeof(uint16) != 2) {
+        ht_printf("sizeof(uint16) == %d != 2\n", sizeof(uint16));
+        exit(-1);
+    }
+    if (sizeof(uint32) != 4) {
+        ht_printf("sizeof(uint32) == %d != 4\n", sizeof(uint32));
+        exit(-1);
+    }
+    if (sizeof(uint64) != 8) {
+        ht_printf("sizeof(uint64) == %d != 8\n", sizeof(uint64));
+        exit(-1);
+    }
 
 #if defined(WIN32) || defined(__WIN32__)
 #else
-	strncpy(gAppFilename, argv[0], sizeof gAppFilename);
+    strncpy(gAppFilename, argv[0], sizeof gAppFilename);
 #endif
 
-	if (!initAtom()) return 3;
-	if (!initData()) return 4;
-	if (!initOSAPI()) return 5;
-	try {
-		gConfig = new ConfigParser();
-		gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
-		gConfig->acceptConfigEntryIntDef("ppc_start_full_screen", 0);
-		gConfig->acceptConfigEntryIntDef("memory_size", 128*1024*1024);
-		gConfig->acceptConfigEntryIntDef("page_table_pa", 0x00300000);
-		gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 20);
-		gConfig->acceptConfigEntryStringDef("key_compose_dialog", "F11");
-		gConfig->acceptConfigEntryStringDef("key_change_cd_0", "none");
-		gConfig->acceptConfigEntryStringDef("key_change_cd_1", "none");
-		gConfig->acceptConfigEntryStringDef("key_toggle_mouse_grab", "F12");
-		gConfig->acceptConfigEntryStringDef("key_toggle_full_screen", "Ctrl+Alt+Return");
+    if (!initAtom()) {
+        return 3;
+    }
+    if (!initData()) {
+        return 4;
+    }
+    if (!initOSAPI()) {
+        return 5;
+    }
+    bool headless = false;
+    try {
+        gConfig = new ConfigParser();
+        gConfig->acceptConfigEntryStringDef("ppc_start_resolution", "800x600x15");
+        gConfig->acceptConfigEntryIntDef("ppc_start_full_screen", 0);
+        gConfig->acceptConfigEntryIntDef("memory_size", 128 * 1024 * 1024);
+        gConfig->acceptConfigEntryIntDef("page_table_pa", 0x00300000);
+        gConfig->acceptConfigEntryIntDef("redraw_interval_msec", 20);
+        gConfig->acceptConfigEntryStringDef("key_compose_dialog", "F11");
+        gConfig->acceptConfigEntryStringDef("key_change_cd_0", "none");
+        gConfig->acceptConfigEntryStringDef("key_change_cd_1", "none");
+        gConfig->acceptConfigEntryStringDef("key_toggle_mouse_grab", "F12");
+        gConfig->acceptConfigEntryStringDef("key_toggle_full_screen", "Ctrl+Alt+Return");
+        gConfig->acceptConfigEntryIntDef("headless", 0);
+        gConfig->acceptConfigEntryStringDef("memdump_file", "");
+        gConfig->acceptConfigEntryStringDef("framebuffer_dump_file", "");
 
-		prom_init_config();
-		io_init_config();
-		ppc_cpu_init_config();
-		debugger_init_config();
+        prom_init_config();
+        io_init_config();
+        ppc_cpu_init_config();
+        debugger_init_config();
 
-		try {
-			LocalFile *config;
-			config = new LocalFile(configfile);
-			gConfig->loadConfig(*config);
-			delete config;
-		} catch (const Exception &e) {
-			String res;
-			e.reason(res);
-			ht_printf("%s: %y\n", configfile, &res);
-			usage();
-			exit(1);
-		}
+        if (showHelp) {
+            usage();
+            ht_printf("\n");
+            gConfig->printUsage();
+            exit(0);
+        }
 
-		ht_printf("This program is free software; you can redistribute it and/or modify\n"
-			"it under the terms of the GNU General Public License version 2 as published by\n"
-			"the Free Software Foundation.\n"
-			"\n"
-			"This program is distributed in the hope that it will be useful,\n"
-			"but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-			"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-			"GNU General Public License for more details.\n"
-			"\n"
-			"You should have received a copy of the GNU General Public License\n"
-			"along with this program; if not, write to the Free Software\n"
-			"Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA\n\n");
+        if (configfile) {
+            try {
+                LocalFile *config;
+                config = new LocalFile(configfile);
+                gConfig->loadConfig(*config);
+                delete config;
+            } catch (const Exception &e) {
+                String res;
+                e.reason(res);
+                ht_printf("%s: %y\n", configfile, &res);
+                exit(1);
+            }
+        }
+
+        for (int i = 0; i < nOverrides; i++) {
+            try {
+                gConfig->setConfigEntry(overrides[i].key, overrides[i].value);
+            } catch (const Exception &e) {
+                String res;
+                e.reason(res);
+                ht_printf("--%s: %y\n", overrides[i].key, &res);
+                exit(1);
+            }
+        }
+
+        gConfig->validateConfig();
+
+        headless = gConfig->getConfigInt("headless") != 0;
+
+        ht_printf("This program is free software; you can redistribute it and/or modify\n"
+                  "it under the terms of the GNU General Public License version 2 as published by\n"
+                  "the Free Software Foundation.\n"
+                  "\n"
+                  "This program is distributed in the hope that it will be useful,\n"
+                  "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+                  "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+                  "GNU General Public License for more details.\n"
+                  "\n"
+                  "You should have received a copy of the GNU General Public License\n"
+                  "along with this program; if not, write to the Free Software\n"
+                  "Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA\n\n");
 
 
-		if (gConfig->getConfigUInt("memory_size") < 64*1024*1024) {
-			ht_printf("%s: 'memory_size' must be >= 64MB.", configfile);
-			exit(1);
-		}
-		int msec = gConfig->getConfigInt("redraw_interval_msec");
-		if (msec < 10 || msec > 500) {
-			ht_printf("%s: 'redraw_interval_msec' must be between 10 and 500 (inclusive).", configfile);
-			exit(1);
-		}
+        if (gConfig->getConfigUInt("memory_size") < 64 * 1024 * 1024) {
+            ht_printf("%s: 'memory_size' must be >= 64MB.\n", configfile ? configfile : "[command line]");
+            exit(1);
+        }
+        int msec = gConfig->getConfigInt("redraw_interval_msec");
+        if (msec < 10 || msec > 500) {
+            ht_printf("%s: 'redraw_interval_msec' must be between 10 and 500 (inclusive).\n",
+                      configfile ? configfile : "[command line]");
+            exit(1);
+        }
 
-		String key_compose_dialog_string;
-		String key_toggle_mouse_grab_string;
-		String key_toggle_full_screen_string;
-		KeyboardCharacteristics keyConfig;
-		gConfig->getConfigString("key_compose_dialog", key_compose_dialog_string);		
-		gConfig->getConfigString("key_toggle_mouse_grab", key_toggle_mouse_grab_string);
-		gConfig->getConfigString("key_toggle_full_screen", key_toggle_full_screen_string);
-		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_compose_dialog, key_compose_dialog_string)) {
-			ht_printf("%s: invalid '%s'\n", configfile, "key_compose_dialog");
-			exit(1);
-		}
-		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_mouse_grab, key_toggle_mouse_grab_string)) {
-			ht_printf("%s: invalid '%s'\n", configfile, "key_toggle_mouse_grab");
-			exit(1);
-		}
-		if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_full_screen, key_toggle_full_screen_string)) {
-			ht_printf("%s: invalid '%s'\n", configfile, "key_toggle_full_screen");
-			exit(1);
-		}
-		
-		
-		gcard_init_modes();
-		
-		String chr;
-		DisplayCharacteristics gm;
-		bool fullscreen;
-		gConfig->getConfigString("ppc_start_resolution", chr);
-		fullscreen = gConfig->getConfigInt("ppc_start_full_screen");
-		if (!displayCharacteristicsFromString(gm, chr)) {
-			ht_printf("%s: invalid '%s'\n", configfile, "ppc_start_resolution");
-			exit(1);
-		}
-		switch (gm.bytesPerPixel) {
-		/*
+        String key_compose_dialog_string;
+        String key_toggle_mouse_grab_string;
+        String key_toggle_full_screen_string;
+        KeyboardCharacteristics keyConfig;
+        gConfig->getConfigString("key_compose_dialog", key_compose_dialog_string);
+        gConfig->getConfigString("key_toggle_mouse_grab", key_toggle_mouse_grab_string);
+        gConfig->getConfigString("key_toggle_full_screen", key_toggle_full_screen_string);
+        if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_compose_dialog, key_compose_dialog_string)) {
+            ht_printf("%s: invalid '%s'\n", configfile ? configfile : "[command line]", "key_compose_dialog");
+            exit(1);
+        }
+        if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_mouse_grab, key_toggle_mouse_grab_string)) {
+            ht_printf("%s: invalid '%s'\n", configfile ? configfile : "[command line]", "key_toggle_mouse_grab");
+            exit(1);
+        }
+        if (!SystemKeyboard::convertStringToKeycode(keyConfig.key_toggle_full_screen, key_toggle_full_screen_string)) {
+            ht_printf("%s: invalid '%s'\n", configfile ? configfile : "[command line]", "key_toggle_full_screen");
+            exit(1);
+        }
+
+
+        gcard_init_modes();
+
+        String chr;
+        DisplayCharacteristics gm;
+        bool fullscreen;
+        gConfig->getConfigString("ppc_start_resolution", chr);
+        fullscreen = gConfig->getConfigInt("ppc_start_full_screen");
+        if (!displayCharacteristicsFromString(gm, chr)) {
+            ht_printf("%s: invalid '%s'\n", configfile ? configfile : "[command line]", "ppc_start_resolution");
+            exit(1);
+        }
+        switch (gm.bytesPerPixel) {
+        /*
 		 *	Are we confusing bytesPerPixel with bitsPerPixel?
 		 *	Yes! And I am proud of it!
 		 */
-		case 15:
-			gm.bytesPerPixel = 2;
-			break;
-		case 32:
-			gm.bytesPerPixel = 4;
-			break;
-		default:
-			ht_printf("%s: invalid depth in '%s'\n", configfile, "ppc_start_resolution");
-			exit(1);
-		}
-		if (!gcard_finish_characteristic(gm)) {
-			ht_printf("%s: invalid '%s'\n", configfile, "ppc_start_resolution");
-			exit(1);
-		}
-		gcard_add_characteristic(gm);
+        case 15: gm.bytesPerPixel = 2; break;
+        case 32: gm.bytesPerPixel = 4; break;
+        default:
+            ht_printf("%s: invalid depth in '%s'\n", configfile ? configfile : "[command line]",
+                      "ppc_start_resolution");
+            exit(1);
+        }
+        if (!gcard_finish_characteristic(gm)) {
+            ht_printf("%s: invalid '%s'\n", configfile ? configfile : "[command line]", "ppc_start_resolution");
+            exit(1);
+        }
+        gcard_add_characteristic(gm);
 
 
-		/*
+        /*
 		 *	begin hardware init
 		 */
 
-		if (!ppc_init_physical_memory(gConfig->getConfigUInt("memory_size"))) {
-			ht_printf("cannot initialize memory.\n");
-			exit(1);
-		}
-		if (!ppc_cpu_init()) {
-			ht_printf("cpu_init failed! Out of memory?\n");
-			exit(1);
-		}
+        if (!ppc_init_physical_memory(gConfig->getConfigUInt("memory_size"))) {
+            ht_printf("cannot initialize memory.\n");
+            exit(1);
+        }
+        if (!ppc_cpu_init()) {
+            ht_printf("cpu_init failed! Out of memory?\n");
+            exit(1);
+        }
 
-		ht_printf("[DBG] cuda_pre_init...\n");
-		cuda_pre_init();
+        ht_printf("[DBG] cuda_pre_init...\n");
+        cuda_pre_init();
 
-		if (!gHeadless) {
-			initUI(APPNAME " " APPVERSION, gm, msec, keyConfig, fullscreen);
-		} else {
-			/*
+        if (!headless) {
+            initUI(APPNAME " " APPVERSION, gm, msec, keyConfig, fullscreen);
+        } else {
+            /*
 			 * Headless mode: create a minimal stub display so that
 			 * PROM device tree init and gcard can read display params.
 			 * No actual rendering happens.
 			 */
-			class HeadlessDisplay : public SystemDisplay {
-			public:
-				HeadlessDisplay(const DisplayCharacteristics &chr, int redraw_ms)
-					: SystemDisplay(chr, redraw_ms) {}
-				void displayShow() override {}
-				void convertCharacteristicsToHost(DisplayCharacteristics &h, const DisplayCharacteristics &c) override { h = c; }
-				bool changeResolution(const DisplayCharacteristics &) override { return true; }
-				void getHostCharacteristics(Container &) override {}
-				void updateTitle() override {}
-				void setMouseGrab(bool) override {}
-				void finishMenu() override {}
-				int toString(char *buf, int buflen) const override { return snprintf(buf, buflen, "headless"); }
-			};
-			gDisplay = new HeadlessDisplay(gm, msec);
-			// Allocate framebuffer for headless mode (needed by gcard)
-			gFrameBuffer = (byte*)malloc(gm.width * gm.height * gm.bytesPerPixel);
-			memset(gFrameBuffer, 0, gm.width * gm.height * gm.bytesPerPixel);
-		}
+            class HeadlessDisplay : public SystemDisplay {
+            public:
+                HeadlessDisplay(const DisplayCharacteristics &chr, int redraw_ms) : SystemDisplay(chr, redraw_ms) {}
+                void displayShow() override {}
+                void convertCharacteristicsToHost(DisplayCharacteristics &h, const DisplayCharacteristics &c) override
+                {
+                    h = c;
+                }
+                bool changeResolution(const DisplayCharacteristics &) override
+                {
+                    return true;
+                }
+                void getHostCharacteristics(Container &) override {}
+                void updateTitle() override {}
+                void setMouseGrab(bool) override {}
+                void finishMenu() override {}
+                int toString(char *buf, int buflen) const override
+                {
+                    return snprintf(buf, buflen, "headless");
+                }
+            };
+            gDisplay = new HeadlessDisplay(gm, msec);
+            // Allocate framebuffer for headless mode (needed by gcard)
+            gFrameBuffer = (byte *)malloc(gm.width * gm.height * gm.bytesPerPixel);
+            memset(gFrameBuffer, 0, gm.width * gm.height * gm.bytesPerPixel);
+        }
 
-		ht_printf("[DBG] io_init...\n");
-		io_init();
+        ht_printf("[DBG] io_init...\n");
+        io_init();
 
-		if (!gHeadless) {
-			gcard_init_host_modes();
-			gcard_set_mode(gm);
+        if (!headless) {
+            gcard_init_host_modes();
+            gcard_set_mode(gm);
 
-			if (fullscreen) gDisplay->setFullscreenMode(true);
+            if (fullscreen) {
+                gDisplay->setFullscreenMode(true);
+            }
 
-			MemMapFile font(ppc_font, sizeof ppc_font);
-			// FIXME: ..
-			if (gDisplay->mClientChar.height >= 600) {
-				int width = (gDisplay->mClientChar.width-40)/8;
-				int height = (gDisplay->mClientChar.height-170)/15;
-				if (!gDisplay->openVT(width, height, (gDisplay->mClientChar.width-width*8)/2, 150, font)) {
-					ht_printf("Can't open virtual terminal.\n");
-					exit(1);
-				}
-			} else {
-				if (!gDisplay->openVT(77, 25, 12, 100, font)) {
-					ht_printf("Can't open virtual terminal.\n");
-					exit(1);
-				}
-			}
+            MemMapFile font(ppc_font, sizeof ppc_font);
+            // FIXME: ..
+            if (gDisplay->mClientChar.height >= 600) {
+                int width = (gDisplay->mClientChar.width - 40) / 8;
+                int height = (gDisplay->mClientChar.height - 170) / 15;
+                if (!gDisplay->openVT(width, height, (gDisplay->mClientChar.width - width * 8) / 2, 150, font)) {
+                    ht_printf("Can't open virtual terminal.\n");
+                    exit(1);
+                }
+            } else {
+                if (!gDisplay->openVT(77, 25, 12, 100, font)) {
+                    ht_printf("Can't open virtual terminal.\n");
+                    exit(1);
+                }
+            }
 
-			initMenu();
-			drawLogo();
+            initMenu();
+            drawLogo();
 
-			gDisplay->printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
-			gDisplay->printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
+            gDisplay->printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
+            gDisplay->printf("%d MiB RAM\n", ppc_get_memory_size() / (1024 * 1024));
 
-			tests();
-		}
+            tests();
+        }
 
-		if (gHeadless) {
-			// Open VT for headless mode too (PROM prints to it)
-			MemMapFile font(ppc_font, sizeof ppc_font);
-			gDisplay->openVT(80, 25, 0, 0, font);
-		}
+        if (headless) {
+            // Open VT for headless mode too (PROM prints to it)
+            MemMapFile font(ppc_font, sizeof ppc_font);
+            gDisplay->openVT(80, 25, 0, 0, font);
+        }
 
-		ht_printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
-		ht_printf("%d MiB RAM\n", ppc_get_memory_size() / (1024*1024));
+        ht_printf("CPU: PVR=%08x\n", ppc_cpu_get_pvr(0));
+        ht_printf("%d MiB RAM\n", ppc_get_memory_size() / (1024 * 1024));
 
-		// initialize initial paging (for prom)
-		uint32 PAGE_TABLE_ADDR = gConfig->getConfigUInt("page_table_pa");
-		ht_printf("initializing initial page table at %08x\n", PAGE_TABLE_ADDR);
+        // initialize initial paging (for prom)
+        uint32 PAGE_TABLE_ADDR = gConfig->getConfigUInt("page_table_pa");
+        ht_printf("initializing initial page table at %08x\n", PAGE_TABLE_ADDR);
 
- 		// 256 Kbytes Pagetable, 2^15 Pages, 2^12 PTEGs
-		if (!ppc_prom_set_sdr1(PAGE_TABLE_ADDR+0x03, false)) {
-			ht_printf("internal error setting sdr1.\n");
-			return 1;
-		}		
-		
-		// clear pagetable
-		if (!ppc_dma_set(PAGE_TABLE_ADDR, 0, 256*1024)) {
-			ht_printf("cannot access page table.\n");
-			return 1;
-		}
+        // 256 Kbytes Pagetable, 2^15 Pages, 2^12 PTEGs
+        if (!ppc_prom_set_sdr1(PAGE_TABLE_ADDR + 0x03, false)) {
+            ht_printf("internal error setting sdr1.\n");
+            return 1;
+        }
 
-		// init prom
-		ht_printf("[DBG] prom_init...\n");
-		prom_init();
-		
-		// lock pagetable
-		for (uint32 pa = PAGE_TABLE_ADDR; pa < (PAGE_TABLE_ADDR + 256*1024); pa += 4096) {
-			if (!prom_claim_page(pa)) {
-				ht_printf("cannot claim page table memory.\n");
-				exit(1);
-			}
-		}
+        // clear pagetable
+        if (!ppc_dma_set(PAGE_TABLE_ADDR, 0, 256 * 1024)) {
+            ht_printf("cannot access page table.\n");
+            return 1;
+        }
 
-		testforth();
+        // init prom
+        ht_printf("[DBG] prom_init...\n");
+        prom_init();
 
-		ht_printf("[DBG] prom_load_boot_file...\n");
-		if (!prom_load_boot_file()) {
-			ht_printf("cannot find boot file.\n");
-			return 1;
-		}
+        // lock pagetable
+        for (uint32 pa = PAGE_TABLE_ADDR; pa < (PAGE_TABLE_ADDR + 256 * 1024); pa += 4096) {
+            if (!prom_claim_page(pa)) {
+                ht_printf("cannot claim page table memory.\n");
+                exit(1);
+            }
+        }
 
-		// this was your last chance to visit the config..
-		delete gConfig;
+        testforth();
 
-		ppc_cpu_map_framebuffer(IO_GCARD_FRAMEBUFFER_PA_START, IO_GCARD_FRAMEBUFFER_EA);
+        ht_printf("[DBG] prom_load_boot_file...\n");
+        if (!prom_load_boot_file()) {
+            ht_printf("cannot find boot file.\n");
+            return 1;
+        }
 
-		if (!gHeadless) {
-			gDisplay->print("now starting client...");
-			gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
-		}
-		ht_printf("[DBG] starting client PC=%08x...\n", ppc_cpu_get_pc(0));
+        // Stash dump paths before deleting config
+        String tmp;
+        gConfig->getConfigString("memdump_file", tmp);
+        strncpy(gMemdumpFile, tmp.contentChar(), sizeof(gMemdumpFile) - 1);
+        gConfig->getConfigString("framebuffer_dump_file", tmp);
+        strncpy(gFramebufferDumpFile, tmp.contentChar(), sizeof(gFramebufferDumpFile) - 1);
 
-		if (gHeadless) {
-			// Headless: run CPU directly on main thread
-			ppc_cpu_run();
-		} else {
-			// GUI: CPU in background thread, UI event loop on main thread
-			sys_thread cpuThread;
-			if (sys_create_thread(&cpuThread, 0, [](void *) -> void * {
-				ppc_cpu_run();
-				return NULL;
-			}, NULL)) {
-				ht_printf("can't create CPU thread!\n");
-				exit(1);
-			}
-			runUI();
-			sys_join_thread(cpuThread);
-		}
+        // this was your last chance to visit the config..
+        delete gConfig;
 
-		io_done();
+        ppc_cpu_map_framebuffer(IO_GCARD_FRAMEBUFFER_PA_START, IO_GCARD_FRAMEBUFFER_EA);
 
-	} catch (const std::exception &e) {
-		ht_printf("main() caught exception: %s\n", e.what());
-		return 1;
-	} catch (const Exception &e) {
-		String res;
-		e.reason(res);
-		ht_printf("main() caught exception: %y\n", &res);
-		return 1;
-	}
+        if (!headless) {
+            gDisplay->print("now starting client...");
+            gDisplay->setAnsiColor(VCP(VC_WHITE, CONSOLE_BG));
+        }
+        ht_printf("[DBG] starting client PC=%08x...\n", ppc_cpu_get_pc(0));
 
-	if (!gHeadless) doneUI();
-	doneOSAPI();
-	doneData();
-	doneAtom();
-	return 0;
+        if (headless) {
+            // Headless: run CPU directly on main thread
+            ppc_cpu_run();
+        } else {
+            // GUI: CPU in background thread, UI event loop on main thread
+            sys_thread cpuThread;
+            if (sys_create_thread(
+                    &cpuThread, 0,
+                    [](void *) -> void * {
+                        ppc_cpu_run();
+                        return NULL;
+                    },
+                    NULL)) {
+                ht_printf("can't create CPU thread!\n");
+                exit(1);
+            }
+            runUI();
+            sys_join_thread(cpuThread);
+        }
+
+        io_done();
+
+    } catch (const std::exception &e) {
+        ht_printf("main() caught exception: %s\n", e.what());
+        return 1;
+    } catch (const Exception &e) {
+        String res;
+        e.reason(res);
+        ht_printf("main() caught exception: %y\n", &res);
+        return 1;
+    }
+
+    if (!headless) {
+        doneUI();
+    }
+    doneOSAPI();
+    doneData();
+    doneAtom();
+    return 0;
 }

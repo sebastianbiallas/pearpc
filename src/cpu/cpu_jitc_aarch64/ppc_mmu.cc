@@ -42,6 +42,7 @@
 
 #include "jitc.h"
 #include "jitc_asm.h"
+#include "system/display.h"
 #include "aarch64asm.h"
 #include "ppc_dec.h"
 #include "ppc_opc.h"
@@ -58,8 +59,8 @@ extern "C" void crash_dump_cpu_state()
                 gCPU->current_opc, gCPU->current_code_base);
         fprintf(stderr, "  xer=%08x xer_ca=%d fpscr=%08x\n", gCPU->xer, gCPU->xer_ca, gCPU->fpscr);
         for (int i = 0; i < 32; i += 4) {
-            fprintf(stderr, "  r%-2d=%08x r%-2d=%08x r%-2d=%08x r%-2d=%08x\n",
-                    i, gCPU->gpr[i], i + 1, gCPU->gpr[i + 1], i + 2, gCPU->gpr[i + 2], i + 3, gCPU->gpr[i + 3]);
+            fprintf(stderr, "  r%-2d=%08x r%-2d=%08x r%-2d=%08x r%-2d=%08x\n", i, gCPU->gpr[i], i + 1, gCPU->gpr[i + 1],
+                    i + 2, gCPU->gpr[i + 2], i + 3, gCPU->gpr[i + 3]);
         }
     }
 }
@@ -72,11 +73,27 @@ void jitc_dump_and_exit(int code)
         fflush(gTraceLog);
     }
     crash_dump_cpu_state();
-    FILE *df = fopen("memdump_jit.bin", "wb");
-    if (df) {
-        fwrite(gMemory, 1, gMemorySize, df);
-        fclose(df);
-        fprintf(stderr, "[DUMP] wrote memdump_jit.bin (%u bytes)\n", gMemorySize);
+    extern char gMemdumpFile[];
+    extern char gFramebufferDumpFile[];
+    if (gMemdumpFile[0]) {
+        FILE *df = fopen(gMemdumpFile, "wb");
+        if (df) {
+            fwrite(gMemory, 1, gMemorySize, df);
+            fclose(df);
+            fprintf(stderr, "[DUMP] wrote %s (%u bytes)\n", gMemdumpFile, gMemorySize);
+        }
+    }
+    extern byte *gFrameBuffer;
+    if (gFramebufferDumpFile[0] && gFrameBuffer) {
+        extern SystemDisplay *gDisplay;
+        uint32 fbSize =
+            gDisplay->mClientChar.width * gDisplay->mClientChar.height * gDisplay->mClientChar.bytesPerPixel;
+        FILE *df = fopen(gFramebufferDumpFile, "wb");
+        if (df) {
+            fwrite(gFrameBuffer, 1, fbSize, df);
+            fclose(df);
+            fprintf(stderr, "[DUMP] wrote %s (%u bytes)\n", gFramebufferDumpFile, fbSize);
+        }
     }
     exit(code);
 }

@@ -30,47 +30,52 @@ enum ConfigType {
     configTypeString,
 };
 
-class ConfigEntry: public Object {
+class ConfigEntry : public Object {
 public:
-	String *mName;
-	bool mMandatory;
-	bool mInitialized;
-	bool mSet;
-	
-			ConfigEntry(const String &aName, bool mandatory);
-	virtual 	~ConfigEntry();
-	virtual int	asInt() const;
-	virtual String	&asString(String &result) const;
-	virtual ConfigType getType() const;
-	virtual bool	isSet() const;
-	virtual bool	isInitialized() const;
-	virtual	int	compareTo(const Object *obj) const;
+    String *mName;
+    bool mMandatory;
+    bool mInitialized;
+    bool mSet;
+
+    ConfigEntry(const String &aName, bool mandatory);
+    virtual ~ConfigEntry();
+    virtual int asInt() const;
+    virtual String &asString(String &result) const;
+    virtual ConfigType getType() const;
+    virtual bool isSet() const;
+    virtual bool isInitialized() const;
+    virtual int compareTo(const Object *obj) const;
 };
 
-class ConfigParser: public Object {
-	Container *entries;
-	byte cur;
-	int line;
+class ConfigParser : public Object {
+    Container *entries;
+    byte cur;
+    int line;
+
 public:
-			ConfigParser();
-	virtual		~ConfigParser();
+    ConfigParser();
+    virtual ~ConfigParser();
 
-		void	acceptConfigEntryInt(const String &mName, bool mandatory);
-		void	acceptConfigEntryString(const String &mName, bool mandatory);
-		void	acceptConfigEntryIntDef(const String &mName, int d);
-		void	acceptConfigEntryStringDef(const String &mName, const String &d);
-		void	loadConfig(Stream &in);
+    void acceptConfigEntryInt(const String &mName, bool mandatory);
+    void acceptConfigEntryString(const String &mName, bool mandatory);
+    void acceptConfigEntryIntDef(const String &mName, int d);
+    void acceptConfigEntryStringDef(const String &mName, const String &d);
+    void loadConfig(Stream &in);
+    void setConfigEntry(const String &name, const String &value);
+    void validateConfig();
+    void printUsage();
 
-		ConfigEntry *getEntry(const String &name);
-		bool	haveKey(const String &name);
+    ConfigEntry *getEntry(const String &name);
+    bool haveKey(const String &name);
 
-		// these will throw an exception if key isn't set!
-		int	getConfigInt(const String &name);
-		uint32	getConfigUInt(const String &name);
-		String &getConfigString(const String &name, String &result);
+    // these will throw an exception if key isn't set!
+    int getConfigInt(const String &name);
+    uint32 getConfigUInt(const String &name);
+    String &getConfigString(const String &name, String &result);
+
 protected:
-		bool	skipWhite(Stream &in);
-		void	read(Stream &in);
+    bool skipWhite(Stream &in);
+    void read(Stream &in);
 };
 
 extern ConfigParser *gConfig;

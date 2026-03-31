@@ -41,6 +41,7 @@
 #include "ppc_tools.h"
 
 //#include "io/graphic/gcard.h"
+#include "system/display.h"
 
 PPC_CPU_State gCPU;
 Debugger *gDebugger;
@@ -51,126 +52,127 @@ static uint64 gGenericTraceCount = 0;
 static bool gSinglestep = false;
 
 //uint32 gBreakpoint2 = 0x11b3acf4;
-uint32 gBreakpoint3 = 0xc016ee74&0;
-uint32 gBreakpoint = 0x11b3acf4&0;
-uint32 gBreakpoint2 = 0xc017a4f4&0;
+uint32 gBreakpoint3 = 0xc016ee74 & 0;
+uint32 gBreakpoint = 0x11b3acf4 & 0;
+uint32 gBreakpoint2 = 0xc017a4f4 & 0;
 
 bool activate = false;
 static inline void ppc_debug_hook()
 {
-	if (gCPU.pc == gBreakpoint) {
-		gSinglestep = true;
-//		SINGLESTEP("breakpoint 1");
-	}
-	if (gCPU.pc == gBreakpoint2) {
-		SINGLESTEP("breakpoint 2");
-	}
-//	if (gCPU.pc == gBreakpoint3 && gCPU.gpr[5]==0x100004ec) {
-/*	if (gCPU.pc == gBreakpoint3) {
+    if (gCPU.pc == gBreakpoint) {
+        gSinglestep = true;
+        //		SINGLESTEP("breakpoint 1");
+    }
+    if (gCPU.pc == gBreakpoint2) {
+        SINGLESTEP("breakpoint 2");
+    }
+    //	if (gCPU.pc == gBreakpoint3 && gCPU.gpr[5]==0x100004ec) {
+    /*	if (gCPU.pc == gBreakpoint3) {
 		activate = true;
 		SINGLESTEP("breakpoint 3");
 	}*/
-	if (gSinglestep) {
-		gDebugger->enter();
-	}
+    if (gSinglestep) {
+        gDebugger->enter();
+    }
 }
 
 sys_mutex exception_mutex;
 
 void ppc_cpu_atomic_raise_ext_exception()
 {
-	sys_lock_mutex(exception_mutex);
-	gCPU.ext_exception = true;
-	gCPU.exception_pending = true;
-	sys_unlock_mutex(exception_mutex);
+    sys_lock_mutex(exception_mutex);
+    gCPU.ext_exception = true;
+    gCPU.exception_pending = true;
+    sys_unlock_mutex(exception_mutex);
 }
 
 void ppc_cpu_atomic_cancel_ext_exception()
 {
-	sys_lock_mutex(exception_mutex);
-	gCPU.ext_exception = false;
-	if (!gCPU.dec_exception) gCPU.exception_pending = false;
-	sys_unlock_mutex(exception_mutex);
+    sys_lock_mutex(exception_mutex);
+    gCPU.ext_exception = false;
+    if (!gCPU.dec_exception) {
+        gCPU.exception_pending = false;
+    }
+    sys_unlock_mutex(exception_mutex);
 }
 
 void ppc_cpu_atomic_raise_dec_exception()
 {
-	sys_lock_mutex(exception_mutex);
-	gCPU.dec_exception = true;
-	gCPU.exception_pending = true;
-	sys_unlock_mutex(exception_mutex);
+    sys_lock_mutex(exception_mutex);
+    gCPU.dec_exception = true;
+    gCPU.exception_pending = true;
+    sys_unlock_mutex(exception_mutex);
 }
 
-void ppc_cpu_wakeup()
-{
-}
+void ppc_cpu_wakeup() {}
 
 void ppc_cpu_run()
 {
-	gDebugger = new Debugger();
-	gDebugger->mAlwaysShowRegs = true;
-	PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
+    gDebugger = new Debugger();
+    gDebugger->mAlwaysShowRegs = true;
+    PPC_CPU_TRACE("execution started at %08x\n", gCPU.pc);
 
-	gGenericTraceLog = fopen("trace_generic.log", "w");
-	if (gGenericTraceLog) setvbuf(gGenericTraceLog, NULL, _IOFBF, 256 * 1024);
+    gGenericTraceLog = fopen("trace_generic.log", "w");
+    if (gGenericTraceLog) {
+        setvbuf(gGenericTraceLog, NULL, _IOFBF, 256 * 1024);
+    }
 
-	uint ops=0;
-	gCPU.effective_code_page = 0xffffffff;
-//	ppc_fpu_test();
-//	return;
-	while (true) {
-		gCPU.npc = gCPU.pc+4;
-		if ((gCPU.pc & ~0xfff) == gCPU.effective_code_page) {
-			gCPU.current_opc = ppc_word_from_BE(*((uint32*)(&gCPU.physical_code_page[gCPU.pc & 0xfff])));
-			ppc_debug_hook();
-		} else {
-			int ret;
-			if ((ret = ppc_direct_effective_memory_handle_code(gCPU.pc & ~0xfff, gCPU.physical_code_page))) {
-				if (ret == PPC_MMU_EXC) {
-					gCPU.pc = gCPU.npc;
-					continue;
-				} else {
-					PPC_CPU_ERR("?\n");
-				}
-			}
-			gCPU.effective_code_page = gCPU.pc & ~0xfff;
-			continue;
-		}
-		ppc_exec_opc();
-		ops++;
+    uint ops = 0;
+    gCPU.effective_code_page = 0xffffffff;
+    //	ppc_fpu_test();
+    //	return;
+    while (true) {
+        gCPU.npc = gCPU.pc + 4;
+        if ((gCPU.pc & ~0xfff) == gCPU.effective_code_page) {
+            gCPU.current_opc = ppc_word_from_BE(*((uint32 *)(&gCPU.physical_code_page[gCPU.pc & 0xfff])));
+            ppc_debug_hook();
+        } else {
+            int ret;
+            if ((ret = ppc_direct_effective_memory_handle_code(gCPU.pc & ~0xfff, gCPU.physical_code_page))) {
+                if (ret == PPC_MMU_EXC) {
+                    gCPU.pc = gCPU.npc;
+                    continue;
+                } else {
+                    PPC_CPU_ERR("?\n");
+                }
+            }
+            gCPU.effective_code_page = gCPU.pc & ~0xfff;
+            continue;
+        }
+        ppc_exec_opc();
+        ops++;
 
-		if (gGenericTraceLog && (ops % 10000) == 0) {
-			gGenericTraceCount++;
-			fprintf(gGenericTraceLog,
-				"%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x "
-				"r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x "
-				"dec=%08x pdec=%016llx\n",
-				gGenericTraceCount, gCPU.pc, gCPU.msr,
-				gCPU.cr, gCPU.lr, gCPU.ctr,
-				gCPU.gpr[0], gCPU.gpr[1], gCPU.gpr[2],
-				gCPU.gpr[3], gCPU.gpr[4], gCPU.gpr[5],
-				gCPU.dec, (unsigned long long)gCPU.pdec);
-			if (gGenericTraceCount % 100 == 0) fflush(gGenericTraceLog);
-		}
+        if (gGenericTraceLog && (ops % 10000) == 0) {
+            gGenericTraceCount++;
+            fprintf(gGenericTraceLog,
+                    "%llu pc=%08x msr=%08x cr=%08x lr=%08x ctr=%08x "
+                    "r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x "
+                    "dec=%08x pdec=%016llx\n",
+                    gGenericTraceCount, gCPU.pc, gCPU.msr, gCPU.cr, gCPU.lr, gCPU.ctr, gCPU.gpr[0], gCPU.gpr[1],
+                    gCPU.gpr[2], gCPU.gpr[3], gCPU.gpr[4], gCPU.gpr[5], gCPU.dec, (unsigned long long)gCPU.pdec);
+            if (gGenericTraceCount % 100 == 0) {
+                fflush(gGenericTraceLog);
+            }
+        }
 
-		gCPU.ptb++;
-		if (gCPU.pdec == 0) {
-			gCPU.exception_pending = true;
-			gCPU.dec_exception = true;
-			gCPU.pdec=0xffffffff*TB_TO_PTB_FACTOR;
-		} else {
-			gCPU.pdec--;
-		}
-		if ((ops & 0x3ffff)==0) {
-/*			if (pic_check_interrupt()) {
+        gCPU.ptb++;
+        if (gCPU.pdec == 0) {
+            gCPU.exception_pending = true;
+            gCPU.dec_exception = true;
+            gCPU.pdec = 0xffffffff * TB_TO_PTB_FACTOR;
+        } else {
+            gCPU.pdec--;
+        }
+        if ((ops & 0x3ffff) == 0) {
+            /*			if (pic_check_interrupt()) {
 				gCPU.exception_pending = true;
 				gCPU.ext_exception = true;
 			}*/
-			if ((ops & 0x0fffff)==0) {
-//				uint32 j=0;
-//				ppc_read_effective_word(0xc046b2f8, j);
+            if ((ops & 0x0fffff) == 0) {
+                //				uint32 j=0;
+                //				ppc_read_effective_word(0xc046b2f8, j);
 
-				ht_printf("@%08x (%u ops) pdec: %08x lr: %08x\r", gCPU.pc, ops, gCPU.pdec, gCPU.lr);
+                ht_printf("@%08x (%u ops) pdec: %08x lr: %08x\r", gCPU.pc, ops, gCPU.pdec, gCPU.lr);
 #if 0
 				extern uint32 PIC_enable_low;
 				extern uint32 PIC_enable_high;
@@ -191,200 +193,232 @@ void ppc_cpu_run()
 				}
 				ht_printf("\n");
 #endif
-			}
-		}
-		
-		gCPU.pc = gCPU.npc;
-		
-		if (gCPU.exception_pending) {
-			if (gCPU.stop_exception) {
-				gCPU.stop_exception = false;
-				if (!gCPU.dec_exception && !gCPU.ext_exception) gCPU.exception_pending = false;
-				break;
-			}
-			if (gCPU.msr & MSR_EE) {
-				sys_lock_mutex(exception_mutex);
-				if (gCPU.ext_exception) {
-					ppc_exception(PPC_EXC_EXT_INT);
-					gCPU.ext_exception = false;
-					gCPU.pc = gCPU.npc;
-					if (!gCPU.dec_exception) gCPU.exception_pending = false;
-					sys_unlock_mutex(exception_mutex);
-					continue;
-				}
-				if (gCPU.dec_exception) {
-					ppc_exception(PPC_EXC_DEC);
-					gCPU.dec_exception = false;
-					gCPU.pc = gCPU.npc;
-					gCPU.exception_pending = false;
-					sys_unlock_mutex(exception_mutex);
-					continue;
-				}
-				sys_unlock_mutex(exception_mutex);
-				PPC_CPU_ERR("no interrupt, but signaled?!\n");
-			}
-		}
-#ifdef PPC_CPU_ENABLE_SINGLESTEP
-		if (gCPU.msr & MSR_SE) {
-			if (gCPU.singlestep_ignore) {
-				gCPU.singlestep_ignore = false;
-			} else {
-				ppc_exception(PPC_EXC_TRACE2);
-				gCPU.pc = gCPU.npc;
-				continue;
-			}
-		}
-#endif
-	}
+            }
+        }
 
-	// Dump memory on exit for debugging
-	extern byte *gMemory;
-	extern uint32 gMemorySize;
-	ht_printf("[DUMP] gMemory=%p gMemorySize=%u\n", gMemory, gMemorySize);
-	if (gMemory && gMemorySize > 0) {
-		FILE *df = fopen("memdump_generic.bin", "wb");
-		if (df) {
-			fwrite(gMemory, 1, gMemorySize, df);
-			fclose(df);
-			ht_printf("[DUMP] wrote memdump_generic.bin (%u bytes)\n", gMemorySize);
-		}
-	}
-	if (gGenericTraceLog) {
-		fflush(gGenericTraceLog);
-		fclose(gGenericTraceLog);
-		gGenericTraceLog = NULL;
-		ht_printf("[DUMP] wrote trace_generic.log (%llu entries)\n", gGenericTraceCount);
-	}
+        gCPU.pc = gCPU.npc;
+
+        if (gCPU.exception_pending) {
+            if (gCPU.stop_exception) {
+                gCPU.stop_exception = false;
+                if (!gCPU.dec_exception && !gCPU.ext_exception) {
+                    gCPU.exception_pending = false;
+                }
+                break;
+            }
+            if (gCPU.msr & MSR_EE) {
+                sys_lock_mutex(exception_mutex);
+                if (gCPU.ext_exception) {
+                    ppc_exception(PPC_EXC_EXT_INT);
+                    gCPU.ext_exception = false;
+                    gCPU.pc = gCPU.npc;
+                    if (!gCPU.dec_exception) {
+                        gCPU.exception_pending = false;
+                    }
+                    sys_unlock_mutex(exception_mutex);
+                    continue;
+                }
+                if (gCPU.dec_exception) {
+                    ppc_exception(PPC_EXC_DEC);
+                    gCPU.dec_exception = false;
+                    gCPU.pc = gCPU.npc;
+                    gCPU.exception_pending = false;
+                    sys_unlock_mutex(exception_mutex);
+                    continue;
+                }
+                sys_unlock_mutex(exception_mutex);
+                PPC_CPU_ERR("no interrupt, but signaled?!\n");
+            }
+        }
+#ifdef PPC_CPU_ENABLE_SINGLESTEP
+        if (gCPU.msr & MSR_SE) {
+            if (gCPU.singlestep_ignore) {
+                gCPU.singlestep_ignore = false;
+            } else {
+                ppc_exception(PPC_EXC_TRACE2);
+                gCPU.pc = gCPU.npc;
+                continue;
+            }
+        }
+#endif
+    }
+
+    // Dump memory on exit if configured
+    extern byte *gMemory;
+    extern uint32 gMemorySize;
+    extern char gMemdumpFile[];
+    extern char gFramebufferDumpFile[];
+    if (gMemdumpFile[0] && gMemory && gMemorySize > 0) {
+        FILE *df = fopen(gMemdumpFile, "wb");
+        if (df) {
+            fwrite(gMemory, 1, gMemorySize, df);
+            fclose(df);
+            ht_printf("[DUMP] wrote %s (%u bytes)\n", gMemdumpFile, gMemorySize);
+        }
+    }
+    extern byte *gFrameBuffer;
+    if (gFramebufferDumpFile[0] && gFrameBuffer) {
+        extern SystemDisplay *gDisplay;
+        uint32 fbSize =
+            gDisplay->mClientChar.width * gDisplay->mClientChar.height * gDisplay->mClientChar.bytesPerPixel;
+        FILE *df = fopen(gFramebufferDumpFile, "wb");
+        if (df) {
+            fwrite(gFrameBuffer, 1, fbSize, df);
+            fclose(df);
+            ht_printf("[DUMP] wrote %s (%u bytes)\n", gFramebufferDumpFile, fbSize);
+        }
+    }
+    if (gGenericTraceLog) {
+        fflush(gGenericTraceLog);
+        fclose(gGenericTraceLog);
+        gGenericTraceLog = NULL;
+        ht_printf("[DUMP] wrote trace_generic.log (%llu entries)\n", gGenericTraceCount);
+    }
 }
 
 void ppc_cpu_crash_dump(int code)
 {
-	fprintf(stderr, "  PPC state: pc=%08x lr=%08x ctr=%08x cr=%08x msr=%08x\n",
-		gCPU.pc, gCPU.lr, gCPU.ctr, gCPU.cr, gCPU.msr);
-	fprintf(stderr, "  srr0=%08x srr1=%08x\n", gCPU.srr[0], gCPU.srr[1]);
-	fprintf(stderr, "  gpr: r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x\n",
-		gCPU.gpr[0], gCPU.gpr[1], gCPU.gpr[2], gCPU.gpr[3],
-		gCPU.gpr[4], gCPU.gpr[5]);
+    fprintf(stderr, "  PPC state: pc=%08x lr=%08x ctr=%08x cr=%08x msr=%08x\n", gCPU.pc, gCPU.lr, gCPU.ctr, gCPU.cr,
+            gCPU.msr);
+    fprintf(stderr, "  srr0=%08x srr1=%08x\n", gCPU.srr[0], gCPU.srr[1]);
+    fprintf(stderr, "  gpr: r0=%08x r1=%08x r2=%08x r3=%08x r4=%08x r5=%08x\n", gCPU.gpr[0], gCPU.gpr[1], gCPU.gpr[2],
+            gCPU.gpr[3], gCPU.gpr[4], gCPU.gpr[5]);
 
-	extern byte *gMemory;
-	extern uint32 gMemorySize;
-	FILE *df = fopen("memdump_generic.bin", "wb");
-	if (df) {
-		fwrite(gMemory, 1, gMemorySize, df);
-		fclose(df);
-		fprintf(stderr, "[DUMP] wrote memdump_generic.bin (%u bytes)\n", gMemorySize);
-	}
-	exit(code);
+    extern byte *gMemory;
+    extern uint32 gMemorySize;
+    extern char gMemdumpFile[];
+    extern char gFramebufferDumpFile[];
+    if (gMemdumpFile[0]) {
+        FILE *df = fopen(gMemdumpFile, "wb");
+        if (df) {
+            fwrite(gMemory, 1, gMemorySize, df);
+            fclose(df);
+            fprintf(stderr, "[DUMP] wrote %s (%u bytes)\n", gMemdumpFile, gMemorySize);
+        }
+    }
+    extern byte *gFrameBuffer;
+    if (gFramebufferDumpFile[0] && gFrameBuffer) {
+        extern SystemDisplay *gDisplay;
+        uint32 fbSize =
+            gDisplay->mClientChar.width * gDisplay->mClientChar.height * gDisplay->mClientChar.bytesPerPixel;
+        FILE *df = fopen(gFramebufferDumpFile, "wb");
+        if (df) {
+            fwrite(gFrameBuffer, 1, fbSize, df);
+            fclose(df);
+            fprintf(stderr, "[DUMP] wrote %s (%u bytes)\n", gFramebufferDumpFile, fbSize);
+        }
+    }
+    exit(code);
 }
 
 void ppc_cpu_stop()
 {
-	sys_lock_mutex(exception_mutex);
-	gCPU.stop_exception = true;
-	gCPU.exception_pending = true;
-	sys_unlock_mutex(exception_mutex);
+    sys_lock_mutex(exception_mutex);
+    gCPU.stop_exception = true;
+    gCPU.exception_pending = true;
+    sys_unlock_mutex(exception_mutex);
 }
 
-uint64	ppc_get_clock_frequency(int cpu)
+uint64 ppc_get_clock_frequency(int cpu)
 {
-	return PPC_CLOCK_FREQUENCY;
+    return PPC_CLOCK_FREQUENCY;
 }
 
-uint64	ppc_get_bus_frequency(int cpu)
+uint64 ppc_get_bus_frequency(int cpu)
 {
-	return PPC_BUS_FREQUENCY;
+    return PPC_BUS_FREQUENCY;
 }
 
-uint64	ppc_get_timebase_frequency(int cpu)
+uint64 ppc_get_timebase_frequency(int cpu)
 {
-	return PPC_TIMEBASE_FREQUENCY;
+    return PPC_TIMEBASE_FREQUENCY;
 }
 
 
 void ppc_machine_check_exception()
 {
-	PPC_CPU_ERR("machine check exception\n");
+    PPC_CPU_ERR("machine check exception\n");
 }
 
-uint32	ppc_cpu_get_gpr(int cpu, int i)
+uint32 ppc_cpu_get_gpr(int cpu, int i)
 {
-	return gCPU.gpr[i];
+    return gCPU.gpr[i];
 }
 
-void	ppc_cpu_set_gpr(int cpu, int i, uint32 newvalue)
+void ppc_cpu_set_gpr(int cpu, int i, uint32 newvalue)
 {
-	gCPU.gpr[i] = newvalue;
+    gCPU.gpr[i] = newvalue;
 }
 
-void	ppc_cpu_set_msr(int cpu, uint32 newvalue)
+void ppc_cpu_set_msr(int cpu, uint32 newvalue)
 {
-	gCPU.msr = newvalue;
+    gCPU.msr = newvalue;
 }
 
-void	ppc_cpu_set_pc(int cpu, uint32 newvalue)
+void ppc_cpu_set_pc(int cpu, uint32 newvalue)
 {
-	gCPU.pc = newvalue;
+    gCPU.pc = newvalue;
 }
 
-uint32	ppc_cpu_get_pc(int cpu)
+uint32 ppc_cpu_get_pc(int cpu)
 {
-	return gCPU.pc;
+    return gCPU.pc;
 }
 
-uint32	ppc_cpu_get_pvr(int cpu)
+uint32 ppc_cpu_get_pvr(int cpu)
 {
-	return gCPU.pvr;
+    return gCPU.pvr;
 }
 
 void ppc_cpu_map_framebuffer(uint32 pa, uint32 ea)
 {
-	// use BAT for framebuffer
-	gCPU.dbatu[0] = ea|(7<<2)|0x3;
-	gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0])<<17);
-	gCPU.dbatl[0] = pa;
+    // use BAT for framebuffer
+    gCPU.dbatu[0] = ea | (7 << 2) | 0x3;
+    gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0]) << 17);
+    gCPU.dbatl[0] = pa;
 }
 
 void ppc_set_singlestep_v(bool v, const char *file, int line, const char *format, ...)
 {
-	va_list arg;
-	va_start(arg, format);
-	ht_fprintf(stdout, "singlestep %s from %s:%d, info: ", v ? "set" : "cleared", file, line);
-	ht_vfprintf(stdout, format, arg);
-	ht_fprintf(stdout, "\n");
-	va_end(arg);
-	gSinglestep = v;
+    va_list arg;
+    va_start(arg, format);
+    ht_fprintf(stdout, "singlestep %s from %s:%d, info: ", v ? "set" : "cleared", file, line);
+    ht_vfprintf(stdout, format, arg);
+    ht_fprintf(stdout, "\n");
+    va_end(arg);
+    gSinglestep = v;
 }
 
 void ppc_set_singlestep_nonverbose(bool v)
 {
-	gSinglestep = v;
+    gSinglestep = v;
 }
 
-#define CPU_KEY_PVR	"cpu_pvr"
+#define CPU_KEY_PVR "cpu_pvr"
 
 #include "configparser.h"
 
 bool ppc_cpu_init()
 {
-	memset(&gCPU, 0, sizeof gCPU);
-	gCPU.pvr = gConfig->getConfigUInt(CPU_KEY_PVR);
-	
-	ppc_dec_init();
-	// initialize srs (mostly for prom)
-	for (int i=0; i<16; i++) {
-		gCPU.sr[i] = 0x2aa*i;
-	}
-	sys_create_mutex(&exception_mutex);
+    memset(&gCPU, 0, sizeof gCPU);
+    gCPU.pvr = gConfig->getConfigUInt(CPU_KEY_PVR);
 
-	PPC_CPU_WARN("You are using the generic CPU!\n");
-	PPC_CPU_WARN("This is much slower than the just-in-time compiler and\n");
-	PPC_CPU_WARN("should only be used for debugging purposes or if there's\n");
-	PPC_CPU_WARN("no just-in-time compiler for your platform.\n");
-	
-	return true;
+    ppc_dec_init();
+    // initialize srs (mostly for prom)
+    for (int i = 0; i < 16; i++) {
+        gCPU.sr[i] = 0x2aa * i;
+    }
+    sys_create_mutex(&exception_mutex);
+
+    PPC_CPU_WARN("You are using the generic CPU!\n");
+    PPC_CPU_WARN("This is much slower than the just-in-time compiler and\n");
+    PPC_CPU_WARN("should only be used for debugging purposes or if there's\n");
+    PPC_CPU_WARN("no just-in-time compiler for your platform.\n");
+
+    return true;
 }
 
 void ppc_cpu_init_config()
 {
-	gConfig->acceptConfigEntryIntDef("cpu_pvr", 0x000c0201);
+    gConfig->acceptConfigEntryIntDef("cpu_pvr", 0x000c0201);
 }
