@@ -112,38 +112,31 @@ void SDLSystemDisplay::displayShow()
 {
 	if (!isExposed()) return;
 
-	int firstDamagedLine, lastDamagedLine;
+	sys_lock_mutex(mRedrawMutex);
+
+	// Update texture if framebuffer has been damaged.
 	// We've got problems with races here because gcard_write1/2/4
 	// might set gDamageAreaFirstAddr, gDamageAreaLastAddr.
 	// We can't use mutexes in gcard for speed reasons. So we'll
 	// try to minimize the probability of loosing the race.
-	if (gDamageAreaFirstAddr > gDamageAreaLastAddr+3) {
-	        return;
-	}
-	int damageAreaFirstAddr = gDamageAreaFirstAddr;
-	int damageAreaLastAddr = gDamageAreaLastAddr;
-	healFrameBuffer();
-	// end of race
-	damageAreaLastAddr += 3;	// this is a hack. For speed reasons we
-					// inaccurately set gDamageAreaLastAddr
-					// to the first (not last) byte accessed
-					// accesses are up to 4 bytes "long".
-	firstDamagedLine = damageAreaFirstAddr / (mClientChar.width * mClientChar.bytesPerPixel);
-	lastDamagedLine = damageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
-	// Overflow may happen, because of the hack used above
-	// and others, that set lastAddr = 0xfffffff0 (damageFrameBufferAll())
-	if (lastDamagedLine >= mClientChar.height) {
-		lastDamagedLine = mClientChar.height-1;
-	}
+	if (gDamageAreaFirstAddr <= gDamageAreaLastAddr+3 && mSDLFrameBuffer) {
+		int damageAreaFirstAddr = gDamageAreaFirstAddr;
+		int damageAreaLastAddr = gDamageAreaLastAddr;
+		healFrameBuffer();
+		// end of race
+		damageAreaLastAddr += 3;	// this is a hack. For speed reasons we
+						// inaccurately set gDamageAreaLastAddr
+						// to the first (not last) byte accessed
+						// accesses are up to 4 bytes "long".
+		int firstDamagedLine = damageAreaFirstAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+		int lastDamagedLine = damageAreaLastAddr / (mClientChar.width * mClientChar.bytesPerPixel);
+		if (lastDamagedLine >= mClientChar.height) {
+			lastDamagedLine = mClientChar.height-1;
+		}
 
-	sys_lock_mutex(mRedrawMutex);
-
-	// Convert client framebuffer to host format into mSDLFrameBuffer
-	if (mSDLFrameBuffer) {
 		sys_convert_display(mClientChar, mSDLChar, gFrameBuffer,
 			mSDLFrameBuffer, firstDamagedLine, lastDamagedLine);
 
-		// Update the texture with the converted pixels
 		SDL_Rect updateRect;
 		updateRect.x = 0;
 		updateRect.y = firstDamagedLine;
@@ -154,7 +147,10 @@ void SDLSystemDisplay::displayShow()
 			mClientChar.width * mSDLChar.bytesPerPixel);
 	}
 
-	// Render texture to screen
+	// Always clear+render+present every frame to keep the
+	// Metal compositor happy (backbuffer contents are undefined
+	// after SDL_RenderPresent).
+	SDL_RenderClear(gSDLRenderer);
 	SDL_RenderTexture(gSDLRenderer, gSDLTexture, NULL, NULL);
 	SDL_RenderPresent(gSDLRenderer);
 
@@ -239,6 +235,7 @@ bool SDLSystemDisplay::changeResolutionREAL(const DisplayCharacteristics &aChara
 			ht_printf("SDL: FATAL: can't create window: %s\n", SDL_GetError());
 			exit(1);
 		}
+		SDL_SetRenderDrawColor(gSDLRenderer, 0, 0, 0, 255);
 	} else {
 		SDL_SetWindowSize(gSDLWindow, aCharacteristics.width, aCharacteristics.height);
 		if (mFullscreen) {
@@ -279,6 +276,8 @@ bool SDLSystemDisplay::changeResolutionREAL(const DisplayCharacteristics &aChara
 		ht_printf("SDL: FATAL: can't create texture: %s\n", SDL_GetError());
 		exit(1);
 	}
+	SDL_SetTextureBlendMode(gSDLTexture, SDL_BLENDMODE_NONE);
+	SDL_SetTextureScaleMode(gSDLTexture, SDL_SCALEMODE_NEAREST);
 
 	mFullscreenChanged = mFullscreen;
 
