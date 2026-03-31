@@ -320,7 +320,153 @@ The codegen functions consult the liveness map to skip dead writes:
 - **Dead CR field from compare**: Skip the 9-instruction `gen_cr_insert_*` sequence. The comparison itself can also be skipped if the instruction has no other effects.
 - **Dead XER OV/SO from OE=1**: Skip the overflow computation.
 - **Dead GPR write**: Rare in practice (compilers don't generate dead stores often), but free to skip.
-- **Live CR + immediate branch**: This is compare+branch fusion. The comparison result is live but consumed immediately — emit native CMP + B.cond instead of CMP + CR pack + LDR CR + TBZ.
+
+## Compare+Branch Optimization
+
+The highest-value optimization from the abstract semantics framework is
+eliminating the CR pack/unpack round-trip for compare+branch sequences.
+
+### The Problem
+
+The current AArch64 codegen for `cmpwi cr0, r3, 0` + `ble target`
+emits ~13 native instructions:
+
+```
+; cmpwi cr0, r3, 0
+ldr  w16, [x20, #20]       ; load gpr[3]
+cmp  w16, #0x0              ; native compare → sets NZCV
+csinc w0, wzr, wzr, eq      ; pack LT/GT/EQ into nibble
+csinc w0, w0, w0, ge        ;
+movz w1, #0x2               ;
+lslv w0, w1, w0             ;
+ldr  w1, [x20, #400]        ; load XER for SO bit
+add  w0, w0, w1, lsr #31    ;
+ldr  w1, [x20, #392]        ; load CR
+bfm  w1, w0, #4, #3         ; insert into CR field 0
+str  w1, [x20, #392]        ; store CR back
+
+; ble target
+ldr  w16, [x20, #392]       ; load CR again
+tbz  w16, #30, not_taken    ; test GT bit
+```
+
+The `cmp` instruction already sets the AArch64 NZCV flags with exactly
+the information we need for `ble`. But the codegen immediately destroys
+NZCV by packing the result into the PPC CR format, storing it to memory,
+then loading it back and testing a bit. This round-trip is the hot path
+in every loop.
+
+### Upward-Exposed Reads
+
+The key insight: we don't need full inter-block liveness (which would
+require fixed-point iteration for loops). Instead, we compute a simpler
+per-block property: **upward-exposed reads** — the set of resources
+that are read before being written in a block.
+
+For each block, a single forward scan determines this:
+
+```
+exposed_reads = {}
+for each instruction from FIRST to LAST:
+    effect = analyze(insn)
+    exposed_reads |= (effect.reads & ~already_written)
+    already_written |= effect.writes
+```
+
+If CR field F is NOT in the exposed reads of a block, then CR field F
+is **dead on entry** to that block — it will be overwritten before
+anyone reads it. This is a per-block property, computed once, with no
+iteration and no dependence on other blocks.
+
+### Why This Works for Loops
+
+Consider the most common pattern — a counted loop:
+
+```
+start:
+    lwz   r3, 0(r4)        ; loop body
+    addi  r4, r4, 4         ; loop body
+    cmpwi cr0, r3, 0        ; compare — writes CR0
+    ble   start              ; branch — reads CR0
+    ; fall-through code that reads CR0
+```
+
+The forward scan of this block from `start`:
+- `lwz`: doesn't read or write CR0
+- `addi`: doesn't read or write CR0
+- `cmpwi`: **writes** CR0 → CR0 is dead on entry
+
+The branch target is `start`, and CR0 is dead at `start`. Therefore
+on the taken path (back to `start`), CR0 does not need to be in the
+CPU state.
+
+### Stale CR and the Heartbeat
+
+The JITC heartbeat (`ppc_heartbeat_ext_asm`) runs on every taken branch
+via `ppc_new_pc_asm` / `ppc_new_pc_rel_asm`. It checks `exception_pending`
+and `MSR_EE` — it does not read CR.
+
+If a DEC or external exception fires during the heartbeat, the exception
+mechanism saves `SRR0` (PC) and `SRR1` (MSR). The OS exception handler
+then saves CR (among other registers) to the interrupted thread's stack.
+If CR0 is stale at this point, the OS saves a stale value.
+
+This is safe because CR0 is **dead** at the resume point. When the OS
+eventually restores the thread and returns via `rfi`, execution resumes
+at the point where CR0 was stale. But the program will overwrite CR0
+before reading it — that's what "dead" means. The stale value is never
+observed by the program.
+
+### Codegen Strategy
+
+When the prescan determines that CR field F is dead at the branch
+target:
+
+**Compare codegen** (`cmpwi cr0, r3, 0`):
+- Emit native `cmp` (sets NZCV)
+- Do NOT pack the result into the PPC CR field
+- Leave a note that NZCV holds the comparison result
+
+**Branch codegen** (`ble target`):
+- On the **taken path**: emit `b.le` using NZCV directly. The CR
+  field is not materialized — it's dead at the target anyway.
+- On the **fall-through path**: materialize the CR field from NZCV
+  (the slow pack sequence), then continue. The fall-through code
+  may read CR, so it must be correct there.
+
+```
+; optimized cmpwi + ble
+ldr  w16, [x20, #20]       ; load gpr[3]
+cmp  w16, #0x0              ; sets NZCV
+b.le taken_target           ; 3 instructions for taken path!
+; fall-through: materialize CR0 the slow way
+csinc w0, wzr, wzr, eq      ; pack LT/GT/EQ
+...                          ; (9 more instructions)
+str  w1, [x20, #392]        ; store CR
+; continue with fall-through code
+
+taken_target:
+; CR0 not materialized — dead at target
+; dispatch to branch target via ppc_new_pc_rel_asm
+```
+
+The taken path (the hot loop back-edge) is 3 instructions instead of 13.
+The fall-through path (loop exit) pays the full CR materialization cost,
+but this only happens once per loop.
+
+### Limitations
+
+- **Branch target on a different page**: we cannot prescan it, so we
+  conservatively assume CR is live. No optimization.
+- **CR field passes through the target block untouched**: if the target
+  block neither reads nor writes the CR field, we conservatively assume
+  it's live (something after the block might read it). A full inter-block
+  analysis with fixed-point iteration could handle this, but the common
+  case (compare at the top of the loop) is already covered.
+- **`everything()` instructions before the first CR write**: if the
+  target block has an unmodeled opcode before the compare, the forward
+  scan treats it as touching everything, and we can't prove CR is dead.
+  Expanding semantics coverage improves this.
 
 ## Migration Path
 
