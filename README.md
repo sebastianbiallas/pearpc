@@ -68,22 +68,52 @@ The binary is produced at `src/ppc`.
 
 Download [Mandrake Linux 9.1 PPC](https://archive.org/details/MandrakeLinux9.1ppc) from the Internet Archive.
 
-### 2. Configure
+### 2. Run
 
 Copy `ppccfg.example` and edit it, or use the provided `ppccfg.test` for a quick CD boot:
 
 ```sh
-# Place the ISO in the project root, then:
+# Using a config file:
 ./src/ppc ppccfg.test
-```
 
-### 3. Run
-
-```sh
-./src/ppc your-config-file
+# Or directly from the command line:
+./src/ppc --pci-ide0-master-installed --pci-ide0-master-type=cdrom \
+          --pci-ide0-master-image=MandrakeLinux-9.1-CD1.ppc.iso \
+          --prom-driver-graphic=video.x
 ```
 
 ## Usage
+
+```
+ppc [options] [configfile]
+```
+
+All configuration can be provided via config file, command line, or both. CLI options override config file values. The config file is optional if all needed values have defaults or are set via CLI.
+
+### Command Line Options
+
+| Option | Description |
+|--------|-------------|
+| `-c, --config <file>` | Config file path (alternative to positional arg) |
+| `--<key>=<value>` | Set any config key (hyphens become underscores) |
+| `--<key>` | Same as `--<key>=1` (boolean flag) |
+| `-h, --help` | Show help with all available config keys |
+
+Examples:
+```sh
+# Traditional: config file only
+./src/ppc myconfig.cfg
+
+# Override a config value from command line
+./src/ppc --memory-size=0x10000000 myconfig.cfg
+
+# No config file, all from CLI
+./src/ppc --pci-ide0-master-installed --pci-ide0-master-type=cdrom \
+          --pci-ide0-master-image=linux.iso --prom-driver-graphic=video.x
+
+# Headless mode (no GUI window)
+./src/ppc --headless myconfig.cfg
+```
 
 ### Keyboard
 
@@ -109,7 +139,7 @@ These can be changed in the config file.
 
 ## Configuration Reference
 
-PearPC uses plain text configuration files. See `ppccfg.example` for a fully commented example. Key options:
+PearPC uses plain text configuration files. See `ppccfg.example` for a fully commented example. All options can also be set from the command line (use `--help` to list all keys). Key options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -117,7 +147,8 @@ PearPC uses plain text configuration files. See `ppccfg.example` for a fully com
 | `ppc_start_full_screen` | `0` | Start in fullscreen mode |
 | `redraw_interval_msec` | `20` | Redraw interval (10-500ms) |
 | `memory_size` | `0x8000000` | RAM size (min 64 MiB) |
-| `cpu_pvr` | `0x00088302` | Processor version: G3=0x00088302, G4=0x000c0201 |
+| `cpu_pvr` | `0x000c0201` | Processor version: G3=0x00080200, G4=0x000c0201 |
+| `headless` | `0` | Run without display |
 | `prom_bootmethod` | `"auto"` | Boot method: auto, select, or force |
 | `prom_driver_graphic` | | Set to `"video.x"` for Mac OS X |
 | `pci_ide0_master_installed` | `0` | Enable IDE master (HDD or CD-ROM) |
@@ -127,6 +158,8 @@ PearPC uses plain text configuration files. See `ppccfg.example` for a fully com
 | `pci_3c90x_installed` | `0` | Enable 3Com NIC |
 | `pci_rtl8139_installed` | `0` | Enable Realtek NIC |
 | `nvram_file` | `"nvram"` | NVRAM storage file |
+| `memdump_file` | | Memory dump file on exit/crash (empty = no dump) |
+| `framebuffer_dump_file` | | Framebuffer dump file on exit/crash (empty = no dump) |
 
 ## Architecture
 
