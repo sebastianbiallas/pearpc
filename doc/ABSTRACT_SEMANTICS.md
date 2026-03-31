@@ -417,47 +417,94 @@ at the point where CR0 was stale. But the program will overwrite CR0
 before reading it — that's what "dead" means. The stale value is never
 observed by the program.
 
-### Codegen Strategy
+### Implementation: Two Layers
 
-When the prescan determines that CR field F is dead at the branch
-target:
+The optimization is implemented in two independent layers:
+
+#### Layer 1: Deferred CR Materialization (within-block)
+
+This is a codegen-level mechanism, independent of the abstract semantics
+framework. It was used by the original x86 JIT and is ported to aarch64.
+
+The JITC state tracks whether native flags (NZCV on aarch64, EFLAGS on
+x86) hold a valid but not-yet-materialized CR field result:
+
+```cpp
+struct JITC {
+    PPC_CRx nativeFlags;          // which CR field (PPC_CR0..PPC_CR7)
+    RegisterState nativeFlagsState; // rsUnused or rsDirty
+    bool nativeFlagsSigned;        // signed or unsigned compare
+};
+```
 
 **Compare codegen** (`cmpwi cr0, r3, 0`):
 - Emit native `cmp` (sets NZCV)
-- Do NOT pack the result into the PPC CR field
-- Leave a note that NZCV holds the comparison result
+- Call `jitc.mapFlagsDirty(PPC_CR0, true)` — record that NZCV
+  holds the signed comparison result for CR0
+- Do NOT pack the result into the PPC CR field yet
+
+**Every other instruction's codegen**:
+- Call `jitc.clobberFlags()` at the start. If flags are dirty,
+  this emits the CR pack+store sequence to materialize them
+  before the instruction clobbers NZCV.
 
 **Branch codegen** (`ble target`):
-- On the **taken path**: emit `b.le` using NZCV directly. The CR
-  field is not materialized — it's dead at the target anyway.
-- On the **fall-through path**: materialize the CR field from NZCV
-  (the slow pack sequence), then continue. The fall-through code
-  may read CR, so it must be correct there.
+- Check `jitc.flagsMapped() && jitc.getFlagsMapping() == cr`
+- If yes: NZCV is valid for this CR field. Emit native `b.le`
+  directly, skipping the CR load + bit test.
+- If no: fall back to the normal CR load + TBZ/TBNZ path.
+
+This handles the common case where a compare is immediately
+followed by a branch on the same CR field — no analysis needed,
+just codegen bookkeeping.
 
 ```
-; optimized cmpwi + ble
+; without deferred flags (current, 13 insns):
 ldr  w16, [x20, #20]       ; load gpr[3]
 cmp  w16, #0x0              ; sets NZCV
-b.le taken_target           ; 3 instructions for taken path!
-; fall-through: materialize CR0 the slow way
-csinc w0, wzr, wzr, eq      ; pack LT/GT/EQ
-...                          ; (9 more instructions)
+csinc ...                    ; pack into CR nibble (9 insns)
 str  w1, [x20, #392]        ; store CR
-; continue with fall-through code
+ldr  w16, [x20, #392]       ; load CR again
+tbz  w16, #30, not_taken    ; test bit
 
-taken_target:
-; CR0 not materialized — dead at target
-; dispatch to branch target via ppc_new_pc_rel_asm
+; with deferred flags (optimized, ~5 insns):
+ldr  w16, [x20, #20]       ; load gpr[3]
+cmp  w16, #0x0              ; sets NZCV, flags deferred
+; branch codegen sees flags are mapped:
+b.le taken_dispatch          ; use NZCV directly
+; fall-through: materialize CR for subsequent code
+csinc ...                    ; pack CR (9 insns)
+str  w1, [x20, #392]
+; continue
+taken_dispatch:
+; dispatch to target
 ```
 
-The taken path (the hot loop back-edge) is 3 instructions instead of 13.
-The fall-through path (loop exit) pays the full CR materialization cost,
-but this only happens once per loop.
+The taken path skips the CR pack entirely. The fall-through path
+materializes CR only when needed by subsequent code.
+
+#### Layer 2: Cross-Block Dead CR (future, needs analysis)
+
+Layer 1 always materializes CR on the fall-through path and before
+any block exit (via `clobberAll` → `clobberFlags`). The upward-exposed
+reads analysis from the abstract semantics framework can extend this:
+
+If the analysis proves that CR field F is dead at the branch target
+(overwritten before being read), the branch codegen can skip
+materialization on the taken path entirely — even through the heartbeat
+dispatch. This is safe because "dead" means no code path from that
+point will observe CR before overwriting it.
+
+This layer requires:
+1. Per-block upward-exposed reads computed during prescan
+2. The branch codegen looking up the target block's exposed reads
+3. If CR field is not in the target's exposed reads, skip the
+   `clobberFlags` on the taken path
 
 ### Limitations
 
 - **Branch target on a different page**: we cannot prescan it, so we
-  conservatively assume CR is live. No optimization.
+  conservatively assume CR is live. No optimization from Layer 2.
 - **CR field passes through the target block untouched**: if the target
   block neither reads nor writes the CR field, we conservatively assume
   it's live (something after the block might read it). A full inter-block
