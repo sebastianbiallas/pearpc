@@ -1213,7 +1213,7 @@ JITCFlow ppc_opc_gen_srawix(JITC &jitc)
         jitc.asmCSELw(W0, W0, WZR, A64_NE);
         jitc.asmSTRw_cpu(W0, XER_CA_OFS);
     }
-        RC_UPDATE(W16);
+        RC_UPDATE(W17);
 return flowContinue;
 }
 

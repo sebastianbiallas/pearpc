@@ -1043,6 +1043,58 @@ _start:
     CHECK   1
 
     /*
+     * Test 80: srawi. — Rc=1 with different source/dest, result=0 should set CR0[EQ]
+     * r5 = 3, srawi. r3, r5, 2 → r3 = 0, CR0[EQ] should be set
+     * This is the exact pattern from CGSIntegrateDeltaScanline that crashed macOS.
+     */
+    /*
+     * Test 80: srawi. — Rc=1, result=0 (source=3) should set CR0[EQ]
+     * This is the exact pattern from CGSIntegrateDeltaScanline that crashed macOS.
+     * The bug: CR0 was set from the SOURCE (r5=3 → GT) not RESULT (r3=0 → EQ).
+     */
+    PRINT   .Ltest80, (.Ltest80_end - .Ltest80)
+    li      5, 3
+    srawi.  3, 5, 2             /* r3 = 3 >> 2 = 0, CR0 should reflect r3=0 */
+    /* Check CR0[EQ] BEFORE anything else overwrites CR0 */
+    beq     0, 80f
+    addi    30, 30, 1           /* FAIL — CR0[EQ] not set */
+    PRINT   .Lfail, 5
+    b       81f
+80:
+    PRINT   .Lok, 3
+81:
+
+    /*
+     * Test 81: srawi. — Rc=1, negative result should set CR0[LT]
+     * r5 = -3, srawi. r3, r5, 1 → r3 = -2
+     */
+    PRINT   .Ltest81, (.Ltest81_end - .Ltest81)
+    li      5, -3
+    srawi.  3, 5, 1             /* r3 = -3 >> 1 = -2 */
+    blt     0, 82f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       83f
+82:
+    PRINT   .Lok, 3
+83:
+
+    /*
+     * Test 82: srawi. — Rc=1, positive nonzero result should set CR0[GT]
+     * r5 = 16, srawi. r3, r5, 2 → r3 = 4
+     */
+    PRINT   .Ltest82, (.Ltest82_end - .Ltest82)
+    li      5, 16
+    srawi.  3, 5, 2             /* r3 = 16 >> 2 = 4 */
+    bgt     0, 84f
+    addi    30, 30, 1
+    PRINT   .Lfail, 5
+    b       85f
+84:
+    PRINT   .Lok, 3
+85:
+
+    /*
      * Summary
      */
     PRINT   .Lsummary, (.Lsummary_end - .Lsummary)
@@ -1303,6 +1355,15 @@ _start:
 .Ltest79:
     .ascii  "test 79 subfme -1+CA:"
 .Ltest79_end:
+.Ltest80:
+    .ascii  "test 80 srawi. CR0=EQ:"
+.Ltest80_end:
+.Ltest81:
+    .ascii  "test 81 srawi. CR0=LT:"
+.Ltest81_end:
+.Ltest82:
+    .ascii  "test 82 srawi. CR0=GT:"
+.Ltest82_end:
 .Lsummary:
     .ascii  "\n=== Summary ===\n"
 .Lsummary_end:
