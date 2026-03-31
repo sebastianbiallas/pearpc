@@ -87,6 +87,23 @@ static void ppc_opc_invalid()
 		gCPU.pc = gCPU.npc;
 		return;
 	}
+	if (gCPU.current_opc == 0x00333303) {
+		// print string: r3 = address, r4 = length
+		uint32 addr = gCPU.gpr[3];
+		uint32 len = gCPU.gpr[4];
+		for (uint32 i = 0; i < len; i++) {
+			uint8 ch;
+			ppc_read_effective_byte(addr + i, ch);
+			fputc(ch, stdout);
+		}
+		fflush(stdout);
+		gCPU.pc = gCPU.npc;
+		return;
+	}
+	if (gCPU.current_opc == 0x00333304) {
+		// exit: r3 = exit code
+		exit(gCPU.gpr[3]);
+	}
 	fprintf(stderr, "[PPC/DEC] Bad opcode: %08x (%u:%u)\n",
 		gCPU.current_opc, PPC_OPC_MAIN(gCPU.current_opc),
 		PPC_OPC_EXT(gCPU.current_opc));

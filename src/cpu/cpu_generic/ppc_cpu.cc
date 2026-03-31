@@ -19,9 +19,11 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include <cstdarg>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <unistd.h>
 
 #include "system/systhread.h"
 #include "system/arch/sysendian.h"
@@ -309,6 +311,24 @@ void ppc_cpu_crash_dump(int code)
         }
     }
     exit(code);
+}
+
+void ppc_fatal(const char *fmt, ...)
+{
+    static bool already_crashing = false;
+    if (already_crashing) {
+        _exit(1);
+    }
+    already_crashing = true;
+
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "\n*** FATAL: ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+
+    ppc_cpu_crash_dump(1);
 }
 
 void ppc_cpu_stop()
