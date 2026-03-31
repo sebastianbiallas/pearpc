@@ -575,7 +575,9 @@ int FASTCALL ppc_read_physical_dword(uint32 addr, uint64 &result)
         result = ppc_dword_from_BE(*((uint64 *)&gMemory[addr]));
         return PPC_MMU_OK;
     }
-    return PPC_MMU_FATAL;
+    int ret = io_mem_read64(addr, result);
+    result = ppc_bswap_dword(result);
+    return ret;
 }
 
 int FASTCALL ppc_read_physical_word(uint32 addr, uint32 &result)
@@ -725,7 +727,11 @@ int FASTCALL ppc_write_physical_dword(uint32 addr, uint64 data)
         *((uint64 *)&gMemory[addr]) = ppc_dword_to_BE(data);
         return PPC_MMU_OK;
     }
-    return PPC_MMU_FATAL;
+    if (io_mem_write64(addr, ppc_bswap_dword(data)) == IO_MEM_ACCESS_OK) {
+        return PPC_MMU_OK;
+    } else {
+        return PPC_MMU_FATAL;
+    }
 }
 
 int FASTCALL ppc_write_physical_word(uint32 addr, uint32 data)
