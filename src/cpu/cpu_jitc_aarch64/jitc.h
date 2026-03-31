@@ -221,6 +221,7 @@ struct JITC {
 
     PPC_CRx nativeFlags;
     RegisterState nativeFlagsState;
+    bool nativeFlagsSigned; // true = signed compare, false = unsigned
     RegisterState nativeCarryState;
 
     /*
@@ -293,7 +294,7 @@ public:
     void flushRegisterDirty(int options = NATIVE_REGS_ALL);
     void clobberRegister(int options = NATIVE_REGS_ALL);
     void getClientCarry();
-    void mapFlagsDirty(PPC_CRx cr = PPC_CR0);
+    void mapFlagsDirty(PPC_CRx cr = PPC_CR0, bool isSigned = true);
     void mapCarryDirty();
     void clobberFlags();
     void clobberCarry();

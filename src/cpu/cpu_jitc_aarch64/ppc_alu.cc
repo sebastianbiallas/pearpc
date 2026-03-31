@@ -114,7 +114,7 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
  *  shifts 2 << index to get 2/4/8 — 4 instructions instead of 5.
  *  SO is folded in via ADD Wd, Wn, Wm, LSR #31 — 2 instructions instead of 3.
  */
-static void gen_cr_insert_signed(JITC &jitc, int crfD)
+void gen_cr_insert_signed(JITC &jitc, int crfD)
 {
     // Build index: EQ→0, GT→1, LT→2
     jitc.asmCSETw(W0, A64_NE);            // W0 = !EQ ? 1 : 0
@@ -137,7 +137,7 @@ static void gen_cr_insert_signed(JITC &jitc, int crfD)
  *  Same as gen_cr_insert_signed but for unsigned comparison.
  *  Uses CC (unsigned <) instead of LT, and CS (unsigned >=) instead of GE.
  */
-static void gen_cr_insert_unsigned(JITC &jitc, int crfD)
+void gen_cr_insert_unsigned(JITC &jitc, int crfD)
 {
     jitc.asmCSETw(W0, A64_NE);
     jitc.asmCSINCw(W0, W0, W0, A64_CS);   // if CC(unsigned LT, !CS): W0++
