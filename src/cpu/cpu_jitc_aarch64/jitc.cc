@@ -23,6 +23,9 @@
 #include "ppc_tools.h"
 #include "aarch64asm.h"
 
+#include "cpu/ppc_liveness.h"
+#include "cpu/ppc_semantics_dispatch.h"
+
 byte *gTranslationCacheBase = NULL;
 extern void jitc_dump_and_exit(int code);
 
@@ -851,6 +854,54 @@ static void traceInit()
     // }
 }
 
+/*
+ *  Prescan a basic block starting at physpage[startOfs], collecting
+ *  InsnEffect and computing backward liveness.  Stops at:
+ *   - a branch instruction (is_branch)
+ *   - an everything() instruction (conservative block break)
+ *   - page boundary (startOfs == 4096)
+ *
+ *  Returns the number of instructions in the block.
+ *  The liveness[] array receives per-instruction dead-output masks.
+ */
+static int jitcPrescanBlock(const byte *physpage, uint32 startOfs, uint32 baseaddr,
+                            LivenessInfo *liveness, int maxInsns)
+{
+    InsnEffect effects[1024];
+    int count = 0;
+    uint32 scanOfs = startOfs;
+
+    while (scanOfs < 4096 && count < maxInsns) {
+        uint32 opc = ppc_word_from_BE(*(uint32 *)&physpage[scanOfs]);
+        effects[count] = ppc_analyze_insn(opc);
+        count++;
+        if (effects[count - 1].is_branch || effects[count - 1].is_everything) {
+            break;
+        }
+        scanOfs += 4;
+    }
+
+    ppc_compute_liveness(effects, count, liveness);
+
+    jitcDebugLogAdd("--- prescan: %d insns from %08x ---\n", count, baseaddr + startOfs);
+    for (int i = 0; i < count; i++) {
+        uint32 opc = ppc_word_from_BE(*(uint32 *)&physpage[startOfs + i * 4]);
+        const InsnEffect &fx = effects[i];
+        const LivenessInfo &li = liveness[i];
+        if (fx.is_everything) {
+            jitcDebugLogAdd("  [%08x] %08x  everything()\n", baseaddr + startOfs + i * 4, opc);
+        } else {
+            jitcDebugLogAdd("  [%08x] %08x  R:g%08x W:g%08x R:cr%08x W:cr%08x%s%s | dead: g%08x cr%08x xer%x\n",
+                baseaddr + startOfs + i * 4, opc,
+                fx.gpr_read, fx.gpr_write, fx.cr_read, fx.cr_write,
+                fx.reads_memory ? " RM" : "", fx.writes_memory ? " WM" : "",
+                li.dead_gpr, li.dead_cr, li.dead_xer);
+        }
+    }
+
+    return count;
+}
+
 static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 baseaddr, uint32 ofs)
 {
     jitcDebugLogAdd("=== jitcNewEntrypoint: %08x Beginning jitc ===\n", baseaddr + ofs);
@@ -878,6 +929,11 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     jitc.checkedRounding = false;
     jitc.checkedVector = false;
 
+    // Prescan first block
+    LivenessInfo blockLiveness[1024];
+    int blockLen = jitcPrescanBlock(physpage, ofs, baseaddr, blockLiveness, 1024);
+    int blockIdx = 0;
+
     while (1) {
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
         jitcDebugLogNewInstruction(jitc);
@@ -894,12 +950,16 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
             jitc.checkedVector = false;
             if (ofs + 4 < 4096) {
                 jitcCreateEntrypoint(cp, ofs + 4);
+                // Re-prescan for the new block
+                blockLen = jitcPrescanBlock(physpage, ofs + 4, baseaddr, blockLiveness, 1024);
+                blockIdx = -1; // will be incremented to 0 below
             }
         } else {
             /* flowEndBlockUnreachable */
             break;
         }
         ofs += 4;
+        blockIdx++;
         if (ofs == 4096) {
             /*
              *  End of page.
