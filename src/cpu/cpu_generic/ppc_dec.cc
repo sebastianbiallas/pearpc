@@ -36,7 +36,7 @@
 
 #include "io/prom/promosi.h"
 
-static void ppc_opc_invalid()
+static void ppc_opc_special()
 {
 	if (gCPU.pc == gPromOSIEntry && gCPU.current_opc == PROM_MAGIC_OPCODE) {
 		call_prom_osi();
@@ -109,6 +109,11 @@ static void ppc_opc_invalid()
 		PPC_OPC_EXT(gCPU.current_opc));
 
 	SINGLESTEP("unknown instruction\n");
+}
+
+static void ppc_opc_invalid()
+{
+	ppc_opc_special();
 }
 
 // main opcode 19
