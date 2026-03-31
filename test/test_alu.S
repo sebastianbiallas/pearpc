@@ -294,14 +294,17 @@ _start:
 .Lt23_end:
 
     /*
-     * Test 24: mfmsr / mtmsr round-trip (set and read back EE bit)
+     * Test 24: mfmsr / mtmsr round-trip (set and read back FP bit)
+     * Note: we test MSR_FP (0x2000) instead of MSR_EE (0x8000) because
+     * enabling EE can trigger a pending decrementer exception on the
+     * generic CPU, which has no exception handler installed.
      */
     PRINT   .Ltest24, (.Ltest24_end - .Ltest24)
     mfmsr   4                    /* save original MSR */
-    ori     5, 4, 0x8000         /* set EE (bit 15) */
+    ori     5, 4, 0x2000         /* set FP (bit 18) */
     mtmsr   5
     mfmsr   3
-    andi.   6, 3, 0x8000         /* check EE is set */
+    andi.   6, 3, 0x2000         /* check FP is set */
     mtmsr   4                    /* restore original MSR */
     cmpwi   0, 6, 0
     bne     .Lt24_ok
@@ -1188,7 +1191,7 @@ _start:
     .ascii  "test 23 mfmsr IR|DR: "
 .Ltest23_end:
 .Ltest24:
-    .ascii  "test 24 mtmsr/mfmsr: "
+    .ascii  "test 24 mtmsr/mfmsr:  "
 .Ltest24_end:
 .Ltest25:
     .ascii  "test 25 mfmsr !PR:   "

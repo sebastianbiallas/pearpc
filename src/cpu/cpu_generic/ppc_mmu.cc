@@ -882,7 +882,7 @@ void ppc_opc_dcbz()
 	PPC_OPC_TEMPL_X(gCPU.current_opc, rD, rA, rB);
 	// assert rD=0
 	uint32 a = (rA?gCPU.gpr[rA]:0)+gCPU.gpr[rB];
-	// BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+	a &= ~0x1f; // align to 32-byte cache line
 	ppc_write_effective_dword(a, 0)
 	|| ppc_write_effective_dword(a+8, 0)
 	|| ppc_write_effective_dword(a+16, 0)

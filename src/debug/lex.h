@@ -7,6 +7,9 @@ void lex_switch_buffer(void *buffer);
 void lex_delete_buffer(void *buffer);
 void *lex_scan_string_buffer(const char *str);
 
-int yylex();
+#ifndef YYSTYPE
+typedef union YYSTYPE YYSTYPE;
+#endif
+int yylex(YYSTYPE *lvalp);
 
 #endif /* __LEX_H__ */
