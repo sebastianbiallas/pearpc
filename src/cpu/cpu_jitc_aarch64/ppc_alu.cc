@@ -345,9 +345,93 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     // - LK=1 (branch-and-link conditional)
     // - Both CTR decrement AND CR test
     if (lk || (!ctr_ok_always && !cond_ok_always)) {
+        jitc.clobberFlags();
         ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
         gen_dispatch_npc(jitc);
         return flowEndBlockUnreachable;
+    }
+
+    // Case A fast path: check for deferred flags BEFORE clobberAll()
+    // Pattern: B.cond not_taken → flush CR → dispatch → not_taken:
+    // The conditional jump uses NZCV directly. If taken, we flush CR
+    // to CPU state (for the heartbeat) then dispatch. If not taken,
+    // we skip past the flush+dispatch block and continue.
+    if (ctr_ok_always && !cond_ok_always) {
+        PPC_CRx cr = (PPC_CRx)(BI / 4);
+        int crbit = BI % 4; // 0=LT, 1=GT, 2=EQ, 3=SO
+        bool branchIfSet = (BO & 8) != 0;
+
+        if (jitc.flagsMapped() && jitc.getFlagsMapping() == cr && crbit != 3) {
+            bool isSigned = jitc.nativeFlagsSigned;
+            // Consume the deferred flags — don't let clobberAll flush them.
+            jitc.nativeFlagsState = rsUnused;
+            jitc.clobberAll();
+
+            A64Cond not_taken_cond;
+            if (isSigned) {
+                switch (crbit) {
+                case 0: not_taken_cond = branchIfSet ? A64_GE : A64_LT; break;
+                case 1: not_taken_cond = branchIfSet ? A64_LE : A64_GT; break;
+                case 2: not_taken_cond = branchIfSet ? A64_NE : A64_EQ; break;
+                default: __builtin_unreachable();
+                }
+            } else {
+                switch (crbit) {
+                case 0: not_taken_cond = branchIfSet ? A64_CS : A64_CC; break;
+                case 1: not_taken_cond = branchIfSet ? A64_LS : A64_HI; break;
+                case 2: not_taken_cond = branchIfSet ? A64_NE : A64_EQ; break;
+                default: __builtin_unreachable();
+                }
+            }
+
+            // Compute sizes for the taken block:
+            // gen_cr_insert = 9 instructions = 36 bytes
+            uint flush_size = 36;
+            uint dispatch_size;
+            if (aa) {
+                dispatch_size = a64_movw_size((uint32)BD) + JITC::asmCALL_cpu_size;
+            } else {
+                dispatch_size = a64_movw_size((uint32)(jitc.pc + BD)) + JITC::asmCALL_cpu_size;
+            }
+
+            //  B.cond not_taken                   ; 4
+            //  <flush CR from NZCV>               ; flush_size (taken path)
+            //  <dispatch to target>               ; dispatch_size
+            // not_taken:
+            //  <flush CR from NZCV>               ; flush_size (not-taken path)
+            uint total = 4 + flush_size + dispatch_size + flush_size;
+            jitc.emitAssure(total);
+
+            NativeAddress not_taken_target = jitc.asmHERE() + 4 + flush_size + dispatch_size;
+            jitc.asmBccForward(not_taken_cond, flush_size + dispatch_size);
+
+            // Taken path: flush CR to CPU state, then dispatch.
+            // NZCV is still valid from the compare.
+            if (isSigned) {
+                gen_cr_insert_signed(jitc, (int)cr);
+            } else {
+                gen_cr_insert_unsigned(jitc, (int)cr);
+            }
+
+            if (aa) {
+                jitc.asmMOV(W0, (uint32)BD);
+                jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+            } else {
+                jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+                jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+            }
+
+            jitc.asmAssertHERE(not_taken_target, "bcx_defflags");
+
+            // Not-taken: NZCV is still valid (B.cond doesn't clobber).
+            // Flush CR to CPU state for subsequent code.
+            if (isSigned) {
+                gen_cr_insert_signed(jitc, (int)cr);
+            } else {
+                gen_cr_insert_unsigned(jitc, (int)cr);
+            }
+            return flowContinue;
+        }
     }
 
     jitc.clobberAll();
@@ -412,6 +496,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
 
     // Case A: CR-only (beq, bne, blt, bgt, ble, bge, etc.)
     // ctr_ok_always=true, cond_ok_always=false
+    // (Deferred flags fast path was handled above, before clobberAll)
     {
         uint dispatch_size;
         if (aa) {

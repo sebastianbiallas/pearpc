@@ -1184,9 +1184,12 @@ void FASTCALL ppc_exec_opc(PPC_CPU_State &aCPU)
 JITCFlow FASTCALL ppc_gen_opc(JITC &aJITC)
 {
     // Flush any deferred CR flags before generating the next instruction.
-    // Compare codegen will re-set flags dirty after emitting CMP.
-    aJITC.clobberFlags();
+    // Exception: bcx (opcode 16) handles flags itself — it may consume
+    // the deferred flags directly via native b.cond.
     uint32 mainopc = PPC_OPC_MAIN(aJITC.current_opc);
+    if (mainopc != 16) {
+        aJITC.clobberFlags();
+    }
     return ppc_opc_table_gen_main[mainopc](aJITC);
 }
 
