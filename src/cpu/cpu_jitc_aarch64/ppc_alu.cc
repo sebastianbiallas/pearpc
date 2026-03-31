@@ -160,8 +160,9 @@ void gen_cr_insert_unsigned(JITC &jitc, int crfD)
  */
 static void gen_update_cr0(JITC &jitc, NativeReg resultReg = W16)
 {
+    // NZCV already flushed by ppc_gen_opc before this gen function was called
     jitc.asmCMPw(resultReg, (uint32)0);
-    gen_cr_insert_signed(jitc, 0);
+    jitc.mapFlagsDirty(PPC_CR0, true);
 }
 
 /*
@@ -268,7 +269,7 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
         jitc.asmMOV(W17, (uint32)imm);
         jitc.asmCMPw(W16, W17);
     }
-    gen_cr_insert_signed(jitc, crfD);
+    jitc.mapFlagsDirty((PPC_CRx)crfD, true);
     return flowContinue;
 }
 
@@ -843,7 +844,7 @@ JITCFlow ppc_opc_gen_cmp(JITC &jitc)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmCMPw(W16, W17);
-    gen_cr_insert_signed(jitc, cr);
+    jitc.mapFlagsDirty((PPC_CRx)cr, true);
     return flowContinue;
 }
 
@@ -859,7 +860,7 @@ JITCFlow ppc_opc_gen_cmpl(JITC &jitc)
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmCMPw(W16, W17);
-    gen_cr_insert_unsigned(jitc, cr);
+    jitc.mapFlagsDirty((PPC_CRx)cr, false);
     return flowContinue;
 }
 
@@ -880,7 +881,7 @@ JITCFlow ppc_opc_gen_cmpli(JITC &jitc)
         jitc.asmMOV(W17, imm);
         jitc.asmCMPw(W16, W17);
     }
-    gen_cr_insert_unsigned(jitc, cr);
+    jitc.mapFlagsDirty((PPC_CRx)cr, false);
     return flowContinue;
 }
 
