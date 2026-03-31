@@ -65,7 +65,7 @@ static Container *gGraphicModes;
 PCI_GCard::PCI_GCard()
 	:PCI_Device("pci-graphic", 0x00, 0x07)
 {
-	mIORegSize[0] = 0x800000;
+	mIORegSize[0] = IO_GCARD_FRAMEBUFFER_PA_END - IO_GCARD_FRAMEBUFFER_PA_START;
 	mIORegType[0] = PCI_ADDRESS_SPACE_MEM_PREFETCH;
 
 //	mConfig[0x00] = 0x02;	// vendor ID
@@ -112,6 +112,7 @@ bool PCI_GCard::writeDeviceMem(uint r, uint32 address, uint32 data, uint size)
 /*#define MAYBE_PPC_HALF_TO_BE(a) (a)
 #define MAYBE_PPC_WORD_TO_BE(a) (a)
 #define MAYBE_PPC_DWORD_TO_BE(a) (a)*/
+
 
 void FASTCALL gcard_write_1(uint32 addr, uint32 data)
 {
@@ -228,16 +229,25 @@ void gcard_raise_interrupt()
 
 void gcard_osi(int cpu)
 {
-	IO_GRAPHIC_TRACE("osi: %d\n", ppc_cpu_get_gpr(cpu, 5));
-	switch (ppc_cpu_get_gpr(cpu, 5)) {
+	static int osi29count = 0;
+	uint32 func = ppc_cpu_get_gpr(cpu, 5);
+	if (func != 29 && func != 47) {
+		fprintf(stderr, "[GCARD] osi call: %d r6=%08x r7=%08x r8=%08x\n",
+			func, ppc_cpu_get_gpr(cpu, 6), ppc_cpu_get_gpr(cpu, 7), ppc_cpu_get_gpr(cpu, 8));
+	}
+	switch (func) {
 	case 4:
 		// cmount
+		fprintf(stderr, "[GCARD] cmount: gCurrentGraphicMode=%d totalModes=%d\n",
+			gCurrentGraphicMode, gGraphicModes ? (int)gGraphicModes->count() : -1);
 		return;
 	case 28: {
 		// set_vmode
 		uint vmode = ppc_cpu_get_gpr(cpu, 6)-1;
+		fprintf(stderr, "[GCARD] set_vmode: vmode=%d depth=%d\n", vmode, ppc_cpu_get_gpr(cpu, 7));
 		if (vmode > gGraphicModes->count() || ppc_cpu_get_gpr(cpu, 7)) {
 			ppc_cpu_set_gpr(cpu, 3, 1);
+			fprintf(stderr, "[GCARD] set_vmode: FAILED (out of range or depth!=0)\n");
 			return;
 		}
 		DisplayCharacteristics *chr = (DisplayCharacteristics *)(*gGraphicModes)[vmode];
@@ -245,35 +255,28 @@ void gcard_osi(int cpu)
 		if (gDisplay->changeResolution(*chr)) {
 			ppc_cpu_set_gpr(cpu, 3, 0);
 			gcard_set_mode(*chr);
+			fprintf(stderr, "[GCARD] set_vmode: OK %dx%dx%d\n", chr->width, chr->height, chr->bytesPerPixel*8);
 		} else {
 			ppc_cpu_set_gpr(cpu, 3, 1);
+			fprintf(stderr, "[GCARD] set_vmode: FAILED (changeResolution)\n");
 		}
 		return;
 	}
 	case 29: {
-/*		
-typedef struct osi_get_vmode_info {
-	short		num_vmodes;
-	short		cur_vmode;		// 1,2,... 
-	short		num_depths;
-	short		cur_depth_mode;		// 0,1,2,... 
-	short		w,h;
-	int		refresh;		// Hz/65536 
-
-	int		depth;
-	short		row_bytes;
-	short		offset;
-} osi_get_vmode_info_t;
-*/
 		// get_vmode_info
 		int vmode = ppc_cpu_get_gpr(cpu, 6) - 1;
 		int depth_mode = ppc_cpu_get_gpr(cpu, 7);
+		int orig_vmode = vmode;
 		if (vmode == -1) {
 			vmode = gCurrentGraphicMode;
 			depth_mode = ((DisplayCharacteristics *)(*gGraphicModes)[vmode])->bytesPerPixel*8;
 		}
 		if (vmode > (int)gGraphicModes->count() || vmode < 0) {
 			ppc_cpu_set_gpr(cpu, 3, 1);
+			if (osi29count < 100)
+				fprintf(stderr, "[GCARD] get_vmode_info[%d]: vmode=%d(req=%d) → FAIL (out of range, count=%d)\n",
+					osi29count, vmode, orig_vmode, (int)gGraphicModes->count());
+			osi29count++;
 			return;
 		}
 		DisplayCharacteristics *chr = ((DisplayCharacteristics *)(*gGraphicModes)[vmode]);
@@ -284,6 +287,14 @@ typedef struct osi_get_vmode_info {
 		ppc_cpu_set_gpr(cpu, 7, chr->vsyncFrequency << 16);
 		ppc_cpu_set_gpr(cpu, 8, chr->bytesPerPixel*8);
 		ppc_cpu_set_gpr(cpu, 9, ((chr->scanLineLength)<<16) | 0);
+		if (osi29count < 100)
+			fprintf(stderr, "[GCARD] get_vmode_info[%d]: vmode=%d(req=%d) depth_mode=%d → %dx%dx%d scanline=%d nmodes=%d\n",
+				osi29count, vmode, orig_vmode, depth_mode,
+				chr->width, chr->height, chr->bytesPerPixel*8, chr->scanLineLength,
+				(int)gGraphicModes->count());
+		else if (osi29count == 100)
+			fprintf(stderr, "[GCARD] get_vmode_info: suppressing further traces (100 reached)\n");
+		osi29count++;
 		return;
 	}
 	case 31:
@@ -305,9 +316,12 @@ typedef struct osi_get_vmode_info {
 		}
 		ppc_cpu_set_gpr(cpu, 3, 0);
 		return;
-	case 47:
-//		printf("%c\n", gCPU.gpr[6]);
+	case 47: {
+		// putchar - print guest kernel console output
+		char c = (char)ppc_cpu_get_gpr(cpu, 6);
+		fputc(c, stderr);
 		return;
+	}
 	case 59: {
 		// set_color
 		uint32 r7 = ppc_cpu_get_gpr(cpu, 7);
@@ -442,10 +456,16 @@ void gcard_init_modes()
 
 void gcard_init_host_modes()
 {
-	Array modes(true);	
+	const uint32 vramSize = IO_GCARD_FRAMEBUFFER_PA_END - IO_GCARD_FRAMEBUFFER_PA_START;
+	Array modes(true);
 	gDisplay->getHostCharacteristics(modes);
 	foreach (DisplayCharacteristics, chr, modes, {
+		// Normalize refresh rate to avoid duplicates at different Hz
+		chr->vsyncFrequency = -1;
 		gcard_finish_characteristic(*chr);
+		// Skip modes that exceed the framebuffer size
+		if ((uint32)chr->scanLineLength * chr->height > vramSize)
+			continue;
 		gcard_add_characteristic(*chr);
 	});
 }
