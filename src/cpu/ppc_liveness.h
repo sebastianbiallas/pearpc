@@ -37,6 +37,14 @@ struct LivenessInfo {
     uint32 dead_gpr; // subset of InsnEffect.gpr_write that is dead
     uint32 dead_cr;  // subset of InsnEffect.cr_write that is dead
     uint8 dead_xer;  // subset of InsnEffect.xer_write that is dead
+
+    bool is_dead_gpr(int r) const { return dead_gpr & (1u << r); }
+    bool is_dead_cr_field(int f) const
+    {
+        uint32 mask = 0xfu << ((7 - f) * 4);
+        return (dead_cr & mask) == mask;
+    }
+    bool is_dead_xer_ca() const { return dead_xer & XER_BIT_CA; }
 };
 
 // Run backward liveness on a basic block.

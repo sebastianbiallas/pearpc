@@ -29,6 +29,7 @@ static int tests = 0;
         }                                                                                                              \
     } while (0)
 
+
 // Helper to build PPC opcodes
 static uint32 ppc_addi(int rD, int rA, int imm)
 {
@@ -111,10 +112,10 @@ static void test_insn_effect_addi()
 {
     // addi r3, r4, 5
     InsnEffect fx = ppc_analyze_insn(ppc_addi(3, 4, 5));
-    CHECK("addi reads r4", fx.gpr_read & (1u << 4));
-    CHECK("addi writes r3", fx.gpr_write & (1u << 3));
-    CHECK("addi doesn't read r3", !(fx.gpr_read & (1u << 3)));
-    CHECK("addi doesn't write r4", !(fx.gpr_write & (1u << 4)));
+    CHECK("addi reads r4", fx.reads_gpr(4));
+    CHECK("addi writes r3", fx.writes_gpr(3));
+    CHECK("addi doesn't read r3", !(fx.reads_gpr(3)));
+    CHECK("addi doesn't write r4", !(fx.writes_gpr(4)));
     CHECK("addi no CR write", fx.cr_write == 0);
     CHECK("addi no XER write", fx.xer_write == 0);
 }
@@ -123,17 +124,17 @@ static void test_insn_effect_addi_r0()
 {
     // addi r3, r0, 5 — rA=0 means literal zero, NOT gpr[0]
     InsnEffect fx = ppc_analyze_insn(ppc_addi(3, 0, 5));
-    CHECK("addi r0 doesn't read r0", !(fx.gpr_read & (1u << 0)));
-    CHECK("addi r0 writes r3", fx.gpr_write & (1u << 3));
+    CHECK("addi r0 doesn't read r0", !(fx.reads_gpr(0)));
+    CHECK("addi r0 writes r3", fx.writes_gpr(3));
 }
 
 static void test_insn_effect_add()
 {
     // add r5, r3, r4
     InsnEffect fx = ppc_analyze_insn(ppc_add(5, 3, 4));
-    CHECK("add reads r3", fx.gpr_read & (1u << 3));
-    CHECK("add reads r4", fx.gpr_read & (1u << 4));
-    CHECK("add writes r5", fx.gpr_write & (1u << 5));
+    CHECK("add reads r3", fx.reads_gpr(3));
+    CHECK("add reads r4", fx.reads_gpr(4));
+    CHECK("add writes r5", fx.writes_gpr(5));
     CHECK("add no CR write (no Rc)", fx.cr_write == 0);
 }
 
@@ -141,8 +142,8 @@ static void test_insn_effect_add_rc()
 {
     // add. r5, r3, r4 (Rc=1)
     InsnEffect fx = ppc_analyze_insn(ppc_add(5, 3, 4, true));
-    CHECK("add. writes r5", fx.gpr_write & (1u << 5));
-    CHECK("add. writes CR0", (fx.cr_write & (0xfu << 28)) == (0xfu << 28));
+    CHECK("add. writes r5", fx.writes_gpr(5));
+    CHECK("add. writes CR0", fx.writes_cr_field(0));
     CHECK("add. reads XER.SO for CR0", fx.xer_read & XER_BIT_SO);
 }
 
@@ -150,24 +151,24 @@ static void test_insn_effect_cmpi()
 {
     // cmpwi cr0, r3, 8
     InsnEffect fx = ppc_analyze_insn(ppc_cmpi(0, 3, 8));
-    CHECK("cmpi reads r3", fx.gpr_read & (1u << 3));
-    CHECK("cmpi writes CR0", (fx.cr_write & (0xfu << 28)) == (0xfu << 28));
+    CHECK("cmpi reads r3", fx.reads_gpr(3));
+    CHECK("cmpi writes CR0", fx.writes_cr_field(0));
     CHECK("cmpi reads XER.SO", fx.xer_read & XER_BIT_SO);
     CHECK("cmpi no GPR write", fx.gpr_write == 0);
 
     // cmpwi cr2, r5, 0
     InsnEffect fx2 = ppc_analyze_insn(ppc_cmpi(2, 5, 0));
-    CHECK("cmpi cr2 reads r5", fx2.gpr_read & (1u << 5));
-    CHECK("cmpi cr2 writes CR2", (fx2.cr_write & (0xfu << 20)) == (0xfu << 20));
-    CHECK("cmpi cr2 doesn't write CR0", !(fx2.cr_write & (0xfu << 28)));
+    CHECK("cmpi cr2 reads r5", fx2.reads_gpr(5));
+    CHECK("cmpi cr2 writes CR2", fx2.writes_cr_field(2));
+    CHECK("cmpi cr2 doesn't write CR0", !fx2.writes_cr_field(0));
 }
 
 static void test_insn_effect_ori()
 {
     // ori r3, r4, 0x1234
     InsnEffect fx = ppc_analyze_insn(ppc_ori(4, 3, 0x1234));
-    CHECK("ori reads rS", fx.gpr_read & (1u << 4));
-    CHECK("ori writes rA", fx.gpr_write & (1u << 3));
+    CHECK("ori reads rS", fx.reads_gpr(4));
+    CHECK("ori writes rA", fx.writes_gpr(3));
     CHECK("ori no CR", fx.cr_write == 0);
 }
 
@@ -175,21 +176,21 @@ static void test_insn_effect_rlwinm()
 {
     // rlwinm r3, r4, 2, 0, 29  (slwi r3, r4, 2)
     InsnEffect fx = ppc_analyze_insn(ppc_rlwinm(4, 3, 2, 0, 29));
-    CHECK("rlwinm reads rS", fx.gpr_read & (1u << 4));
-    CHECK("rlwinm writes rA", fx.gpr_write & (1u << 3));
+    CHECK("rlwinm reads rS", fx.reads_gpr(4));
+    CHECK("rlwinm writes rA", fx.writes_gpr(3));
     CHECK("rlwinm no CR (no Rc)", fx.cr_write == 0);
 
     // rlwinm. r3, r4, 2, 0, 29
     InsnEffect fx2 = ppc_analyze_insn(ppc_rlwinm(4, 3, 2, 0, 29, true));
-    CHECK("rlwinm. writes CR0", (fx2.cr_write & (0xfu << 28)) == (0xfu << 28));
+    CHECK("rlwinm. writes CR0", fx2.writes_cr_field(0));
 }
 
 static void test_insn_effect_subfic()
 {
     // subfic r3, r4, 10
     InsnEffect fx = ppc_analyze_insn(ppc_subfic(3, 4, 10));
-    CHECK("subfic reads r4", fx.gpr_read & (1u << 4));
-    CHECK("subfic writes r3", fx.gpr_write & (1u << 3));
+    CHECK("subfic reads r4", fx.reads_gpr(4));
+    CHECK("subfic writes r3", fx.writes_gpr(3));
     CHECK("subfic writes XER.CA", fx.xer_write & XER_BIT_CA);
 }
 
@@ -197,8 +198,8 @@ static void test_insn_effect_srawi()
 {
     // srawi r3, r4, 5
     InsnEffect fx = ppc_analyze_insn(ppc_srawi(4, 3, 5));
-    CHECK("srawi reads rS", fx.gpr_read & (1u << 4));
-    CHECK("srawi writes rA", fx.gpr_write & (1u << 3));
+    CHECK("srawi reads rS", fx.reads_gpr(4));
+    CHECK("srawi writes rA", fx.writes_gpr(3));
     CHECK("srawi writes XER.CA", fx.xer_write & XER_BIT_CA);
 }
 
@@ -206,24 +207,114 @@ static void test_insn_effect_cr_logical()
 {
     // crand cr0[lt], cr1[gt], cr2[eq]  (bit 0, bit 5, bit 10)
     InsnEffect fx = ppc_analyze_insn(ppc_crand(0, 5, 10));
-    CHECK("crand reads crA bit", fx.cr_read & (1u << (31 - 5)));
-    CHECK("crand reads crB bit", fx.cr_read & (1u << (31 - 10)));
-    CHECK("crand writes crD bit", fx.cr_write & (1u << (31 - 0)));
+    CHECK("crand reads crA bit", fx.reads_cr_bit(5));
+    CHECK("crand reads crB bit", fx.reads_cr_bit(10));
+    CHECK("crand writes crD bit", fx.writes_cr_bit(0));
 
     // crxor cr4, cr4, cr4  (crclr cr4)
     InsnEffect fx2 = ppc_analyze_insn(ppc_crxor(4, 4, 4));
-    CHECK("crxor reads bit 4", fx2.cr_read & (1u << (31 - 4)));
-    CHECK("crxor writes bit 4", fx2.cr_write & (1u << (31 - 4)));
+    CHECK("crxor reads bit 4", fx2.reads_cr_bit(4));
+    CHECK("crxor writes bit 4", fx2.writes_cr_bit(4));
 }
 
 static void test_insn_effect_unknown()
 {
-    // lwz r3, 0(r4) — not yet modeled, should be everything()
-    uint32 lwz_opc = (32u << 26) | (3 << 21) | (4 << 16) | 0;
-    InsnEffect fx = ppc_analyze_insn(lwz_opc);
+    // lfd r3, 0(r4) — FPU load, not yet modeled, should be everything()
+    uint32 lfd_opc = (50u << 26) | (3 << 21) | (4 << 16) | 0;
+    InsnEffect fx = ppc_analyze_insn(lfd_opc);
     CHECK("unknown insn is_everything", fx.is_everything);
     CHECK("unknown reads all GPR", fx.gpr_read == 0xffffffff);
     CHECK("unknown writes all GPR", fx.gpr_write == 0xffffffff);
+}
+
+// ---- Branch tests ----
+
+static void test_insn_effect_bx()
+{
+    // b target (no LK)
+    uint32 opc = (18u << 26) | 0x100;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("b: is_branch", fx.is_branch);
+    CHECK("b: no LR write", !fx.lr_write);
+    CHECK("b: no GPR read", fx.gpr_read == 0);
+}
+
+static void test_insn_effect_bl()
+{
+    // bl target (LK=1)
+    uint32 opc = (18u << 26) | 0x100 | PPC_OPC_LK;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("bl: is_branch", fx.is_branch);
+    CHECK("bl: writes LR", fx.lr_write);
+}
+
+static void test_insn_effect_bcx()
+{
+    // bc 4,1,target — BO=4 (don't decrement CTR), test CR bit 1
+    uint32 opc = (16u << 26) | (4 << 21) | (1 << 16) | 0x40;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("bc: is_branch", fx.is_branch);
+    CHECK("bc: reads CR bit 1", fx.reads_cr_bit(1));
+    CHECK("bc: no CTR read (BO[2]=1)", !fx.ctr_read);
+    CHECK("bc: no CTR write", !fx.ctr_write);
+}
+
+static void test_insn_effect_bdnz()
+{
+    // bdnz target — BO=16 (always true), decrement CTR
+    uint32 opc = (16u << 26) | (16 << 21) | 0x40;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("bdnz: is_branch", fx.is_branch);
+    CHECK("bdnz: reads CTR", fx.ctr_read);
+    CHECK("bdnz: writes CTR", fx.ctr_write);
+    CHECK("bdnz: no CR read (BO[4]=1)", fx.cr_read == 0);
+}
+
+// ---- Load/store tests ----
+
+static void test_insn_effect_lwz()
+{
+    // lwz r3, 8(r4)
+    uint32 opc = (32u << 26) | (3 << 21) | (4 << 16) | 8;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("lwz: reads r4", fx.reads_gpr(4));
+    CHECK("lwz: writes r3", fx.writes_gpr(3));
+    CHECK("lwz: reads memory", fx.reads_memory);
+    CHECK("lwz: no memory write", !fx.writes_memory);
+    CHECK("lwz: not a branch", !fx.is_branch);
+}
+
+static void test_insn_effect_lwz_r0()
+{
+    // lwz r3, 8(r0) — rA=0 means literal zero
+    uint32 opc = (32u << 26) | (3 << 21) | (0 << 16) | 8;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("lwz r0: doesn't read r0", !(fx.reads_gpr(0)));
+    CHECK("lwz r0: rD not in read set", !(fx.reads_gpr(3)));
+    CHECK("lwz r0: writes r3", fx.writes_gpr(3));
+}
+
+static void test_insn_effect_stwu()
+{
+    // stwu r3, -16(r1)
+    uint32 opc = (37u << 26) | (3 << 21) | (1 << 16) | (uint16_t)-16;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("stwu: reads r3 (value)", fx.reads_gpr(3));
+    CHECK("stwu: reads r1 (base)", fx.reads_gpr(1));
+    CHECK("stwu: writes r1 (update)", fx.writes_gpr(1));
+    CHECK("stwu: writes memory", fx.writes_memory);
+    CHECK("stwu: no memory read", !fx.reads_memory);
+}
+
+static void test_insn_effect_stw()
+{
+    // stw r5, 0(r4)
+    uint32 opc = (36u << 26) | (5 << 21) | (4 << 16) | 0;
+    InsnEffect fx = ppc_analyze_insn(opc);
+    CHECK("stw: reads r5", fx.reads_gpr(5));
+    CHECK("stw: reads r4", fx.reads_gpr(4));
+    CHECK("stw: no GPR write", fx.gpr_write == 0);
+    CHECK("stw: writes memory", fx.writes_memory);
 }
 
 // ---- Liveness tests ----
@@ -252,8 +343,8 @@ static void test_liveness_dead_cr0()
     }
     ppc_compute_liveness(effects, 2, liveness);
 
-    CHECK("dead_cr0: add. CR0 is dead", (liveness[0].dead_cr & (0xfu << 28)) == (0xfu << 28));
-    CHECK("dead_cr0: cmpi CR0 is live", (liveness[1].dead_cr & (0xfu << 28)) == 0);
+    CHECK("dead_cr0: add. CR0 is dead", liveness[0].is_dead_cr_field(0));
+    CHECK("dead_cr0: cmpi CR0 is live", !liveness[1].is_dead_cr_field(0));
 }
 
 static void test_liveness_dead_gpr()
@@ -272,8 +363,8 @@ static void test_liveness_dead_gpr()
     }
     ppc_compute_liveness(effects, 2, liveness);
 
-    CHECK("dead_gpr: first li r3 is dead", liveness[0].dead_gpr & (1u << 3));
-    CHECK("dead_gpr: second li r3 is live", !(liveness[1].dead_gpr & (1u << 3)));
+    CHECK("dead_gpr: first li r3 is dead", liveness[0].is_dead_gpr(3));
+    CHECK("dead_gpr: second li r3 is live", !liveness[1].is_dead_gpr(3));
 }
 
 static void test_liveness_read_keeps_alive()
@@ -294,8 +385,8 @@ static void test_liveness_read_keeps_alive()
     }
     ppc_compute_liveness(effects, 3, liveness);
 
-    CHECK("read_keeps_alive: first li r3 is live", !(liveness[0].dead_gpr & (1u << 3)));
-    CHECK("read_keeps_alive: add r4 is live at exit", !(liveness[1].dead_gpr & (1u << 4)));
+    CHECK("read_keeps_alive: first li r3 is live", !(liveness[0].is_dead_gpr(3)));
+    CHECK("read_keeps_alive: add r4 is live at exit", !liveness[1].is_dead_gpr(4));
 }
 
 static void test_liveness_xer_ca()
@@ -334,8 +425,8 @@ static void test_liveness_cr_field_independence()
     }
     ppc_compute_liveness(effects, 2, liveness);
 
-    CHECK("cr_field_indep: CR0 from first cmpi is live", !(liveness[0].dead_cr & (0xfu << 28)));
-    CHECK("cr_field_indep: CR2 from second cmpi is live", !(liveness[1].dead_cr & (0xfu << 20)));
+    CHECK("cr_field_indep: CR0 from first cmpi is live", !liveness[0].is_dead_cr_field(0));
+    CHECK("cr_field_indep: CR2 from second cmpi is live", !liveness[1].is_dead_cr_field(2));
 }
 
 // ---- ConcreteSemantics correctness tests ----
@@ -514,6 +605,18 @@ int main()
     test_insn_effect_srawi();
     test_insn_effect_cr_logical();
     test_insn_effect_unknown();
+
+    printf("=== Branch tests ===\n");
+    test_insn_effect_bx();
+    test_insn_effect_bl();
+    test_insn_effect_bcx();
+    test_insn_effect_bdnz();
+
+    printf("=== Load/store tests ===\n");
+    test_insn_effect_lwz();
+    test_insn_effect_lwz_r0();
+    test_insn_effect_stwu();
+    test_insn_effect_stw();
 
     printf("=== Liveness tests ===\n");
     test_liveness_dead_cr0();

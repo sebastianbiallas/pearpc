@@ -26,6 +26,8 @@
 
 #include "cpu/ppc_liveness_sem.h"
 #include "cpu/ppc_semantics_alu.h"
+#include "cpu/ppc_semantics_branch.h"
+#include "cpu/ppc_semantics_mem.h"
 
 // Analyze group 1 (main opcode 19): CR logical + branch ops
 static inline InsnEffect ppc_analyze_group1(uint32 opc)
@@ -41,6 +43,11 @@ static inline InsnEffect ppc_analyze_group1(uint32 opc)
     case 289: ppc_sem_creqv(s, opc); return s.fx;
     case 417: ppc_sem_crorc(s, opc); return s.fx;
     case 449: ppc_sem_cror(s, opc); return s.fx;
+
+    // Branch
+    case 16: ppc_sem_bclrx(s, opc); return s.fx;
+    case 528: ppc_sem_bcctrx(s, opc); return s.fx;
+
     default: return InsnEffect::everything();
     }
 }
@@ -104,6 +111,24 @@ static inline InsnEffect ppc_analyze_group2(uint32 opc)
     case 922: ppc_sem_extshx(s, opc); return s.fx;
     case 954: ppc_sem_extsbx(s, opc); return s.fx;
 
+    // Load indexed
+    case 23: ppc_sem_lwzx(s, opc); return s.fx;
+    case 55: ppc_sem_lwzux(s, opc); return s.fx;
+    case 87: ppc_sem_lbzx(s, opc); return s.fx;
+    case 119: ppc_sem_lbzux(s, opc); return s.fx;
+    case 279: ppc_sem_lhzx(s, opc); return s.fx;
+    case 311: ppc_sem_lhzux(s, opc); return s.fx;
+    case 343: ppc_sem_lhax(s, opc); return s.fx;
+    case 375: ppc_sem_lhaux(s, opc); return s.fx;
+
+    // Store indexed
+    case 151: ppc_sem_stwx(s, opc); return s.fx;
+    case 183: ppc_sem_stwux(s, opc); return s.fx;
+    case 215: ppc_sem_stbx(s, opc); return s.fx;
+    case 247: ppc_sem_stbux(s, opc); return s.fx;
+    case 407: ppc_sem_sthx(s, opc); return s.fx;
+    case 439: ppc_sem_sthux(s, opc); return s.fx;
+
     default: return InsnEffect::everything();
     }
 }
@@ -149,7 +174,36 @@ static inline InsnEffect ppc_analyze_insn(uint32 opc)
     // Multiply immediate
     case 7: ppc_sem_mulli(s, opc); return s.fx;
 
-    // Everything else: load/store, FPU, branch, etc.
+    // Branch
+    case 16: ppc_sem_bcx(s, opc); return s.fx;
+    case 18: ppc_sem_bx(s, opc); return s.fx;
+
+    // Load word
+    case 32: ppc_sem_lwz(s, opc); return s.fx;
+    case 33: ppc_sem_lwzu(s, opc); return s.fx;
+
+    // Load byte
+    case 34: ppc_sem_lbz(s, opc); return s.fx;
+    case 35: ppc_sem_lbzu(s, opc); return s.fx;
+
+    // Store word
+    case 36: ppc_sem_stw(s, opc); return s.fx;
+    case 37: ppc_sem_stwu(s, opc); return s.fx;
+
+    // Store byte
+    case 38: ppc_sem_stb(s, opc); return s.fx;
+    case 39: ppc_sem_stbu(s, opc); return s.fx;
+
+    // Load half word
+    case 40: ppc_sem_lhz(s, opc); return s.fx;
+    case 41: ppc_sem_lhzu(s, opc); return s.fx;
+    case 42: ppc_sem_lha(s, opc); return s.fx;
+    case 43: ppc_sem_lhau(s, opc); return s.fx;
+
+    // Store half word
+    case 44: ppc_sem_sth(s, opc); return s.fx;
+    case 45: ppc_sem_sthu(s, opc); return s.fx;
+
     default: return InsnEffect::everything();
     }
 }

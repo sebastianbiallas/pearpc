@@ -48,6 +48,19 @@ struct InsnEffect {
     bool is_branch;
     bool is_everything;
 
+    bool reads_gpr(int r) const { return gpr_read & (1u << r); }
+    bool writes_gpr(int r) const { return gpr_write & (1u << r); }
+    bool reads_cr_bit(int bit) const { return cr_read & (1u << (31 - bit)); }
+    bool writes_cr_bit(int bit) const { return cr_write & (1u << (31 - bit)); }
+    bool writes_cr_field(int f) const
+    {
+        uint32 mask = 0xfu << ((7 - f) * 4);
+        return (cr_write & mask) == mask;
+    }
+    bool reads_xer_ca() const { return xer_read & XER_BIT_CA; }
+    bool reads_xer_so() const { return xer_read & XER_BIT_SO; }
+    bool writes_xer_ca() const { return xer_write & XER_BIT_CA; }
+
     static InsnEffect everything()
     {
         InsnEffect e = {};
@@ -117,7 +130,10 @@ struct LivenessSemantics {
         fx.xer_read |= XER_BIT_SO;
     }
 
-    void read_cr_bit(int) {}
+    void read_cr_bit(int bit)
+    {
+        fx.cr_read |= (1u << (31 - bit));
+    }
     void write_cr_bit(int bit, bool)
     {
         fx.cr_write |= (1u << (31 - bit));
@@ -127,6 +143,53 @@ struct LivenessSemantics {
     {
         fx.cr_read |= (1u << (31 - bit));
         return false;
+    }
+
+    // --- LR / CTR ---
+
+    void read_lr()
+    {
+        fx.lr_read = true;
+    }
+    void write_lr()
+    {
+        fx.lr_write = true;
+    }
+    void read_ctr()
+    {
+        fx.ctr_read = true;
+    }
+    void write_ctr()
+    {
+        fx.ctr_write = true;
+    }
+
+    // --- Memory ---
+
+    Value read_mem(Value, int)
+    {
+        fx.reads_memory = true;
+        return 0;
+    }
+    Value read_mem_sign_extend(Value, int)
+    {
+        fx.reads_memory = true;
+        return 0;
+    }
+    void write_mem(Value, Value, int)
+    {
+        fx.writes_memory = true;
+    }
+
+    // --- Control flow ---
+
+    void branch()
+    {
+        fx.is_branch = true;
+    }
+    void branch_cond()
+    {
+        fx.is_branch = true;
     }
 
     // --- Computation (all return dummy 0) ---
