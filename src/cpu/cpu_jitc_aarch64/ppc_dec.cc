@@ -722,6 +722,7 @@ static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
     ppc_opc_gen_check_fpu(aJITC);
     uint32 ext = PPC_OPC_EXT(aJITC.current_opc);
     switch (ext & 0x1f) {
+#if 1 // disabled: native codegen has double-rounding issue
     case 18: return ppc_opc_gen_fdivsx(aJITC);
     case 20: return ppc_opc_gen_fsubsx(aJITC);
     case 21: return ppc_opc_gen_faddsx(aJITC);
@@ -732,6 +733,18 @@ static JITCFlow ppc_opc_gen_group_f1(JITC &aJITC)
     case 29: return ppc_opc_gen_fmaddsx(aJITC);
     case 30: return ppc_opc_gen_fnmsubsx(aJITC);
     case 31: return ppc_opc_gen_fnmaddsx(aJITC);
+#else
+    case 18: ppc_opc_gen_interpret(aJITC, ppc_opc_fdivsx); return flowContinue;
+    case 20: ppc_opc_gen_interpret(aJITC, ppc_opc_fsubsx); return flowContinue;
+    case 21: ppc_opc_gen_interpret(aJITC, ppc_opc_faddsx); return flowContinue;
+    case 22: ppc_opc_gen_interpret(aJITC, ppc_opc_fsqrtsx); return flowContinue;
+    case 24: ppc_opc_gen_interpret(aJITC, ppc_opc_fresx); return flowContinue;
+    case 25: ppc_opc_gen_interpret(aJITC, ppc_opc_fmulsx); return flowContinue;
+    case 28: ppc_opc_gen_interpret(aJITC, ppc_opc_fmsubsx); return flowContinue;
+    case 29: ppc_opc_gen_interpret(aJITC, ppc_opc_fmaddsx); return flowContinue;
+    case 30: ppc_opc_gen_interpret(aJITC, ppc_opc_fnmsubsx); return flowContinue;
+    case 31: ppc_opc_gen_interpret(aJITC, ppc_opc_fnmaddsx); return flowContinue;
+#endif
     }
     return ppc_opc_gen_invalid(aJITC);
 }
@@ -801,9 +814,15 @@ static JITCFlow ppc_opc_gen_group_f2(JITC &aJITC)
     } else {
         switch (ext) {
         case 0: return ppc_opc_gen_fcmpu(aJITC);
+#if 1 // disabled: use interpreter for accuracy
         case 12: return ppc_opc_gen_frspx(aJITC);
         case 14: return ppc_opc_gen_fctiwx(aJITC);
         case 15: return ppc_opc_gen_fctiwzx(aJITC);
+#else
+        case 12: ppc_opc_gen_interpret(aJITC, ppc_opc_frspx); return flowContinue;
+        case 14: ppc_opc_gen_interpret(aJITC, ppc_opc_fctiwx); return flowContinue;
+        case 15: ppc_opc_gen_interpret(aJITC, ppc_opc_fctiwzx); return flowContinue;
+#endif
         case 32: return ppc_opc_gen_fcmpo(aJITC);
         case 38: return ppc_opc_gen_mtfsb1x(aJITC);
         case 40: return ppc_opc_gen_fnegx(aJITC);
