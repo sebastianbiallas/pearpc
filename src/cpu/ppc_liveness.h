@@ -203,14 +203,14 @@ static inline sint32 ppc_decode_branch_target(uint32 opc, uint32 instrOfs)
         if (li & 0x02000000) li |= 0xFC000000;
         bool aa = opc & PPC_OPC_AA;
         sint32 target = aa ? (sint32)li : (sint32)(instrOfs + (sint32)li);
-        if (!aa && target >= 0 && target < 4096) return target;
+        if (target >= 0 && target < 4096) return target;
     } else if (mainopc == 16) {
         // bcx
         sint32 BD = opc & 0xfffc;
         if (BD & 0x8000) BD |= 0xffff0000;
         bool aa = opc & PPC_OPC_AA;
         sint32 target = aa ? BD : (sint32)(instrOfs + BD);
-        if (!aa && target >= 0 && target < 4096) return target;
+        if (target >= 0 && target < 4096) return target;
     }
     return -1;
 }
@@ -220,8 +220,17 @@ static inline bool ppc_is_unconditional_branch(uint32 opc)
     uint32 mainopc = PPC_OPC_MAIN(opc);
     if (mainopc == 18) return true; // bx is always unconditional
     if (mainopc == 16) {
+        // bcx: unconditional if BO[2]=1 (don't test CTR) and BO[4]=1 (don't test CR)
         uint32 BO = (opc >> 21) & 0x1f;
         return (BO & 0x14) == 0x14;
+    }
+    if (mainopc == 19) {
+        // bclrx (ext 16) / bcctrx (ext 528): check BO for unconditional
+        uint32 ext = PPC_OPC_EXT(opc);
+        if (ext == 16 || ext == 528) {
+            uint32 BO = (opc >> 21) & 0x1f;
+            return (BO & 0x14) == 0x14;
+        }
     }
     return false;
 }
