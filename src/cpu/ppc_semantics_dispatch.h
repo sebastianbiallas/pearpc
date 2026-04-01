@@ -228,6 +228,10 @@ static inline InsnEffect ppc_analyze_insn(uint32 opc)
     case 44: ppc_sem_sth(s, opc); return s.fx;
     case 45: ppc_sem_sthu(s, opc); return s.fx;
 
+    // Load/store multiple
+    case 46: ppc_sem_lmw(s, opc); return s.fx;
+    case 47: ppc_sem_stmw(s, opc); return s.fx;
+
     // FPU load
     case 48: ppc_sem_lfs(s, opc); return s.fx;
     case 49: ppc_sem_lfsu(s, opc); return s.fx;

@@ -219,8 +219,8 @@ static void test_insn_effect_cr_logical()
 
 static void test_insn_effect_unknown()
 {
-    // lmw r3, 0(r4) — load multiple, not modeled, should be everything()
-    uint32 lfd_opc = (46u << 26) | (3 << 21) | (4 << 16) | 0;
+    // opcode 58 (ld, 64-bit only) — not modeled, should be everything()
+    uint32 lfd_opc = (58u << 26) | (3 << 21) | (4 << 16) | 0;
     InsnEffect fx = ppc_analyze_insn(lfd_opc);
     CHECK("unknown insn is_everything", fx.is_everything);
     CHECK("unknown reads all GPR", fx.gpr_read == 0xffffffff);

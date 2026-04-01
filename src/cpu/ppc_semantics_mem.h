@@ -333,4 +333,32 @@ template <typename S> void ppc_sem_sthux(S &s, uint32 opc)
     s.write_gpr(rA, addr);
 }
 
+// ---- Load/Store Multiple Word ----
+
+template <typename S> void ppc_sem_lmw(S &s, uint32 opc)
+{
+    int rD, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(opc, rD, rA, imm);
+    auto addr = (rA == 0) ? s.imm(0) : s.read_gpr(rA);
+    addr = s.add(addr, s.imm(imm));
+    for (int r = rD; r <= 31; r++) {
+        s.write_gpr(r, s.read_mem(addr, 4));
+        addr = s.add(addr, s.imm(4));
+    }
+}
+
+template <typename S> void ppc_sem_stmw(S &s, uint32 opc)
+{
+    int rS, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(opc, rS, rA, imm);
+    auto addr = (rA == 0) ? s.imm(0) : s.read_gpr(rA);
+    addr = s.add(addr, s.imm(imm));
+    for (int r = rS; r <= 31; r++) {
+        s.write_mem(addr, s.read_gpr(r), 4);
+        addr = s.add(addr, s.imm(4));
+    }
+}
+
 #endif
