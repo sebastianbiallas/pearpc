@@ -28,6 +28,7 @@
 #include "cpu/ppc_semantics_alu.h"
 #include "cpu/ppc_semantics_branch.h"
 #include "cpu/ppc_semantics_mem.h"
+#include "cpu/ppc_semantics_spr.h"
 
 // Analyze group 1 (main opcode 19): CR logical + branch ops
 static inline InsnEffect ppc_analyze_group1(uint32 opc)
@@ -47,6 +48,9 @@ static inline InsnEffect ppc_analyze_group1(uint32 opc)
     // Branch
     case 16: ppc_sem_bclrx(s, opc); return s.fx;
     case 528: ppc_sem_bcctrx(s, opc); return s.fx;
+
+    // CR field move
+    case 0: ppc_sem_mcrf(s, opc); return s.fx;
 
     default: return InsnEffect::everything();
     }
@@ -128,6 +132,12 @@ static inline InsnEffect ppc_analyze_group2(uint32 opc)
     case 247: ppc_sem_stbux(s, opc); return s.fx;
     case 407: ppc_sem_sthx(s, opc); return s.fx;
     case 439: ppc_sem_sthux(s, opc); return s.fx;
+
+    // SPR/CR moves
+    case 19: ppc_sem_mfcr(s, opc); return s.fx;
+    case 144: ppc_sem_mtcrf(s, opc); return s.fx;
+    case 339: ppc_sem_mfspr(s, opc); return s.fx;
+    case 467: ppc_sem_mtspr(s, opc); return s.fx;
 
     default: return InsnEffect::everything();
     }

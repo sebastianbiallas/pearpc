@@ -48,18 +48,39 @@ struct InsnEffect {
     bool is_branch;
     bool is_everything;
 
-    bool reads_gpr(int r) const { return gpr_read & (1u << r); }
-    bool writes_gpr(int r) const { return gpr_write & (1u << r); }
-    bool reads_cr_bit(int bit) const { return cr_read & (1u << (31 - bit)); }
-    bool writes_cr_bit(int bit) const { return cr_write & (1u << (31 - bit)); }
+    bool reads_gpr(int r) const
+    {
+        return gpr_read & (1u << r);
+    }
+    bool writes_gpr(int r) const
+    {
+        return gpr_write & (1u << r);
+    }
+    bool reads_cr_bit(int bit) const
+    {
+        return cr_read & (1u << (31 - bit));
+    }
+    bool writes_cr_bit(int bit) const
+    {
+        return cr_write & (1u << (31 - bit));
+    }
     bool writes_cr_field(int f) const
     {
         uint32 mask = 0xfu << ((7 - f) * 4);
         return (cr_write & mask) == mask;
     }
-    bool reads_xer_ca() const { return xer_read & XER_BIT_CA; }
-    bool reads_xer_so() const { return xer_read & XER_BIT_SO; }
-    bool writes_xer_ca() const { return xer_write & XER_BIT_CA; }
+    bool reads_xer_ca() const
+    {
+        return xer_read & XER_BIT_CA;
+    }
+    bool reads_xer_so() const
+    {
+        return xer_read & XER_BIT_SO;
+    }
+    bool writes_xer_ca() const
+    {
+        return xer_write & XER_BIT_CA;
+    }
 
     static InsnEffect everything()
     {
@@ -147,21 +168,67 @@ struct LivenessSemantics {
 
     // --- LR / CTR ---
 
-    void read_lr()
+    Value read_lr()
     {
         fx.lr_read = true;
+        return 0;
     }
-    void write_lr()
+    void write_lr(Value = 0)
     {
         fx.lr_write = true;
     }
-    void read_ctr()
+    Value read_ctr()
     {
         fx.ctr_read = true;
+        return 0;
     }
-    void write_ctr()
+    void write_ctr(Value = 0)
     {
         fx.ctr_write = true;
+    }
+
+    // --- XER (full register) ---
+
+    Value read_xer()
+    {
+        fx.xer_read |= XER_BIT_ALL;
+        return 0;
+    }
+    void write_xer(Value)
+    {
+        fx.xer_write |= XER_BIT_ALL;
+    }
+
+    // --- CR (full register) ---
+
+    Value read_cr()
+    {
+        fx.cr_read = 0xffffffff;
+        return 0;
+    }
+    void write_cr(Value)
+    {
+        fx.cr_write = 0xffffffff;
+    }
+    void write_cr_masked(Value, uint32 mask)
+    {
+        fx.cr_write |= mask;
+    }
+    Value read_cr_field(int f)
+    {
+        fx.cr_read |= (0xfu << ((7 - f) * 4));
+        return 0;
+    }
+    void write_cr_field(int f, Value)
+    {
+        fx.cr_write |= (0xfu << ((7 - f) * 4));
+    }
+
+    // --- Fallback ---
+
+    void everything()
+    {
+        fx = InsnEffect::everything();
     }
 
     // --- Memory ---

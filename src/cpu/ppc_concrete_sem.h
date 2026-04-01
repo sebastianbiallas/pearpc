@@ -43,6 +43,58 @@ template <typename CPU> struct ConcreteSemantics {
         cpu.gpr[r] = v;
     }
 
+    // Full-register SPR access
+    Value read_lr()
+    {
+        return cpu.lr;
+    }
+    void write_lr(Value v)
+    {
+        cpu.lr = v;
+    }
+    Value read_ctr()
+    {
+        return cpu.ctr;
+    }
+    void write_ctr(Value v)
+    {
+        cpu.ctr = v;
+    }
+    Value read_xer()
+    {
+        return cpu.xer;
+    }
+    void write_xer(Value v)
+    {
+        cpu.xer = v;
+    }
+
+    // Full CR register access
+    Value read_cr()
+    {
+        return cpu.cr;
+    }
+    void write_cr(Value v)
+    {
+        cpu.cr = v;
+    }
+    void write_cr_masked(Value src, uint32 mask)
+    {
+        cpu.cr = (src & mask) | (cpu.cr & ~mask);
+    }
+    Value read_cr_field(int f)
+    {
+        return (cpu.cr >> ((7 - f) * 4)) & 0xf;
+    }
+    void write_cr_field(int f, Value nibble)
+    {
+        int shift = (7 - f) * 4;
+        cpu.cr = (cpu.cr & ~(0xfu << shift)) | ((nibble & 0xf) << shift);
+    }
+
+    // Fallback for unmodeled instructions
+    void everything() {}
+
     Value read_xer_ca()
     {
         return (cpu.xer & XER_CA) ? 1 : 0;

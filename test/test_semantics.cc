@@ -589,6 +589,148 @@ static void test_concrete_cr_logical()
     CHECK("concrete crxor: 1^1 = 0", !(cpu.cr & (1u << (31 - 3))));
 }
 
+// ---- SPR/CR move opcode helpers ----
+
+// mfspr rD, SPR  — SPR encoded as spr1:spr2 in XO form
+static uint32 ppc_mfspr(int rD, int spr)
+{
+    int spr1 = spr & 0x1f;
+    int spr2 = (spr >> 5) & 0x1f;
+    return (31u << 26) | (rD << 21) | (spr1 << 16) | (spr2 << 11) | (339 << 1);
+}
+
+static uint32 ppc_mtspr(int spr, int rS)
+{
+    int spr1 = spr & 0x1f;
+    int spr2 = (spr >> 5) & 0x1f;
+    return (31u << 26) | (rS << 21) | (spr1 << 16) | (spr2 << 11) | (467 << 1);
+}
+
+static uint32 ppc_mfcr(int rD)
+{
+    return (31u << 26) | (rD << 21) | (19 << 1);
+}
+
+static uint32 ppc_mtcrf(int crm, int rS)
+{
+    return (31u << 26) | (rS << 21) | ((crm & 0xff) << 12) | (144 << 1);
+}
+
+static uint32 ppc_mcrf(int crD, int crS)
+{
+    return (19u << 26) | ((crD * 4) << 21) | ((crS * 4) << 16) | (0 << 1);
+}
+
+// ---- SPR/CR InsnEffect tests ----
+
+static void test_insn_effect_mfspr_lr()
+{
+    InsnEffect fx = ppc_analyze_insn(ppc_mfspr(3, 8)); // mfspr r3, LR
+    CHECK("mfspr LR: writes r3", fx.writes_gpr(3));
+    CHECK("mfspr LR: reads LR", fx.lr_read);
+    CHECK("mfspr LR: no CR", fx.cr_read == 0 && fx.cr_write == 0);
+    CHECK("mfspr LR: not everything", !fx.is_everything);
+}
+
+static void test_insn_effect_mfspr_ctr()
+{
+    InsnEffect fx = ppc_analyze_insn(ppc_mfspr(5, 9)); // mfspr r5, CTR
+    CHECK("mfspr CTR: writes r5", fx.writes_gpr(5));
+    CHECK("mfspr CTR: reads CTR", fx.ctr_read);
+    CHECK("mfspr CTR: not everything", !fx.is_everything);
+}
+
+static void test_insn_effect_mfspr_xer()
+{
+    InsnEffect fx = ppc_analyze_insn(ppc_mfspr(4, 1)); // mfspr r4, XER
+    CHECK("mfspr XER: writes r4", fx.writes_gpr(4));
+    CHECK("mfspr XER: reads XER", fx.reads_xer_ca() && fx.reads_xer_so());
+    CHECK("mfspr XER: not everything", !fx.is_everything);
+}
+
+static void test_insn_effect_mfspr_privileged()
+{
+    InsnEffect fx = ppc_analyze_insn(ppc_mfspr(3, 22)); // mfspr r3, DEC (privileged)
+    CHECK("mfspr DEC: is everything", fx.is_everything);
+}
+
+static void test_insn_effect_mtspr_lr()
+{
+    InsnEffect fx = ppc_analyze_insn(ppc_mtspr(8, 3)); // mtspr LR, r3
+    CHECK("mtspr LR: reads r3", fx.reads_gpr(3));
+    CHECK("mtspr LR: writes LR", fx.lr_write);
+    CHECK("mtspr LR: not everything", !fx.is_everything);
+}
+
+static void test_insn_effect_mfcr()
+{
+    InsnEffect fx = ppc_analyze_insn(ppc_mfcr(3)); // mfcr r3
+    CHECK("mfcr: writes r3", fx.writes_gpr(3));
+    CHECK("mfcr: reads all CR", fx.cr_read == 0xffffffff);
+    CHECK("mfcr: not everything", !fx.is_everything);
+}
+
+static void test_insn_effect_mtcrf()
+{
+    // mtcrf 0x80, r3 — write CR field 0 only
+    InsnEffect fx = ppc_analyze_insn(ppc_mtcrf(0x80, 3));
+    CHECK("mtcrf cr0: reads r3", fx.reads_gpr(3));
+    CHECK("mtcrf cr0: writes CR0", fx.writes_cr_field(0));
+    CHECK("mtcrf cr0: doesn't write CR7", !fx.writes_cr_field(7));
+    CHECK("mtcrf cr0: not everything", !fx.is_everything);
+
+    // mtcrf 0xFF, r3 — write all CR fields
+    InsnEffect fx2 = ppc_analyze_insn(ppc_mtcrf(0xFF, 3));
+    CHECK("mtcrf all: writes all CR", fx2.cr_write == 0xffffffff);
+}
+
+static void test_insn_effect_mcrf()
+{
+    // mcrf cr2, cr0
+    InsnEffect fx = ppc_analyze_insn(ppc_mcrf(2, 0));
+    CHECK("mcrf: reads CR0 field", (fx.cr_read & (0xfu << 28)) == (0xfu << 28));
+    CHECK("mcrf: writes CR2 field", fx.writes_cr_field(2));
+    CHECK("mcrf: doesn't write CR0", !fx.writes_cr_field(0));
+    CHECK("mcrf: not everything", !fx.is_everything);
+}
+
+// ---- SPR/CR ConcreteSemantics tests ----
+
+static void test_concrete_mfcr()
+{
+    TestCPU cpu = {};
+    cpu.cr = 0x12345678;
+
+    ConcreteSemantics<TestCPU> s{cpu};
+    ppc_sem_mfcr(s, ppc_mfcr(3));
+    CHECK("concrete mfcr: r3 = cr", cpu.gpr[3] == 0x12345678);
+}
+
+static void test_concrete_mtcrf()
+{
+    TestCPU cpu = {};
+    cpu.cr = 0xAAAAAAAA;
+    cpu.gpr[3] = 0x12345678;
+
+    ConcreteSemantics<TestCPU> s{cpu};
+    // Write only CR field 0 (mask 0x80 → upper nibble)
+    ppc_sem_mtcrf(s, ppc_mtcrf(0x80, 3));
+    CHECK("concrete mtcrf cr0: upper nibble from r3", (cpu.cr >> 28) == 0x1);
+    CHECK("concrete mtcrf cr0: rest unchanged", (cpu.cr & 0x0FFFFFFF) == 0x0AAAAAAA);
+}
+
+static void test_concrete_mcrf()
+{
+    TestCPU cpu = {};
+    cpu.cr = 0x50000000; // CR0=5, rest=0
+
+    ConcreteSemantics<TestCPU> s{cpu};
+    // mcrf cr2, cr0 — copy CR0 to CR2
+    ppc_sem_mcrf(s, ppc_mcrf(2, 0));
+    CHECK("concrete mcrf: CR2 = 5", ((cpu.cr >> 20) & 0xf) == 5);
+    CHECK("concrete mcrf: CR0 unchanged", ((cpu.cr >> 28) & 0xf) == 5);
+}
+
 // ---- Main ----
 
 int main()
@@ -618,6 +760,16 @@ int main()
     test_insn_effect_stwu();
     test_insn_effect_stw();
 
+    printf("=== SPR/CR move tests ===\n");
+    test_insn_effect_mfspr_lr();
+    test_insn_effect_mfspr_ctr();
+    test_insn_effect_mfspr_xer();
+    test_insn_effect_mfspr_privileged();
+    test_insn_effect_mtspr_lr();
+    test_insn_effect_mfcr();
+    test_insn_effect_mtcrf();
+    test_insn_effect_mcrf();
+
     printf("=== Liveness tests ===\n");
     test_liveness_dead_cr0();
     test_liveness_dead_gpr();
@@ -636,6 +788,9 @@ int main()
     test_concrete_rlwinm();
     test_concrete_srawi();
     test_concrete_cr_logical();
+    test_concrete_mfcr();
+    test_concrete_mtcrf();
+    test_concrete_mcrf();
 
     printf("\n=== %d tests, %d failures ===\n", tests, failures);
     return failures;
