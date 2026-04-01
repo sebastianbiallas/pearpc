@@ -931,10 +931,13 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     jitc.checkedRounding = false;
     jitc.checkedVector = false;
 
-    // Prescan first block
-    LivenessInfo blockLiveness[1024];
-    int blockLen = jitcPrescanBlock(physpage, ofs, baseaddr, blockLiveness, 1024);
-    int blockIdx = 0;
+    // Build page-level CFG and solve liveness
+    PageCFG cfg;
+    ppc_build_page_cfg(physpage, ofs, ppc_analyze_insn, cfg);
+    jitc.currentCFG = &cfg;
+    jitc.currentCFGBlockIdx = cfg.blockForOfs(ofs);
+
+    jitcDebugLogAdd("--- page CFG: %d blocks from %08x ---\n", cfg.numBlocks, baseaddr + ofs);
 
     while (1) {
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
@@ -952,16 +955,13 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
             jitc.checkedVector = false;
             if (ofs + 4 < 4096) {
                 jitcCreateEntrypoint(cp, ofs + 4);
-                // Re-prescan for the new block
-                blockLen = jitcPrescanBlock(physpage, ofs + 4, baseaddr, blockLiveness, 1024);
-                blockIdx = -1; // will be incremented to 0 below
+                jitc.currentCFGBlockIdx = cfg.blockForOfs(ofs + 4);
             }
         } else {
             /* flowEndBlockUnreachable */
             break;
         }
         ofs += 4;
-        blockIdx++;
         if (ofs == 4096) {
             /*
              *  End of page.
