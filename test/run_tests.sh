@@ -25,6 +25,7 @@ TESTS=(
     test/test_fpu_arith.cfg
     test/test_altivec.cfg
     test/test_crlogical.cfg
+    test/test_defflags.cfg
 )
 
 passed=0

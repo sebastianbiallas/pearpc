@@ -259,36 +259,4 @@ static inline InsnEffect ppc_analyze_insn(uint32 opc)
     }
 }
 
-/*
- *  On-demand forward scan: is CR field F dead at the given page offset?
- *  Scans forward through the block, checking if the CR field is written
- *  before being read. Stops at branch, everything(), or page end.
- *
- *  Returns true if the CR field is provably dead (written before read).
- *  Returns false (conservative) if read first or indeterminate.
- */
-static inline bool ppc_is_cr_field_dead_at(const byte *physpage, uint32 startOfs, int crField)
-{
-    uint32 cr_field_mask = 0xfu << ((7 - crField) * 4);
-
-    for (uint32 ofs = startOfs; ofs < 4096; ofs += 4) {
-        uint32 opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
-        InsnEffect fx = ppc_analyze_insn(opc);
-
-        if (fx.is_everything) {
-            return false;
-        }
-        if (fx.cr_read & cr_field_mask) {
-            return false;
-        }
-        if ((fx.cr_write & cr_field_mask) == cr_field_mask) {
-            return true;
-        }
-        if (fx.is_branch) {
-            return false;
-        }
-    }
-    return false;
-}
-
 #endif
