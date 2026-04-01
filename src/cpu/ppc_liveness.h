@@ -192,76 +192,148 @@ struct PageCFG {
     }
 };
 
-// Build the CFG for a page, compute gen/kill per block, and solve liveness.
-// physpage: pointer to the 4KB page in guest physical memory.
-// startOfs: offset within the page to start scanning (usually 0 or the
-//           entry point offset).
-// analyze: function to analyze an opcode (ppc_analyze_insn).
-// Returns a filled-in PageCFG.
-static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs, InsnEffect (*analyze)(uint32),
-                                      PageCFG &cfg)
+// Decode branch target for an instruction. Returns target page offset,
+// or -1 if off-page / unknown.
+static inline sint32 ppc_decode_branch_target(uint32 opc, uint32 instrOfs)
+{
+    uint32 mainopc = PPC_OPC_MAIN(opc);
+    if (mainopc == 18) {
+        // bx
+        uint32 li = opc & 0x03FFFFFC;
+        if (li & 0x02000000) li |= 0xFC000000;
+        bool aa = opc & PPC_OPC_AA;
+        sint32 target = aa ? (sint32)li : (sint32)(instrOfs + (sint32)li);
+        if (!aa && target >= 0 && target < 4096) return target;
+    } else if (mainopc == 16) {
+        // bcx
+        sint32 BD = opc & 0xfffc;
+        if (BD & 0x8000) BD |= 0xffff0000;
+        bool aa = opc & PPC_OPC_AA;
+        sint32 target = aa ? BD : (sint32)(instrOfs + BD);
+        if (!aa && target >= 0 && target < 4096) return target;
+    }
+    return -1;
+}
+
+static inline bool ppc_is_unconditional_branch(uint32 opc)
+{
+    uint32 mainopc = PPC_OPC_MAIN(opc);
+    if (mainopc == 18) return true; // bx is always unconditional
+    if (mainopc == 16) {
+        uint32 BO = (opc >> 21) & 0x1f;
+        return (BO & 0x14) == 0x14;
+    }
+    return false;
+}
+
+// Scan a single block starting at startOfs, compute gen/kill.
+// Returns the past-the-end offset of the block.
+static inline uint32 ppc_scan_block(const byte *physpage, uint32 startOfs,
+                                     InsnEffect (*analyze)(uint32),
+                                     PageCFG &cfg, int blockIdx)
+{
+    PageBlock &blk = cfg.blocks[blockIdx];
+    blk.startOfs = startOfs;
+    blk.gen = LiveSet::none();
+    blk.kill = LiveSet::none();
+    blk.numSucc = 0;
+    blk.succ[0] = blk.succ[1] = PAGE_SUCC_NONE;
+
+    uint32 ofs = startOfs;
+    while (ofs < 4096) {
+        // If this offset already belongs to another block, stop here
+        // (we've reached a block that was discovered via a different path)
+        if (cfg.blockAtOfs[ofs / 4] >= 0 && cfg.blockAtOfs[ofs / 4] != blockIdx) {
+            break;
+        }
+
+        uint32 opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
+        InsnEffect fx = analyze(opc);
+        cfg.blockAtOfs[ofs / 4] = blockIdx;
+
+        if (fx.is_everything) {
+            blk.gen = LiveSet::all_live();
+            blk.kill = LiveSet::all_live();
+            ofs += 4;
+            break;
+        }
+
+        blk.gen.gpr |= (fx.gpr_read & ~blk.kill.gpr);
+        blk.gen.cr |= (fx.cr_read & ~blk.kill.cr);
+        blk.gen.xer |= (fx.xer_read & ~blk.kill.xer);
+        if (fx.lr_read && !blk.kill.lr) blk.gen.lr = true;
+        if (fx.ctr_read && !blk.kill.ctr) blk.gen.ctr = true;
+
+        blk.kill.gpr |= fx.gpr_write;
+        blk.kill.cr |= fx.cr_write;
+        blk.kill.xer |= fx.xer_write;
+        if (fx.lr_write) blk.kill.lr = true;
+        if (fx.ctr_write) blk.kill.ctr = true;
+
+        ofs += 4;
+        if (fx.is_branch) break;
+    }
+    blk.endOfs = ofs;
+    return ofs;
+}
+
+// Build the CFG via DFS from the entry point, compute gen/kill, solve liveness.
+static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs,
+                                      InsnEffect (*analyze)(uint32), PageCFG &cfg)
 {
     cfg.numBlocks = 0;
-    for (int i = 0; i < 1024; i++) {
-        cfg.blockAtOfs[i] = -1;
-    }
+    for (int i = 0; i < 1024; i++) cfg.blockAtOfs[i] = -1;
 
-    // --- Pass 1: identify blocks and compute gen/kill ---
-    uint32 ofs = startOfs;
-    while (ofs < 4096 && cfg.numBlocks < 512) {
-        PageBlock &blk = cfg.blocks[cfg.numBlocks];
-        blk.startOfs = ofs;
-        blk.gen = LiveSet::none();
-        blk.kill = LiveSet::none();
-        blk.numSucc = 0;
-        blk.succ[0] = blk.succ[1] = PAGE_SUCC_NONE;
+    // --- DFS worklist: offsets to explore ---
+    uint32 worklist[512];
+    int worklistSize = 0;
+    worklist[worklistSize++] = startOfs;
 
-        // Forward scan: compute gen/kill for this block
-        while (ofs < 4096) {
-            uint32 opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
-            InsnEffect fx = analyze(opc);
+    while (worklistSize > 0 && cfg.numBlocks < 512) {
+        uint32 entryOfs = worklist[--worklistSize];
 
-            cfg.blockAtOfs[ofs / 4] = cfg.numBlocks;
+        // Already discovered?
+        if (cfg.blockAtOfs[entryOfs / 4] >= 0) continue;
+        if (entryOfs >= 4096) continue;
 
-            if (fx.is_everything) {
-                blk.gen = LiveSet::all_live();
-                blk.kill = LiveSet::all_live();
-                ofs += 4;
-                break;
+        // Scan the block
+        int blockIdx = cfg.numBlocks++;
+        uint32 endOfs = ppc_scan_block(physpage, entryOfs, analyze, cfg, blockIdx);
+        PageBlock &blk = cfg.blocks[blockIdx];
+
+        // Determine successors and add targets to worklist
+        if (endOfs <= blk.startOfs) continue; // empty block safety
+
+        uint32 lastOfs = endOfs - 4;
+        uint32 lastOpc = ppc_word_from_BE(*(uint32 *)&physpage[lastOfs]);
+        InsnEffect lastFx = analyze(lastOpc);
+
+        if (lastFx.is_branch) {
+            sint32 target = ppc_decode_branch_target(lastOpc, lastOfs);
+            bool uncond = ppc_is_unconditional_branch(lastOpc);
+
+            // Branch target
+            if (target >= 0 && target < 4096) {
+                worklist[worklistSize++] = (uint32)target;
             }
 
-            // gen |= (reads & ~kill)  — upward-exposed reads
-            blk.gen.gpr |= (fx.gpr_read & ~blk.kill.gpr);
-            blk.gen.cr |= (fx.cr_read & ~blk.kill.cr);
-            blk.gen.xer |= (fx.xer_read & ~blk.kill.xer);
-            if (fx.lr_read && !blk.kill.lr) {
-                blk.gen.lr = true;
+            // Fall-through (conditional branches only)
+            if (!uncond && endOfs < 4096) {
+                worklist[worklistSize++] = endOfs;
             }
-            if (fx.ctr_read && !blk.kill.ctr) {
-                blk.gen.ctr = true;
+        } else if (lastFx.is_everything) {
+            // Fall through after everything()
+            if (endOfs < 4096) {
+                worklist[worklistSize++] = endOfs;
             }
-
-            // kill |= writes
-            blk.kill.gpr |= fx.gpr_write;
-            blk.kill.cr |= fx.cr_write;
-            blk.kill.xer |= fx.xer_write;
-            if (fx.lr_write) {
-                blk.kill.lr = true;
-            }
-            if (fx.ctr_write) {
-                blk.kill.ctr = true;
-            }
-
-            ofs += 4;
-            if (fx.is_branch) {
-                break;
-            }
+        } else if (endOfs < 4096 && cfg.blockAtOfs[endOfs / 4] >= 0) {
+            // Fell into an existing block (not a branch, not everything, not page end)
+            // This is a fall-through to the next block
         }
-        blk.endOfs = ofs;
-        cfg.numBlocks++;
+        // else: page end, no successors
     }
 
-    // --- Pass 2: build edges ---
+    // --- Build edges (now that all blocks are discovered) ---
     for (int i = 0; i < cfg.numBlocks; i++) {
         PageBlock &blk = cfg.blocks[i];
         uint32 lastOfs = blk.endOfs - 4;
@@ -269,62 +341,28 @@ static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs, Ins
         InsnEffect lastFx = analyze(lastOpc);
 
         if (lastFx.is_branch) {
-            uint32 mainopc = PPC_OPC_MAIN(lastOpc);
+            sint32 target = ppc_decode_branch_target(lastOpc, lastOfs);
+            bool uncond = ppc_is_unconditional_branch(lastOpc);
 
-            if (mainopc == 18) {
-                // bx: unconditional branch
-                uint32 li = lastOpc & 0x03FFFFFC;
-                if (li & 0x02000000) {
-                    li |= 0xFC000000;
-                }
-                bool aa = lastOpc & PPC_OPC_AA;
-                sint32 target = aa ? (sint32)li : (sint32)(lastOfs + (sint32)li);
-                if (!aa && target >= 0 && target < 4096) {
-                    int tgt = cfg.blockForOfs((uint32)target);
-                    blk.succ[0] = (tgt >= 0) ? tgt : PAGE_SUCC_OFF_PAGE;
-                } else {
-                    blk.succ[0] = PAGE_SUCC_OFF_PAGE;
-                }
-                blk.numSucc = 1;
-
-            } else if (mainopc == 16) {
-                // bcx: conditional branch
-                uint32 BO = (lastOpc >> 21) & 0x1f;
-                sint32 BD = lastOpc & 0xfffc;
-                if (BD & 0x8000) {
-                    BD |= 0xffff0000;
-                }
-                bool aa = lastOpc & PPC_OPC_AA;
-                bool unconditional = (BO & 0x14) == 0x14;
-
-                sint32 target = aa ? BD : (sint32)(lastOfs + BD);
-                if (!aa && target >= 0 && target < 4096) {
-                    int tgt = cfg.blockForOfs((uint32)target);
-                    blk.succ[0] = (tgt >= 0) ? tgt : PAGE_SUCC_OFF_PAGE;
-                } else {
-                    blk.succ[0] = PAGE_SUCC_OFF_PAGE;
-                }
-
-                if (unconditional) {
-                    blk.numSucc = 1;
-                } else {
-                    // Fall-through successor
-                    if (blk.endOfs < 4096) {
-                        int ft = cfg.blockForOfs(blk.endOfs);
-                        blk.succ[1] = (ft >= 0) ? ft : PAGE_SUCC_OFF_PAGE;
-                    } else {
-                        blk.succ[1] = PAGE_SUCC_OFF_PAGE;
-                    }
-                    blk.numSucc = 2;
-                }
-
+            if (target >= 0 && target < 4096) {
+                int tgt = cfg.blockForOfs((uint32)target);
+                blk.succ[0] = (tgt >= 0) ? tgt : PAGE_SUCC_OFF_PAGE;
             } else {
-                // bclrx, bcctrx, or other: target unknown → off-page
                 blk.succ[0] = PAGE_SUCC_OFF_PAGE;
+            }
+
+            if (uncond) {
                 blk.numSucc = 1;
+            } else {
+                if (blk.endOfs < 4096) {
+                    int ft = cfg.blockForOfs(blk.endOfs);
+                    blk.succ[1] = (ft >= 0) ? ft : PAGE_SUCC_OFF_PAGE;
+                } else {
+                    blk.succ[1] = PAGE_SUCC_OFF_PAGE;
+                }
+                blk.numSucc = 2;
             }
         } else if (lastFx.is_everything) {
-            // everything() block: fall through
             if (blk.endOfs < 4096) {
                 int ft = cfg.blockForOfs(blk.endOfs);
                 blk.succ[0] = (ft >= 0) ? ft : PAGE_SUCC_OFF_PAGE;
@@ -332,13 +370,21 @@ static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs, Ins
                 blk.succ[0] = PAGE_SUCC_OFF_PAGE;
             }
             blk.numSucc = 1;
+        } else if (blk.endOfs < 4096) {
+            // Non-branch, non-everything fall-through
+            int ft = cfg.blockForOfs(blk.endOfs);
+            if (ft >= 0) {
+                blk.succ[0] = ft;
+                blk.numSucc = 1;
+            } else {
+                blk.numSucc = 0;
+            }
         } else {
-            // Page end, no successor
             blk.numSucc = 0;
         }
     }
 
-    // --- Pass 3: fixed-point liveness ---
+    // --- Fixed-point liveness ---
     for (int i = 0; i < cfg.numBlocks; i++) {
         cfg.blocks[i].live_in = LiveSet::none();
         cfg.blocks[i].live_out = LiveSet::none();
@@ -350,7 +396,6 @@ static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs, Ins
         for (int i = cfg.numBlocks - 1; i >= 0; i--) {
             PageBlock &blk = cfg.blocks[i];
 
-            // live_out = union of successors' live_in
             LiveSet new_live_out = LiveSet::none();
             for (int j = 0; j < blk.numSucc; j++) {
                 if (blk.succ[j] == PAGE_SUCC_OFF_PAGE) {
@@ -360,12 +405,10 @@ static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs, Ins
                     new_live_out = new_live_out | cfg.blocks[blk.succ[j]].live_in;
                 }
             }
-            // Blocks with no successors (page end): conservative
             if (blk.numSucc == 0) {
                 new_live_out = LiveSet::all_live();
             }
 
-            // live_in = gen | (live_out & ~kill)
             LiveSet new_live_in = blk.gen | (new_live_out & ~blk.kill);
 
             if (new_live_in != blk.live_in) {
