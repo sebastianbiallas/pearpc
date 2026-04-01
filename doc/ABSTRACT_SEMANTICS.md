@@ -493,27 +493,85 @@ If the analysis proves that CR field F is dead at the branch target
 (overwritten before being read), the branch codegen can skip
 materialization on the taken path entirely — even through the heartbeat
 dispatch. This is safe because "dead" means no code path from that
-point will observe CR before overwriting it.
+point will observe CR before overwriting it (see Stale CR and the
+Heartbeat above).
 
-This layer requires:
-1. Per-block upward-exposed reads computed during prescan
-2. The branch codegen looking up the target block's exposed reads
-3. If CR field is not in the target's exposed reads, skip the
-   `clobberFlags` on the taken path
+#### Step 1: Single-block dead CR (taken path only)
+
+An on-demand forward scan from the branch target offset determines
+whether CR field F is killed before being read within that block:
+
+```
+bool is_cr_field_dead_at(physpage, offset, field):
+    cr_field_mask = 0xF << ((7 - field) * 4)
+    for each instruction from offset:
+        fx = ppc_analyze_insn(opc)
+        if fx.is_everything: return false  // conservative
+        if fx.cr_read & cr_field_mask: return false  // live
+        if (fx.cr_write & cr_field_mask) == cr_field_mask: return true // dead
+        if fx.is_branch: return false  // end of block
+    return false  // page end
+```
+
+When CR is dead at the target, the taken path skips the 9-instruction
+`gen_cr_insert` flush entirely. The not-taken path still flushes
+(conservative). This catches the common loop pattern:
+
+```
+start:
+    lwz   r3, 0(r4)        ; loop body — doesn't touch CR
+    addi  r4, r4, 4
+    cmpwi cr0, r3, 0        ; kills CR0 before anyone reads it
+    ble   start
+```
+
+The scan from `start` sees `lwz`, `addi` (no CR), then `cmpwi` writes
+CR0 → CR0 is dead at `start`. The `ble`'s taken path emits just
+`b.le` + dispatch (3 instructions) instead of `b.le` + flush + dispatch
+(12 instructions).
+
+#### Step 2: Full fixed-point liveness (both paths)
+
+Step 1 only eliminates the flush on the taken path. To skip the flush
+on **both** paths (taken and not-taken), we need CR to be dead at both
+successors of the branch. This requires knowing liveness at the
+fall-through entry too — which depends on what follows, including
+other branches that might loop back.
+
+This is a classic backward dataflow problem over the control flow graph:
+
+```
+live_in[B] = (live_out[B] - kill[B]) | gen[B]
+live_out[B] = union of live_in[successors of B]
+```
+
+For loops, this requires fixed-point iteration (a block's `live_out`
+depends on its own `live_in` via back edges). The iteration converges
+in 2-3 passes for typical code.
+
+When CR field F is dead at both successors of a branch, the compare
++ branch becomes just:
+
+```
+ldr  w16, [x20, #20]       ; load GPR
+cmp  w16, #0x0              ; sets NZCV
+b.le taken_dispatch          ; native branch — no flush anywhere
+; not-taken: no flush, continue
+```
+
+Three instructions total for the compare+branch, down from 13.
 
 ### Limitations
 
-- **Branch target on a different page**: we cannot prescan it, so we
-  conservatively assume CR is live. No optimization from Layer 2.
-- **CR field passes through the target block untouched**: if the target
-  block neither reads nor writes the CR field, we conservatively assume
-  it's live (something after the block might read it). A full inter-block
-  analysis with fixed-point iteration could handle this, but the common
-  case (compare at the top of the loop) is already covered.
-- **`everything()` instructions before the first CR write**: if the
-  target block has an unmodeled opcode before the compare, the forward
-  scan treats it as touching everything, and we can't prove CR is dead.
-  Expanding semantics coverage improves this.
+- **Branch target on a different page**: the forward scan can't reach
+  it. Conservatively assume CR is live. (Step 2 with a page-level CFG
+  would have the same limitation.)
+- **CR passes through the target block untouched**: Step 1 returns
+  "live" (conservative). Step 2's fixed-point analysis handles this
+  by propagating through successor blocks.
+- **`everything()` instructions**: any unmodeled opcode before the
+  first CR write forces the scan to return "live". Higher semantics
+  coverage reduces this.
 
 ## Migration Path
 

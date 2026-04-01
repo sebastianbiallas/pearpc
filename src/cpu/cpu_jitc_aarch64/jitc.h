@@ -265,6 +265,7 @@ struct JITC {
      *  Only valid while compiling
      */
     ClientPage *currentPage;
+    byte *currentPhysPage; // physical page base for dead CR analysis
     uint32 pc;
     uint32 current_opc;
 

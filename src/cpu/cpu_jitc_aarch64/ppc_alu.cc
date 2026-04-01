@@ -36,6 +36,7 @@
 #include "jitc_asm.h"
 #include "aarch64asm.h"
 #include "io/graphic/gcard.h"
+#include "cpu/ppc_semantics_dispatch.h"
 
 /*
  *  ========================================================
@@ -394,41 +395,77 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
                 dispatch_size = a64_movw_size((uint32)(jitc.pc + BD)) + JITC::asmCALL_cpu_size;
             }
 
-            //  B.cond not_taken                   ; 4
-            //  <flush CR from NZCV>               ; flush_size (taken path)
-            //  <dispatch to target>               ; dispatch_size
-            // not_taken:
-            //  <flush CR from NZCV>               ; flush_size (not-taken path)
-            uint total = 4 + flush_size + dispatch_size + flush_size;
-            jitc.emitAssure(total);
-
-            NativeAddress not_taken_target = jitc.asmHERE() + 4 + flush_size + dispatch_size;
-            jitc.asmBccForward(not_taken_cond, flush_size + dispatch_size);
-
-            // Taken path: flush CR to CPU state, then dispatch.
-            // NZCV is still valid from the compare.
-            if (isSigned) {
-                gen_cr_insert_signed(jitc, (int)cr);
-            } else {
-                gen_cr_insert_unsigned(jitc, (int)cr);
+            // Check if CR is dead at the branch target (single-block scan)
+            sint32 targetOfs = aa ? (sint32)BD : (sint32)(jitc.pc + BD);
+            bool crDeadAtTarget = false;
+            if (!aa && targetOfs >= 0 && targetOfs < 4096 && jitc.currentPhysPage) {
+                crDeadAtTarget = ppc_is_cr_field_dead_at(
+                    jitc.currentPhysPage, (uint32)targetOfs, (int)cr);
             }
 
-            if (aa) {
-                jitc.asmMOV(W0, (uint32)BD);
-                jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
-            } else {
-                jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
-                jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
-            }
+            if (crDeadAtTarget) {
+                //  B.cond not_taken               ; 4
+                //  <dispatch to target>           ; dispatch_size (NO flush!)
+                // not_taken:
+                //  <flush CR from NZCV>           ; flush_size
+                uint total = 4 + dispatch_size + flush_size;
+                jitc.emitAssure(total);
 
-            jitc.asmAssertHERE(not_taken_target, "bcx_defflags");
+                NativeAddress not_taken_target = jitc.asmHERE() + 4 + dispatch_size;
+                jitc.asmBccForward(not_taken_cond, dispatch_size);
 
-            // Not-taken: NZCV is still valid (B.cond doesn't clobber).
-            // Flush CR to CPU state for subsequent code.
-            if (isSigned) {
-                gen_cr_insert_signed(jitc, (int)cr);
+                // Taken path: CR is dead at target — skip flush, just dispatch
+                if (aa) {
+                    jitc.asmMOV(W0, (uint32)BD);
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+                } else {
+                    jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+                }
+
+                jitc.asmAssertHERE(not_taken_target, "bcx_defflags_dead");
+
+                // Not-taken: flush CR for subsequent code
+                if (isSigned) {
+                    gen_cr_insert_signed(jitc, (int)cr);
+                } else {
+                    gen_cr_insert_unsigned(jitc, (int)cr);
+                }
             } else {
-                gen_cr_insert_unsigned(jitc, (int)cr);
+                //  B.cond not_taken               ; 4
+                //  <flush CR from NZCV>           ; flush_size (taken path)
+                //  <dispatch to target>           ; dispatch_size
+                // not_taken:
+                //  <flush CR from NZCV>           ; flush_size (not-taken path)
+                uint total = 4 + flush_size + dispatch_size + flush_size;
+                jitc.emitAssure(total);
+
+                NativeAddress not_taken_target = jitc.asmHERE() + 4 + flush_size + dispatch_size;
+                jitc.asmBccForward(not_taken_cond, flush_size + dispatch_size);
+
+                // Taken path: flush CR, then dispatch
+                if (isSigned) {
+                    gen_cr_insert_signed(jitc, (int)cr);
+                } else {
+                    gen_cr_insert_unsigned(jitc, (int)cr);
+                }
+
+                if (aa) {
+                    jitc.asmMOV(W0, (uint32)BD);
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+                } else {
+                    jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+                }
+
+                jitc.asmAssertHERE(not_taken_target, "bcx_defflags_live");
+
+                // Not-taken: flush CR for subsequent code
+                if (isSigned) {
+                    gen_cr_insert_signed(jitc, (int)cr);
+                } else {
+                    gen_cr_insert_unsigned(jitc, (int)cr);
+                }
             }
             return flowContinue;
         }

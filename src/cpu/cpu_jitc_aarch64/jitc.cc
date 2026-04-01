@@ -922,6 +922,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 
     byte *physpage;
     ppc_direct_physical_memory_handle(baseaddr, physpage);
+    jitc.currentPhysPage = physpage;
 
     jitc.pc = ofs;
     jitc.invalidateAll();
