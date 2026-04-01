@@ -1183,12 +1183,23 @@ void FASTCALL ppc_exec_opc(PPC_CPU_State &aCPU)
 
 JITCFlow FASTCALL ppc_gen_opc(JITC &aJITC)
 {
-    // Flush any deferred CR flags before generating the next instruction.
-    // Exception: bcx (opcode 16) handles flags itself — it may consume
-    // the deferred flags directly via native b.cond.
+    // Flush deferred CR flags before most instructions.
+    // Safe opcodes that don't clobber NZCV or read CR can skip the flush,
+    // allowing deferred flags to survive across them.
     uint32 mainopc = PPC_OPC_MAIN(aJITC.current_opc);
-    if (mainopc != 16) {
+    switch (mainopc) {
+    // These opcodes have native codegen that does NOT clobber NZCV or read CR:
+    case 14: // addi (li)
+    case 15: // addis (lis)
+    case 16: // bcx — handles flags itself
+    case 24: // ori (mr, nop)
+    case 25: // oris
+    case 26: // xori
+    case 27: // xoris
+        break;
+    default:
         aJITC.clobberFlags();
+        break;
     }
     return ppc_opc_table_gen_main[mainopc](aJITC);
 }

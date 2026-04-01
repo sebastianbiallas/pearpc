@@ -161,7 +161,7 @@ void gen_cr_insert_unsigned(JITC &jitc, int crfD)
  */
 static void gen_update_cr0(JITC &jitc, NativeReg resultReg = W16)
 {
-    // NZCV already flushed by ppc_gen_opc before this gen function was called
+    jitc.clobberFlags();
     jitc.asmCMPw(resultReg, (uint32)0);
     jitc.mapFlagsDirty(PPC_CR0, true);
 }
@@ -260,6 +260,7 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, crfD, rA, imm);
     crfD >>= 2;
 
+    jitc.clobberFlags();
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     sint32 simm = (sint32)imm;
     if (simm >= 0 && simm <= 4095) {
@@ -996,6 +997,7 @@ JITCFlow ppc_opc_gen_cmp(JITC &jitc)
     int rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, cr, rA, rB);
     cr >>= 2;
+    jitc.clobberFlags();
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmCMPw(W16, W17);
@@ -1012,6 +1014,7 @@ JITCFlow ppc_opc_gen_cmpl(JITC &jitc)
     int rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, cr, rA, rB);
     cr >>= 2;
+    jitc.clobberFlags();
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmCMPw(W16, W17);
@@ -1028,6 +1031,7 @@ JITCFlow ppc_opc_gen_cmpli(JITC &jitc)
     int rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, cr, rA, imm);
+    jitc.clobberFlags();
     cr >>= 2;
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     if (imm <= 4095) {
@@ -1147,7 +1151,7 @@ return flowContinue;
 /* addic rD, rA, SIMM — Add Immediate Carrying */
 JITCFlow ppc_opc_gen_addic(JITC &jitc)
 {
-    int rD, rA;
+    jitc.clobberFlags();    int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1164,7 +1168,7 @@ JITCFlow ppc_opc_gen_addic(JITC &jitc)
 /* addic. rD, rA, SIMM — Add Immediate Carrying and Record (CR0) */
 JITCFlow ppc_opc_gen_addic_(JITC &jitc)
 {
-    int rD, rA;
+    jitc.clobberFlags();    int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1205,7 +1209,7 @@ JITCFlow ppc_opc_gen_subfic(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_addex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
@@ -1234,7 +1238,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_subfex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     // Use the same approach as addex but with ~rA
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1259,7 +1263,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_addcx(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
@@ -1276,7 +1280,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_subfcx(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rB));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
@@ -1294,7 +1298,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_addzex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W0, XER_CA_OFS);
@@ -1313,7 +1317,7 @@ JITCFlow ppc_opc_gen_addzex(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_addmex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, XER_CA_OFS);
@@ -1339,7 +1343,7 @@ JITCFlow ppc_opc_gen_addmex(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_srawix(JITC &jitc)
 {
-    int rS, rA;
+    jitc.clobberFlags();    int rS, rA;
     uint32 SH;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, SH);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
@@ -1376,6 +1380,7 @@ return flowContinue;
 /* mfcr rD — Move From Condition Register */
 JITCFlow ppc_opc_gen_mfcr(JITC &jitc)
 {
+    jitc.clobberFlags(); // mfcr reads CR from CPU state
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
@@ -1386,6 +1391,7 @@ JITCFlow ppc_opc_gen_mfcr(JITC &jitc)
 /* mtcrf CRM, rS — Move To Condition Register Fields */
 JITCFlow ppc_opc_gen_mtcrf(JITC &jitc)
 {
+    jitc.clobberFlags(); // mtcrf reads/writes CR in CPU state
     int rS;
     uint32 crm;
     PPC_OPC_TEMPL_XFX(jitc.current_opc, rS, crm);
@@ -2309,6 +2315,7 @@ int ppc_opc_crxor(PPC_CPU_State &aCPU)
  */
 static JITCFlow gen_cr_logical(JITC &jitc, int op_type)
 {
+    jitc.clobberFlags(); // CR logical reads CR from CPU state
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(jitc.current_opc, crD, crA, crB);
 
@@ -2371,6 +2378,7 @@ JITCFlow ppc_opc_gen_creqv(JITC &jitc)  { return gen_cr_logical(jitc, 7); }
  */
 JITCFlow ppc_opc_gen_mcrf(JITC &jitc)
 {
+    jitc.clobberFlags(); // mcrf reads CR from CPU state
     uint32 crD, crS, bla;
     PPC_OPC_TEMPL_X(jitc.current_opc, crD, crS, bla);
     crD >>= 2;
@@ -3053,7 +3061,7 @@ int ppc_opc_subfmeox(PPC_CPU_State &aCPU)
  */
 JITCFlow ppc_opc_gen_subfmex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMVNw(W16, W16);
@@ -3117,7 +3125,7 @@ int ppc_opc_subfzeox(PPC_CPU_State &aCPU)
  */
 JITCFlow ppc_opc_gen_subfzex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMVNw(W16, W16);
