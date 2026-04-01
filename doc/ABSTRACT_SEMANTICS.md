@@ -586,6 +586,8 @@ Three instructions total for the compare+branch, down from 13.
 - `ppc_semantics_branch.h` — bx, bcx, bclrx, bcctrx.
 - `ppc_semantics_mem.h` — all integer load/store forms (D-form + X-form).
 - `ppc_semantics_spr.h` — mfspr, mtspr (XER/LR/CTR), mfcr, mtcrf, mcrf.
+- `ppc_semantics_fpu.h` — fcmpu/fcmpo, generic FPU arithmetic (Rc=1 → CR1),
+  FPU load/store (lfs/lfd/stfs/stfd + update + indexed forms).
 - `ppc_semantics_dispatch.h` — opcode → semantics function dispatch.
 - `ppc_opc_decode.h` — shared decode macros (extracted from 4 backends).
 - Generic interpreter's ALU and CR/SPR move functions replaced with
@@ -596,7 +598,8 @@ Three instructions total for the compare+branch, down from 13.
 - Per-block prescan in `jitcNewEntrypoint` — computes `InsnEffect` and
   backward liveness for each basic block.
 - Re-prescans at `flowEndBlock` boundaries.
-- Prescan coverage: ~94% of instructions analyzed (6% `everything()`).
+- Prescan coverage: ~94-98% of instructions analyzed, depending on
+  workload (FPU-heavy code benefits from FPU semantics coverage).
 
 **Compare+branch optimization** (aarch64 JITC):
 
@@ -635,7 +638,7 @@ instructions total with zero CR materialization on either path.
 
 **Expand semantics coverage:**
 
-- FPU opcodes (`ppc_semantics_fpu.h`) — currently all `everything()`.
+- Remaining FPU FPSCR-manipulating opcodes (mtfsb0x, mtfsb1x, mtfsfx, mtfsfix).
 - More SPRs in mfspr/mtspr (currently only XER/LR/CTR are precise).
 - AltiVec opcodes.
 
@@ -657,6 +660,7 @@ src/cpu/
     ppc_semantics_branch.h    ← branch opcodes
     ppc_semantics_mem.h       ← load/store opcodes
     ppc_semantics_spr.h       ← SPR/CR move opcodes
+    ppc_semantics_fpu.h       ← FPU compare, arithmetic, load/store
     ppc_semantics_dispatch.h  ← opcode → semantics dispatch
     cpu_generic/ppc_alu.cc    ← uses ConcreteSemantics for ALU
     cpu_generic/ppc_opc.cc    ← uses ConcreteSemantics for mcrf/mfcr/mtcrf

@@ -92,6 +92,16 @@ template <typename CPU> struct ConcreteSemantics {
         cpu.cr = (cpu.cr & ~(0xfu << shift)) | ((nibble & 0xf) << shift);
     }
 
+    // FPR access
+    uint64 read_fpr(int r)
+    {
+        return cpu.fpr[r];
+    }
+    void write_fpr(int r, uint64 v)
+    {
+        cpu.fpr[r] = v;
+    }
+
     // Fallback for unmodeled instructions
     void everything() {}
 

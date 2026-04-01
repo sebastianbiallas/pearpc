@@ -224,6 +224,14 @@ struct LivenessSemantics {
         fx.cr_write |= (0xfu << ((7 - f) * 4));
     }
 
+    // --- FPR (not tracked for liveness — no-ops) ---
+
+    Value read_fpr(int)
+    {
+        return 0;
+    }
+    void write_fpr(int, Value) {}
+
     // --- Fallback ---
 
     void everything()

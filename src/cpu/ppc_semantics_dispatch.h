@@ -24,11 +24,13 @@
 #ifndef __PPC_SEMANTICS_DISPATCH_H__
 #define __PPC_SEMANTICS_DISPATCH_H__
 
+#include "system/arch/sysendian.h"
 #include "cpu/ppc_liveness_sem.h"
 #include "cpu/ppc_semantics_alu.h"
 #include "cpu/ppc_semantics_branch.h"
 #include "cpu/ppc_semantics_mem.h"
 #include "cpu/ppc_semantics_spr.h"
+#include "cpu/ppc_semantics_fpu.h"
 
 // Analyze group 1 (main opcode 19): CR logical + branch ops
 static inline InsnEffect ppc_analyze_group1(uint32 opc)
@@ -139,6 +141,18 @@ static inline InsnEffect ppc_analyze_group2(uint32 opc)
     case 339: ppc_sem_mfspr(s, opc); return s.fx;
     case 467: ppc_sem_mtspr(s, opc); return s.fx;
 
+    // FPU indexed load
+    case 535: ppc_sem_lfsx(s, opc); return s.fx;
+    case 567: ppc_sem_lfsux(s, opc); return s.fx;
+    case 599: ppc_sem_lfdx(s, opc); return s.fx;
+    case 631: ppc_sem_lfdux(s, opc); return s.fx;
+
+    // FPU indexed store
+    case 663: ppc_sem_stfsx(s, opc); return s.fx;
+    case 695: ppc_sem_stfsux(s, opc); return s.fx;
+    case 727: ppc_sem_stfdx(s, opc); return s.fx;
+    case 759: ppc_sem_stfdux(s, opc); return s.fx;
+
     default: return InsnEffect::everything();
     }
 }
@@ -213,6 +227,33 @@ static inline InsnEffect ppc_analyze_insn(uint32 opc)
     // Store half word
     case 44: ppc_sem_sth(s, opc); return s.fx;
     case 45: ppc_sem_sthu(s, opc); return s.fx;
+
+    // FPU load
+    case 48: ppc_sem_lfs(s, opc); return s.fx;
+    case 49: ppc_sem_lfsu(s, opc); return s.fx;
+    case 50: ppc_sem_lfd(s, opc); return s.fx;
+    case 51: ppc_sem_lfdu(s, opc); return s.fx;
+
+    // FPU store
+    case 52: ppc_sem_stfs(s, opc); return s.fx;
+    case 53: ppc_sem_stfsu(s, opc); return s.fx;
+    case 54: ppc_sem_stfd(s, opc); return s.fx;
+    case 55: ppc_sem_stfdu(s, opc); return s.fx;
+
+    // FPU arithmetic (group 59: single-precision)
+    case 59: ppc_sem_fpu_arith(s, opc); return s.fx;
+
+    // FPU (group 63: double-precision + fcmp + FPSCR ops)
+    case 63: {
+        uint32 ext = PPC_OPC_EXT(opc);
+        switch (ext) {
+        case 0:  // fcmpu
+        case 32: // fcmpo
+            ppc_sem_fcmpx(s, opc);
+            return s.fx;
+        default: ppc_sem_fpu_arith(s, opc); return s.fx;
+        }
+    }
 
     default: return InsnEffect::everything();
     }
