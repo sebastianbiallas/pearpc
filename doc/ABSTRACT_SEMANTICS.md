@@ -573,6 +573,24 @@ Three instructions total for the compare+branch, down from 13.
   first CR write forces the scan to return "live". Higher semantics
   coverage reduces this.
 
+### Step 2 status: solver bug, not yet fixed
+
+The fixed-point solver was implemented (DFS-based CFG builder,
+backward dataflow iteration) but produces incorrect `live_in`
+results that cause Mac OS X kernel panic. The on-demand scan
+(step 1) remains correct and is used as the active implementation.
+
+**Observed symptom**: 300 cases where the solver says "CR dead"
+but the on-demand scan says "CR live" (the solver is more
+aggressive — it traces through successor blocks). Using the
+solver result directly causes Mac OS X to crash. Using the scan
+to verify and override disagreements makes it boot. So at least
+one of the 300 cases is genuinely wrong.
+
+**What's needed**: find the specific mismatch case that causes
+the crash (bisect the 300 cases), then trace the CFG to find
+the missing successor edge or wrong gen/kill computation.
+
 ## Implementation Status
 
 ### What's done
