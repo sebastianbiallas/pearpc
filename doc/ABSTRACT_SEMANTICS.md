@@ -573,61 +573,93 @@ Three instructions total for the compare+branch, down from 13.
   first CR write forces the scan to return "live". Higher semantics
   coverage reduces this.
 
-## Migration Path
+## Implementation Status
 
-The abstract semantics framework can be introduced incrementally:
+### What's done
 
-### Phase 1: Analysis Backend Only
+**Semantics framework** (branch: `abstract-semantics`):
 
-Write semantics functions for the ~30 most common opcodes (ALU, compare, branch,
-basic load/store). These are called ONLY by the pre-scan for liveness analysis.
-The existing interpreter and JIT gen functions remain unchanged.
+- `ConcreteSemantics<CPU>` — interpreter backend, parameterized on CPU state
+  type. Works with both generic and JITC `PPC_CPU_State` structs.
+- `LivenessSemantics` — records read/write bitmasks into `InsnEffect`.
+- `ppc_semantics_alu.h` — ~50 ALU/compare/shift/rotate/CR logical templates.
+- `ppc_semantics_branch.h` — bx, bcx, bclrx, bcctrx.
+- `ppc_semantics_mem.h` — all integer load/store forms (D-form + X-form).
+- `ppc_semantics_spr.h` — mfspr, mtspr (XER/LR/CTR), mfcr, mtcrf, mcrf.
+- `ppc_semantics_dispatch.h` — opcode → semantics function dispatch.
+- `ppc_opc_decode.h` — shared decode macros (extracted from 4 backends).
+- Generic interpreter's ALU and CR/SPR move functions replaced with
+  `ConcreteSemantics` template wrappers. Validated by booting Linux.
 
-For unimplemented semantics functions, use the `everything()` fallback — correct
-but conservative.
+**Prescan and liveness** (in JITC):
 
-### Phase 2: Expand Coverage
+- Per-block prescan in `jitcNewEntrypoint` — computes `InsnEffect` and
+  backward liveness for each basic block.
+- Re-prescans at `flowEndBlock` boundaries.
+- Prescan coverage: ~94% of instructions analyzed (6% `everything()`).
 
-Add semantics functions for remaining opcodes. Each new semantics function
-immediately improves optimization opportunities (more dead writes detected).
+**Compare+branch optimization** (aarch64 JITC):
 
-### Phase 3: Interpreter Backend
+- *Layer 1: Deferred flags* — ported from x86 JIT. Compare codegen defers
+  CR materialization in NZCV; branch codegen uses native `b.cond` instead
+  of CR load + TBZ. Saves 2 instructions per compare+branch. 71% of
+  conditional branches use this path.
+- *Layer 2, step 1: Dead CR on taken path* — on-demand forward scan from
+  branch target. If CR field is killed before read within the target block,
+  skip the 9-instruction CR flush on the taken path. 39% of deferred-flags
+  branches benefit (60k+ on Mac OS X boot). Hot loop back-edge becomes
+  3 instructions (down from 13).
 
-Replace the generic interpreter's opcode handlers with the semantics functions
-instantiated with a concrete execution backend. This validates the semantics
-functions against the existing interpreter (any divergence is a bug).
+**Tests:**
 
-Now the semantics are defined once. The generic interpreter and the analysis
-pass share the same source.
+- 136 unit tests (`test/test_semantics.cc`) — InsnEffect, liveness,
+  ConcreteSemantics, SPR/CR moves.
+- 18 deferred flags tests (`test/test_defflags.S`) — all compare+branch
+  patterns.
+- 9 existing JITC tests pass. Linux and Mac OS X boot correctly.
 
-### Phase 4: JIT Codegen Backend
+### Next steps
 
-This is the most complex step. The JIT codegen backend needs to emit efficient
-native code, use the register allocator, handle fixups, etc. It may not be
-practical to express all of this through the template interface — some opcodes
-may need backend-specific codegen that goes beyond what the abstract interface
-can express.
+**Layer 2, step 2: Full fixed-point liveness (both paths)**
 
-A pragmatic approach: the semantics functions handle the common case, and the
-JIT backend can override specific opcodes with hand-written codegen when the
-abstract interface is too limiting.
+To skip the CR flush on BOTH the taken and not-taken paths, we need CR
+to be dead at both successors. This requires:
 
-### Where the Semantics Functions Live
+1. Build a control flow graph for the page (basic blocks + edges)
+2. Run backward dataflow: `live_in[B] = (live_out[B] - kill[B]) | gen[B]`
+   with `live_out[B] = union of live_in[successors]`
+3. Iterate until stable (fixed-point, typically 2-3 passes)
 
-The semantics functions are architecture-independent — they describe PPC
-instruction behavior, not how to execute or compile them. They belong in
-the shared CPU layer:
+When CR is dead at both successors, the compare+branch becomes 3
+instructions total with zero CR materialization on either path.
+
+**Expand semantics coverage:**
+
+- FPU opcodes (`ppc_semantics_fpu.h`) — currently all `everything()`.
+- More SPRs in mfspr/mtspr (currently only XER/LR/CTR are precise).
+- AltiVec opcodes.
+
+**Potential future work:**
+
+- `ConstantSemantics` — constant propagation/folding.
+- Replace JITC interpreter fallback functions with `ConcreteSemantics`
+  instantiation (eliminate the JITC's separate interpreter copy).
+
+### File layout
 
 ```
 src/cpu/
-    ppc_semantics.h      ← template semantics functions
-    ppc_semantics_alu.h   ← ALU opcodes
-    ppc_semantics_fpu.h   ← FPU opcodes
-    ppc_semantics_mem.h   ← load/store opcodes
-    ppc_semantics_branch.h ← branch/CR opcodes
-    ppc_analysis.h        ← AnalysisBackend + InsnEffect + liveness
-    cpu_generic/          ← (later) ConcreteBackend wrapping interpreter
-    cpu_jitc_aarch64/     ← (later) CodegenBackend wrapping JIT
+    ppc_opc_decode.h          ← shared decode macros
+    ppc_concrete_sem.h        ← ConcreteSemantics<CPU>
+    ppc_liveness_sem.h        ← LivenessSemantics + InsnEffect
+    ppc_liveness.h            ← backward liveness pass + dead CR scan
+    ppc_semantics_alu.h       ← ALU/compare/shift/rotate/CR logical
+    ppc_semantics_branch.h    ← branch opcodes
+    ppc_semantics_mem.h       ← load/store opcodes
+    ppc_semantics_spr.h       ← SPR/CR move opcodes
+    ppc_semantics_dispatch.h  ← opcode → semantics dispatch
+    cpu_generic/ppc_alu.cc    ← uses ConcreteSemantics for ALU
+    cpu_generic/ppc_opc.cc    ← uses ConcreteSemantics for mcrf/mfcr/mtcrf
 ```
 
 ## Design Decisions
