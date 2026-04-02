@@ -1185,42 +1185,11 @@ JITCFlow FASTCALL ppc_gen_opc(JITC &aJITC)
 {
     // Flush deferred CR flags before most instructions.
     // Safe opcodes that don't clobber NZCV or read CR can skip the flush,
-    // allowing deferred flags to survive across them.
-    // Each gen function is responsible for calling clobberFlags() if it
-    // emits native code that destroys NZCV, or flushFlags() if it needs
-    // up-to-date CR in CPU state. GEN_INTERPRET wrappers call clobberAll().
-    //
-    // As a safety net, clobber flags for opcodes not yet audited.
-    // Audited-safe opcodes (don't clobber NZCV, don't read CR) skip this.
+    // No central clobberFlags(). Each gen function handles its own:
+    // - clobberFlags()/clobberAll(): if it destroys NZCV or dispatches
+    // - flushFlags(): if it needs up-to-date CR in CPU state
+    // - GEN_INTERPRET wrappers call clobberAll() via the prologue
     uint32 mainopc = PPC_OPC_MAIN(aJITC.current_opc);
-    switch (mainopc) {
-    case 14: // addi (li)
-    case 15: // addis (lis)
-    case 16: // bcx — handles flags itself
-    case 24: // ori (mr, nop)
-    case 25: // oris
-    case 26: // xori
-    case 27: // xoris
-    case 31: // group2 — safe subset handled by individual gen functions
-    case 36: // stw  — LDR/STR only, no NZCV
-    case 37: // stwu
-    case 38: // stb
-    case 39: // stbu
-    case 44: // sth
-    case 45: // sthu
-    case 32: // lwz  — LDR/STR only, no NZCV
-    case 33: // lwzu
-    case 34: // lbz
-    case 35: // lbzu
-    case 40: // lhz
-    case 41: // lhzu
-    case 42: // lha
-    case 43: // lhau
-        break;
-    default:
-        aJITC.clobberFlags();
-        break;
-    }
     return ppc_opc_table_gen_main[mainopc](aJITC);
 }
 

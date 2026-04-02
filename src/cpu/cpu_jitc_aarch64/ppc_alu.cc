@@ -282,6 +282,7 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_bx(JITC &jitc)
 {
+    jitc.clobberAll();
     uint32 li = jitc.current_opc & 0x03FFFFFC;
     if (li & 0x02000000) {
         li |= 0xFC000000; // sign extend
