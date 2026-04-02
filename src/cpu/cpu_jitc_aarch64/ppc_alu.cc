@@ -344,6 +344,17 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     bool ctr_ok_always = (BO & 4);   // bit 2: skip CTR test
     bool cond_ok_always = (BO & 16); // bit 4: skip CR test
 
+    // "Get PC" trick: bcl 20,31,$+4 — unconditional branch-and-link to next insn.
+    // Just sets LR = PC + 4. No actual branch, no dispatch.
+    if (lk && ctr_ok_always && cond_ok_always && !aa && BD == 4) {
+        // LR = current_code_base + pc + 4
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+        jitc.asmMOV(W17, jitc.pc + 4);
+        jitc.asmADDw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+        return flowContinue;
+    }
+
     // Fallback to interpreter for rare/complex cases:
     // - LK=1 (branch-and-link conditional)
     // - Both CTR decrement AND CR test
