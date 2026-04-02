@@ -1193,6 +1193,14 @@ static void jitcFlushFlags(JITC &jitc)
     }
 }
 
+void JITC::flushFlags()
+{
+    if (nativeFlagsState == rsDirty) {
+        jitcFlushFlags(*this);
+        nativeFlagsState = rsMapped; // NZCV still valid, CPU state now synced
+    }
+}
+
 void JITC::clobberFlags()
 {
     if (nativeFlagsState == rsDirty) {

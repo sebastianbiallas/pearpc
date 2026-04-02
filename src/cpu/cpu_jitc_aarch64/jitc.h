@@ -300,6 +300,7 @@ public:
     void getClientCarry();
     void mapFlagsDirty(PPC_CRx cr = PPC_CR0, bool isSigned = true);
     void mapCarryDirty();
+    void flushFlags();
     void clobberFlags();
     void clobberCarry();
     void clobberCarryAndFlags();
@@ -325,7 +326,6 @@ private:
     void flushSingleRegister(NativeReg reg);
     void flushSingleRegisterDirty(NativeReg reg);
     void flushCarry();
-    void flushFlags();
 
 public:
     /*

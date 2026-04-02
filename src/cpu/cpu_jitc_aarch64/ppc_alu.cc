@@ -401,11 +401,18 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
             bool crDeadAtTarget = false;
             bool crDeadAtFallthrough = false;
 
-            // Check page-level CFG liveness at branch target
+            // Check page-level CFG liveness at branch target and fall-through
             if (jitc.currentCFG && !aa && targetOfs >= 0 && targetOfs < 4096) {
                 int tgtBlock = jitc.currentCFG->blockForOfs((uint32)targetOfs);
                 if (tgtBlock >= 0) {
                     crDeadAtTarget = jitc.currentCFG->blocks[tgtBlock].live_in.is_cr_field_dead((int)cr);
+                }
+                uint32 ftOfs = jitc.pc + 4;
+                if (ftOfs < 4096) {
+                    int ftBlock = jitc.currentCFG->blockForOfs(ftOfs);
+                    if (ftBlock >= 0) {
+                        crDeadAtFallthrough = jitc.currentCFG->blocks[ftBlock].live_in.is_cr_field_dead((int)cr);
+                    }
                 }
             }
 
@@ -1183,6 +1190,7 @@ JITCFlow ppc_opc_gen_addic_(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_subfic(JITC &jitc)
 {
+    jitc.clobberFlags();
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
@@ -1373,7 +1381,7 @@ return flowContinue;
 /* mfcr rD — Move From Condition Register */
 JITCFlow ppc_opc_gen_mfcr(JITC &jitc)
 {
-    jitc.clobberFlags(); // mfcr reads CR from CPU state
+    jitc.flushFlags(); // mfcr reads CR — need CPU state up-to-date
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
@@ -1384,7 +1392,7 @@ JITCFlow ppc_opc_gen_mfcr(JITC &jitc)
 /* mtcrf CRM, rS — Move To Condition Register Fields */
 JITCFlow ppc_opc_gen_mtcrf(JITC &jitc)
 {
-    jitc.clobberFlags(); // mtcrf reads/writes CR in CPU state
+    jitc.clobberFlags(); // mtcrf reads+writes CR — flush and invalidate deferred flags
     int rS;
     uint32 crm;
     PPC_OPC_TEMPL_XFX(jitc.current_opc, rS, crm);
@@ -1433,6 +1441,7 @@ JITCFlow ppc_opc_gen_mulhwx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_srawx(JITC &jitc)
 {
+    jitc.clobberFlags();
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
@@ -2371,7 +2380,7 @@ JITCFlow ppc_opc_gen_creqv(JITC &jitc)  { return gen_cr_logical(jitc, 7); }
  */
 JITCFlow ppc_opc_gen_mcrf(JITC &jitc)
 {
-    jitc.clobberFlags(); // mcrf reads CR from CPU state
+    jitc.clobberFlags(); // mcrf reads+writes CR — flush and invalidate deferred flags
     uint32 crD, crS, bla;
     PPC_OPC_TEMPL_X(jitc.current_opc, crD, crS, bla);
     crD >>= 2;
