@@ -26,6 +26,7 @@ TESTS=(
     test/test_altivec.cfg
     test/test_crlogical.cfg
     test/test_defflags.cfg
+    test/test_mid_block.cfg
 )
 
 passed=0

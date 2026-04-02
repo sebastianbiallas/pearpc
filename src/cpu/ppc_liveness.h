@@ -233,17 +233,15 @@ static inline uint32 ppc_scan_block(const byte *physpage, uint32 startOfs,
 	blk.numSucc = 0;
 	blk.succ[0] = blk.succ[1] = PAGE_SUCC_NONE;
 
+	// Mark only the block start in blockAtOfs. An offset can belong to
+	// multiple blocks (overlapping translations from different entries),
+	// but blockAtOfs tracks block starts for entrypoint lookup.
+	cfg.blockAtOfs[startOfs / 4] = blockIdx;
+
 	uint32 ofs = startOfs;
 	while (ofs < 4096) {
-		// Stop if this offset belongs to a different block (discovered via another path).
-		// The current block will fall through to that block (edge added later).
-		if (cfg.blockAtOfs[ofs / 4] >= 0 && cfg.blockAtOfs[ofs / 4] != blockIdx) {
-			break;
-		}
-
 		uint32 opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
 		InsnEffect fx = analyze(opc);
-		cfg.blockAtOfs[ofs / 4] = blockIdx;
 
 		if (fx.is_everything) {
 			// Conservative: this instruction reads and writes everything.
@@ -290,10 +288,9 @@ static inline uint32 ppc_scan_block(const byte *physpage, uint32 startOfs,
 // Convergence: live_in values can only grow (more live), bounded by
 // all_live. Guaranteed to converge.
 //
-// NOTE: produces incorrect results in some cases — see
-// doc/ABSTRACT_SEMANTICS.md "Step 2 status". The branch codegen
-// currently uses the on-demand scan (ppc_is_cr_field_dead_at)
-// instead of the solver's live_in.
+// Blocks can overlap: the same instruction may belong to multiple blocks
+// (reached from different entry points). blockAtOfs tracks only block
+// starts, so blockForOfs(ofs) returns the block starting at ofs, or -1.
 static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs,
                                       InsnEffect (*analyze)(uint32), PageCFG &cfg)
 {
@@ -310,13 +307,9 @@ static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs,
 	while (worklistSize > 0 && cfg.numBlocks < 512) {
 		uint32 entryOfs = worklist[--worklistSize];
 
-		// Skip if already part of a discovered block.
-		// This handles both exact block starts and mid-block targets.
-		// Mid-block targets: blockForOfs returns the containing block,
-		// whose live_in is MORE conservative (more things live) than
-		// liveness at the mid-block offset. Safe — can't cause incorrect "dead".
-		if (cfg.blockAtOfs[entryOfs / 4] >= 0) continue;
 		if (entryOfs >= 4096) continue;
+		// Skip if a block already starts at this offset.
+		if (cfg.blockAtOfs[entryOfs / 4] >= 0) continue;
 
 		// Scan the block: identify instructions, compute gen/kill
 		int blockIdx = cfg.numBlocks++;
@@ -399,20 +392,8 @@ static inline void ppc_build_page_cfg(const byte *physpage, uint32 startOfs,
 				blk.succ[0] = PAGE_SUCC_OFF_PAGE;
 			}
 			blk.numSucc = 1;
-		} else if (blk.endOfs < 4096) {
-			// Non-branch, non-everything: stopped because we hit another block.
-			// Fall through to that block.
-			int ft = cfg.blockForOfs(blk.endOfs);
-			if (ft >= 0) {
-				blk.succ[0] = ft;
-				blk.numSucc = 1;
-			} else {
-				// No block at fall-through offset (shouldn't happen with DFS,
-				// but be conservative)
-				blk.numSucc = 0;
-			}
 		} else {
-			// Page end: no successors
+			// Page end or block ended without branch: no successors
 			blk.numSucc = 0;
 		}
 	}

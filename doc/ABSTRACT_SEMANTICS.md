@@ -573,23 +573,30 @@ Three instructions total for the compare+branch, down from 13.
   first CR write forces the scan to return "live". Higher semantics
   coverage reduces this.
 
-### Step 2 status: solver bug, not yet fixed
+### Step 2 status: fixed
 
-The fixed-point solver was implemented (DFS-based CFG builder,
-backward dataflow iteration) but produces incorrect `live_in`
-results that cause Mac OS X kernel panic. The on-demand scan
-(step 1) remains correct and is used as the active implementation.
+The fixed-point solver had a bug where mid-block branch targets
+got incorrect liveness. Fixed by aligning the CFG builder's block
+model with the JIT's entrypoint model.
 
-**Observed symptom**: 300 cases where the solver says "CR dead"
-but the on-demand scan says "CR live" (the solver is more
-aggressive — it traces through successor blocks). Using the
-solver result directly causes Mac OS X to crash. Using the scan
-to verify and override disagreements makes it boot. So at least
-one of the 300 cases is genuinely wrong.
+**Root cause**: `blockAtOfs` tracked every instruction in a block,
+and the DFS skipped branch targets that landed inside existing
+blocks. This meant a branch target at offset T inside block B
+would use B's `live_in` — computed for entry at B's start. If B
+killed a register before T, `live_in` said the register was dead,
+but jumping to T skips the kill.
 
-**What's needed**: find the specific mismatch case that causes
-the crash (bisect the 300 cases), then trace the CFG to find
-the missing successor edge or wrong gen/kill computation.
+**Fix**: `blockAtOfs` now tracks only block starts (entrypoints).
+Each branch target gets its own block with its own gen/kill,
+even if it overlaps with an existing block. Blocks can overlap —
+the same instruction can belong to multiple blocks from different
+entry contexts, matching how the JIT creates independent
+translations at each entrypoint. `blockForOfs(ofs)` returns the
+block starting at `ofs`, or -1 if no block starts there.
+
+**Test**: `test/test_mid_block.S` reproduces the bug — a branch
+to a mid-block target where the containing block kills CR6 before
+the target. Fails without the fix, passes with it.
 
 ## Implementation Status
 

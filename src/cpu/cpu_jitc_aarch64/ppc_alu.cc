@@ -401,19 +401,12 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
             bool crDeadAtTarget = false;
             bool crDeadAtFallthrough = false;
 
-            // Use on-demand forward scan (step 1) — proven correct
-            if (!aa && targetOfs >= 0 && targetOfs < 4096 && jitc.currentPhysPage) {
-                crDeadAtTarget = ppc_is_cr_field_dead_at(
-                    jitc.currentPhysPage, (uint32)targetOfs, (int)cr);
-                // TODO: re-enable once fixed-point solver is verified
-                // Fall-through block
-                // uint32 ftOfs = jitc.pc + 4;
-                // if (ftOfs < 4096) {
-                //     int ftBlock = jitc.currentCFG->blockForOfs(ftOfs);
-                //     if (ftBlock >= 0) {
-                //         crDeadAtFallthrough = jitc.currentCFG->blocks[ftBlock].live_in.is_cr_field_dead((int)cr);
-                //     }
-                // }
+            // Check page-level CFG liveness at branch target
+            if (jitc.currentCFG && !aa && targetOfs >= 0 && targetOfs < 4096) {
+                int tgtBlock = jitc.currentCFG->blockForOfs((uint32)targetOfs);
+                if (tgtBlock >= 0) {
+                    crDeadAtTarget = jitc.currentCFG->blocks[tgtBlock].live_in.is_cr_field_dead((int)cr);
+                }
             }
 
             if (crDeadAtTarget && crDeadAtFallthrough) {
