@@ -23,6 +23,10 @@
 
 #include "jitc_types.h"
 
+// CR insert helpers — emit code to pack NZCV flags into a CR field
+void gen_cr_insert_signed(JITC &jitc, int crfD);
+void gen_cr_insert_unsigned(JITC &jitc, int crfD);
+
 int ppc_opc_addx(PPC_CPU_State &aCPU);
 int ppc_opc_addcx(PPC_CPU_State &aCPU);
 int ppc_opc_addex(PPC_CPU_State &aCPU);

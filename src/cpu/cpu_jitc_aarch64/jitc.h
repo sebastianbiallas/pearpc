@@ -26,6 +26,7 @@
 #include "jitc_types.h"
 #include "aarch64asm.h"
 #include "debug/tracers.h"
+#include "cpu/ppc_liveness.h"
 
 /*
  * AArch64 general-purpose registers
@@ -221,6 +222,7 @@ struct JITC {
 
     PPC_CRx nativeFlags;
     RegisterState nativeFlagsState;
+    bool nativeFlagsSigned; // true = signed compare, false = unsigned
     RegisterState nativeCarryState;
 
     /*
@@ -264,6 +266,9 @@ struct JITC {
      *  Only valid while compiling
      */
     ClientPage *currentPage;
+    byte *currentPhysPage;
+    PageCFG *currentCFG;    // page-level liveness analysis
+    int currentCFGBlockIdx; // which CFG block codegen is currently in
     uint32 pc;
     uint32 current_opc;
 
@@ -293,8 +298,9 @@ public:
     void flushRegisterDirty(int options = NATIVE_REGS_ALL);
     void clobberRegister(int options = NATIVE_REGS_ALL);
     void getClientCarry();
-    void mapFlagsDirty(PPC_CRx cr = PPC_CR0);
+    void mapFlagsDirty(PPC_CRx cr = PPC_CR0, bool isSigned = true);
     void mapCarryDirty();
+    void flushFlags();
     void clobberFlags();
     void clobberCarry();
     void clobberCarryAndFlags();
@@ -320,7 +326,6 @@ private:
     void flushSingleRegister(NativeReg reg);
     void flushSingleRegisterDirty(NativeReg reg);
     void flushCarry();
-    void flushFlags();
 
 public:
     /*
@@ -355,10 +360,10 @@ public:
 
     // Branch helpers
     void asmB(NativeAddress to);
-    void asmBL(NativeAddress to);   // BL via BLR X16 (far call)
-    void asmBR(NativeReg rn);       // BR Xn
-    void asmCALL(NativeAddress to); // alias for asmBL (x86 compat name)
-    void asmCALL_cpu(int stubIndex); // LDR X16, [X20, #stubs[i]]; BLR X16
+    void asmBL(NativeAddress to);               // BL via BLR X16 (far call)
+    void asmBR(NativeReg rn);                   // BR Xn
+    void asmCALL(NativeAddress to);             // alias for asmBL (x86 compat name)
+    void asmCALL_cpu(int stubIndex);            // LDR X16, [X20, #stubs[i]]; BLR X16
     static constexpr uint asmCALL_cpu_size = 8; // LDR + BLR = 2 instructions
     void asmRET();
 
@@ -476,38 +481,38 @@ public:
     void asmEOR_val(NativeReg rd, NativeReg rn, uint64 mask);
 
     // Floating-point load/store from CPU state (X20-relative, D-register)
-    void asmLDR_D_cpu(int dd, uint32 offset);  // LDR Dd, [X20, #offset]
-    void asmSTR_D_cpu(int dd, uint32 offset);  // STR Dd, [X20, #offset]
+    void asmLDR_D_cpu(int dd, uint32 offset); // LDR Dd, [X20, #offset]
+    void asmSTR_D_cpu(int dd, uint32 offset); // STR Dd, [X20, #offset]
 
     // Floating-point arithmetic (double-precision)
-    void asmFADD_D(int dd, int dn, int dm);    // FADD Dd, Dn, Dm
-    void asmFSUB_D(int dd, int dn, int dm);    // FSUB Dd, Dn, Dm
-    void asmFMUL_D(int dd, int dn, int dm);    // FMUL Dd, Dn, Dm
-    void asmFDIV_D(int dd, int dn, int dm);    // FDIV Dd, Dn, Dm
-    void asmFSQRT_D(int dd, int dn);           // FSQRT Dd, Dn
-    void asmFABS_D(int dd, int dn);            // FABS Dd, Dn
-    void asmFNEG_D(int dd, int dn);            // FNEG Dd, Dn
+    void asmFADD_D(int dd, int dn, int dm); // FADD Dd, Dn, Dm
+    void asmFSUB_D(int dd, int dn, int dm); // FSUB Dd, Dn, Dm
+    void asmFMUL_D(int dd, int dn, int dm); // FMUL Dd, Dn, Dm
+    void asmFDIV_D(int dd, int dn, int dm); // FDIV Dd, Dn, Dm
+    void asmFSQRT_D(int dd, int dn);        // FSQRT Dd, Dn
+    void asmFABS_D(int dd, int dn);         // FABS Dd, Dn
+    void asmFNEG_D(int dd, int dn);         // FNEG Dd, Dn
 
     // Floating-point fused multiply-add (double-precision)
-    void asmFMADD_D(int dd, int dn, int dm, int da);  // FMADD Dd,Dn,Dm,Da
-    void asmFMSUB_D(int dd, int dn, int dm, int da);  // FMSUB Dd,Dn,Dm,Da
+    void asmFMADD_D(int dd, int dn, int dm, int da); // FMADD Dd,Dn,Dm,Da
+    void asmFMSUB_D(int dd, int dn, int dm, int da); // FMSUB Dd,Dn,Dm,Da
     void asmFNMADD_D(int dd, int dn, int dm, int da);
     void asmFNMSUB_D(int dd, int dn, int dm, int da);
 
     // Floating-point conversion
-    void asmFCVT_S_D(int sd, int dn);          // FCVT Sd, Dn
-    void asmFCVT_D_S(int dd, int sn);          // FCVT Dd, Sn
-    void asmFCVTZS_W_D(int wd, int dn);        // FCVTZS Wd, Dn
+    void asmFCVT_S_D(int sd, int dn);   // FCVT Sd, Dn
+    void asmFCVT_D_S(int dd, int sn);   // FCVT Dd, Sn
+    void asmFCVTZS_W_D(int wd, int dn); // FCVTZS Wd, Dn
 
     // Floating-point compare
-    void asmFCMP_D(int dn, int dm);             // FCMP Dn, Dm
-    void asmFCMP_D_zero(int dn);                // FCMP Dn, #0.0
+    void asmFCMP_D(int dn, int dm); // FCMP Dn, Dm
+    void asmFCMP_D_zero(int dn);    // FCMP Dn, #0.0
 
     // Floating-point conditional select / move
     void asmFCSEL_D(int dd, int dn, int dm, A64Cond cond);
-    void asmFMOV_D_X(int dd, int xn);          // FMOV Dd, Xn
-    void asmFMOV_S_W(int sd, int wn);          // FMOV Sd, Wn
-    void asmFMOV_W_S(int wd, int sn);          // FMOV Wd, Sn
+    void asmFMOV_D_X(int dd, int xn); // FMOV Dd, Xn
+    void asmFMOV_S_W(int sd, int wn); // FMOV Sd, Wn
+    void asmFMOV_W_S(int wd, int sn); // FMOV Wd, Sn
 
     // Forward branch helpers (precomputed offsets)
     // skip_bytes = bytes of code after this instruction to jump over

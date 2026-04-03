@@ -1183,6 +1183,12 @@ void FASTCALL ppc_exec_opc(PPC_CPU_State &aCPU)
 
 JITCFlow FASTCALL ppc_gen_opc(JITC &aJITC)
 {
+    // Flush deferred CR flags before most instructions.
+    // Safe opcodes that don't clobber NZCV or read CR can skip the flush,
+    // No central clobberFlags(). Each gen function handles its own:
+    // - clobberFlags()/clobberAll(): if it destroys NZCV or dispatches
+    // - flushFlags(): if it needs up-to-date CR in CPU state
+    // - GEN_INTERPRET wrappers call clobberAll() via the prologue
     uint32 mainopc = PPC_OPC_MAIN(aJITC.current_opc);
     return ppc_opc_table_gen_main[mainopc](aJITC);
 }

@@ -18,10 +18,14 @@
 #include "jitc_debug.h"
 #include "jitc_asm.h"
 
+#include "ppc_alu.h"
 #include "ppc_dec.h"
 #include "ppc_mmu.h"
 #include "ppc_tools.h"
 #include "aarch64asm.h"
+
+#include "cpu/ppc_liveness.h"
+#include "cpu/ppc_semantics_dispatch.h"
 
 byte *gTranslationCacheBase = NULL;
 extern void jitc_dump_and_exit(int code);
@@ -870,6 +874,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
 
     byte *physpage;
     ppc_direct_physical_memory_handle(baseaddr, physpage);
+    jitc.currentPhysPage = physpage;
 
     jitc.pc = ofs;
     jitc.invalidateAll();
@@ -877,6 +882,14 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
     jitc.checkedFloat = false;
     jitc.checkedRounding = false;
     jitc.checkedVector = false;
+
+    // Build page-level CFG and solve liveness
+    PageCFG cfg;
+    ppc_build_page_cfg(physpage, ofs, ppc_analyze_insn, cfg);
+    jitc.currentCFG = &cfg;
+    jitc.currentCFGBlockIdx = cfg.blockForOfs(ofs);
+
+    jitcDebugLogAdd("--- page CFG: %d blocks from %08x ---\n", cfg.numBlocks, baseaddr + ofs);
 
     while (1) {
         jitc.current_opc = ppc_word_from_BE(*(uint32 *)&physpage[ofs]);
@@ -894,6 +907,7 @@ static NativeAddress jitcNewEntrypoint(JITC &jitc, ClientPage *cp, uint32 basead
             jitc.checkedVector = false;
             if (ofs + 4 < 4096) {
                 jitcCreateEntrypoint(cp, ofs + 4);
+                jitc.currentCFGBlockIdx = cfg.blockForOfs(ofs + 4);
             }
         } else {
             /* flowEndBlockUnreachable */
@@ -1143,6 +1157,78 @@ extern "C" void jitc_error_program(uint32 a, uint32 b)
     }
 }
 
+void JITC::mapFlagsDirty(PPC_CRx cr, bool isSigned)
+{
+    nativeFlags = cr;
+    nativeFlagsState = rsDirty;
+    nativeFlagsSigned = isSigned;
+}
+
+void JITC::mapCarryDirty()
+{
+    nativeCarryState = rsDirty;
+}
+
+PPC_CRx JITC::getFlagsMapping()
+{
+    return nativeFlags;
+}
+
+bool JITC::flagsMapped()
+{
+    return nativeFlagsState != rsUnused;
+}
+
+bool JITC::carryMapped()
+{
+    return nativeCarryState != rsUnused;
+}
+
+static void jitcFlushFlags(JITC &jitc)
+{
+    if (jitc.nativeFlagsSigned) {
+        gen_cr_insert_signed(jitc, (int)jitc.nativeFlags);
+    } else {
+        gen_cr_insert_unsigned(jitc, (int)jitc.nativeFlags);
+    }
+}
+
+void JITC::flushFlags()
+{
+    if (nativeFlagsState == rsDirty) {
+        jitcFlushFlags(*this);
+        nativeFlagsState = rsMapped; // NZCV still valid, CPU state now synced
+    }
+}
+
+void JITC::clobberFlags()
+{
+    if (nativeFlagsState == rsDirty) {
+        jitcFlushFlags(*this);
+    }
+    nativeFlagsState = rsUnused;
+}
+
+void JITC::clobberCarry()
+{
+    // TODO: flush carry to XER.CA if dirty
+    nativeCarryState = rsUnused;
+}
+
+void JITC::clobberCarryAndFlags()
+{
+    clobberFlags();
+    clobberCarry();
+}
+
+void JITC::flushCarryAndFlagsDirty()
+{
+    if (nativeFlagsState == rsDirty) {
+        jitcFlushFlags(*this);
+    }
+    // carry: TODO
+}
+
 void JITC::clobberAll()
 {
     for (uint i = 0; i < sizeof nativeReg / sizeof nativeReg[0]; i++) {
@@ -1152,7 +1238,7 @@ void JITC::clobberAll()
     for (uint i = 0; i < sizeof clientReg / sizeof clientReg[0]; i++) {
         clientReg[i] = REG_NO;
     }
-    nativeFlagsState = rsUnused;
+    clobberFlags();
     nativeCarryState = rsUnused;
 }
 

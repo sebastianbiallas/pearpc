@@ -365,3 +365,121 @@ When the kernel reaches the idle loop but makes no further progress:
    - `lost_ticks` accumulating (→2, →3): timer handler not fully processing ticks
 
 5. **Always compare with generic CPU** -- run the same config with generic and diff the printk buffers.
+
+## Case Study: CFG Solver Mid-Block Target Bug
+
+This section documents the debugging approach that found the fixed-point
+liveness solver bug (mid-block branch targets getting wrong liveness).
+The bug caused Mac OS X kernel panic when the dead-CR optimization was
+enabled.
+
+### Symptom
+
+Mac OS X boots with the on-demand scan (step 1 dead CR) but crashes
+with the CFG-based fixed-point solver (step 2). The solver and its
+DFS verification both agreed the results were correct, yet the crash
+was 100% reproducible.
+
+### Phase 1: Page-hash bisect
+
+The optimization is deterministic per page (same page content → same
+CFG → same decisions). We computed a hash of each 4K page's content
+and used compile-time flags to gate the optimization:
+
+```
+-DBISECT_MASK=M -DBISECT_VAL=V
+```
+
+Only pages where `(hash & M) == V` get the CFG optimization. Others
+use the safe fallback. Binary search on the mask bits:
+
+1. Start with `MASK=0xfff, VAL=0x98` → broken
+2. Add bit 12: `MASK=0x1fff, VAL=0x98` → works (bit 12=0)
+3. So bad page has bit 12=1: `VAL=0x1098` → broken
+4. Continue adding bits until only one page matches
+
+Result: a single page (hash `0x4e3e3098`) at physical address
+`0x00291xxx`. All 32 entrypoints on this page had the same hash.
+
+### Phase 2: Per-branch bisect
+
+With the page isolated, we added a per-branch counter:
+
+```cpp
+#ifdef BISECT_BRANCH
+if (crDeadAtTarget) {
+    static int branchCount = 0;
+    branchCount++;
+    if (branchCount > BISECT_BRANCH) {
+        crDeadAtTarget = false;  // disable optimization
+    }
+}
+#endif
+```
+
+Binary search: `BISECT_BRANCH=0` works, `=1000` crashes.
+Narrowed to branch #287 (range [286,287]):
+
+```
+[BISECT] branch #287: pc=900 cr6 target=910
+```
+
+### Phase 3: Log comparison
+
+Generated two jitc.log files (good vs bad config) and compared the
+native code for the same page. The diff showed exactly which branches
+had the CR flush skipped (deadTarget=1 in bad, deadTarget=0 in good).
+
+### Phase 4: Root cause analysis
+
+Branch #287: `beq cr6, 0x910` at pc=0x900. In the entry-0x568 CFG:
+
+- Block 48 [0x8fc, 0x904): `cmpwi cr6` + `beq cr6, 0x910`
+- Block 55 [0x910, 0x918): target of the beq
+- Block 51 [0x918, 0x93c): contains `cmpwi cr6` at 0x934
+
+The solver said cr6 was dead at block 55 because block 55's successor
+(block 51) kills cr6. But block 55's `bne cr7, 0x938` targets offset
+0x938 — which is **inside** block 51, after the `cmpwi cr6` at 0x934.
+
+The DFS had discovered block 51 starting at 0x918. When the branch
+target 0x938 was popped from the worklist, it was already inside block
+51, so the DFS skipped it. `blockForOfs(0x938)` returned block 51,
+whose `live_in` said cr6 was dead (killed at 0x934). But jumping to
+0x938 skips the kill — cr6 is live there.
+
+### The fix
+
+The bug was in the CFG builder's block model. `blockAtOfs` tracked
+every instruction in a block, and the DFS skipped any target that
+landed inside an existing block. This is wrong because blocks can
+overlap — the same instruction can be reached from different entry
+points with different liveness contexts.
+
+Fix: `blockAtOfs` now tracks only block **starts** (entrypoints).
+Each branch target gets its own block with its own gen/kill. The
+scan doesn't stop at other blocks — it runs to the next branch,
+`is_everything`, or page end. This matches how the JIT creates
+independent translations at each entrypoint.
+
+### Test
+
+`test/test_mid_block.S` reproduces the exact pattern: a branch to a
+mid-block target where the containing block kills CR6 before the
+target offset. Fails without the fix, passes with it.
+
+### Key lessons
+
+1. **Deterministic bisect**: page hashes make the optimization
+   reproducible. Same page content → same hash → same decision.
+   Binary search on hash bits isolates the failing page.
+
+2. **Per-branch bisect**: within a page, a static counter identifies
+   the exact branch decision that causes the crash.
+
+3. **Log comparison**: generating good/bad jitc.log files and diffing
+   the native code reveals exactly which instructions differ.
+
+4. **The CFG must match the JIT's block model**: every branch target
+   is a potential entrypoint. Blocks overlap. `blockForOfs` only
+   works for entrypoints.

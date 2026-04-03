@@ -186,6 +186,7 @@ void testforth()
  */
 char gMemdumpFile[512];
 char gFramebufferDumpFile[512];
+char gJitcLogFile[512];
 
 void usage()
 {
@@ -373,6 +374,7 @@ int main(int argc, char *argv[])
         gConfig->acceptConfigEntryStringDef("key_toggle_mouse_grab", "F12");
         gConfig->acceptConfigEntryStringDef("key_toggle_full_screen", "Ctrl+Alt+Return");
         gConfig->acceptConfigEntryIntDef("headless", 0);
+        gConfig->acceptConfigEntryStringDef("jitc_log_file", "");
         gConfig->acceptConfigEntryStringDef("memdump_file", "");
         gConfig->acceptConfigEntryStringDef("framebuffer_dump_file", "");
 
@@ -631,6 +633,8 @@ int main(int argc, char *argv[])
         strncpy(gMemdumpFile, tmp.contentChar(), sizeof(gMemdumpFile) - 1);
         gConfig->getConfigString("framebuffer_dump_file", tmp);
         strncpy(gFramebufferDumpFile, tmp.contentChar(), sizeof(gFramebufferDumpFile) - 1);
+        gConfig->getConfigString("jitc_log_file", tmp);
+        strncpy(gJitcLogFile, tmp.contentChar(), sizeof(gJitcLogFile) - 1);
 
         // this was your last chance to visit the config..
         delete gConfig;

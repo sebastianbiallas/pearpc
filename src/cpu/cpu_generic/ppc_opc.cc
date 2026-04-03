@@ -28,34 +28,35 @@
 #include "ppc_mmu.h"
 #include "ppc_opc.h"
 #include "ppc_dec.h"
+#include "cpu/ppc_concrete_sem.h"
+#include "cpu/ppc_semantics_spr.h"
 
 
 void ppc_set_msr(uint32 newmsr)
 {
-/*	if ((newmsr & MSR_EE) && !(gCPU.msr & MSR_EE)) {
+    /*	if ((newmsr & MSR_EE) && !(gCPU.msr & MSR_EE)) {
 		if (pic_check_interrupt()) {
 			gCPU.exception_pending = true;
 			gCPU.ext_exception = true;
 		}
 	}*/
-	ppc_mmu_tlb_invalidate();
+    ppc_mmu_tlb_invalidate();
 #ifndef PPC_CPU_ENABLE_SINGLESTEP
-	if (newmsr & MSR_SE) {
-		SINGLESTEP("");
-		PPC_CPU_WARN("MSR[SE] (singlestep enable) set, but compiled w/o SE support.\n");
-	}
-#else 
-	gCPU.singlestep_ignore = true;
+    if (newmsr & MSR_SE) {
+        SINGLESTEP("");
+        PPC_CPU_WARN("MSR[SE] (singlestep enable) set, but compiled w/o SE support.\n");
+    }
+#else
+    gCPU.singlestep_ignore = true;
 #endif
-	if (newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS) {
-		PPC_CPU_ERR("unsupported bits in MSR set: %08x @%08x\n", newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, gCPU.pc);
-	}
-	if (newmsr & MSR_POW) {
-		// doze();
-		newmsr &= ~MSR_POW;
-	}
-	gCPU.msr = newmsr;
-	
+    if (newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS) {
+        PPC_CPU_ERR("unsupported bits in MSR set: %08x @%08x\n", newmsr & PPC_CPU_UNSUPPORTED_MSR_BITS, gCPU.pc);
+    }
+    if (newmsr & MSR_POW) {
+        // doze();
+        newmsr &= ~MSR_POW;
+    }
+    gCPU.msr = newmsr;
 }
 
 /*
@@ -64,15 +65,15 @@ void ppc_set_msr(uint32 newmsr)
  */
 void ppc_opc_bx()
 {
-	uint32 li;
-	PPC_OPC_TEMPL_I(gCPU.current_opc, li);
-	if (!(gCPU.current_opc & PPC_OPC_AA)) {
-		li += gCPU.pc;
-	}
-	if (gCPU.current_opc & PPC_OPC_LK) {
-		gCPU.lr = gCPU.pc + 4;
-	}
-	gCPU.npc = li;
+    uint32 li;
+    PPC_OPC_TEMPL_I(gCPU.current_opc, li);
+    if (!(gCPU.current_opc & PPC_OPC_AA)) {
+        li += gCPU.pc;
+    }
+    if (gCPU.current_opc & PPC_OPC_LK) {
+        gCPU.lr = gCPU.pc + 4;
+    }
+    gCPU.npc = li;
 }
 
 /*
@@ -81,24 +82,23 @@ void ppc_opc_bx()
  */
 void ppc_opc_bcx()
 {
-	uint32 BO, BI, BD;
-	PPC_OPC_TEMPL_B(gCPU.current_opc, BO, BI, BD);
-	if (!(BO & 4)) {
-		gCPU.ctr--;
-	}
-	bool bo2 = (BO & 2);
-	bool bo8 = (BO & 8); // branch condition true
-	bool cr = (gCPU.cr & (1<<(31-BI)));
-	if (((BO & 4) || ((gCPU.ctr!=0) ^ bo2))
-	&& ((BO & 16) || (!(cr ^ bo8)))) {
-		if (!(gCPU.current_opc & PPC_OPC_AA)) {
-			BD += gCPU.pc;
-		}
-		if (gCPU.current_opc & PPC_OPC_LK) {
-			gCPU.lr = gCPU.pc + 4;
-		}
-		gCPU.npc = BD;
-	}
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_B(gCPU.current_opc, BO, BI, BD);
+    if (!(BO & 4)) {
+        gCPU.ctr--;
+    }
+    bool bo2 = (BO & 2);
+    bool bo8 = (BO & 8); // branch condition true
+    bool cr = (gCPU.cr & (1 << (31 - BI)));
+    if (((BO & 4) || ((gCPU.ctr != 0) ^ bo2)) && ((BO & 16) || (!(cr ^ bo8)))) {
+        if (!(gCPU.current_opc & PPC_OPC_AA)) {
+            BD += gCPU.pc;
+        }
+        if (gCPU.current_opc & PPC_OPC_LK) {
+            gCPU.lr = gCPU.pc + 4;
+        }
+        gCPU.npc = BD;
+    }
 }
 
 /*
@@ -107,18 +107,18 @@ void ppc_opc_bcx()
  */
 void ppc_opc_bcctrx()
 {
-	uint32 BO, BI, BD;
-	PPC_OPC_TEMPL_XL(gCPU.current_opc, BO, BI, BD);
-	PPC_OPC_ASSERT(BD==0);
-	PPC_OPC_ASSERT(!(BO & 2));     
-	bool bo8 = (BO & 8);
-	bool cr = (gCPU.cr & (1<<(31-BI)));
-	if ((BO & 16) || (!(cr ^ bo8))) {
-		if (gCPU.current_opc & PPC_OPC_LK) {
-			gCPU.lr = gCPU.pc + 4;
-		}
-		gCPU.npc = gCPU.ctr & 0xfffffffc;
-	}
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_XL(gCPU.current_opc, BO, BI, BD);
+    PPC_OPC_ASSERT(BD == 0);
+    PPC_OPC_ASSERT(!(BO & 2));
+    bool bo8 = (BO & 8);
+    bool cr = (gCPU.cr & (1 << (31 - BI)));
+    if ((BO & 16) || (!(cr ^ bo8))) {
+        if (gCPU.current_opc & PPC_OPC_LK) {
+            gCPU.lr = gCPU.pc + 4;
+        }
+        gCPU.npc = gCPU.ctr & 0xfffffffc;
+    }
 }
 /*
  *	bclrx		Branch Conditional to Link Register
@@ -126,23 +126,22 @@ void ppc_opc_bcctrx()
  */
 void ppc_opc_bclrx()
 {
-	uint32 BO, BI, BD;
-	PPC_OPC_TEMPL_XL(gCPU.current_opc, BO, BI, BD);
-	PPC_OPC_ASSERT(BD==0);
-	if (!(BO & 4)) {
-		gCPU.ctr--;
-	}
-	bool bo2 = (BO & 2);
-	bool bo8 = (BO & 8);
-	bool cr = (gCPU.cr & (1<<(31-BI)));
-	if (((BO & 4) || ((gCPU.ctr!=0) ^ bo2))
-	&& ((BO & 16) || (!(cr ^ bo8)))) {
-		BD = gCPU.lr & 0xfffffffc;
-		if (gCPU.current_opc & PPC_OPC_LK) {
-			gCPU.lr = gCPU.pc + 4;
-		}
-		gCPU.npc = BD;
-	}
+    uint32 BO, BI, BD;
+    PPC_OPC_TEMPL_XL(gCPU.current_opc, BO, BI, BD);
+    PPC_OPC_ASSERT(BD == 0);
+    if (!(BO & 4)) {
+        gCPU.ctr--;
+    }
+    bool bo2 = (BO & 2);
+    bool bo8 = (BO & 8);
+    bool cr = (gCPU.cr & (1 << (31 - BI)));
+    if (((BO & 4) || ((gCPU.ctr != 0) ^ bo2)) && ((BO & 16) || (!(cr ^ bo8)))) {
+        BD = gCPU.lr & 0xfffffffc;
+        if (gCPU.current_opc & PPC_OPC_LK) {
+            gCPU.lr = gCPU.pc + 4;
+        }
+        gCPU.npc = BD;
+    }
 }
 
 /*
@@ -151,7 +150,7 @@ void ppc_opc_bclrx()
  */
 void ppc_opc_dcbf()
 {
-	// NO-OP
+    // NO-OP
 }
 /*
  *	dcbi		Data Cache Block Invalidate
@@ -159,11 +158,11 @@ void ppc_opc_dcbf()
  */
 void ppc_opc_dcbi()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	// FIXME: check addr
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    // FIXME: check addr
 }
 /*
  *	dcbst		Data Cache Block Store
@@ -171,7 +170,7 @@ void ppc_opc_dcbi()
  */
 void ppc_opc_dcbst()
 {
-	// NO-OP
+    // NO-OP
 }
 /*
  *	dcbt		Data Cache Block Touch
@@ -179,7 +178,7 @@ void ppc_opc_dcbst()
  */
 void ppc_opc_dcbt()
 {
-	// NO-OP
+    // NO-OP
 }
 /*
  *	dcbtst		Data Cache Block Touch for Store
@@ -187,7 +186,7 @@ void ppc_opc_dcbt()
  */
 void ppc_opc_dcbtst()
 {
-	// NO-OP
+    // NO-OP
 }
 /*
  *	eciwx		External Control In Word Indexed
@@ -195,7 +194,7 @@ void ppc_opc_dcbtst()
  */
 void ppc_opc_eciwx()
 {
-	PPC_OPC_ERR("eciwx unimplemented.\n");
+    PPC_OPC_ERR("eciwx unimplemented.\n");
 }
 /*
  *	ecowx		External Control Out Word Indexed
@@ -203,7 +202,7 @@ void ppc_opc_eciwx()
  */
 void ppc_opc_ecowx()
 {
-	PPC_OPC_ERR("ecowx unimplemented.\n");
+    PPC_OPC_ERR("ecowx unimplemented.\n");
 }
 /*
  *	eieio		Enforce In-Order Execution of I/O
@@ -211,7 +210,7 @@ void ppc_opc_ecowx()
  */
 void ppc_opc_eieio()
 {
-	// NO-OP
+    // NO-OP
 }
 
 /*
@@ -220,7 +219,7 @@ void ppc_opc_eieio()
  */
 void ppc_opc_icbi()
 {
-	// NO-OP
+    // NO-OP
 }
 
 /*
@@ -229,18 +228,11 @@ void ppc_opc_icbi()
  */
 void ppc_opc_isync()
 {
-	// NO-OP
+    // NO-OP
 }
 
 static uint32 ppc_cmp_and_mask[8] = {
-	0xfffffff0,
-	0xffffff0f,
-	0xfffff0ff,
-	0xffff0fff,
-	0xfff0ffff,
-	0xff0fffff,
-	0xf0ffffff,
-	0x0fffffff,
+    0xfffffff0, 0xffffff0f, 0xfffff0ff, 0xffff0fff, 0xfff0ffff, 0xff0fffff, 0xf0ffffff, 0x0fffffff,
 };
 /*
  *	mcrf		Move Condition Register Field
@@ -248,16 +240,8 @@ static uint32 ppc_cmp_and_mask[8] = {
  */
 void ppc_opc_mcrf()
 {
-	uint32 crD, crS, bla;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, crD, crS, bla);
-	// FIXME: bla == 0
-	crD>>=2;
-	crS>>=2;
-	crD = 7-crD;
-	crS = 7-crS;
-	uint32 c = (gCPU.cr>>(crS*4)) & 0xf;
-	gCPU.cr &= ppc_cmp_and_mask[crD];
-	gCPU.cr |= c<<(crD*4);
+    ConcreteSemantics<PPC_CPU_State> s{gCPU};
+    ppc_sem_mcrf(s, gCPU.current_opc);
 }
 /*
  *	mcrfs		Move to Condition Register from FPSCR
@@ -265,7 +249,7 @@ void ppc_opc_mcrf()
  */
 void ppc_opc_mcrfs()
 {
-	PPC_OPC_ERR("mcrfs unimplemented.\n");
+    PPC_OPC_ERR("mcrfs unimplemented.\n");
 }
 /*
  *	mcrxr		Move to Condition Register from XER
@@ -273,7 +257,7 @@ void ppc_opc_mcrfs()
  */
 void ppc_opc_mcrxr()
 {
-	PPC_OPC_ERR("mcrxr unimplemented.\n");
+    PPC_OPC_ERR("mcrxr unimplemented.\n");
 }
 /*
  *	mfcr		Move from Condition Register
@@ -281,10 +265,8 @@ void ppc_opc_mcrxr()
  */
 void ppc_opc_mfcr()
 {
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rD, rA, rB);
-	PPC_OPC_ASSERT(rA==0 && rB==0);
-	gCPU.gpr[rD] = gCPU.cr;
+    ConcreteSemantics<PPC_CPU_State> s{gCPU};
+    ppc_sem_mfcr(s, gCPU.current_opc);
 }
 /*
  *	mffs		Move from FPSCR
@@ -292,14 +274,14 @@ void ppc_opc_mfcr()
  */
 void ppc_opc_mffsx()
 {
-	int frD, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, frD, rA, rB);
-	PPC_OPC_ASSERT(rA==0 && rB==0);
-	gCPU.fpr[frD] = gCPU.fpscr;
-	if (gCPU.current_opc & PPC_OPC_Rc) {
-		// update cr1 flags
-		PPC_OPC_ERR("mffs. unimplemented.\n");
-	}
+    int frD, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, frD, rA, rB);
+    PPC_OPC_ASSERT(rA == 0 && rB == 0);
+    gCPU.fpr[frD] = gCPU.fpscr;
+    if (gCPU.current_opc & PPC_OPC_Rc) {
+        // update cr1 flags
+        PPC_OPC_ERR("mffs. unimplemented.\n");
+    }
 }
 /*
  *	mfmsr		Move from Machine State Register
@@ -307,14 +289,14 @@ void ppc_opc_mffsx()
  */
 void ppc_opc_mfmsr()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rD, rA, rB);
-	PPC_OPC_ASSERT((rA == 0) && (rB == 0));
-	gCPU.gpr[rD] = gCPU.msr;
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rD, rA, rB);
+    PPC_OPC_ASSERT((rA == 0) && (rB == 0));
+    gCPU.gpr[rD] = gCPU.msr;
 }
 /*
  *	mfspr		Move from Special-Purpose Register
@@ -322,160 +304,134 @@ void ppc_opc_mfmsr()
  */
 void ppc_opc_mfspr()
 {
-	int rD, spr1, spr2;
-	PPC_OPC_TEMPL_XO(gCPU.current_opc, rD, spr1, spr2);
-	switch (spr2) {
-	case 0:
-		switch (spr1) {
-		case 1: gCPU.gpr[rD] = gCPU.xer; return;
-		case 8: gCPU.gpr[rD] = gCPU.lr; return;
-		case 9: gCPU.gpr[rD] = gCPU.ctr; return;
-		}
-	case 8: // altivec made this spr unpriviledged
-		if (spr1 == 0) {
-			gCPU.gpr[rD] = gCPU.vrsave; 
-			return;
-		}
-	}
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	switch (spr2) {
-	case 0:
-		switch (spr1) {
-		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
-		case 19: gCPU.gpr[rD] = gCPU.dar; return;
-		case 22: {
-			gCPU.dec = gCPU.pdec / TB_TO_PTB_FACTOR;
-			gCPU.gpr[rD] = gCPU.dec;
-			return;
-		}
-		case 25: gCPU.gpr[rD] = gCPU.sdr1; return;
-		case 26: gCPU.gpr[rD] = gCPU.srr[0]; return;
-		case 27: gCPU.gpr[rD] = gCPU.srr[1]; return;
-		}
-		break;
-	case 8:
-		switch (spr1) {
-		case 12: {
-			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
-			gCPU.gpr[rD] = gCPU.tb;
-			return;
-		}
-		case 13: {
-			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
-			gCPU.gpr[rD] = gCPU.tb >> 32;
-			return;
-		}
-		case 16: gCPU.gpr[rD] = gCPU.sprg[0]; return;
-		case 17: gCPU.gpr[rD] = gCPU.sprg[1]; return;
-		case 18: gCPU.gpr[rD] = gCPU.sprg[2]; return;
-		case 19: gCPU.gpr[rD] = gCPU.sprg[3]; return;
-		case 26: gCPU.gpr[rD] = gCPU.ear; return;
-		case 31: gCPU.gpr[rD] = gCPU.pvr; return;
-		}
-		break;
-	case 16:
-		switch (spr1) {
-		case 16: gCPU.gpr[rD] = gCPU.ibatu[0]; return;
-		case 17: gCPU.gpr[rD] = gCPU.ibatl[0]; return;
-		case 18: gCPU.gpr[rD] = gCPU.ibatu[1]; return;
-		case 19: gCPU.gpr[rD] = gCPU.ibatl[1]; return;
-		case 20: gCPU.gpr[rD] = gCPU.ibatu[2]; return;
-		case 21: gCPU.gpr[rD] = gCPU.ibatl[2]; return;
-		case 22: gCPU.gpr[rD] = gCPU.ibatu[3]; return;
-		case 23: gCPU.gpr[rD] = gCPU.ibatl[3]; return;
-		case 24: gCPU.gpr[rD] = gCPU.dbatu[0]; return;
-		case 25: gCPU.gpr[rD] = gCPU.dbatl[0]; return;
-		case 26: gCPU.gpr[rD] = gCPU.dbatu[1]; return;
-		case 27: gCPU.gpr[rD] = gCPU.dbatl[1]; return;
-		case 28: gCPU.gpr[rD] = gCPU.dbatu[2]; return;
-		case 29: gCPU.gpr[rD] = gCPU.dbatl[2]; return;
-		case 30: gCPU.gpr[rD] = gCPU.dbatu[3]; return;
-		case 31: gCPU.gpr[rD] = gCPU.dbatl[3]; return;
-		}
-		break;
-	case 29:
-		switch (spr1) {
-		case 16:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 17:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 18:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 24:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 25:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 26:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 28:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 29:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 30:
-			gCPU.gpr[rD] = 0;
-			return;
-		}
-	case 31:
-		switch (spr1) {
-		case 16:
-//			PPC_OPC_WARN("read from spr %d:%d (HID0) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = gCPU.hid[0];
-			return;
-		case 17:
-			PPC_OPC_WARN("read from spr %d:%d (HID1) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = gCPU.hid[1];
-			return;
-		case 18:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 21:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 22:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 23:
-			gCPU.gpr[rD] = 0;
-			return;
-		case 25:
-			PPC_OPC_WARN("read from spr %d:%d (L2CR) not supported! (from %08x)\n", spr1, spr2, gCPU.pc);
-			gCPU.gpr[rD] = 0;
-			return;
-		case 27:
-			PPC_OPC_WARN("read from spr %d:%d (ICTC) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = 0;
-			return;
-		case 28:
-//			PPC_OPC_WARN("read from spr %d:%d (THRM1) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = 0;
-			return;
-		case 29:
-//			PPC_OPC_WARN("read from spr %d:%d (THRM2) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = 0;
-			return;
-		case 30:
-//			PPC_OPC_WARN("read from spr %d:%d (THRM3) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = 0;
-			return;
-		case 31:
-//			PPC_OPC_WARN("read from spr %d:%d (???) not supported!\n", spr1, spr2);
-			gCPU.gpr[rD] = 0;
-			return;
-		}
-	}
-	fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
-	SINGLESTEP("invalid mfspr\n");
+    int rD, spr1, spr2;
+    PPC_OPC_TEMPL_XO(gCPU.current_opc, rD, spr1, spr2);
+    switch (spr2) {
+    case 0:
+        switch (spr1) {
+        case 1: gCPU.gpr[rD] = gCPU.xer; return;
+        case 8: gCPU.gpr[rD] = gCPU.lr; return;
+        case 9: gCPU.gpr[rD] = gCPU.ctr; return;
+        }
+    case 8:
+        if (spr1 == 0) {
+            gCPU.gpr[rD] = gCPU.vrsave;
+            return;
+        }
+    }
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    switch (spr2) {
+    case 0:
+        switch (spr1) {
+        case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
+        case 19: gCPU.gpr[rD] = gCPU.dar; return;
+        case 22: {
+            gCPU.dec = gCPU.pdec / TB_TO_PTB_FACTOR;
+            gCPU.gpr[rD] = gCPU.dec;
+            return;
+        }
+        case 25: gCPU.gpr[rD] = gCPU.sdr1; return;
+        case 26: gCPU.gpr[rD] = gCPU.srr[0]; return;
+        case 27: gCPU.gpr[rD] = gCPU.srr[1]; return;
+        }
+        break;
+    case 8:
+        switch (spr1) {
+        case 12: {
+            gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+            gCPU.gpr[rD] = gCPU.tb;
+            return;
+        }
+        case 13: {
+            gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+            gCPU.gpr[rD] = gCPU.tb >> 32;
+            return;
+        }
+        case 16: gCPU.gpr[rD] = gCPU.sprg[0]; return;
+        case 17: gCPU.gpr[rD] = gCPU.sprg[1]; return;
+        case 18: gCPU.gpr[rD] = gCPU.sprg[2]; return;
+        case 19: gCPU.gpr[rD] = gCPU.sprg[3]; return;
+        case 26: gCPU.gpr[rD] = gCPU.ear; return;
+        case 31: gCPU.gpr[rD] = gCPU.pvr; return;
+        }
+        break;
+    case 16:
+        switch (spr1) {
+        case 16: gCPU.gpr[rD] = gCPU.ibatu[0]; return;
+        case 17: gCPU.gpr[rD] = gCPU.ibatl[0]; return;
+        case 18: gCPU.gpr[rD] = gCPU.ibatu[1]; return;
+        case 19: gCPU.gpr[rD] = gCPU.ibatl[1]; return;
+        case 20: gCPU.gpr[rD] = gCPU.ibatu[2]; return;
+        case 21: gCPU.gpr[rD] = gCPU.ibatl[2]; return;
+        case 22: gCPU.gpr[rD] = gCPU.ibatu[3]; return;
+        case 23: gCPU.gpr[rD] = gCPU.ibatl[3]; return;
+        case 24: gCPU.gpr[rD] = gCPU.dbatu[0]; return;
+        case 25: gCPU.gpr[rD] = gCPU.dbatl[0]; return;
+        case 26: gCPU.gpr[rD] = gCPU.dbatu[1]; return;
+        case 27: gCPU.gpr[rD] = gCPU.dbatl[1]; return;
+        case 28: gCPU.gpr[rD] = gCPU.dbatu[2]; return;
+        case 29: gCPU.gpr[rD] = gCPU.dbatl[2]; return;
+        case 30: gCPU.gpr[rD] = gCPU.dbatu[3]; return;
+        case 31: gCPU.gpr[rD] = gCPU.dbatl[3]; return;
+        }
+        break;
+    case 29:
+        switch (spr1) {
+        case 16: gCPU.gpr[rD] = 0; return;
+        case 17: gCPU.gpr[rD] = 0; return;
+        case 18: gCPU.gpr[rD] = 0; return;
+        case 24: gCPU.gpr[rD] = 0; return;
+        case 25: gCPU.gpr[rD] = 0; return;
+        case 26: gCPU.gpr[rD] = 0; return;
+        case 28: gCPU.gpr[rD] = 0; return;
+        case 29: gCPU.gpr[rD] = 0; return;
+        case 30: gCPU.gpr[rD] = 0; return;
+        }
+    case 31:
+        switch (spr1) {
+        case 16:
+            //			PPC_OPC_WARN("read from spr %d:%d (HID0) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = gCPU.hid[0];
+            return;
+        case 17:
+            PPC_OPC_WARN("read from spr %d:%d (HID1) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = gCPU.hid[1];
+            return;
+        case 18: gCPU.gpr[rD] = 0; return;
+        case 21: gCPU.gpr[rD] = 0; return;
+        case 22: gCPU.gpr[rD] = 0; return;
+        case 23: gCPU.gpr[rD] = 0; return;
+        case 25:
+            PPC_OPC_WARN("read from spr %d:%d (L2CR) not supported! (from %08x)\n", spr1, spr2, gCPU.pc);
+            gCPU.gpr[rD] = 0;
+            return;
+        case 27:
+            PPC_OPC_WARN("read from spr %d:%d (ICTC) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = 0;
+            return;
+        case 28:
+            //			PPC_OPC_WARN("read from spr %d:%d (THRM1) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = 0;
+            return;
+        case 29:
+            //			PPC_OPC_WARN("read from spr %d:%d (THRM2) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = 0;
+            return;
+        case 30:
+            //			PPC_OPC_WARN("read from spr %d:%d (THRM3) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = 0;
+            return;
+        case 31:
+            //			PPC_OPC_WARN("read from spr %d:%d (???) not supported!\n", spr1, spr2);
+            gCPU.gpr[rD] = 0;
+            return;
+        }
+    }
+    fprintf(stderr, "unknown mfspr: %i:%i\n", spr1, spr2);
+    SINGLESTEP("invalid mfspr\n");
 }
 /*
  *	mfsr		Move from Segment Register
@@ -483,14 +439,14 @@ void ppc_opc_mfspr()
  */
 void ppc_opc_mfsr()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rD, SR, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rD, SR, rB);
-	// FIXME: check insn
-	gCPU.gpr[rD] = gCPU.sr[SR & 0xf];
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rD, SR, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rD, SR, rB);
+    // FIXME: check insn
+    gCPU.gpr[rD] = gCPU.sr[SR & 0xf];
 }
 /*
  *	mfsrin		Move from Segment Register Indirect
@@ -498,14 +454,14 @@ void ppc_opc_mfsr()
  */
 void ppc_opc_mfsrin()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rD, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rD, rA, rB);
-	// FIXME: check insn
-	gCPU.gpr[rD] = gCPU.sr[gCPU.gpr[rB] >> 28];
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rD, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rD, rA, rB);
+    // FIXME: check insn
+    gCPU.gpr[rD] = gCPU.sr[gCPU.gpr[rB] >> 28];
 }
 /*
  *	mftb		Move from Time Base
@@ -513,25 +469,25 @@ void ppc_opc_mfsrin()
  */
 void ppc_opc_mftb()
 {
-	int rD, spr1, spr2;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rD, spr1, spr2);
-	switch (spr2) {
-	case 8:
-		switch (spr1) {
-		case 12: {
-			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
-			gCPU.gpr[rD] = gCPU.tb;
-			return;
-		}
-		case 13: {
-			gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
-			gCPU.gpr[rD] = gCPU.tb >> 32;
-			return;
-		}
-		}
-		break;
-	}
-	SINGLESTEP("unknown mftb\n");
+    int rD, spr1, spr2;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rD, spr1, spr2);
+    switch (spr2) {
+    case 8:
+        switch (spr1) {
+        case 12: {
+            gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+            gCPU.gpr[rD] = gCPU.tb;
+            return;
+        }
+        case 13: {
+            gCPU.tb = gCPU.ptb / TB_TO_PTB_FACTOR;
+            gCPU.gpr[rD] = gCPU.tb >> 32;
+            return;
+        }
+        }
+        break;
+    }
+    SINGLESTEP("unknown mftb\n");
 }
 /*
  *	mtcrf		Move to Condition Register Fields
@@ -539,14 +495,8 @@ void ppc_opc_mftb()
  */
 void ppc_opc_mtcrf()
 {
-	
-	int rS;
-	uint32 crm;
-	uint32 CRM;
-	PPC_OPC_TEMPL_XFX(gCPU.current_opc, rS, crm);
-	CRM = ((crm&0x80)?0xf0000000:0)|((crm&0x40)?0x0f000000:0)|((crm&0x20)?0x00f00000:0)|((crm&0x10)?0x000f0000:0)|
-	      ((crm&0x08)?0x0000f000:0)|((crm&0x04)?0x00000f00:0)|((crm&0x02)?0x000000f0:0)|((crm&0x01)?0x0000000f:0);
-	gCPU.cr = (gCPU.gpr[rS] & CRM) | (gCPU.cr & ~CRM);
+    ConcreteSemantics<PPC_CPU_State> s{gCPU};
+    ppc_sem_mtcrf(s, gCPU.current_opc);
 }
 /*
  *	mtfsb0x		Move to FPSCR Bit 0
@@ -554,15 +504,15 @@ void ppc_opc_mtcrf()
  */
 void ppc_opc_mtfsb0x()
 {
-	int crbD, n1, n2;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, crbD, n1, n2);
-	if (crbD != 1 && crbD != 2) {
-		gCPU.fpscr &= ~(1<<(31-crbD));
-	}
-	if (gCPU.current_opc & PPC_OPC_Rc) {
-		// update cr1 flags
-		PPC_OPC_ERR("mtfsb0. unimplemented.\n");
-	}
+    int crbD, n1, n2;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, crbD, n1, n2);
+    if (crbD != 1 && crbD != 2) {
+        gCPU.fpscr &= ~(1 << (31 - crbD));
+    }
+    if (gCPU.current_opc & PPC_OPC_Rc) {
+        // update cr1 flags
+        PPC_OPC_ERR("mtfsb0. unimplemented.\n");
+    }
 }
 /*
  *	mtfsb1x		Move to FPSCR Bit 1
@@ -570,15 +520,15 @@ void ppc_opc_mtfsb0x()
  */
 void ppc_opc_mtfsb1x()
 {
-	int crbD, n1, n2;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, crbD, n1, n2);
-	if (crbD != 1 && crbD != 2) {
-		gCPU.fpscr |= 1<<(31-crbD);
-	}
-	if (gCPU.current_opc & PPC_OPC_Rc) {
-		// update cr1 flags
-		PPC_OPC_ERR("mtfsb1. unimplemented.\n");
-	}
+    int crbD, n1, n2;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, crbD, n1, n2);
+    if (crbD != 1 && crbD != 2) {
+        gCPU.fpscr |= 1 << (31 - crbD);
+    }
+    if (gCPU.current_opc & PPC_OPC_Rc) {
+        // update cr1 flags
+        PPC_OPC_ERR("mtfsb1. unimplemented.\n");
+    }
 }
 /*
  *	mtfsfx		Move to FPSCR Fields
@@ -586,16 +536,17 @@ void ppc_opc_mtfsb1x()
  */
 void ppc_opc_mtfsfx()
 {
-	int frB;
-	uint32 fm, FM;
-	PPC_OPC_TEMPL_XFL(gCPU.current_opc, frB, fm);
-	FM = ((fm&0x80)?0xf0000000:0)|((fm&0x40)?0x0f000000:0)|((fm&0x20)?0x00f00000:0)|((fm&0x10)?0x000f0000:0)|
-	     ((fm&0x08)?0x0000f000:0)|((fm&0x04)?0x00000f00:0)|((fm&0x02)?0x000000f0:0)|((fm&0x01)?0x0000000f:0);
-	gCPU.fpscr = (gCPU.fpr[frB] & FM) | (gCPU.fpscr & ~FM);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
-		// update cr1 flags
-		PPC_OPC_ERR("mtfsf. unimplemented.\n");
-	}
+    int frB;
+    uint32 fm, FM;
+    PPC_OPC_TEMPL_XFL(gCPU.current_opc, frB, fm);
+    FM = ((fm & 0x80) ? 0xf0000000 : 0) | ((fm & 0x40) ? 0x0f000000 : 0) | ((fm & 0x20) ? 0x00f00000 : 0) |
+         ((fm & 0x10) ? 0x000f0000 : 0) | ((fm & 0x08) ? 0x0000f000 : 0) | ((fm & 0x04) ? 0x00000f00 : 0) |
+         ((fm & 0x02) ? 0x000000f0 : 0) | ((fm & 0x01) ? 0x0000000f : 0);
+    gCPU.fpscr = (gCPU.fpr[frB] & FM) | (gCPU.fpscr & ~FM);
+    if (gCPU.current_opc & PPC_OPC_Rc) {
+        // update cr1 flags
+        PPC_OPC_ERR("mtfsf. unimplemented.\n");
+    }
 }
 /*
  *	mtfsfix		Move to FPSCR Field Immediate
@@ -603,18 +554,18 @@ void ppc_opc_mtfsfx()
  */
 void ppc_opc_mtfsfix()
 {
-	int crfD, n1;
-	uint32 imm;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, crfD, n1, imm);
-	crfD >>= 2;
-	imm >>= 1;
-	crfD = 7-crfD;
-	gCPU.fpscr &= ppc_cmp_and_mask[crfD];
-	gCPU.fpscr |= imm<<(crfD*4);
-	if (gCPU.current_opc & PPC_OPC_Rc) {
-		// update cr1 flags
-		PPC_OPC_ERR("mtfsfi. unimplemented.\n");
-	}
+    int crfD, n1;
+    uint32 imm;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, crfD, n1, imm);
+    crfD >>= 2;
+    imm >>= 1;
+    crfD = 7 - crfD;
+    gCPU.fpscr &= ppc_cmp_and_mask[crfD];
+    gCPU.fpscr |= imm << (crfD * 4);
+    if (gCPU.current_opc & PPC_OPC_Rc) {
+        // update cr1 flags
+        PPC_OPC_ERR("mtfsfi. unimplemented.\n");
+    }
 }
 /*
  *	mtmsr		Move to Machine State Register
@@ -622,14 +573,14 @@ void ppc_opc_mtfsfix()
  */
 void ppc_opc_mtmsr()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rS, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	PPC_OPC_ASSERT((rA == 0) && (rB == 0));
-	ppc_set_msr(gCPU.gpr[rS]);
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+    PPC_OPC_ASSERT((rA == 0) && (rB == 0));
+    ppc_set_msr(gCPU.gpr[rS]);
 }
 /*
  *	mtspr		Move to Special-Purpose Register
@@ -637,155 +588,133 @@ void ppc_opc_mtmsr()
  */
 void ppc_opc_mtspr()
 {
-	int rS, spr1, spr2;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, spr1, spr2);
-	switch (spr2) {
-	case 0:
-		switch (spr1) {
-		case 1: gCPU.xer = gCPU.gpr[rS]; return;
-		case 8:	gCPU.lr = gCPU.gpr[rS]; return;
-		case 9:	gCPU.ctr = gCPU.gpr[rS]; return;
-		}
-	case 8:	//altivec makes this register unpriviledged
-		if (spr1 == 0) {
-			gCPU.vrsave = gCPU.gpr[rS]; 
-			return;
-		}
-	}
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	switch (spr2) {
-	case 0:
-		switch (spr1) {
-/*		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
+    int rS, spr1, spr2;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, spr1, spr2);
+    switch (spr2) {
+    case 0:
+        switch (spr1) {
+        case 1: gCPU.xer = gCPU.gpr[rS]; return;
+        case 8: gCPU.lr = gCPU.gpr[rS]; return;
+        case 9: gCPU.ctr = gCPU.gpr[rS]; return;
+        }
+    case 8: //altivec makes this register unpriviledged
+        if (spr1 == 0) {
+            gCPU.vrsave = gCPU.gpr[rS];
+            return;
+        }
+    }
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    switch (spr2) {
+    case 0:
+        switch (spr1) {
+            /*		case 18: gCPU.gpr[rD] = gCPU.dsisr; return;
 		case 19: gCPU.gpr[rD] = gCPU.dar; return;*/
-		case 22: {
-			gCPU.dec = gCPU.gpr[rS];
-			gCPU.pdec = gCPU.dec;
-			gCPU.pdec *= TB_TO_PTB_FACTOR;
-			return;
-		}
-		case 25: 
-			if (!ppc_mmu_set_sdr1(gCPU.gpr[rS], true)) {
-				PPC_OPC_ERR("cannot set sdr1\n");
-			}
-			return;
-		case 26: gCPU.srr[0] = gCPU.gpr[rS]; return;
-		case 27: gCPU.srr[1] = gCPU.gpr[rS]; return;
-		}
-		break;
-	case 8:
-		switch (spr1) {
-		case 16: gCPU.sprg[0] = gCPU.gpr[rS]; return;
-		case 17: gCPU.sprg[1] = gCPU.gpr[rS]; return;
-		case 18: gCPU.sprg[2] = gCPU.gpr[rS]; return;
-		case 19: gCPU.sprg[3] = gCPU.gpr[rS]; return;
-/*		case 26: gCPU.gpr[rD] = gCPU.ear; return;
+        case 22: {
+            gCPU.dec = gCPU.gpr[rS];
+            gCPU.pdec = gCPU.dec;
+            gCPU.pdec *= TB_TO_PTB_FACTOR;
+            return;
+        }
+        case 25:
+            if (!ppc_mmu_set_sdr1(gCPU.gpr[rS], true)) {
+                PPC_OPC_ERR("cannot set sdr1\n");
+            }
+            return;
+        case 26: gCPU.srr[0] = gCPU.gpr[rS]; return;
+        case 27: gCPU.srr[1] = gCPU.gpr[rS]; return;
+        }
+        break;
+    case 8:
+        switch (spr1) {
+        case 16: gCPU.sprg[0] = gCPU.gpr[rS]; return;
+        case 17: gCPU.sprg[1] = gCPU.gpr[rS]; return;
+        case 18: gCPU.sprg[2] = gCPU.gpr[rS]; return;
+        case 19:
+            gCPU.sprg[3] = gCPU.gpr[rS];
+            return;
+            /*		case 26: gCPU.gpr[rD] = gCPU.ear; return;
 		case 31: gCPU.gpr[rD] = gCPU.pvr; return;*/
-		}
-		break;
-	case 16:
-		switch (spr1) {
-		case 16:
-			gCPU.ibatu[0] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[0] = ~(BATU_BL(gCPU.ibatu[0])<<17);
-			return;
-		case 17:
-			gCPU.ibatl[0] = gCPU.gpr[rS];
-			return;
-		case 18:
-			gCPU.ibatu[1] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[1] = ~(BATU_BL(gCPU.ibatu[1])<<17);
-			return;
-		case 19:
-			gCPU.ibatl[1] = gCPU.gpr[rS];
-			return;
-		case 20:
-			gCPU.ibatu[2] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[2] = ~(BATU_BL(gCPU.ibatu[2])<<17);
-			return;
-		case 21:
-			gCPU.ibatl[2] = gCPU.gpr[rS];
-			return;
-		case 22:
-			gCPU.ibatu[3] = gCPU.gpr[rS];
-			gCPU.ibat_bl17[3] = ~(BATU_BL(gCPU.ibatu[3])<<17);
-			return;
-		case 23:
-			gCPU.ibatl[3] = gCPU.gpr[rS];
-			return;
-		case 24:
-			gCPU.dbatu[0] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0])<<17);
-			return;
-		case 25:
-			gCPU.dbatl[0] = gCPU.gpr[rS];
-			return;
-		case 26:
-			gCPU.dbatu[1] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[1] = ~(BATU_BL(gCPU.dbatu[1])<<17);
-			return;
-		case 27:
-			gCPU.dbatl[1] = gCPU.gpr[rS];
-			return;
-		case 28:
-			gCPU.dbatu[2] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[2] = ~(BATU_BL(gCPU.dbatu[2])<<17);
-			return;
-		case 29:
-			gCPU.dbatl[2] = gCPU.gpr[rS];
-			return;
-		case 30:
-			gCPU.dbatu[3] = gCPU.gpr[rS];
-			gCPU.dbat_bl17[3] = ~(BATU_BL(gCPU.dbatu[3])<<17);
-			return;
-		case 31:
-			gCPU.dbatl[3] = gCPU.gpr[rS];
-			return;
-		}
-		break;
-	case 29:
-		switch(spr1) {
-		case 17: return;
-		case 24: return;
-		case 25: return;
-		case 26: return;
-		}
-	case 31:
-		switch (spr1) {
-		case 16:
-//			PPC_OPC_WARN("write(%08x) to spr %d:%d (HID0) not supported! @%08x\n", gCPU.gpr[rS], spr1, spr2, gCPU.pc);
-			gCPU.hid[0] = gCPU.gpr[rS];
-			return;
-		case 17: return;
-		case 18:
-			PPC_OPC_ERR("write(%08x) to spr %d:%d (IABR) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 21:
-			PPC_OPC_ERR("write(%08x) to spr %d:%d (DABR) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 24:
-			PPC_OPC_WARN("write(%08x) to spr %d:%d (?) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 27:
-			PPC_OPC_WARN("write(%08x) to spr %d:%d (ICTC) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 28:
-//			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM1) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 29:
-//			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM2) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 30:
-//			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM3) not supported!\n", gCPU.gpr[rS], spr1, spr2);
-			return;
-		case 31: return;
-		}
-	}
-	fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
-	SINGLESTEP("unknown mtspr\n");
+        }
+        break;
+    case 16:
+        switch (spr1) {
+        case 16:
+            gCPU.ibatu[0] = gCPU.gpr[rS];
+            gCPU.ibat_bl17[0] = ~(BATU_BL(gCPU.ibatu[0]) << 17);
+            return;
+        case 17: gCPU.ibatl[0] = gCPU.gpr[rS]; return;
+        case 18:
+            gCPU.ibatu[1] = gCPU.gpr[rS];
+            gCPU.ibat_bl17[1] = ~(BATU_BL(gCPU.ibatu[1]) << 17);
+            return;
+        case 19: gCPU.ibatl[1] = gCPU.gpr[rS]; return;
+        case 20:
+            gCPU.ibatu[2] = gCPU.gpr[rS];
+            gCPU.ibat_bl17[2] = ~(BATU_BL(gCPU.ibatu[2]) << 17);
+            return;
+        case 21: gCPU.ibatl[2] = gCPU.gpr[rS]; return;
+        case 22:
+            gCPU.ibatu[3] = gCPU.gpr[rS];
+            gCPU.ibat_bl17[3] = ~(BATU_BL(gCPU.ibatu[3]) << 17);
+            return;
+        case 23: gCPU.ibatl[3] = gCPU.gpr[rS]; return;
+        case 24:
+            gCPU.dbatu[0] = gCPU.gpr[rS];
+            gCPU.dbat_bl17[0] = ~(BATU_BL(gCPU.dbatu[0]) << 17);
+            return;
+        case 25: gCPU.dbatl[0] = gCPU.gpr[rS]; return;
+        case 26:
+            gCPU.dbatu[1] = gCPU.gpr[rS];
+            gCPU.dbat_bl17[1] = ~(BATU_BL(gCPU.dbatu[1]) << 17);
+            return;
+        case 27: gCPU.dbatl[1] = gCPU.gpr[rS]; return;
+        case 28:
+            gCPU.dbatu[2] = gCPU.gpr[rS];
+            gCPU.dbat_bl17[2] = ~(BATU_BL(gCPU.dbatu[2]) << 17);
+            return;
+        case 29: gCPU.dbatl[2] = gCPU.gpr[rS]; return;
+        case 30:
+            gCPU.dbatu[3] = gCPU.gpr[rS];
+            gCPU.dbat_bl17[3] = ~(BATU_BL(gCPU.dbatu[3]) << 17);
+            return;
+        case 31: gCPU.dbatl[3] = gCPU.gpr[rS]; return;
+        }
+        break;
+    case 29:
+        switch (spr1) {
+        case 17: return;
+        case 24: return;
+        case 25: return;
+        case 26: return;
+        }
+    case 31:
+        switch (spr1) {
+        case 16:
+            //			PPC_OPC_WARN("write(%08x) to spr %d:%d (HID0) not supported! @%08x\n", gCPU.gpr[rS], spr1, spr2, gCPU.pc);
+            gCPU.hid[0] = gCPU.gpr[rS];
+            return;
+        case 17: return;
+        case 18: PPC_OPC_ERR("write(%08x) to spr %d:%d (IABR) not supported!\n", gCPU.gpr[rS], spr1, spr2); return;
+        case 21: PPC_OPC_ERR("write(%08x) to spr %d:%d (DABR) not supported!\n", gCPU.gpr[rS], spr1, spr2); return;
+        case 24: PPC_OPC_WARN("write(%08x) to spr %d:%d (?) not supported!\n", gCPU.gpr[rS], spr1, spr2); return;
+        case 27: PPC_OPC_WARN("write(%08x) to spr %d:%d (ICTC) not supported!\n", gCPU.gpr[rS], spr1, spr2); return;
+        case 28:
+            //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM1) not supported!\n", gCPU.gpr[rS], spr1, spr2);
+            return;
+        case 29:
+            //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM2) not supported!\n", gCPU.gpr[rS], spr1, spr2);
+            return;
+        case 30:
+            //			PPC_OPC_WARN("write(%08x) to spr %d:%d (THRM3) not supported!\n", gCPU.gpr[rS], spr1, spr2);
+            return;
+        case 31: return;
+        }
+    }
+    fprintf(stderr, "unknown mtspr: %i:%i\n", spr1, spr2);
+    SINGLESTEP("unknown mtspr\n");
 }
 /*
  *	mtsr		Move to Segment Register
@@ -793,14 +722,14 @@ void ppc_opc_mtspr()
  */
 void ppc_opc_mtsr()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rS, SR, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, SR, rB);
-	// FIXME: check insn
-	gCPU.sr[SR & 0xf] = gCPU.gpr[rS];
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rS, SR, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, SR, rB);
+    // FIXME: check insn
+    gCPU.sr[SR & 0xf] = gCPU.gpr[rS];
 }
 /*
  *	mtsrin		Move to Segment Register Indirect
@@ -808,14 +737,14 @@ void ppc_opc_mtsr()
  */
 void ppc_opc_mtsrin()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rS, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	// FIXME: check insn
-	gCPU.sr[gCPU.gpr[rB] >> 28] = gCPU.gpr[rS];
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+    // FIXME: check insn
+    gCPU.sr[gCPU.gpr[rB] >> 28] = gCPU.gpr[rS];
 }
 
 /*
@@ -824,12 +753,12 @@ void ppc_opc_mtsrin()
  */
 void ppc_opc_rfi()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	ppc_set_msr(gCPU.srr[1] & MSR_RFI_SAVE_MASK);
-	gCPU.npc = gCPU.srr[0] & 0xfffffffc;
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    ppc_set_msr(gCPU.srr[1] & MSR_RFI_SAVE_MASK);
+    gCPU.npc = gCPU.srr[0] & 0xfffffffc;
 }
 
 /*
@@ -839,11 +768,11 @@ void ppc_opc_rfi()
 #include "io/graphic/gcard.h"
 void ppc_opc_sc()
 {
-	if (gCPU.gpr[3] == 0x113724fa && gCPU.gpr[4] == 0x77810f9b) {
-		gcard_osi(0);
-		return;
-	}
-	ppc_exception(PPC_EXC_SC);
+    if (gCPU.gpr[3] == 0x113724fa && gCPU.gpr[4] == 0x77810f9b) {
+        gcard_osi(0);
+        return;
+    }
+    ppc_exception(PPC_EXC_SC);
 }
 
 /*
@@ -852,7 +781,7 @@ void ppc_opc_sc()
  */
 void ppc_opc_sync()
 {
-	// NO-OP
+    // NO-OP
 }
 
 /*
@@ -861,14 +790,14 @@ void ppc_opc_sync()
  */
 void ppc_opc_tlbia()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rS, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	// FIXME: check rS.. for 0
-	ppc_mmu_tlb_invalidate();
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+    // FIXME: check rS.. for 0
+    ppc_mmu_tlb_invalidate();
 }
 
 /*
@@ -877,14 +806,14 @@ void ppc_opc_tlbia()
  */
 void ppc_opc_tlbie()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rS, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	// FIXME: check rS.. for 0     
-	ppc_mmu_tlb_invalidate();
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+    // FIXME: check rS.. for 0
+    ppc_mmu_tlb_invalidate();
 }
 
 /*
@@ -893,14 +822,14 @@ void ppc_opc_tlbie()
  */
 void ppc_opc_tlbsync()
 {
-	if (gCPU.msr & MSR_PR) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
-		return;
-	}
-	int rS, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
-	// FIXME: check rS.. for 0     
-	ppc_mmu_tlb_invalidate();
+    if (gCPU.msr & MSR_PR) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_PRIV);
+        return;
+    }
+    int rS, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, rS, rA, rB);
+    // FIXME: check rS.. for 0
+    ppc_mmu_tlb_invalidate();
 }
 
 /*
@@ -909,17 +838,14 @@ void ppc_opc_tlbsync()
  */
 void ppc_opc_tw()
 {
-	int TO, rA, rB;
-	PPC_OPC_TEMPL_X(gCPU.current_opc, TO, rA, rB);
-	uint32 a = gCPU.gpr[rA];
-	uint32 b = gCPU.gpr[rB];
-	if (((TO & 16) && ((sint32)a < (sint32)b)) 
-	|| ((TO & 8) && ((sint32)a > (sint32)b)) 
-	|| ((TO & 4) && (a == b)) 
-	|| ((TO & 2) && (a < b)) 
-	|| ((TO & 1) && (a > b))) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
-	}
+    int TO, rA, rB;
+    PPC_OPC_TEMPL_X(gCPU.current_opc, TO, rA, rB);
+    uint32 a = gCPU.gpr[rA];
+    uint32 b = gCPU.gpr[rB];
+    if (((TO & 16) && ((sint32)a < (sint32)b)) || ((TO & 8) && ((sint32)a > (sint32)b)) || ((TO & 4) && (a == b)) ||
+        ((TO & 2) && (a < b)) || ((TO & 1) && (a > b))) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
+    }
 }
 
 /*
@@ -928,17 +854,14 @@ void ppc_opc_tw()
  */
 void ppc_opc_twi()
 {
-	int TO, rA;
-	uint32 imm;
-	PPC_OPC_TEMPL_D_SImm(gCPU.current_opc, TO, rA, imm);
-	uint32 a = gCPU.gpr[rA];
-	if (((TO & 16) && ((sint32)a < (sint32)imm)) 
-	|| ((TO & 8) && ((sint32)a > (sint32)imm)) 
-	|| ((TO & 4) && (a == imm)) 
-	|| ((TO & 2) && (a < imm)) 
-	|| ((TO & 1) && (a > imm))) {
-		ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
-	}
+    int TO, rA;
+    uint32 imm;
+    PPC_OPC_TEMPL_D_SImm(gCPU.current_opc, TO, rA, imm);
+    uint32 a = gCPU.gpr[rA];
+    if (((TO & 16) && ((sint32)a < (sint32)imm)) || ((TO & 8) && ((sint32)a > (sint32)imm)) ||
+        ((TO & 4) && (a == imm)) || ((TO & 2) && (a < imm)) || ((TO & 1) && (a > imm))) {
+        ppc_exception(PPC_EXC_PROGRAM, PPC_EXC_PROGRAM_TRAP);
+    }
 }
 
 /*	dcba		Data Cache Block Allocate
@@ -946,5 +869,5 @@ void ppc_opc_twi()
  */
 void ppc_opc_dcba()
 {
-	/* NO-OP */
+    /* NO-OP */
 }

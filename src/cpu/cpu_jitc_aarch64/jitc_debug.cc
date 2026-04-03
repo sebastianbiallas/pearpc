@@ -1222,6 +1222,7 @@ inline static void disasmPPC(uint32 code, uint32 ea, char *result)
 
 void jitcDebugLogAdd(const char *fmt, ...)
 {
+    if (!gDebugLog) return;
     va_list ap;
 
     va_start(ap, fmt);
@@ -1255,7 +1256,12 @@ void jitcDebugLogEmit(JITC &jitc, const byte *insn, int size)
 
 void jitcDebugInit()
 {
-    gDebugLog = fopen("jitc.log", "w");
+    extern char gJitcLogFile[];
+    if (gJitcLogFile[0]) {
+        gDebugLog = fopen(gJitcLogFile, "w");
+    } else {
+        gDebugLog = NULL;
+    }
     symbols = new AVLTree(true);
 
     // Memory access stubs

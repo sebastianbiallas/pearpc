@@ -36,6 +36,7 @@
 #include "jitc_asm.h"
 #include "aarch64asm.h"
 #include "io/graphic/gcard.h"
+#include "cpu/ppc_semantics_dispatch.h"
 
 /*
  *  ========================================================
@@ -114,7 +115,7 @@ static void ppc_opc_gen_check_privilege(JITC &jitc)
  *  shifts 2 << index to get 2/4/8 — 4 instructions instead of 5.
  *  SO is folded in via ADD Wd, Wn, Wm, LSR #31 — 2 instructions instead of 3.
  */
-static void gen_cr_insert_signed(JITC &jitc, int crfD)
+void gen_cr_insert_signed(JITC &jitc, int crfD)
 {
     // Build index: EQ→0, GT→1, LT→2
     jitc.asmCSETw(W0, A64_NE);            // W0 = !EQ ? 1 : 0
@@ -137,7 +138,7 @@ static void gen_cr_insert_signed(JITC &jitc, int crfD)
  *  Same as gen_cr_insert_signed but for unsigned comparison.
  *  Uses CC (unsigned <) instead of LT, and CS (unsigned >=) instead of GE.
  */
-static void gen_cr_insert_unsigned(JITC &jitc, int crfD)
+void gen_cr_insert_unsigned(JITC &jitc, int crfD)
 {
     jitc.asmCSETw(W0, A64_NE);
     jitc.asmCSINCw(W0, W0, W0, A64_CS);   // if CC(unsigned LT, !CS): W0++
@@ -160,8 +161,9 @@ static void gen_cr_insert_unsigned(JITC &jitc, int crfD)
  */
 static void gen_update_cr0(JITC &jitc, NativeReg resultReg = W16)
 {
+    jitc.clobberFlags();
     jitc.asmCMPw(resultReg, (uint32)0);
-    gen_cr_insert_signed(jitc, 0);
+    jitc.mapFlagsDirty(PPC_CR0, true);
 }
 
 /*
@@ -258,6 +260,7 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, crfD, rA, imm);
     crfD >>= 2;
 
+    jitc.clobberFlags();
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     sint32 simm = (sint32)imm;
     if (simm >= 0 && simm <= 4095) {
@@ -268,7 +271,7 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
         jitc.asmMOV(W17, (uint32)imm);
         jitc.asmCMPw(W16, W17);
     }
-    gen_cr_insert_signed(jitc, crfD);
+    jitc.mapFlagsDirty((PPC_CRx)crfD, true);
     return flowContinue;
 }
 
@@ -279,6 +282,7 @@ JITCFlow ppc_opc_gen_cmpi(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_bx(JITC &jitc)
 {
+    jitc.clobberAll();
     uint32 li = jitc.current_opc & 0x03FFFFFC;
     if (li & 0x02000000) {
         li |= 0xFC000000; // sign extend
@@ -340,13 +344,177 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
     bool ctr_ok_always = (BO & 4);   // bit 2: skip CTR test
     bool cond_ok_always = (BO & 16); // bit 4: skip CR test
 
+    // "Get PC" trick: bcl 20,31,$+4 — unconditional branch-and-link to next insn.
+    // Just sets LR = PC + 4. No actual branch, no dispatch.
+    if (lk && ctr_ok_always && cond_ok_always && !aa && BD == 4) {
+        // LR = current_code_base + pc + 4
+        jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, current_code_base));
+        jitc.asmMOV(W17, jitc.pc + 4);
+        jitc.asmADDw(W16, W16, W17);
+        jitc.asmSTRw_cpu(W16, offsetof(PPC_CPU_State, lr));
+        return flowContinue;
+    }
+
     // Fallback to interpreter for rare/complex cases:
     // - LK=1 (branch-and-link conditional)
     // - Both CTR decrement AND CR test
     if (lk || (!ctr_ok_always && !cond_ok_always)) {
+        jitc.clobberFlags();
         ppc_opc_gen_interpret(jitc, ppc_opc_bcx);
         gen_dispatch_npc(jitc);
         return flowEndBlockUnreachable;
+    }
+
+    // Case A fast path: check for deferred flags BEFORE clobberAll()
+    // Pattern: B.cond not_taken → flush CR → dispatch → not_taken:
+    // The conditional jump uses NZCV directly. If taken, we flush CR
+    // to CPU state (for the heartbeat) then dispatch. If not taken,
+    // we skip past the flush+dispatch block and continue.
+    if (ctr_ok_always && !cond_ok_always) {
+        PPC_CRx cr = (PPC_CRx)(BI / 4);
+        int crbit = BI % 4; // 0=LT, 1=GT, 2=EQ, 3=SO
+        bool branchIfSet = (BO & 8) != 0;
+
+        if (jitc.flagsMapped() && jitc.getFlagsMapping() == cr && crbit != 3) {
+            bool isSigned = jitc.nativeFlagsSigned;
+            // Consume the deferred flags — don't let clobberAll flush them.
+            jitc.nativeFlagsState = rsUnused;
+            jitc.clobberAll();
+
+            A64Cond not_taken_cond;
+            if (isSigned) {
+                switch (crbit) {
+                case 0: not_taken_cond = branchIfSet ? A64_GE : A64_LT; break;
+                case 1: not_taken_cond = branchIfSet ? A64_LE : A64_GT; break;
+                case 2: not_taken_cond = branchIfSet ? A64_NE : A64_EQ; break;
+                default: __builtin_unreachable();
+                }
+            } else {
+                switch (crbit) {
+                case 0: not_taken_cond = branchIfSet ? A64_CS : A64_CC; break;
+                case 1: not_taken_cond = branchIfSet ? A64_LS : A64_HI; break;
+                case 2: not_taken_cond = branchIfSet ? A64_NE : A64_EQ; break;
+                default: __builtin_unreachable();
+                }
+            }
+
+            // Compute sizes for the taken block:
+            // gen_cr_insert = 9 instructions = 36 bytes
+            uint flush_size = 36;
+            uint dispatch_size;
+            if (aa) {
+                dispatch_size = a64_movw_size((uint32)BD) + JITC::asmCALL_cpu_size;
+            } else {
+                dispatch_size = a64_movw_size((uint32)(jitc.pc + BD)) + JITC::asmCALL_cpu_size;
+            }
+
+            // Check if CR is dead at both successors (page-level liveness)
+            sint32 targetOfs = aa ? (sint32)BD : (sint32)(jitc.pc + BD);
+            bool crDeadAtTarget = false;
+            bool crDeadAtFallthrough = false;
+
+            // Check page-level CFG liveness at branch target and fall-through
+            if (jitc.currentCFG && !aa && targetOfs >= 0 && targetOfs < 4096) {
+                int tgtBlock = jitc.currentCFG->blockForOfs((uint32)targetOfs);
+                if (tgtBlock >= 0) {
+                    crDeadAtTarget = jitc.currentCFG->blocks[tgtBlock].live_in.is_cr_field_dead((int)cr);
+                }
+                uint32 ftOfs = jitc.pc + 4;
+                if (ftOfs < 4096) {
+                    int ftBlock = jitc.currentCFG->blockForOfs(ftOfs);
+                    if (ftBlock >= 0) {
+                        crDeadAtFallthrough = jitc.currentCFG->blocks[ftBlock].live_in.is_cr_field_dead((int)cr);
+                    }
+                }
+            }
+
+            if (crDeadAtTarget && crDeadAtFallthrough) {
+                // CR dead on BOTH paths — no flush anywhere!
+                //  B.cond not_taken               ; 4
+                //  <dispatch to target>           ; dispatch_size
+                // not_taken:
+                uint total = 4 + dispatch_size;
+                jitc.emitAssure(total);
+
+                NativeAddress not_taken_target = jitc.asmHERE() + 4 + dispatch_size;
+                jitc.asmBccForward(not_taken_cond, dispatch_size);
+
+                if (aa) {
+                    jitc.asmMOV(W0, (uint32)BD);
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+                } else {
+                    jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+                }
+
+                jitc.asmAssertHERE(not_taken_target, "bcx_defflags_dead_both");
+                // Not-taken: no flush, CR dead here too
+            } else if (crDeadAtTarget) {
+                // CR dead at target only — skip flush on taken path
+                //  B.cond not_taken               ; 4
+                //  <dispatch to target>           ; dispatch_size
+                // not_taken:
+                //  <flush CR from NZCV>           ; flush_size
+                uint total = 4 + dispatch_size + flush_size;
+                jitc.emitAssure(total);
+
+                NativeAddress not_taken_target = jitc.asmHERE() + 4 + dispatch_size;
+                jitc.asmBccForward(not_taken_cond, dispatch_size);
+
+                if (aa) {
+                    jitc.asmMOV(W0, (uint32)BD);
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+                } else {
+                    jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+                }
+
+                jitc.asmAssertHERE(not_taken_target, "bcx_defflags_dead_taken");
+
+                // Not-taken: flush CR
+                if (isSigned) {
+                    gen_cr_insert_signed(jitc, (int)cr);
+                } else {
+                    gen_cr_insert_unsigned(jitc, (int)cr);
+                }
+            } else {
+                //  B.cond not_taken               ; 4
+                //  <flush CR from NZCV>           ; flush_size (taken path)
+                //  <dispatch to target>           ; dispatch_size
+                // not_taken:
+                //  <flush CR from NZCV>           ; flush_size (not-taken path)
+                uint total = 4 + flush_size + dispatch_size + flush_size;
+                jitc.emitAssure(total);
+
+                NativeAddress not_taken_target = jitc.asmHERE() + 4 + flush_size + dispatch_size;
+                jitc.asmBccForward(not_taken_cond, flush_size + dispatch_size);
+
+                // Taken path: flush CR, then dispatch
+                if (isSigned) {
+                    gen_cr_insert_signed(jitc, (int)cr);
+                } else {
+                    gen_cr_insert_unsigned(jitc, (int)cr);
+                }
+
+                if (aa) {
+                    jitc.asmMOV(W0, (uint32)BD);
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC);
+                } else {
+                    jitc.asmMOV(W0, (uint32)(jitc.pc + BD));
+                    jitc.asmCALL_cpu(PPC_STUB_NEW_PC_REL);
+                }
+
+                jitc.asmAssertHERE(not_taken_target, "bcx_defflags_live");
+
+                // Not-taken: flush CR for subsequent code
+                if (isSigned) {
+                    gen_cr_insert_signed(jitc, (int)cr);
+                } else {
+                    gen_cr_insert_unsigned(jitc, (int)cr);
+                }
+            }
+            return flowContinue;
+        }
     }
 
     jitc.clobberAll();
@@ -411,6 +579,7 @@ JITCFlow ppc_opc_gen_bcx(JITC &jitc)
 
     // Case A: CR-only (beq, bne, blt, bgt, ble, bge, etc.)
     // ctr_ok_always=true, cond_ok_always=false
+    // (Deferred flags fast path was handled above, before clobberAll)
     {
         uint dispatch_size;
         if (aa) {
@@ -840,10 +1009,11 @@ JITCFlow ppc_opc_gen_cmp(JITC &jitc)
     int rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, cr, rA, rB);
     cr >>= 2;
+    jitc.clobberFlags();
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmCMPw(W16, W17);
-    gen_cr_insert_signed(jitc, cr);
+    jitc.mapFlagsDirty((PPC_CRx)cr, true);
     return flowContinue;
 }
 
@@ -856,10 +1026,11 @@ JITCFlow ppc_opc_gen_cmpl(JITC &jitc)
     int rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, cr, rA, rB);
     cr >>= 2;
+    jitc.clobberFlags();
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
     jitc.asmCMPw(W16, W17);
-    gen_cr_insert_unsigned(jitc, cr);
+    jitc.mapFlagsDirty((PPC_CRx)cr, false);
     return flowContinue;
 }
 
@@ -872,6 +1043,7 @@ JITCFlow ppc_opc_gen_cmpli(JITC &jitc)
     int rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_UImm(jitc.current_opc, cr, rA, imm);
+    jitc.clobberFlags();
     cr >>= 2;
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     if (imm <= 4095) {
@@ -880,7 +1052,7 @@ JITCFlow ppc_opc_gen_cmpli(JITC &jitc)
         jitc.asmMOV(W17, imm);
         jitc.asmCMPw(W16, W17);
     }
-    gen_cr_insert_unsigned(jitc, cr);
+    jitc.mapFlagsDirty((PPC_CRx)cr, false);
     return flowContinue;
 }
 
@@ -991,7 +1163,7 @@ return flowContinue;
 /* addic rD, rA, SIMM — Add Immediate Carrying */
 JITCFlow ppc_opc_gen_addic(JITC &jitc)
 {
-    int rD, rA;
+    jitc.clobberFlags();    int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1008,7 +1180,7 @@ JITCFlow ppc_opc_gen_addic(JITC &jitc)
 /* addic. rD, rA, SIMM — Add Immediate Carrying and Record (CR0) */
 JITCFlow ppc_opc_gen_addic_(JITC &jitc)
 {
-    int rD, rA;
+    jitc.clobberFlags();    int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1030,6 +1202,7 @@ JITCFlow ppc_opc_gen_addic_(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_subfic(JITC &jitc)
 {
+    jitc.clobberFlags();
     int rD, rA;
     uint32 imm;
     PPC_OPC_TEMPL_D_SImm(jitc.current_opc, rD, rA, imm);
@@ -1049,7 +1222,7 @@ JITCFlow ppc_opc_gen_subfic(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_addex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
@@ -1078,7 +1251,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_subfex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     // Use the same approach as addex but with ~rA
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
@@ -1103,7 +1276,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_addcx(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rB));
@@ -1120,7 +1293,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_subfcx(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rB));
     jitc.asmLDRw_cpu(W17, GPR_OFS(rA));
@@ -1138,7 +1311,7 @@ return flowContinue;
  */
 JITCFlow ppc_opc_gen_addzex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W0, XER_CA_OFS);
@@ -1157,7 +1330,7 @@ JITCFlow ppc_opc_gen_addzex(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_addmex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmLDRw_cpu(W17, XER_CA_OFS);
@@ -1183,7 +1356,7 @@ JITCFlow ppc_opc_gen_addmex(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_srawix(JITC &jitc)
 {
-    int rS, rA;
+    jitc.clobberFlags();    int rS, rA;
     uint32 SH;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, SH);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
@@ -1220,6 +1393,7 @@ return flowContinue;
 /* mfcr rD — Move From Condition Register */
 JITCFlow ppc_opc_gen_mfcr(JITC &jitc)
 {
+    jitc.flushFlags(); // mfcr reads CR — need CPU state up-to-date
     int rD, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, offsetof(PPC_CPU_State, cr));
@@ -1230,6 +1404,7 @@ JITCFlow ppc_opc_gen_mfcr(JITC &jitc)
 /* mtcrf CRM, rS — Move To Condition Register Fields */
 JITCFlow ppc_opc_gen_mtcrf(JITC &jitc)
 {
+    jitc.clobberFlags(); // mtcrf reads+writes CR — flush and invalidate deferred flags
     int rS;
     uint32 crm;
     PPC_OPC_TEMPL_XFX(jitc.current_opc, rS, crm);
@@ -1278,6 +1453,7 @@ JITCFlow ppc_opc_gen_mulhwx(JITC &jitc)
  */
 JITCFlow ppc_opc_gen_srawx(JITC &jitc)
 {
+    jitc.clobberFlags();
     int rS, rA, rB;
     PPC_OPC_TEMPL_X(jitc.current_opc, rS, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rS));
@@ -2153,6 +2329,7 @@ int ppc_opc_crxor(PPC_CPU_State &aCPU)
  */
 static JITCFlow gen_cr_logical(JITC &jitc, int op_type)
 {
+    jitc.clobberFlags(); // CR logical reads CR from CPU state
     int crD, crA, crB;
     PPC_OPC_TEMPL_X(jitc.current_opc, crD, crA, crB);
 
@@ -2215,6 +2392,7 @@ JITCFlow ppc_opc_gen_creqv(JITC &jitc)  { return gen_cr_logical(jitc, 7); }
  */
 JITCFlow ppc_opc_gen_mcrf(JITC &jitc)
 {
+    jitc.clobberFlags(); // mcrf reads+writes CR — flush and invalidate deferred flags
     uint32 crD, crS, bla;
     PPC_OPC_TEMPL_X(jitc.current_opc, crD, crS, bla);
     crD >>= 2;
@@ -2897,7 +3075,7 @@ int ppc_opc_subfmeox(PPC_CPU_State &aCPU)
  */
 JITCFlow ppc_opc_gen_subfmex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMVNw(W16, W16);
@@ -2961,7 +3139,7 @@ int ppc_opc_subfzeox(PPC_CPU_State &aCPU)
  */
 JITCFlow ppc_opc_gen_subfzex(JITC &jitc)
 {
-    int rD, rA, rB;
+    jitc.clobberFlags();    int rD, rA, rB;
     PPC_OPC_TEMPL_XO(jitc.current_opc, rD, rA, rB);
     jitc.asmLDRw_cpu(W16, GPR_OFS(rA));
     jitc.asmMVNw(W16, W16);
