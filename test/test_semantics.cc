@@ -429,6 +429,169 @@ static void test_liveness_cr_field_independence()
     CHECK("cr_field_indep: CR2 from second cmpi is live", !liveness[1].is_dead_cr_field(2));
 }
 
+// ---- Branch encoding helpers for CFG tests ----
+
+// bc BO,BI,target  (opcode 16). BD is relative offset from this insn.
+static uint32 ppc_bc(int BO, int BI, int BD)
+{
+    return (16u << 26) | (BO << 21) | (BI << 16) | (BD & 0xfffc);
+}
+
+// Convenience: beq crN, target_offset (relative)
+static uint32 ppc_beq(int crN, int BD)
+{
+    return ppc_bc(12, crN * 4 + 2, BD);
+}
+
+// Convenience: bne crN, target_offset (relative)
+static uint32 ppc_bne(int crN, int BD)
+{
+    return ppc_bc(4, crN * 4 + 2, BD);
+}
+
+// b target (opcode 18, unconditional, relative)
+static uint32 ppc_b(int offset)
+{
+    return (18u << 26) | (offset & 0x03fffffc);
+}
+
+// lwz rD, d(rA) (opcode 32)
+static uint32 ppc_lwz(int rD, int rA, int d)
+{
+    return (32u << 26) | (rD << 21) | (rA << 16) | (d & 0xffff);
+}
+
+// stw rS, d(rA) (opcode 36)
+static uint32 ppc_stw(int rS, int rA, int d)
+{
+    return (36u << 26) | (rS << 21) | (rA << 16) | (d & 0xffff);
+}
+
+// lbzx rD, rA, rB (opcode 31, xo 87)
+static uint32 ppc_lbzx(int rD, int rA, int rB)
+{
+    return (31u << 26) | (rD << 21) | (rA << 16) | (rB << 11) | (87 << 1);
+}
+
+// extsb rS, rA (opcode 31, xo 954)
+static uint32 ppc_extsb(int rS, int rA)
+{
+    return (31u << 26) | (rS << 21) | (rA << 16) | (954 << 1);
+}
+
+// ---- Page-level CFG tests ----
+
+// Helper: store a PPC instruction in big-endian into a page buffer
+static void page_put(byte *page, uint32 offset, uint32 insn)
+{
+    page[offset + 0] = (insn >> 24) & 0xff;
+    page[offset + 1] = (insn >> 16) & 0xff;
+    page[offset + 2] = (insn >>  8) & 0xff;
+    page[offset + 3] = (insn >>  0) & 0xff;
+}
+
+/*
+ * Test: mid-block branch target gets wrong liveness.
+ *
+ * This reproduces the Mac OS X crash bug. The scenario:
+ *
+ *   0x00: cmpwi cr7, r9, 47    ; writes cr7
+ *   0x04: bne cr7, 0x28         ; if cr7!=EQ, jump to 0x28 (mid-block target)
+ *   0x08: lwz r2, 4(r3)         ; (block 1 start)
+ *   0x0c: lbzx r0, r9, r2
+ *   0x10: extsb r9, r0
+ *   0x14: cmpwi cr6, r9, 62     ; KILLS cr6
+ *   0x18: beq cr6, 0x30          ; reads cr6, branches
+ *   0x1c: addi r8, r0, 0        ; (block 2 start, fall-through)
+ *   0x20: b 0x34                 ; unconditional to exit
+ *
+ * The branch at 0x04 targets 0x28, which is inside block 1 [0x08,0x1c).
+ * Without block splitting, blockForOfs(0x28) returns block 1, and the
+ * solver says cr6 is dead at block 1's entry. But at 0x28, the cmpwi cr6
+ * at 0x14 has NOT been executed — cr6 is actually LIVE.
+ *
+ * Wait — 0x28 is NOT inside [0x08, 0x1c). Let me adjust the layout
+ * so the mid-block target is actually inside a block that kills cr6.
+ *
+ * Simplified layout:
+ *   0x00: cmpwi cr7, r9, 47    ; writes cr7
+ *   0x04: bne cr7, 0x18         ; branch to 0x18 (mid-block of block at 0x08)
+ *   0x08: addi r2, r2, 1       ; block B start
+ *   0x0c: cmpwi cr6, r9, 62    ; KILLS cr6
+ *   0x10: stw r2, 4(r3)        ; harmless
+ *   0x14: addi r8, r0, 0       ; harmless
+ *   0x18: beq cr6, 0x24        ; reads cr6 — mid-block target
+ *   0x1c: addi r0, r0, 1       ; fall-through block C
+ *   0x20: cmpwi cr6, r0, 0     ; kills cr6
+ *   0x24: cmpwi cr7, r0, 0     ; block D (target of beq)
+ *   0x28: beq cr7, 0x00        ; loop back
+ *
+ * Here block B is [0x08, 0x1c) — it contains cmpwi cr6 at 0x0c (kills cr6)
+ * and beq cr6 at 0x18 (reads cr6). The branch at 0x04 targets 0x18 which
+ * is inside block B. At 0x18, cr6 was killed at 0x0c. But if we enter at
+ * 0x18, we skip the kill — cr6 is live.
+ *
+ * With the BUG: solver says cr6 dead at entry to block containing 0x18.
+ * With the FIX: block is split at 0x18, new block has cr6 in gen (live).
+ */
+static void test_cfg_mid_block_target_liveness()
+{
+    static byte page[4096];
+    // Fill with PPC NOPs (ori r0,r0,0 = 0x60000000) to avoid
+    // zero words being treated as is_everything by ppc_analyze_insn.
+    for (uint32 i = 0; i < 4096; i += 4) page_put(page, i, 0x60000000);
+
+    // Build the page:
+    //   0x00: cmpwi cr7, r9, 47
+    page_put(page, 0x00, ppc_cmpi(7, 9, 47));
+    //   0x04: bne cr7, 0x18  (BD = 0x18 - 0x04 = 0x14)
+    page_put(page, 0x04, ppc_bne(7, 0x14));
+    //   0x08: addi r2, r2, 1
+    page_put(page, 0x08, ppc_addi(2, 2, 1));
+    //   0x0c: cmpwi cr6, r9, 62  — kills cr6
+    page_put(page, 0x0c, ppc_cmpi(6, 9, 62));
+    //   0x10: stw r2, 4(r3)
+    page_put(page, 0x10, ppc_stw(2, 3, 4));
+    //   0x14: addi r8, r0, 0
+    page_put(page, 0x14, ppc_addi(8, 0, 0));
+    //   0x18: beq cr6, 0x24  (BD = 0x24 - 0x18 = 0x0c)
+    page_put(page, 0x18, ppc_beq(6, 0x0c));
+    //   0x1c: addi r0, r0, 1  (fall-through)
+    page_put(page, 0x1c, ppc_addi(0, 0, 1));
+    //   0x20: cmpwi cr6, r0, 0  — kills cr6
+    page_put(page, 0x20, ppc_cmpi(6, 0, 0));
+    //   0x24: cmpwi cr7, r0, 0  — target of beq at 0x18
+    page_put(page, 0x24, ppc_cmpi(7, 0, 0));
+    //   0x28: beq cr7, 0x00  (BD = 0x00 - 0x28 = -0x28 = 0xFFD8)
+    page_put(page, 0x28, ppc_beq(7, -0x28));
+
+    // Build CFG from entry 0x00
+    PageCFG cfg;
+    ppc_build_page_cfg(page, 0x00, ppc_analyze_insn, cfg);
+
+    // The branch at 0x04 targets 0x18. Find the block that starts at 0x18.
+    int blk_at_18 = cfg.blockForOfs(0x18);
+    CHECK("cfg_mid_block: block exists at 0x18", blk_at_18 >= 0);
+
+    if (blk_at_18 >= 0) {
+        const PageBlock &b = cfg.blocks[blk_at_18];
+
+        // Key check: CR6 (bits 4-7, mask 0x000000f0) must be LIVE at the
+        // block containing 0x18. If the block starts at 0x18 (correctly split),
+        // then beq cr6 reads cr6 before anything writes it → cr6 is in gen → live.
+        // If the block starts at 0x08 (BUG: not split), cmpwi cr6 at 0x0c
+        // kills cr6 before the beq at 0x18 reads it → cr6 not in gen → dead.
+        uint32 cr6_mask = 0xf0; // cr6 = bits [7:4]
+        bool cr6_live_at_18 = (b.live_in.cr & cr6_mask) != 0;
+
+        CHECK("cfg_mid_block: block at 0x18 starts at 0x18 (split)",
+              b.startOfs == 0x18);
+
+        CHECK("cfg_mid_block: cr6 is LIVE at 0x18 (not incorrectly dead)",
+              cr6_live_at_18);
+    }
+}
+
 // ---- ConcreteSemantics correctness tests ----
 
 // Minimal CPU state for concrete testing
@@ -776,6 +939,9 @@ int main()
     test_liveness_read_keeps_alive();
     test_liveness_xer_ca();
     test_liveness_cr_field_independence();
+
+    printf("=== Page-level CFG tests ===\n");
+    test_cfg_mid_block_target_liveness();
 
     printf("=== ConcreteSemantics tests ===\n");
     test_concrete_addi();
