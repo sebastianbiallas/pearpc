@@ -255,7 +255,7 @@ EXPORT(ppc_set_msr_asm):
 	jnz	5f
 	test	eax, (1<<18)	# MSR_POW
 	jnz	2f
-1:
+3:
 		## Do this first so the invalidate can clobber eax and
 		## we won''t care
  	mov	[curCPU(msr)], eax
@@ -279,7 +279,7 @@ EXPORT(ppc_set_msr_asm):
 	mov	rdi, r12
 	mov	ecx, [curCPU(msr)]
 	and	eax, ASM_NEG32(1<<18)
-	jmp	1b
+	jmp	3b
 
 4:
 	jmp	EXTERN(jitc_error_singlestep)
@@ -758,13 +758,13 @@ EXPORT(ppc_start_jitc_asm):
 	mov	[rsi], rsp
 	
 	push	rdx
-	1:
+	2:
 		mov	r8, [rax]
 		mov	[rcx], r8
 		add	rax, 8
 		add	rcx, 8
 		sub	edx, 8
-	jnz	1b
+	jnz	2b
 	
 	mov	ebp, edi
 
@@ -773,12 +773,12 @@ EXPORT(ppc_start_jitc_asm):
 
         mov     rax, rsp
         test    eax, 0xf
-        jz      1f
+        jz      2f
         sub     rax, 0x10
         and     rax, 0xfffffffffffffff0
         mov     rsp, rax
 	call	EXTERN(jitc_error_stack_align)
-1:
+2:
 	mov	eax, ebp
 	jmp	EXTERN(ppc_new_pc_asm)
 
