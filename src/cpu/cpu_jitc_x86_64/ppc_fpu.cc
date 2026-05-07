@@ -573,6 +573,10 @@ inline void ppc_fpu_div(ppc_double &res, const ppc_double &a, const ppc_double &
 		} else {
 			res.e--;
 		}
+		// Inexact: any remaining nonzero bits beyond the 56 we computed
+		// must be folded into the sticky bit so round-to-nearest can
+		// distinguish "exactly halfway" from "past halfway".
+		if (am) res.m |= 1;
 //		printf("final: am=%llx, bm=%llx, rm=%llx\n", am, bm, res.m);
 		break;
 	}
