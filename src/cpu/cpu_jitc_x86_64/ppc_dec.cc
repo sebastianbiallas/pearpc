@@ -1171,6 +1171,12 @@ void ppc_dec_init()
 	ppc_opc_init_group2();
 	if ((ppc_cpu_get_pvr(0) & 0xffff0000) == 0x000c0000) {
 //		ht_printf("[PPC/VEC] Vector Address: %p\n", &aCPU.vr[0]);
+// AltiVec was never ported to this backend. ppc_vec.cc still holds the
+// original 2004 cpu_jitc_x86 source verbatim, wrapped in #if 0. Bringing
+// it alive needs an API translation (gCPU -> aCPU&, free asm helpers ->
+// JITC&::asm methods). Until that happens, executing main opcode 4 raises
+// PROGRAM_ILL via ppc_opc_invalid. test/test_altivec.cfg passes only on
+// cpu_generic and cpu_jitc_aarch64.
 #if 0
 		ppc_opc_table_main[4] = ppc_opc_group_v;
 		ppc_opc_table_gen_main[4] = ppc_opc_gen_group_v;
