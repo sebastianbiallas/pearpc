@@ -1212,7 +1212,7 @@ void ppc_opc_dcbz(PPC_CPU_State &aCPU)
 	PPC_OPC_TEMPL_X(aCPU.current_opc, rD, rA, rB);
 	// assert rD=0
 	uint32 a = (rA?aCPU.gpr[rA]:0)+aCPU.gpr[rB];
-	// BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+	a &= ~0x1f; // align to 32-byte cache line
 	ppc_write_effective_dword(aCPU, a, 0)
 	|| ppc_write_effective_dword(aCPU, a+8, 0)
 	|| ppc_write_effective_dword(aCPU, a+16, 0)
@@ -1226,6 +1226,7 @@ JITCFlow ppc_opc_gen_dcbz(JITC &jitc)
 	jitc.flushRegister();
 	getRAX_0_Rsum(jitc, PPC_GPR(rA), PPC_GPR(rB));
 	jitc.clobberRegister();
+	jitc.asmALU32(X86_AND, RAX, ~0x1f); // align to 32-byte cache line
 	jitc.asmALU32(X86_XOR, RDX, RDX);
 	jitc.asmALU32(X86_MOV, curCPU(temp), RAX);
 	jitc.asmALU32(X86_MOV, RSI, jitc.pc);
