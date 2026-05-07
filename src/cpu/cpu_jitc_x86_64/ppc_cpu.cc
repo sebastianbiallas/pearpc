@@ -19,9 +19,11 @@
  */
 
 #include <cerrno>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <unistd.h>
 
 #include "debug/tracers.h"
 #include "system/sys.h"
@@ -163,6 +165,24 @@ void ppc_cpu_crash_dump(int code)
 		gCPU->pc, gCPU->lr, gCPU->ctr, gCPU->cr, gCPU->msr);
 	fprintf(stderr, "  srr0=%08x srr1=%08x\n", gCPU->srr[0], gCPU->srr[1]);
 	exit(code);
+}
+
+void ppc_fatal(const char *fmt, ...)
+{
+	static bool already_crashing = false;
+	if (already_crashing) {
+		_exit(1);
+	}
+	already_crashing = true;
+
+	va_list ap;
+	va_start(ap, fmt);
+	fprintf(stderr, "\n*** FATAL: ");
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+
+	ppc_cpu_crash_dump(1);
 }
 
 void ppc_cpu_stop()

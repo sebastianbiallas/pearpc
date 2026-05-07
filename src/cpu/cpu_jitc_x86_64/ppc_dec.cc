@@ -105,6 +105,24 @@ static void ppc_opc_special(PPC_CPU_State &aCPU)
 		aCPU.pc = aCPU.npc;
 		return;
 	}
+	if (aCPU.current_opc == 0x00333303) {
+		// print string: r3 = address, r4 = length
+		uint32 addr = aCPU.gpr[3];
+		uint32 len = aCPU.gpr[4];
+		for (uint32 i = 0; i < len; i++) {
+			uint8 ch;
+			if (ppc_read_effective_byte(aCPU, addr + i, ch) == PPC_MMU_OK) {
+				ht_printf("%c", ch);
+			}
+		}
+		aCPU.pc = aCPU.npc;
+		return;
+	}
+	if (aCPU.current_opc == 0x00333304) {
+		// exit: r3 = exit code
+		ht_printf("[TEST] exit with code %d\n", aCPU.gpr[3]);
+		exit(aCPU.gpr[3]);
+	}
 	ppc_opc_invalid(aCPU);
 }
 
@@ -129,6 +147,14 @@ static JITCFlow ppc_opc_gen_special(JITC &jitc)
 		// <<<
 		jitc.asmCALL((NativeAddress)&call_prom_osi);
 		// >>>
+		return flowEndBlock;
+	}
+	// Test-harness escape opcodes (memset/memcpy/print/exit): dispatch via interpreter
+	if ((jitc.current_opc & ~0xff) == 0x00333300) {
+		ppc_opc_gen_interpret(jitc, ppc_opc_special);
+		if (jitc.current_opc == 0x00333304) {
+			return flowEndBlockUnreachable;
+		}
 		return flowEndBlock;
 	}
 	return ppc_opc_gen_invalid(jitc);
