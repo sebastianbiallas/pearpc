@@ -43,6 +43,20 @@ static void ppc_opc_invalid(PPC_CPU_State &aCPU)
 	SINGLESTEP("unknown instruction\n");
 }
 
+static void ppc_opc_altivec_unsupported(PPC_CPU_State &aCPU)
+{
+	PPC_DEC_ERR("AltiVec instruction at %08x (opcode %08x): "
+		"this backend does not implement AltiVec. "
+		"Use cpu_generic or cpu_jitc_aarch64.\n",
+		aCPU.pc, aCPU.current_opc);
+}
+
+static JITCFlow ppc_opc_gen_altivec_unsupported(JITC &jitc)
+{
+	ppc_opc_gen_interpret(jitc, ppc_opc_altivec_unsupported);
+	return flowEndBlockUnreachable;
+}
+
 static JITCFlow ppc_opc_gen_invalid(JITC &jitc)
 {
 	jitc.clobberAll();
@@ -1174,13 +1188,10 @@ void ppc_dec_init()
 // AltiVec was never ported to this backend. ppc_vec.cc still holds the
 // original 2004 cpu_jitc_x86 source verbatim, wrapped in #if 0. Bringing
 // it alive needs an API translation (gCPU -> aCPU&, free asm helpers ->
-// JITC&::asm methods). Until that happens, executing main opcode 4 raises
-// PROGRAM_ILL via ppc_opc_invalid. test/test_altivec.cfg passes only on
-// cpu_generic and cpu_jitc_aarch64.
-#if 0
-		ppc_opc_table_main[4] = ppc_opc_group_v;
-		ppc_opc_table_gen_main[4] = ppc_opc_gen_group_v;
-		ppc_opc_init_groupv();
-#endif
+// JITC&::asm methods). Until that happens, fail loudly when guest code
+// executes main opcode 4 instead of silently raising PROGRAM_ILL and
+// looping in the exception handler.
+		ppc_opc_table_main[4] = ppc_opc_altivec_unsupported;
+		ppc_opc_table_gen_main[4] = ppc_opc_gen_altivec_unsupported;
 	}
 }
