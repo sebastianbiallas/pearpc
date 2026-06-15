@@ -117,6 +117,23 @@ darwin*)
 	fi
 	AC_MSG_RESULT([*** DARWIN, building native Darwin version (SDL)])
 	PPC_CCASFLAGS="-DPREFIX=_"
+
+	dnl On macOS, Homebrew installs pkg-config metadata under its prefix
+	dnl (e.g. /opt/homebrew on Apple Silicon, /usr/local on Intel). Help
+	dnl PKG_CHECK_MODULES find sdl3.pc by adding those directories to
+	dnl PKG_CONFIG_PATH when they are not already searched.
+	AC_CHECK_PROG([BREW], [brew], [brew])
+	if test "x$BREW" != "x"; then
+		brew_prefix=`$BREW --prefix 2>/dev/null`
+		if test "x$brew_prefix" != "x"; then
+			PKG_CONFIG_PATH="$brew_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
+		fi
+		brew_sdl3=`$BREW --prefix sdl3 2>/dev/null`
+		if test "x$brew_sdl3" != "x"; then
+			PKG_CONFIG_PATH="$brew_sdl3/lib/pkgconfig:$PKG_CONFIG_PATH"
+		fi
+		export PKG_CONFIG_PATH
+	fi
 ;;
 beos*)
 	OSAPI_DIR=beos
