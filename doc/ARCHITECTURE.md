@@ -131,6 +131,31 @@ Translates PPC instructions to native x86 (32-bit) machine code at runtime. Incl
 
 Same architecture as the x86 JIT but targeting x86_64. Takes advantage of 16 GPRs and 16 XMM registers for better register allocation.
 
+**Translation cache placement.** Generated code calls and jumps to the native
+helper routines in the executable image (`jitc_asm.S`, `readDEC`,
+`ppc_get_cpu_timebase`, ...) with `call`/`jmp rel32`, whose signed 32-bit
+displacement spans ±2GB. The translation cache must therefore be allocated
+within ±2GB of the image. `JITC::init()` asks
+`sys_alloc_read_write_execute(size, &ppc_new_pc_asm, 0x7fffffff)` for a region
+next to that anchor; the allocator walks hints outwards from it and verifies
+the result. Anchoring on a single helper suffices because the whole `.text` is
+a few MB, far inside the margin.
+
+This replaces an older arrangement that pinned the cache to the low 2GB with
+`MAP_32BIT` and relied on the executable being linked non-PIE. That broke on
+every distribution whose toolchain defaults to PIE (the image lands around
+`0x5555_5555_xxxx`, out of `rel32` reach), disabled ASLR, and did nothing on
+macOS x86_64, where `MAP_32BIT` is defined to zero.
+
+If placement fails, `JITC::init()` aborts with a diagnostic. `asmCALL()`,
+`asmJMP()` and `asmJxx()` independently range-check every displacement they
+emit, so an out-of-reach branch can never be silently truncated. Nothing else
+in the backend depends on a low address: CPU state is addressed RSP-relative
+(`curCPU()`), and the one intra-cache `rel32` patch in `jitc.cc` is bounded by
+the cache size. The absolute 32-bit operands still visible in `ppc_mmu.cc` and
+`ppc_vec.cc` belong to the never-enabled AltiVec code (`#if 0` in
+`ppc_dec.cc`) and would have to be converted before that code is revived.
+
 ### AArch64 JIT Compiler (`cpu_jitc_aarch64/`)
 
 JIT compiler targeting AArch64 (ARM64), primarily for macOS on Apple Silicon. Uses MAP_JIT + pthread_jit_write_protect_np for W^X compliance. Native code generation for: ALU/compare/rotate/SPR/CR ops, branches (b/bl/bc with native TBZ/TBNZ/CBZ codegen), all integer load/store variants (D-form, X-form, update, byte-reversed, multiple, lwarx/stwcx.), all FP load/store (lfd/stfd/lfs/stfs and variants with hardware IEEE single↔double conversion), and FP arithmetic (fadd/fsub/fmul/fdiv/fsqrt/fmadd/fmsub/fnmadd/fnmsub plus single-precision variants, frsp, fctiwz, fsel, with rounding-mode guard falling back to interpreter for non-default FPSCR[RN]). AltiVec opcodes use GEN_INTERPRET. See `doc/AARCH64_JIT_PORT.md` for details.

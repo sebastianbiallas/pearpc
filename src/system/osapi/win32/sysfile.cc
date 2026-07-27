@@ -417,8 +417,49 @@ FileOfs	sys_ftell(SYS_FILE *file)
 	return (((FileOfs)b)<<32)+((uint32)a);
 }
 
-void *sys_alloc_read_write_execute(size_t size)
+void *sys_alloc_read_write_execute(size_t size, const void *near, size_t maxDisp)
 {
+	if (near) {
+		/*
+		 *	Same idea as the posix implementation: walk outwards from
+		 *	near looking for a hole within maxDisp.  VirtualAlloc with a
+		 *	non-NULL base rounds down to the 64K allocation granularity
+		 *	and fails outright if the range is already taken, so an
+		 *	unsuitable candidate simply returns NULL and costs nothing.
+		 */
+		static const size_t gaps[] = {
+			2u<<20,    4u<<20,   8u<<20,   16u<<20,
+			32u<<20,  64u<<20, 128u<<20,  256u<<20,
+			512u<<20, 768u<<20, 1024u<<20, 1536u<<20
+		};
+		const size_t granularity = 64u<<10;
+		uintptr_t anchor = (uintptr_t)near & ~(uintptr_t)(granularity-1);
+		size_t roundedSize = (size + granularity-1) & ~(size_t)(granularity-1);
+
+		for (size_t i = 0; i < (sizeof gaps / sizeof gaps[0]); i++) {
+			uintptr_t below = anchor - gaps[i] - roundedSize;
+			uintptr_t above = anchor + gaps[i];
+			uintptr_t hints[2] = { below, above };
+
+			if (below > anchor) hints[0] = 0;	// underflowed
+
+			for (size_t h = 0; h < 2; h++) {
+				if (!hints[h]) continue;
+				void *p = VirtualAlloc((void *)hints[h], size,
+					MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+				if (!p) continue;
+
+				uintptr_t lo = (uintptr_t)p, hi = lo + size;
+				uintptr_t n = (uintptr_t)near;
+				uintptr_t dlo = (n > lo) ? n - lo : lo - n;
+				uintptr_t dhi = (n > hi) ? n - hi : hi - n;
+				if (dlo <= maxDisp && dhi <= maxDisp) return p;
+
+				VirtualFree(p, 0, MEM_DECOMMIT | MEM_RELEASE);
+			}
+		}
+	}
+
 	return VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 }
 
