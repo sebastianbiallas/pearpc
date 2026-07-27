@@ -26,7 +26,21 @@
 
 bool sys_support_vm();
 
-void *sys_alloc_read_write_execute(size_t size);
+/*
+ *	Allocate size bytes of readable, writable and executable memory.
+ *
+ *	If near is non-NULL, the allocation is placed so that every byte of the
+ *	region is within maxDisp bytes of near.  A JIT backend uses this to keep
+ *	its translation cache within reach of the PC-relative branches it emits
+ *	towards native helper routines in the executable image (x86_64
+ *	call/jmp rel32: 2GB, aarch64 BL: 128MB).
+ *
+ *	The placement is a request, not a guarantee: if no suitable hole can be
+ *	found the allocation still succeeds somewhere unconstrained, because a
+ *	distant region remains usable for backends that do not need the reach.
+ *	Callers that do need it must check the returned address themselves.
+ */
+void *sys_alloc_read_write_execute(size_t size, const void *near, size_t maxDisp);
 void sys_free_read_write_execute(void *p);
 
 void *sys_malloc32(size_t size);

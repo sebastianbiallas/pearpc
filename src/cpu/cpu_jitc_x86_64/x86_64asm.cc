@@ -1789,6 +1789,27 @@ void JITC::asmBSWAP32(NativeReg reg)
 	}
 }
 
+/*
+ *	Displacement a rel8/rel32 branch at `from` needs to reach `to`.
+ *	Computed in 64 bits: the target may be a native helper in the executable
+ *	image, arbitrarily far from the translation cache, and truncating first
+ *	would both hide the overflow and let a huge distance masquerade as a
+ *	short jump.
+ */
+static inline sint64 nativeDisp(NativeAddress to, NativeAddress from)
+{
+	return sint64(uintptr_t(to)) - sint64(uintptr_t(from));
+}
+
+static void nativeDispOverflow(const char *insn, NativeAddress to, sint64 disp)
+{
+	PPC_CPU_ERR("%s rel32 out of range: target %p is %lld bytes from the "
+		"translation cache, beyond the +-2GB a signed 32-bit displacement "
+		"can encode. The translation cache must be allocated within rel32 "
+		"reach of the native helper routines; see JITC::init().\n",
+		insn, to, (long long)disp);
+}
+
 void JITC::asmJMP(NativeAddress to)
 {
 	/*
@@ -1798,16 +1819,20 @@ void JITC::asmJMP(NativeAddress to)
 	 */
 restart:
 	byte instr[5];
-	uint32 rel = uint32(to - (currentPage->tcp+2));
-	if (rel <= 0x7f || rel >= 0xffffff80) {
+	sint64 rel = nativeDisp(to, currentPage->tcp+2);
+	if (rel >= -128 && rel <= 127) {
 		if (!emitAssure(2)) goto restart;
 		instr[0] = 0xeb;
-		instr[1] = rel;
+		instr[1] = byte(rel);
 		emit(instr, 2);
 	} else {
 		if (!emitAssure(5)) goto restart;
+		rel = nativeDisp(to, currentPage->tcp+5);
+		if (rel < -0x80000000LL || rel > 0x7fffffffLL) {
+			nativeDispOverflow("jmp", to, rel);
+		}
 		instr[0] = 0xe9;
-		U32(instr + 1) = uint32(to - (currentPage->tcp+5));
+		U32(instr + 1) = uint32(rel);
 		emit(instr, 5);
 	}
 }
@@ -1816,17 +1841,21 @@ void JITC::asmJxx(X86FlagTest flags, NativeAddress to)
 {
 restart:
 	byte instr[6];
-	uint32 rel = uint32(to - (currentPage->tcp+2));
-	if (rel <= 0x7f || rel >= 0xffffff80) {
+	sint64 rel = nativeDisp(to, currentPage->tcp+2);
+	if (rel >= -128 && rel <= 127) {
 		if (!emitAssure(2)) goto restart;
 		instr[0] = 0x70+flags;
-		instr[1] = rel;
+		instr[1] = byte(rel);
 		emit(instr, 2);
 	} else {
 		if (!emitAssure(6)) goto restart;
+		rel = nativeDisp(to, currentPage->tcp+6);
+		if (rel < -0x80000000LL || rel > 0x7fffffffLL) {
+			nativeDispOverflow("jcc", to, rel);
+		}
 		instr[0] = 0x0f;
 		instr[1] = 0x80+flags;
-		U32(instr + 2) = uint32(to - (currentPage->tcp+6));
+		U32(instr + 2) = uint32(rel);
 		emit(instr, 6);
 	}
 }
@@ -1858,14 +1887,9 @@ void JITC::asmCALL(NativeAddress to)
 {
 	emitAssure(5);
 	byte instr[5];
-	sint64 disp = sint64(uintptr_t(to)) - sint64(uintptr_t(currentPage->tcp+5));
+	sint64 disp = nativeDisp(to, currentPage->tcp+5);
 	if (disp < -0x80000000LL || disp > 0x7fffffffLL) {
-		PPC_CPU_ERR("call rel32 out of range: target %p is %lld bytes from "
-			"the translation cache, beyond the +-2GB a signed 32-bit "
-			"displacement can encode. Native helpers must be reachable "
-			"from the translation cache; linking the executable non-PIE "
-			"(-no-pie) is the usual way to ensure this.\n",
-			to, (long long)disp);
+		nativeDispOverflow("call", to, disp);
 	}
 	instr[0] = 0xe8;
 	U32(instr + 1) = uint32(disp);

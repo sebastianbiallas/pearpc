@@ -24,6 +24,7 @@
 #include "system/sysvm.h"
 #include "tools/data.h"
 #include "tools/snprintf.h"
+#include "debug/tracers.h"
 
 #include "jitc.h"
 #include "jitc_debug.h"
@@ -522,11 +523,35 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
 
 	x86GetCaps(hostCPUCaps);
 
-	translationCache = (byte*)sys_alloc_read_write_execute(tcSize);
-	
+	/*
+	 *	Generated code reaches the native helper routines in the executable
+	 *	image with call/jmp rel32, whose signed 32-bit displacement spans
+	 *	+-2GB.  Ask for a translation cache next to those helpers rather
+	 *	than pinning it to the low 2GB of the address space, which used to
+	 *	work only because the executable was linked non-PIE.  Anchoring on
+	 *	one helper is enough: the whole .text of the image is a few MB, far
+	 *	inside the margin the placement leaves.
+	 */
+	translationCache = (byte*)sys_alloc_read_write_execute(tcSize,
+		(const void *)&ppc_new_pc_asm, 0x7fffffff);
+
 	ht_printf("translation cache: %p\n", translationCache);
-	
+
 	if (!translationCache) return false;
+
+	{
+		sint64 lo = sint64(uintptr_t(translationCache))
+			  - sint64(uintptr_t(&ppc_new_pc_asm));
+		sint64 hi = lo + sint64(tcSize);
+		if (lo < -0x7fffffffLL || lo > 0x7fffffffLL
+		 || hi < -0x7fffffffLL || hi > 0x7fffffffLL) {
+			PPC_CPU_ERR("could not place the %u MB translation cache within "
+				"+-2GB of the native helper routines (cache at %p, helpers "
+				"at %p). Generated code reaches them with call/jmp rel32, "
+				"which cannot encode that distance.\n",
+				tcSize >> 20, translationCache, (const void *)&ppc_new_pc_asm);
+		}
+	}
 	int maxPages = gMemorySize / 4096;
 	clientPages = ppc_malloc(maxPages * sizeof (ClientPage *));
 	memset(clientPages, 0, maxPages * sizeof (ClientPage *));

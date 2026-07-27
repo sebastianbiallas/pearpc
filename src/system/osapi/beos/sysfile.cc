@@ -299,7 +299,11 @@ FileOfs	sys_ftell(SYS_FILE *file)
 	return pos;
 }
 
-void *sys_alloc_read_write_execute(size_t size)
+/*
+ *	near/maxDisp are ignored: BeOS is 32-bit x86 only, where every address
+ *	already fits in the rel32 displacement of a call or jmp.
+ */
+void *sys_alloc_read_write_execute(size_t size, const void *near, size_t maxDisp)
 {
 #ifdef USE_AREAS
 	area_id id = -1;

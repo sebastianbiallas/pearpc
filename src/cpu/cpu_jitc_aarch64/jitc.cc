@@ -1264,8 +1264,13 @@ bool JITC::init(uint maxClientPages, uint32 tcSize)
      *  On macOS AArch64, sys_alloc_read_write_execute should use
      *  MAP_JIT flag in mmap() to enable W^X toggling via
      *  pthread_jit_write_protect_np().
+     *
+     *  No placement constraint is requested: BL only reaches +/-128MB, far
+     *  less than a hint can reliably deliver next to a MAP_JIT region, so
+     *  this backend calls native helpers indirectly through the stub table
+     *  in PPC_CPU_State (see asmCALL_cpu) instead.
      */
-    translationCache = (byte *)sys_alloc_read_write_execute(tcSize);
+    translationCache = (byte *)sys_alloc_read_write_execute(tcSize, NULL, 0);
     extern byte *gTranslationCacheBase;
     gTranslationCacheBase = translationCache;
 

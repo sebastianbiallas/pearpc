@@ -36,25 +36,90 @@
 #include "tools/snprintf.h"
 #include "tools/debug.h"
 
-#ifndef MAP_32BIT
-#define MAP_32BIT 0
-#endif
-
 #ifndef MAP_JIT
 #define MAP_JIT 0
 #endif
 
-void *sys_alloc_read_write_execute(size_t size)
+/*
+ *	Is every byte of [base, base+size) within maxDisp of near?
+ */
+static bool sys_within(const void *base, size_t size, const void *near, size_t maxDisp)
+{
+	uintptr_t lo = (uintptr_t)base;
+	uintptr_t hi = lo + size;		// one past the end, the farthest
+	uintptr_t n  = (uintptr_t)near;	// address a branch has to span
+
+	uintptr_t dlo = (n > lo) ? n - lo : lo - n;
+	uintptr_t dhi = (n > hi) ? n - hi : hi - n;
+
+	return dlo <= maxDisp && dhi <= maxDisp;
+}
+
+static void *sys_mmap_rwx(void *hint, size_t size, int flags)
+{
+#ifdef MAP_FIXED_NOREPLACE
+	/*
+	 *	Linux 4.17+.  Without it a hint is merely advisory and the kernel
+	 *	may hand back an unrelated address, which the caller then rejects.
+	 *	Older kernels ignore the unknown flag, which degrades to exactly
+	 *	that advisory behaviour -- so no version check is needed.
+	 */
+	if (hint) flags |= MAP_FIXED_NOREPLACE;
+#endif
+	void *p = mmap(hint, size, PROT_READ | PROT_WRITE | PROT_EXEC, flags, -1, 0);
+
+	return (p == MAP_FAILED) ? NULL : p;
+}
+
+void *sys_alloc_read_write_execute(size_t size, const void *near, size_t maxDisp)
 {
 	int flags = MAP_ANON | MAP_PRIVATE;
 #if defined(__aarch64__) && defined(__APPLE__)
+	/*
+	 *	Darwin decides where a MAP_JIT region goes; a hint is not honoured.
+	 *	The aarch64 backend therefore passes near == NULL and reaches its
+	 *	helpers through the stub table in PPC_CPU_State instead.
+	 */
 	flags |= MAP_JIT;
-#else
-	flags |= MAP_32BIT;
 #endif
-	void *p = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, flags, -1, 0);
+	long pagesize = sysconf(_SC_PAGESIZE);
+	if (pagesize <= 0) pagesize = PAGESIZE;
 
-	return (p == (void *)-1) ? NULL : p;
+	if (near) {
+		/*
+		 *	Walk outwards from near, below it first: the region right
+		 *	above the executable image tends to be the brk heap, so a
+		 *	hint there is more likely to be occupied.  Every gap stays
+		 *	far enough inside maxDisp (2GB for x86_64) that the check
+		 *	below only ever rejects a hint the kernel moved.
+		 */
+		static const size_t gaps[] = {
+			2u<<20,    4u<<20,   8u<<20,   16u<<20,
+			32u<<20,  64u<<20, 128u<<20,  256u<<20,
+			512u<<20, 768u<<20, 1024u<<20, 1536u<<20
+		};
+		uintptr_t anchor = (uintptr_t)near & ~(uintptr_t)(pagesize-1);
+		size_t roundedSize = (size + pagesize-1) & ~(size_t)(pagesize-1);
+
+		for (size_t i = 0; i < (sizeof gaps / sizeof gaps[0]); i++) {
+			uintptr_t below = anchor - gaps[i] - roundedSize;
+			uintptr_t above = anchor + gaps[i];
+			uintptr_t hints[2] = { below, above };
+
+			/* underflowed past the bottom of the address space */
+			if (below > anchor) hints[0] = 0;
+
+			for (size_t h = 0; h < 2; h++) {
+				if (!hints[h]) continue;
+				void *p = sys_mmap_rwx((void *)hints[h], size, flags);
+				if (!p) continue;
+				if (sys_within(p, size, near, maxDisp)) return p;
+				munmap(p, size);
+			}
+		}
+	}
+
+	return sys_mmap_rwx(NULL, size, flags);
 }
 
 void sys_free_read_write_execute(void *p)

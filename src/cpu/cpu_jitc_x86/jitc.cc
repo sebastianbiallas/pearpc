@@ -482,7 +482,11 @@ bool jitc_init(int maxClientPages, uint32 tcSize)
 
 	x86GetCaps(gJITC.hostCPUCaps);
 
-	gJITC.translationCache = (byte*)sys_alloc_read_write_execute(tcSize);
+	/*
+	 *	No placement constraint: this is a 32-bit process, so call rel32
+	 *	reaches the entire address space from anywhere.
+	 */
+	gJITC.translationCache = (byte*)sys_alloc_read_write_execute(tcSize, NULL, 0);
 	if (!gJITC.translationCache) return false;
 	int maxPages = gMemorySize / 4096;
 	gJITC.clientPages = (ClientPage **)malloc(maxPages * sizeof (ClientPage *));
